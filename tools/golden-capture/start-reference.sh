@@ -33,6 +33,8 @@ docker compose exec -T php_api sh -c '
   if [ ! -f vendor/autoload.php ]; then
     COMPOSER_PROCESS_TIMEOUT=1200 composer update --no-dev --no-interaction --no-progress --ignore-platform-req=php+
   fi
+  # mPDF writes its cache inside vendor (a root-owned volume); notes render a PDF before sending.
+  mkdir -p vendor/mpdf/mpdf/tmp && chmod -R 777 vendor/mpdf/mpdf/tmp
   php urn_on.php
   php artisan migrate:fresh --seed --force
 '

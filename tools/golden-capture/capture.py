@@ -72,6 +72,7 @@ DOCUMENT_TYPES = {
 }
 
 SIGNATURE_RE = re.compile(r"<ds:Signature\b.*?</ds:Signature>", re.DOTALL)
+UUID_RE = re.compile(r"<cbc:UUID\b[^>]*>([0-9a-f]{96})</cbc:UUID>")
 
 
 class ApiError(RuntimeError):
@@ -129,16 +130,34 @@ def setup(base_url: str, software_url: str) -> str:
 def capture_case(base_url: str, token: str, apidian_dir: Path, doc_type: str, case_dir: Path) -> str:
     route, file_prefix = DOCUMENT_TYPES[doc_type]
     request = json.loads((case_dir / "input.json").read_text(encoding="utf-8"))
-    request["query_uuid"] = True
-    response = call(base_url, "POST", route, request, token)
-    uuid = response.get("uuid")
-    if not response.get("success") or not uuid:
-        raise ApiError(f"{case_dir.name}: ApiDian did not return a CUFE/CUDE: {json.dumps(response)[:800]}")
-
     signed_path = apidian_dir / "storage" / "app" / "public" / COMPANY_NIT / f"{file_prefix}-{request['prefix']}{request['number']}.xml"
+    signed_path.unlink(missing_ok=True)
+
+    response = None
+    if doc_type == "invoice":
+        # query_uuid makes ApiDian return right after signing, before any SOAP call.
+        request["query_uuid"] = True
+        response = call(base_url, "POST", route, request, token)
+        if not response.get("success") or not response.get("uuid"):
+            raise ApiError(f"{case_dir.name}: ApiDian did not return a CUFE: {json.dumps(response)[:800]}")
+    else:
+        # Notes have no query_uuid: ApiDian signs, writes the XML and then posts the SOAP
+        # request to the software URL, which points to the local nginx stub. That call is
+        # expected to fail; the signed XML is already on disk by then.
+        try:
+            call(base_url, "POST", route, request, token)
+        except ApiError:
+            pass
+
     if not signed_path.exists():
         raise ApiError(f"{case_dir.name}: signed XML not found at {signed_path}")
     signed = signed_path.read_bytes().decode("utf-8")
+    match = UUID_RE.search(signed)
+    if not match:
+        raise ApiError(f"{case_dir.name}: no cbc:UUID in the signed XML")
+    uuid = match.group(1)
+    if response is not None and response["uuid"] != uuid:
+        raise ApiError(f"{case_dir.name}: response CUFE {response['uuid']} differs from XML UUID {uuid}")
     unsigned, removed = SIGNATURE_RE.subn("", signed)
     if removed != 1:
         raise ApiError(f"{case_dir.name}: expected exactly one ds:Signature, found {removed}")
@@ -146,8 +165,9 @@ def capture_case(base_url: str, token: str, apidian_dir: Path, doc_type: str, ca
     # newline="" keeps the bytes exactly as ApiDian produced them on every OS.
     (case_dir / "expected.xml").write_text(unsigned, encoding="utf-8", newline="")
     (case_dir / "expected.cufe").write_text(uuid + "\n", encoding="utf-8", newline="")
-    (case_dir / "response.json").write_text(
-        json.dumps(response, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="")
+    if response is not None:
+        (case_dir / "response.json").write_text(
+            json.dumps(response, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="")
     return uuid
 
 

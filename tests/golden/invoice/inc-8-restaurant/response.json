@@ -1,0 +1,6 @@
+{
+  "success": true,
+  "message": "Consulta del UUID del documento: SETP-990000004, realizada con exito: ",
+  "uuid": "3e66a8a53273ace20a127eba206dd9383d1981b92612ca71eb5373c695d8509c8bc29ad27a34c848c8a776a292be4570",
+  "QRStr": "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=3e66a8a53273ace20a127eba206dd9383d1981b92612ca71eb5373c695d8509c8bc29ad27a34c848c8a776a292be4570"
+}

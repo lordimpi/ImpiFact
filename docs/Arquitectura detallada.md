@@ -467,7 +467,7 @@ Cada tarea es un PR con pruebas. Entre paréntesis, la puerta de salida de la fa
 - Resolver los [verificar] que no dependan de la DIAN: hecho el 14-nov en `docs/php-rules.md` (razón social, `state_document_id` y validación de `number`).
 - Extraer las semillas de catálogos a `Seed/*.json`.
 - Extraer del anexo técnico de la DIAN las reglas de validación de totales y sus tolerancias (base de `DianTotalsValidator`), con un caso de prueba por regla.
-- Capturar con el PHP casos golden de nota crédito y débito, y 10 de factura (venta, descuentos, impuestos, moneda extranjera, redondeo).
+- Capturar con el PHP casos golden de nota crédito y débito, y 10 de factura (venta, descuentos, impuestos, moneda extranjera, redondeo). Hecho el 15-nov: 14 casos en `tests/golden`.
 
 **Fase 1 — Prototipo DIAN** *(1a sin DIAN: tareas 1, 2 y 4 con un certificado de prueba propio. 1b con certificado y `testSetId` reales: tarea 3 y aceptación de la DIAN)*
 

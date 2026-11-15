@@ -1,0 +1,71 @@
+{
+  "number": 1,
+  "type_document_id": 4,
+  "date": "2026-11-14",
+  "time": "11:00:00",
+  "prefix": "NC",
+  "customer": {
+    "identification_number": "800000001",
+    "dv": "1",
+    "type_document_identification_id": 6,
+    "type_organization_id": 1,
+    "type_regime_id": 1,
+    "type_liability_id": 117,
+    "name": "CLIENTE DE PRUEBA GOLDEN SAS",
+    "phone": "3000000001",
+    "address": "CARRERA 2 # 2-02",
+    "email": "cliente.golden@example.com",
+    "merchant_registration": "0000000-00",
+    "municipality_id": 149
+  },
+  "payment_form": {
+    "payment_form_id": 1,
+    "payment_method_id": 10,
+    "payment_due_date": "2026-11-14",
+    "duration_measure": "0"
+  },
+  "discrepancyresponsecode": 1,
+  "discrepancyresponsedescription": "Devolución parcial",
+  "billing_reference": {
+    "number": "SETP990000001",
+    "uuid": "d504983c0da24a41b26b37dbd04901ce7dfa6f8f395395c18d283bf219a051e441456ea841366e59f3bfe8f91b82c122",
+    "issue_date": "2026-11-14"
+  },
+  "legal_monetary_totals": {
+    "line_extension_amount": "950.00",
+    "tax_exclusive_amount": "950.00",
+    "tax_inclusive_amount": "1130.50",
+    "allowance_total_amount": "0.00",
+    "charge_total_amount": "0.00",
+    "payable_amount": "1130.50"
+  },
+  "tax_totals": [
+    {
+      "tax_id": 1,
+      "tax_amount": "180.50",
+      "percent": "19.00",
+      "taxable_amount": "950.00"
+    }
+  ],
+  "credit_note_lines": [
+    {
+      "unit_measure_id": 70,
+      "invoiced_quantity": "1",
+      "line_extension_amount": "950.00",
+      "free_of_charge_indicator": false,
+      "description": "Producto de prueba 1",
+      "code": "PRUEBA1",
+      "type_item_identification_id": 4,
+      "price_amount": "950.00",
+      "base_quantity": "1",
+      "tax_totals": [
+        {
+          "tax_id": 1,
+          "tax_amount": "180.50",
+          "taxable_amount": "950.00",
+          "percent": "19.00"
+        }
+      ]
+    }
+  ]
+}

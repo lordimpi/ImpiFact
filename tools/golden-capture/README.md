@@ -6,11 +6,11 @@ Genera los casos golden: el XML y el CUFE/CUDE que produce ApiDian (PHP) para ca
 
 1. Levanta ApiDian en Docker, solo en `127.0.0.1:8081`.
 2. Configura una empresa de prueba ficticia con un certificado autofirmado que se genera en cada corrida, la resolución de pruebas pública de la DIAN (`18760000001`, prefijo `SETP`) y resoluciones para notas.
-3. Envía cada `input.json` con `"query_uuid": true`. En ese modo ApiDian arma el XML, lo firma y calcula el CUFE/CUDE, pero **responde antes de llamar a la DIAN**. El chequeo de disponibilidad apunta al nginx local, así que no sale tráfico hacia la DIAN.
+3. Envía cada `input.json`. Las facturas van con `"query_uuid": true`: ApiDian arma el XML, lo firma y calcula el CUFE, pero **responde antes de llamar a la DIAN**. Las notas no tienen ese modo: ApiDian firma, escribe el XML y luego hace el envío SOAP a la URL del software, que apunta al nginx local; ese envío falla a propósito y el CUDE se toma del `cbc:UUID` del XML firmado. En ningún caso sale tráfico hacia la DIAN.
 4. Guarda junto al `input.json`:
    - `expected.xml`: el XML firmado sin el elemento `<ds:Signature>`, byte a byte;
    - `expected.cufe`: el CUFE o CUDE;
-   - `response.json`: la respuesta de ApiDian.
+   - `response.json`: la respuesta de ApiDian (solo facturas).
 
 La salida es determinista: fecha, hora, consecutivo, clave técnica, software y empresa son fijos.
 

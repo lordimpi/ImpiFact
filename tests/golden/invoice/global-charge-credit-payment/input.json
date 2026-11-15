@@ -1,0 +1,112 @@
+{
+  "number": 990000008,
+  "type_document_id": 1,
+  "date": "2026-11-14",
+  "time": "10:35:00",
+  "resolution_number": "18760000001",
+  "prefix": "SETP",
+  "customer": {
+    "identification_number": "800000001",
+    "dv": "1",
+    "type_document_identification_id": 6,
+    "type_organization_id": 1,
+    "type_regime_id": 1,
+    "type_liability_id": 117,
+    "name": "CLIENTE DE PRUEBA GOLDEN SAS",
+    "phone": "3000000001",
+    "address": "CARRERA 2 # 2-02",
+    "email": "cliente.golden@example.com",
+    "merchant_registration": "0000000-00",
+    "municipality_id": 149
+  },
+  "payment_form": {
+    "payment_form_id": 2,
+    "payment_method_id": 30,
+    "payment_due_date": "2026-12-14",
+    "duration_measure": "30"
+  },
+  "legal_monetary_totals": {
+    "line_extension_amount": "1327750.00",
+    "tax_exclusive_amount": "1327750.00",
+    "tax_inclusive_amount": "1580022.50",
+    "allowance_total_amount": "0.00",
+    "charge_total_amount": "35000.00",
+    "payable_amount": "1615022.50"
+  },
+  "tax_totals": [
+    {
+      "tax_id": 1,
+      "tax_amount": "252272.50",
+      "percent": "19.00",
+      "taxable_amount": "1327750.00"
+    }
+  ],
+  "invoice_lines": [
+    {
+      "unit_measure_id": 70,
+      "invoiced_quantity": "50",
+      "line_extension_amount": "897750.00",
+      "free_of_charge_indicator": false,
+      "description": "Material de construcción",
+      "code": "MAT01",
+      "type_item_identification_id": 4,
+      "price_amount": "18900.00",
+      "base_quantity": "50",
+      "allowance_charges": [
+        {
+          "discount_id": 10,
+          "charge_indicator": false,
+          "allowance_charge_reason": "Descuento general",
+          "amount": "47250.00",
+          "base_amount": "945000.00"
+        }
+      ],
+      "tax_totals": [
+        {
+          "tax_id": 1,
+          "tax_amount": "170572.50",
+          "taxable_amount": "897750.00",
+          "percent": "19.00"
+        }
+      ]
+    },
+    {
+      "unit_measure_id": 70,
+      "invoiced_quantity": "2",
+      "line_extension_amount": "430000.00",
+      "free_of_charge_indicator": false,
+      "description": "Herramienta",
+      "code": "HER01",
+      "type_item_identification_id": 4,
+      "price_amount": "210000.00",
+      "base_quantity": "2",
+      "allowance_charges": [
+        {
+          "discount_id": 12,
+          "charge_indicator": true,
+          "allowance_charge_reason": "Recargo por empaque",
+          "amount": "10000.00",
+          "base_amount": "420000.00",
+          "multiplier_factor_numeric": "2.38"
+        }
+      ],
+      "tax_totals": [
+        {
+          "tax_id": 1,
+          "tax_amount": "81700.00",
+          "taxable_amount": "430000.00",
+          "percent": "19.00"
+        }
+      ]
+    }
+  ],
+  "allowance_charges": [
+    {
+      "discount_id": 12,
+      "charge_indicator": true,
+      "allowance_charge_reason": "Flete",
+      "amount": "35000.00",
+      "base_amount": "1327750.00"
+    }
+  ]
+}
