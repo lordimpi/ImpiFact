@@ -1,0 +1,17 @@
+# Local AI assistant and tooling configuration (never versioned)
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+AGENTS.md
+GEMINI.md
+.atl/
+.codegraph/
+.engram/
+odd/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vs/
+.vscode/
+.idea/
