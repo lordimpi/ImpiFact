@@ -7,7 +7,7 @@ Qué hace realmente ApiDian Community en la factura nacional, las notas crédito
 | Código analizado | `apidian/`, commit `da4ed76` (14-ago-2026), repositorio Community |
 | Alcance | Primera entrega: factura nacional, notas crédito y débito, configuración, autenticación y consultas. Las variantes de la fase 7 (exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes, RADIAN) quedan para otra pasada |
 | Método | Lectura estática del código, 14-nov-2026. No se ejecutó el PHP |
-| Límite | La librería `ubl21dian/torresoftware` no está descargada (`vendor/` no existe). Todo lo que se le atribuye (fórmula del CUFE y del CUDE, relleno del UUID y del QR) es **inferencia** hasta leer su código o capturar casos golden |
+| Librería de firma | `ubl21dian/torresoftware`, commit `516e28f`, licencia LGPL-3.0. Se descargó el 14-nov y hay una copia fija fuera del repo, en `IMPI_FACT/reference/`. Las fórmulas de la sección 2.1 están confirmadas en su código |
 
 **Cómo leer las etiquetas.** Cada regla termina con una de estas marcas:
 
@@ -46,7 +46,28 @@ Namespace real: `ubl21dian\...` (no `Stenfrank\UBL21dian`).
 
 La respuesta se lee como objeto: `Envelope->Body->SendBillSyncResponse->SendBillSyncResult` con `IsValid`, `XmlFileName`, `XmlDocumentKey`, `XmlBase64Bytes` (ApplicationResponse), `Code` y `Message`. Si existe `->html`, la DIAN está caída.
 
-**Inferido, pendiente de confirmar con la librería o con los golden:** la plantilla deja vacíos `cbc:UUID`, el marcador `-----CUFECUDE-----` del QR y `SoftwareSecurityCode` (`TPL/01.blade.php:29`, `TPL/_ubl_extensions.blade.php:23,28`), y la librería los rellena al firmar.
+La plantilla deja vacíos `cbc:UUID`, el marcador `-----CUFECUDE-----` del QR y `SoftwareSecurityCode` (`TPL/01.blade.php:29`, `TPL/_ubl_extensions.blade.php:23,28`), y la librería los rellena al firmar (confirmado).
+
+### 2.1 Fórmulas confirmadas en el código de la librería
+
+Leídas de `src/XAdES/SignInvoice.php` (commit `516e28f`, líneas 575-706); `SignCreditNote` y `SignDebitNote` las heredan. Todas son SHA-384 en hexadecimal sobre la concatenación, sin separadores, de los **textos tal como quedaron en el XML** (ya formateados por la plantilla):
+
+| Código | Concatenación |
+| --- | --- |
+| CUFE (factura) | `ID` + `IssueDate` + `IssueTime` + `LineExtensionAmount` + `01` + IVA + `04` + INC + `03` + ICA + `PayableAmount` + NIT emisor + NIT adquiriente + **clave técnica** + `ProfileExecutionID` |
+| CUDE (notas) | lo mismo, con el **PIN del software** en lugar de la clave técnica |
+| CUDS (documento soporte, fase 7) | sin INC ni ICA: … `01` + IVA + `PayableAmount` + NITs + PIN + `ProfileExecutionID` |
+| `SoftwareSecurityCode` | `softwareID` + PIN + `cbc:ID` |
+
+Detalles que cambian el resultado:
+
+- `IssueTime` entra con su sufijo `-05:00`.
+- Cada impuesto es el `TaxAmount` del `TaxTotal` cuyo esquema es 01 (IVA), 04 (INC) o 03 (ICA); si no existe, se usa el texto `0.00`. Las retenciones no entran.
+- Los totales salen de `LegalMonetaryTotal`, o de `RequestedMonetaryTotal` en la nota débito.
+- `ProfileExecutionID` es el código del ambiente: 1 producción, 2 pruebas.
+- Los NIT son los `PartyTaxScheme/CompanyID` del emisor y del adquiriente.
+- El CUFE toma el **primer elemento llamado `ID` del documento**, y el CUDE toma el `cbc:ID` de la raíz. Deberían coincidir; los golden lo confirman.
+- El parche `urn_on.php` (regla ZE02) solo cambia el namespace `sts` a `urn:dian:gov:co:facturaelectronica:Structures-2-1`; no toca las fórmulas. ImpiFact usa el namespace con `urn:`.
 
 ## 3. Factura nacional (`POST /api/ubl2.1/invoice`)
 
@@ -78,7 +99,7 @@ La respuesta se lee como objeto: `Envelope->Body->SendBillSyncResponse->SendBill
 ### 3.3 CUFE
 
 1. La librería lo calcula con `softwareID = software.identifier`, `pin = software.pin` y `technicalKey = resolution.technical_key` (IC:456-459).
-2. Fórmula esperada según el anexo técnico (inferida, no está en el repo): SHA-384 de NumFac + FecFac + HorFac + ValFac + 01 + ValIVA + 04 + ValINC + 03 + ValICA + ValTot + NitOFE + NumAdq + ClTec + TipoAmbiente, con TipoAmbiente 1 en producción y 2 en pruebas. Coincide con «Arquitectura detallada», sección 6.2.
+2. Fórmula confirmada en la librería (sección 2.1). Coincide con «Arquitectura detallada», sección 6.2.
 3. En la base queda el CUFE que devuelve la DIAN si el documento fue válido; si no, el local. La respuesta JSON siempre devuelve el local (IC:532-534, 735-739).
 
 ### 3.4 Consecutivo y duplicados
@@ -161,7 +182,7 @@ Los dos controladores son copias casi idénticas. Se listan solo las diferencias
 
 ### 4.4 CUDE, consecutivo y respuesta
 
-1. CUDE: lo calcula la librería con el PIN del software (CN:310-311). Fórmula esperada (inferida): NumNC + FecNC + HorNC + ValNC + 01 + ValIVA + 04 + ValINC + 03 + ValICA + ValTot + NitOFE + NumAdq + PIN + TipoAmbiente.
+1. CUDE: lo calcula la librería con el PIN del software (CN:310-311). Fórmula confirmada en la sección 2.1.
 2. Las notas no emiten `InvoiceControl` (`TPL/_ubl_extensions.blade.php:6-7`).
 3. La respuesta de crédito y débito no lleva `success` en el éxito; usa `cude` en vez de `cufe`, y con una excepción en el envío devuelve un **texto plano**, no JSON (CN:447-448). **Bug del PHP** el texto plano.
 4. Errores propios de débito: escribe el AttachedDocument como `"{filename}xml"` sin el punto (DN:507) y lee el XML firmado de tres maneras distintas. **Bugs del PHP.**
@@ -240,6 +261,6 @@ Mapeo propuesto de `state_document_id` a `DocumentStatus` para las respuestas le
 
 **Pendiente:**
 
-1. Confirmar con el código de `torresoftware` o con casos golden la fórmula del CUFE y del CUDE, y qué rellena la librería al firmar.
+1. Hecho el 14-nov: fórmulas del CUFE, CUDE y `SoftwareSecurityCode` confirmadas en el código de `torresoftware` (sección 2.1). Falta compararlas con casos golden reales.
 2. Validar contra el XSD de UBL 2.1 el orden de `AdditionalDocumentReference` y `BillingReference` en las notas.
 3. Inventario de las variantes de la fase 7 (exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes y RADIAN).

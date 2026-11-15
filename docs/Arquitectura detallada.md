@@ -218,6 +218,8 @@ public interface IOutbox { Task EnqueueAsync<T>(T message, DateTimeOffset? notBe
 - El QR se arma con la URL de consulta de la DIAN (ambiente según el documento) y el CUFE.
 - Salida en hex minúsculas, 96 caracteres.
 
+Confirmado el 14-nov en el código de `torresoftware`: los valores entran como texto tal como quedaron en el XML, `IssueTime` incluye `-05:00`, un impuesto ausente se escribe `0.00` y las retenciones no entran. El detalle está en «Reglas del PHP», sección 2.1.
+
 ### 6.3 Firma
 
 - XAdES-EPES sobre el XML, con `SignedXml` y extensiones propias (`SignedProperties`, `SigningCertificate`, `SignaturePolicyIdentifier` con la política de firma de la DIAN y su hash), digest SHA-256, RSA-SHA256, canonicalización C14N **\[verificar los parámetros exactos en la fase 1 con una factura real en habilitación\]**.
