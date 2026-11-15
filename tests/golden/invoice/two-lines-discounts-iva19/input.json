@@ -1,0 +1,111 @@
+{
+  "number": 990000001,
+  "type_document_id": 1,
+  "date": "2026-11-14",
+  "time": "10:00:00",
+  "resolution_number": "18760000001",
+  "prefix": "SETP",
+  "customer": {
+    "identification_number": "800000001",
+    "dv": "1",
+    "type_document_identification_id": 6,
+    "type_organization_id": 1,
+    "type_regime_id": 1,
+    "type_liability_id": 117,
+    "name": "CLIENTE DE PRUEBA GOLDEN SAS",
+    "phone": "3000000001",
+    "address": "CARRERA 2 # 2-02",
+    "email": "cliente.golden@example.com",
+    "merchant_registration": "0000000-00",
+    "municipality_id": 149
+  },
+  "payment_form": {
+    "payment_form_id": 1,
+    "payment_method_id": 30,
+    "payment_due_date": "2026-11-14",
+    "duration_measure": "0"
+  },
+  "allowance_charges": [
+    {
+      "discount_id": 1,
+      "charge_indicator": false,
+      "allowance_charge_reason": "Descuento Global",
+      "amount": "100.00",
+      "base_amount": "1900.00"
+    }
+  ],
+  "legal_monetary_totals": {
+    "line_extension_amount": "1900.00",
+    "tax_exclusive_amount": "1900.00",
+    "tax_inclusive_amount": "2261.00",
+    "allowance_total_amount": "100.00",
+    "charge_total_amount": "0.00",
+    "payable_amount": "2161.00"
+  },
+  "tax_totals": [
+    {
+      "tax_id": 1,
+      "tax_amount": "361.00",
+      "percent": "19.00",
+      "taxable_amount": "1900.00"
+    }
+  ],
+  "invoice_lines": [
+    {
+      "unit_measure_id": 70,
+      "invoiced_quantity": "1",
+      "line_extension_amount": "950.00",
+      "free_of_charge_indicator": false,
+      "description": "Producto de prueba 1",
+      "code": "PRUEBA1",
+      "type_item_identification_id": 4,
+      "price_amount": "1000.00",
+      "base_quantity": "1",
+      "allowance_charges": [
+        {
+          "discount_id": 10,
+          "charge_indicator": false,
+          "allowance_charge_reason": "Descuento por promoción",
+          "amount": "50.00",
+          "base_amount": "1000.00"
+        }
+      ],
+      "tax_totals": [
+        {
+          "tax_id": 1,
+          "tax_amount": "180.50",
+          "taxable_amount": "950.00",
+          "percent": "19.00"
+        }
+      ]
+    },
+    {
+      "unit_measure_id": 70,
+      "invoiced_quantity": "1",
+      "line_extension_amount": "950.00",
+      "free_of_charge_indicator": false,
+      "description": "Producto de prueba 2",
+      "code": "PRUEBA2",
+      "type_item_identification_id": 4,
+      "price_amount": "1000.00",
+      "base_quantity": "1",
+      "allowance_charges": [
+        {
+          "discount_id": 11,
+          "charge_indicator": false,
+          "allowance_charge_reason": "Descuento por volumen",
+          "amount": "50.00",
+          "base_amount": "1000.00"
+        }
+      ],
+      "tax_totals": [
+        {
+          "tax_id": 1,
+          "tax_amount": "180.50",
+          "taxable_amount": "950.00",
+          "percent": "19.00"
+        }
+      ]
+    }
+  ]
+}

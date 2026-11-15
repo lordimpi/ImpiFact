@@ -1,0 +1,60 @@
+# Local-only ApiDian reference used to capture golden fixtures (XML + CUFE/CUDE).
+# Expects the ApiDian checkout as a sibling of this repository: ../apidian
+# nginx binds to 127.0.0.1 only. Never expose this stack: ApiDian has known vulnerabilities.
+name: apidian-reference
+
+services:
+  db:
+    image: mariadb:11.5.2
+    environment:
+      MARIADB_ROOT_PASSWORD: root_local_only
+      MARIADB_DATABASE: db_api
+      MARIADB_USER: user_api
+      MARIADB_PASSWORD: password_api
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 30
+
+  # nginx's config (apidian/docker/default.conf) expects the PHP service to be called php_api.
+  php_api:
+    # The repo Dockerfile only adds poppler-utils (RUT PDF parsing) and its apt sources are gone.
+    image: rash07/php-fpm:8.2
+    working_dir: /var/www/html
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      # Fixed, non-secret key: this instance only runs locally to produce fixtures.
+      APP_KEY: "base64:Z29sZGVuLWNhcHR1cmUtbG9jYWwtb25seS1rZXkhIQ=="
+      APP_URL: http://localhost:8081
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: db_api
+      DB_USERNAME: user_api
+      DB_PASSWORD: password_api
+      LOG_CHANNEL: stderr
+    volumes:
+      - ../../../apidian:/var/www/html
+      # vendor lives in a Docker volume: unzipping onto a Windows bind mount is too slow.
+      - vendor:/var/www/html/vendor
+    depends_on:
+      db:
+        condition: service_healthy
+
+  nginx:
+    image: rash07/nginx-api
+    working_dir: /var/www/html
+    ports:
+      - "127.0.0.1:8081:80"
+    volumes:
+      - ../../../apidian:/var/www/html
+      - ../../../apidian/docker/default.conf:/etc/nginx/sites-available/default
+    depends_on:
+      - php_api
+
+volumes:
+  dbdata:
+  vendor:

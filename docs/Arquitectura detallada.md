@@ -401,7 +401,7 @@ Módulos del panel de la fase 5:
 | `Architecture.Tests` | Reglas de la sección 1, aislamiento de módulos, consultas Dapper con `company_id`, ausencia de secretos en logs | NetArchTest |
 | Seguridad | Aislamiento entre empresas por entidad, API keys revocadas, propiedad por NIT | En `Integration.Tests` |
 
-Procedimiento para generar fixtures golden: un script (`tools/golden-capture`) ejecuta el PHP con cada JSON de entrada en habilitación, guarda el XML firmado sin firma, el CUFE y la respuesta; se versionan en el repo. Fecha, hora, consecutivo y clave técnica se fijan para que el resultado sea determinista.
+Procedimiento para generar fixtures golden: `tools/golden-capture` levanta el PHP en Docker (solo en `127.0.0.1`) y le envía cada JSON de entrada con `"query_uuid": true`. En ese modo el PHP arma, firma y calcula el CUFE/CUDE, pero responde antes de llamar a la DIAN; no sale tráfico hacia la DIAN. Guarda el XML firmado sin el elemento `ds:Signature`, el CUFE y la respuesta, y se versionan en el repo. Fecha, hora, consecutivo, clave técnica, software y empresa son fijos, así que el resultado es determinista (comprobado el 15-nov: dos corridas dan los mismos bytes). Instrucciones en `tools/golden-capture/README.md`.
 
 Cobertura mínima exigida en CI: `Domain` y `Dian` 90 %, `Application` 80 %; los golden tests no se pueden desactivar.
 
