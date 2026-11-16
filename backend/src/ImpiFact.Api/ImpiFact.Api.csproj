@@ -1,6 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <!-- API HTTP: endpoints sin lógica que delegan en los casos de uso de Application. -->
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <!--
+      JwtBearer trae Microsoft.IdentityModel 8.19; Infrastructure usa 8.23. Se fija aquí la misma versión para
+      que todos los paquetes de Microsoft.IdentityModel queden alineados (mezclarlos falla en tiempo de ejecución).
+    -->
+    <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ImpiFact.Application\ImpiFact.Application.csproj" />
     <ProjectReference Include="..\ImpiFact.Infrastructure\ImpiFact.Infrastructure.csproj" />
     <ProjectReference Include="..\ImpiFact.Infrastructure.Postgres\ImpiFact.Infrastructure.Postgres.csproj" />
