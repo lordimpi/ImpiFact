@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using ImpiFact.Api.Endpoints;
 using ImpiFact.Application.Abstractions.Identity;
+using ImpiFact.Integration.Tests.Protection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -36,6 +37,9 @@ internal sealed class IdentityApiFactory : WebApplicationFactory<Program>
 
     public InMemoryApiKeyStore ApiKeys { get; } = new();
 
+    /// <summary>Llave maestra y carpeta de certificados temporales: la API no arranca sin ellas.</summary>
+    private ProtectionScratch Protection { get; } = new();
+
     public CapturingLoggerProvider Logs { get; } = new();
 
     /// <summary>
@@ -62,6 +66,8 @@ internal sealed class IdentityApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment(_environment);
         builder.UseSetting("Database:ConnectionString", "Host=localhost;Database=impifact");
+        builder.UseSetting("Secrets:LocalAesGcm:MasterKeyFile", Protection.MasterKeyFile);
+        builder.UseSetting("Secrets:LocalAesGcm:CertificateDirectory", Protection.CertificateDirectory);
         builder.UseSetting("Logging:LogLevel:Default", "Trace");
         builder.UseSetting("Logging:LogLevel:Microsoft.AspNetCore", "Trace");
         if (_withSigningKey)
@@ -88,6 +94,7 @@ internal sealed class IdentityApiFactory : WebApplicationFactory<Program>
         if (disposing)
         {
             SigningKey.Dispose();
+            Protection.Dispose();
         }
     }
 }
