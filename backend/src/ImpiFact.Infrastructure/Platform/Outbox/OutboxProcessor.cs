@@ -115,11 +115,7 @@ internal sealed class OutboxProcessor(
             try
             {
                 await using var scope = OpenScope(message.CompanyId);
-                var handler = scope.ServiceProvider.GetServices<IOutboxMessageHandler>()
-                    .First(candidate => string.Equals(candidate.MessageType, message.Type, StringComparison.Ordinal));
-                var context = new OutboxMessageContext(
-                    message.Id, message.CompanyId, message.Type, message.Payload, message.Attempts, JsonColumn.SerializerOptions);
-                await handler.HandleAsync(context, timeout.Token);
+                await HandlerFor(scope, message).HandleAsync(ContextFor(message), timeout.Token);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -182,12 +178,41 @@ internal sealed class OutboxProcessor(
                 logger.LogError(
                     failure, "Outbox message {MessageId} of type {MessageType} failed on attempt {Attempt} and will not be retried.",
                     message.Id, message.Type, message.Attempts);
+                await NotifyFailedAsync(message);
                 break;
             default:
                 LogNotOwned(message);
                 break;
         }
     }
+
+    /// <summary>
+    /// Avisa al handler que el mensaje quedó fallido (<see cref="IOutboxMessageHandler.OnFailedAsync"/>), en un ámbito
+    /// nuevo con el tenant del mensaje y el mismo plazo que un intento. Su falla solo se registra: el mensaje ya quedó
+    /// fallido y con su notificación.
+    /// </summary>
+    private async Task NotifyFailedAsync(ClaimedOutboxMessage message)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(options.Value.HandlerTimeoutSeconds));
+        try
+        {
+            await using var scope = OpenScope(message.CompanyId);
+            await HandlerFor(scope, message).OnFailedAsync(ContextFor(message), timeout.Token);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                exception, "The handler of failed outbox message {MessageId} of type {MessageType} could not record the failure.",
+                message.Id, message.Type);
+        }
+    }
+
+    private static IOutboxMessageHandler HandlerFor(AsyncServiceScope scope, ClaimedOutboxMessage message) =>
+        scope.ServiceProvider.GetServices<IOutboxMessageHandler>()
+            .First(candidate => string.Equals(candidate.MessageType, message.Type, StringComparison.Ordinal));
+
+    private static OutboxMessageContext ContextFor(ClaimedOutboxMessage message) =>
+        new(message.Id, message.CompanyId, message.Type, message.Payload, message.Attempts, JsonColumn.SerializerOptions);
 
     private void LogNotOwned(ClaimedOutboxMessage message) =>
         logger.LogWarning(

@@ -19,6 +19,17 @@ public static class NumberingScope
     /// </summary>
     public static string ForDocumentType(int documentTypeId, int typeEnvironmentId, string? prefix, int year) =>
         string.Create(CultureInfo.InvariantCulture, $"T:{documentTypeId}:{typeEnvironmentId}:{prefix}:{year}");
+
+    /// <summary>
+    /// Consecutivo de los nombres de archivo que se envían a la DIAN (supuesto C2 de la fase 4), por tipo de archivo y
+    /// año: <c>F:{prefijo}:{año}</c>, por ejemplo <c>F:fv:2026</c>. El prefijo es el del nombre del XML
+    /// (<c>fv</c>, <c>nc</c> o <c>nd</c>). Empieza en 1 y lo crea el primer envío del año.
+    /// </summary>
+    public static string ForDianFile(string filePrefix, int year)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePrefix);
+        return string.Create(CultureInfo.InvariantCulture, $"F:{filePrefix}:{year}");
+    }
 }
 
 /// <summary>

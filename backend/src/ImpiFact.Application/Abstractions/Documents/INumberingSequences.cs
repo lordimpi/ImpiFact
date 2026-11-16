@@ -31,6 +31,12 @@ public interface INumberingSequences
     Task OpenForResolutionAsync(Guid companyId, Guid resolutionId, long firstNumber, CancellationToken ct);
 
     /// <summary>
+    /// Lo mismo que <see cref="OpenForResolutionAsync"/> para cualquier consecutivo <paramref name="scopeKey"/> (ver
+    /// <c>NumberingScope</c>): lo crea en <paramref name="firstNumber"/> si no existe, o lo adelanta hasta ese número.
+    /// </summary>
+    Task OpenAsync(Guid companyId, string scopeKey, long firstNumber, CancellationToken ct);
+
+    /// <summary>
     /// Toma el siguiente número del consecutivo <paramref name="scopeKey"/> y lo deja avanzado en uno.
     /// </summary>
     /// <returns>El número tomado, o nulo si la empresa no tiene ese consecutivo.</returns>

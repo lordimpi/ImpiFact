@@ -1,5 +1,3 @@
-using ImpiFact.Application;
-using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Platform.Outbox;
 using ImpiFact.Infrastructure.Postgres;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,8 +23,8 @@ builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProvider
     ValidateOnBuild = false,
 }));
 
-builder.Services.AddInfrastructure(builder.Configuration, new PostgresDatabaseProvider());
-builder.Services.AddApplication();
-builder.Services.AddOutboxProcessing(builder.Configuration);
+// Infrastructure, Application (con los handlers de la bandeja de salida) y el procesador: la misma composición que
+// arma la prueba del Worker (WorkerCompositionTests), que además resuelve cada handler porque aquí no se revisa al construir.
+builder.Services.AddWorkerServices(builder.Configuration, new PostgresDatabaseProvider());
 
 await builder.Build().RunAsync();

@@ -229,6 +229,9 @@ public sealed class FakeNumberingSequences : INumberingSequences
         return Task.CompletedTask;
     }
 
+    public Task OpenAsync(Guid companyId, string scopeKey, long firstNumber, CancellationToken ct) =>
+        throw new NotSupportedException("Company use cases only open resolution sequences.");
+
     public Task<long?> TakeNextAsync(Guid companyId, string scopeKey, CancellationToken ct) =>
         throw new NotSupportedException("Company use cases do not take numbers.");
 

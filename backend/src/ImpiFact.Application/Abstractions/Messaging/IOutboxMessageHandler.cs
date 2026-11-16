@@ -22,6 +22,14 @@ public interface IOutboxMessageHandler
     string MessageType { get; }
 
     Task HandleAsync(OutboxMessageContext message, CancellationToken ct);
+
+    /// <summary>
+    /// Se llama una vez cuando el Worker se rinde con el mensaje (queda fallido, sin más intentos), en un ámbito nuevo
+    /// con el mismo tenant y después de guardar el fallo y su notificación. Sirve para dejar en un estado final lo que
+    /// el mensaje iba a cambiar; por ejemplo, el envío a la DIAN pasa el documento de <c>Queued</c> a <c>Failed</c>.
+    /// Si falla, solo se registra en los logs. Por defecto no hace nada.
+    /// </summary>
+    Task OnFailedAsync(OutboxMessageContext message, CancellationToken ct) => Task.CompletedTask;
 }
 
 /// <summary>Un mensaje de la bandeja de salida tal como lo recibe su handler.</summary>

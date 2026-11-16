@@ -61,6 +61,9 @@ public sealed class FakeDocumentDb : IDocumentStore, IDocumentFiles, INumberingS
     public Task OpenForResolutionAsync(Guid companyId, Guid resolutionId, long firstNumber, CancellationToken ct) =>
         throw new NotSupportedException();
 
+    public Task OpenAsync(Guid companyId, string scopeKey, long firstNumber, CancellationToken ct) =>
+        throw new NotSupportedException();
+
     public Task<long?> TakeNextAsync(Guid companyId, string scopeKey, CancellationToken ct)
     {
         Calls.Add("take " + scopeKey);
