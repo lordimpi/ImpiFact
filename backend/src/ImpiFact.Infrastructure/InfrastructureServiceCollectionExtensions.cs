@@ -6,6 +6,7 @@ using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Platform;
 using ImpiFact.Infrastructure.Protection;
+using ImpiFact.Infrastructure.Reads;
 using ImpiFact.Infrastructure.Storage;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Infrastructure.Time;
@@ -49,6 +50,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddStorage();
         services.AddDocuments();
         services.AddPlatform();
+        services.AddReads();
         return services;
     }
 
