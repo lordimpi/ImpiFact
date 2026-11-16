@@ -29,7 +29,7 @@ public class BoundaryTests
     [Test]
     public void Only_the_postgres_provider_uses_the_postgres_driver()
     {
-        var result = Types.InAssemblies([Load("ImpiFact.Infrastructure"), Load("ImpiFact.Application"), Load("ImpiFact.Api")])
+        var result = Types.InAssemblies([Load("ImpiFact.Infrastructure"), Load("ImpiFact.Application"), Load("ImpiFact.Api"), Load("ImpiFact.Worker")])
             .ShouldNot()
             .HaveDependencyOnAny("Npgsql")
             .GetResult();

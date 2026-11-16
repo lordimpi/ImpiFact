@@ -7,6 +7,7 @@
     <Project Path="src/ImpiFact.Infrastructure/ImpiFact.Infrastructure.csproj" />
     <Project Path="src/ImpiFact.Infrastructure.Postgres/ImpiFact.Infrastructure.Postgres.csproj" />
     <Project Path="src/ImpiFact.Migrator/ImpiFact.Migrator.csproj" />
+    <Project Path="src/ImpiFact.Worker/ImpiFact.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ImpiFact.Application.Tests/ImpiFact.Application.Tests.csproj" />

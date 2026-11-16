@@ -13,7 +13,7 @@ public class LayerDependencyTests
     /// <summary>
     /// A qué proyectos puede referenciar cada proyecto de src. Es un máximo: un proyecto puede usar menos.
     /// ImpiFact.Dian no referencia a Domain (ADR-26: el núcleo DIAN recibe su propio modelo de entrada).
-    /// La API y el Migrator referencian a los proveedores de base de datos porque son quienes eligen cuál usar.
+    /// La API, el Worker y el Migrator referencian a los proveedores de base de datos porque son quienes eligen cuál usar.
     /// </summary>
     private static readonly Dictionary<string, string[]> AllowedReferences = new(StringComparer.Ordinal)
     {
@@ -23,8 +23,12 @@ public class LayerDependencyTests
         ["ImpiFact.Infrastructure"] = ["ImpiFact.Application", "ImpiFact.Dian", "ImpiFact.Domain"],
         ["ImpiFact.Infrastructure.Postgres"] = ["ImpiFact.Infrastructure"],
         ["ImpiFact.Api"] = ["ImpiFact.Application", "ImpiFact.Infrastructure", "ImpiFact.Infrastructure.Postgres"],
+        ["ImpiFact.Worker"] = ["ImpiFact.Application", "ImpiFact.Infrastructure", "ImpiFact.Infrastructure.Postgres"],
         ["ImpiFact.Migrator"] = ["ImpiFact.Application", "ImpiFact.Infrastructure", "ImpiFact.Infrastructure.Postgres"],
     };
+
+    /// <summary>Proyectos de composición: arman los servicios y arrancan un proceso. Ningún otro proyecto los referencia.</summary>
+    private static readonly string[] CompositionRoots = ["ImpiFact.Api", "ImpiFact.Worker", "ImpiFact.Migrator"];
 
     /// <summary>
     /// Paquetes que Application puede usar (Arquitectura, sección 2): validación, mapeo y registro de
@@ -57,6 +61,15 @@ public class LayerDependencyTests
         var forbidden = project.ProjectReferences.Except(AllowedReferences[project.Name], StringComparer.Ordinal);
 
         Assert.That(forbidden, Is.Empty, $"{project.Name} references projects its layer does not allow.");
+    }
+
+    [TestCaseSource(nameof(CompositionRoots))]
+    public void No_source_project_references_a_composition_root(string root)
+    {
+        var dependents = SourceProjects.All().Where(project => project.ProjectReferences.Contains(root, StringComparer.Ordinal))
+            .Select(project => project.Name);
+
+        Assert.That(dependents, Is.Empty, $"{root} only composes; move what others need into Application or Infrastructure.");
     }
 
     [Test]
