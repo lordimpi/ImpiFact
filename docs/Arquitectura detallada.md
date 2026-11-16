@@ -249,7 +249,9 @@ Estado al 15-nov (fase 1a): `XmlSigner` firma con RSA-SHA256, C14N inclusivo y d
 - Operaciones: `SendBillSync`, `SendTestSetAsync`, `SendBillAsync`, `GetStatus`, `GetStatusZip`, `SendEventUpdateStatus`, `GetNumberingRange`, `GetXmlByDocumentKey`.
 - Los archivos se envían como ZIP en base64 con el nombre de archivo que exige la DIAN por tipo de documento.
 - Resiliencia (`Microsoft.Extensions.Http.Resilience`): tiempo de espera 60 s por intento, 3 reintentos con retroceso exponencial y jitter solo ante errores transitorios (timeout, 5xx, red); rechazo de negocio no se reintenta; *circuit breaker* tras 5 fallos en 30 s. Valores en `ResilienceOptions`.
-- Cada llamada guarda una fila en `dian_submissions` y la solicitud/respuesta en `document_files`.
+- La cadena de resiliencia va alrededor de cada intento en el cliente SOAP, no en el `HttpClient`: cada reintento arma y firma un sobre nuevo, con su propia `wsu:Timestamp`. La firma cubre solo `wsa:To` (supuesto C1, como el PHP), así que su valor no cambia entre reintentos; si la DIAN detectara repeticiones por la firma, también rechazaría los envíos del PHP.
+- Si algún intento de una llamada pudo llegar a la DIAN (tiempo agotado o conexión cortada después de enviar, o un 502/504 de un intermediario), la llamada se informa como «enviada sin respuesta» aunque el último intento termine en 503, en un SOAP Fault o con el *circuit breaker* abierto: el documento pasa a `Unconfirmed` y se consulta su estado (sección 7).
+- Cada llamada guarda una fila en `dian_submissions` y la solicitud/respuesta en `document_files`. De la solicitud se guarda el ZIP enviado (`SentZip`), no el sobre SOAP: el sobre solo agrega el certificado público, la marca de tiempo y la firma, que cambian en cada intento, y repetiría el documento completo en base64; el ZIP es lo que la DIAN valida. De la respuesta se guarda el sobre completo (`DianResponse`) y el `ApplicationResponse` si viene.
 
 ### 6.5 Redondeo
 
@@ -277,6 +279,9 @@ Reglas:
 - El consecutivo se consume en el paso 3; si el documento termina `Failed` queda como hueco registrado.
 - Los pasos 7 a 10 son idempotentes: reintentar un mensaje no duplica archivos (`UQ document_id, kind, revision`) ni intentos (`UQ document_id, attempt`).
 - El reconsultado de `Unconfirmed` se hace cada 1 minuto durante \~10 minutos y luego cada 15 minutos hasta 24 h; pasado ese plazo pasa a `Failed` con alerta.
+- Un documento que la DIAN pudo recibir nunca pasa a `Failed` desde `Queued`. Si el Worker se rinde con `SendDocumentToDian` y algún intento guardado en `dian_submissions` pudo llegar (sin resultado guardado, con un resultado de la DIAN como la regla 90, o una consulta de estado), el documento pasa `Queued → Sent → Unconfirmed` y se programa `PollDianStatus` con GetStatus y el CUFE; `Failed` directo desde `Queued` solo cuando ningún intento pudo llegar. Lo mismo antes de tomar un SOAP Fault del que envía como rechazo: si un intento anterior pudo llegar, cuenta como «sin respuesta».
+- GetStatus con código 66 (la DIAN todavía no registra ese CUFE) no es una decisión aunque traiga mensajes: se sigue consultando hasta el plazo.
+- Una consulta de estado nunca deja el documento sin otra consulta pendiente: sin certificado activo cuenta como una consulta sin decisión, y si el Worker se rinde con `PollDianStatus` por cualquier otra falla, se programa otra consulta o, pasado el plazo de 24 h, pasa a `Failed` con alerta (`Unconfirmed → Failed`; un documento en `Sent` pasa antes por `Unconfirmed`).
 - El JSON de respuesta mantiene los campos legados (`success`, `message`, `ResponseDian`, `cufe`, `urlinvoicexml`, `urlinvoicepdf`, …); el conjunto exacto se fija con los contract tests de la colección Postman.
 - Notas crédito/débito: mismo flujo. La factura de referencia es opcional, como en el PHP (operaciones sin referencia 22/8 y 5); si `billing_reference.uuid` corresponde a un documento de la empresa se enlaza `reference_document_id` (17-nov). Exigir que el original esté `Accepted*` llega con el envío a la DIAN (fase 4).
 - Vista previa (`preeliminar-view`): valida (paso 2), arma el documento en memoria en estado `Draft` y genera UBL y PDF sin tomar consecutivo ni persistir nada; devuelve el PDF.
@@ -288,7 +293,7 @@ Proceso aparte (`ImpiFact.Worker`) con la misma imagen base que el Api y otro pu
 
 | Servicio | Intervalo | Qué hace |
 | --- | --- | --- |
-| `OutboxProcessor` | continuo (sondeo 1–5 s con espera adaptativa) | Toma mensajes `status = 0` con `next_attempt_at <= now` usando `SKIP LOCKED`/`READPAST`, los marca en proceso (`locked_until = now + 5 min`) y despacha al handler por `type`. Reintentos con retroceso: 10 s, 1 min, 5 min y 30 min (el escalón de 2 h solo se usa si `MaxAttempts` sube de 5); al quinto fallo queda `Failed` y genera notificación. Cada handler tiene un plazo (`HandlerTimeoutSeconds`, 270 s) menor que el bloqueo, para que otra instancia no lo tome mientras sigue corriendo; un mensaje que se volvió a tomar más veces que `MaxAttempts` sin registrar resultado queda `Failed` sin ejecutarse. |
+| `OutboxProcessor` | continuo (sondeo 1–5 s con espera adaptativa) | Toma mensajes `status = 0` con `next_attempt_at <= now` usando `SKIP LOCKED`/`READPAST`, los marca en proceso (`locked_until = now + 5 min`) y despacha al handler por `type`. Reintentos con retroceso: 10 s, 1 min, 5 min y 30 min (el escalón de 2 h solo se usa si `MaxAttempts` sube de 5); al quinto fallo queda `Failed` y genera notificación. Cada handler tiene un plazo (`HandlerTimeoutSeconds`, 270 s) menor que el bloqueo, para que otra instancia no lo tome mientras sigue corriendo; un mensaje que se volvió a tomar más veces que `MaxAttempts` sin registrar resultado queda `Failed` sin ejecutarse. Antes de guardar el fallo final se avisa al handler (`OnFailedAsync`) para que deje en estado final lo que el mensaje iba a cambiar; si el proceso se cae entre los dos pasos, el mensaje sigue en proceso y se vuelve a tomar al vencer su bloqueo, así el aviso se repite y nada queda a medias. |
 | `DianStatusPoller` | 1 min | Reconsulta documentos `Unconfirmed` (sección 7). |
 | `ContingencySender` | 5 min | Encola `send_pendings` de documentos `ContingencyPending` cuando la DIAN vuelve a responder. |
 | `CertificateExpiryWatcher` | diario | Crea notificaciones y correo a 30, 15 y 5 días del vencimiento. |
@@ -388,7 +393,8 @@ Módulos del panel de la fase 5:
   "ForwardedHeaders": { "KnownProxies": [], "KnownNetworks": [] },          // vacío = solo loopback
   "ApiKey":     { "Prefix": "apk_" },
   "Outbox":     { "PollSeconds": 2, "LockMinutes": 5, "MaxAttempts": 5, "BatchSize": 20, "HandlerTimeoutSeconds": 270 },
-  "Resilience": { "Retries": 3, "BreakerFailures": 5, "BreakerSeconds": 30 },
+  "Resilience": { "Retries": 3, "BaseDelaySeconds": 2, "BreakerFailures": 5, "BreakerSeconds": 30,
+                  "BreakDurationSeconds": 30, "TotalSeconds": 120 },               // 2 × TotalSeconds < Outbox:HandlerTimeoutSeconds
   "Cors":       { "Origins": [ "https://app.example.com" ] },
   "RateLimit":  { "PermitPerMinutePerKey": 120, "PermitPerMinutePerIp": 300, "LoginPerMinute": 10 },
   "Pdf":        { "DefaultTemplate": 2 },
@@ -396,6 +402,7 @@ Módulos del panel de la fase 5:
 }
 ```
 
+- `Resilience` (llamadas a la DIAN): `Retries` reintentos después del primero; `BaseDelaySeconds` espera base del retroceso exponencial con jitter (cerca de 2, 4 y 8 s); `BreakerFailures` fallos dentro de `BreakerSeconds` abren el *circuit breaker*, que queda abierto `BreakDurationSeconds`; `TotalSeconds` es el plazo de una llamada con todos sus intentos y esperas. El Worker exige al arrancar que dos llamadas (un envío y la consulta GetStatus de la regla 90) quepan en el plazo de un handler: `2 × TotalSeconds < Outbox:HandlerTimeoutSeconds` (120 s y 270 s por defecto). Con 60 s por intento, una llamada que se agota alcanza a hacer dos intentos, no cuatro.
 - Secretos (cadena de conexión, llave de JWT, llave maestra local, credenciales SMTP por defecto) **nunca** van en `appsettings`; el arranque falla (`ValidateOnStart`) si falta alguno.
 - Llave de JWT: asimétrica (RS256/ES256) con rotación; la pública se expone en `/.well-known/jwks.json` si se necesita.
 - Archivos de ejemplo `appsettings.Development.json` y `.env.example` se versionan sin secretos.
