@@ -1,4 +1,5 @@
 using ImpiFact.Application.Abstractions;
+using ImpiFact.Domain.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;

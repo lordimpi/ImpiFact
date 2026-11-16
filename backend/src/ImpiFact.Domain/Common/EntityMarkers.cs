@@ -1,4 +1,4 @@
-namespace ImpiFact.Infrastructure.Persistence;
+namespace ImpiFact.Domain.Common;
 
 // Marcas que una entidad implementa para que el contexto de base de datos le aplique las reglas comunes del
 // modelo (Modelo de datos detallado, sección 2). Solo piden lectura: el contexto y su interceptor escriben los

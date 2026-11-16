@@ -1,5 +1,6 @@
 using System.Reflection;
 using ImpiFact.Application.Abstractions;
+using ImpiFact.Domain.Common;
 using ImpiFact.Infrastructure.Persistence.Conventions;
 using ImpiFact.Infrastructure.Persistence.Conversions;
 using ImpiFact.Infrastructure.Persistence.Interceptors;

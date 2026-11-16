@@ -1,4 +1,5 @@
 using ImpiFact.Application.Abstractions;
+using ImpiFact.Domain.Common;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Conversions;
 using Microsoft.EntityFrameworkCore;
