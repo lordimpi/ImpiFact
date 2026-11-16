@@ -36,6 +36,21 @@ internal static class EcdsaPem
     /// <summary>Lee una llave pública (o la parte pública de una privada); <see langword="null"/> si no es P-256.</summary>
     public static ECDsa? TryImportPublic(string pem) => TryImport(pem);
 
+    /// <summary>
+    /// Indica si el texto trae una llave privada: un bloque PEM cuya etiqueta termina en «PRIVATE KEY» (también las
+    /// cifradas) o un texto que se importa con parte privada.
+    /// </summary>
+    public static bool ContainsPrivateKey(string pem)
+    {
+        if (pem.Contains("PRIVATE KEY-----", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        using var key = TryImportPrivate(pem);
+        return key is not null;
+    }
+
     private static ECDsa? TryImport(string pem)
     {
         var key = ECDsa.Create();

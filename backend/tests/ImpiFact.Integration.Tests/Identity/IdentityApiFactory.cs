@@ -23,13 +23,22 @@ internal sealed class IdentityApiFactory : WebApplicationFactory<Program>
     private readonly string _environment;
     private readonly bool _withSigningKey;
     private readonly IReadOnlyDictionary<string, string?> _settings;
+    private readonly bool _withRealApiKeyStore;
 
+    /// <param name="withRealApiKeyStore">
+    /// Deja el almacén de API keys real (sobre la tabla), que apunta a una base inalcanzable: sirve para probar qué
+    /// responde la API cuando la base no está disponible.
+    /// </param>
     public IdentityApiFactory(
-        string environment = "Development", bool withSigningKey = true, IReadOnlyDictionary<string, string?>? settings = null)
+        string environment = "Development",
+        bool withSigningKey = true,
+        IReadOnlyDictionary<string, string?>? settings = null,
+        bool withRealApiKeyStore = false)
     {
         _environment = environment;
         _withSigningKey = withSigningKey;
         _settings = settings ?? new Dictionary<string, string?>();
+        _withRealApiKeyStore = withRealApiKeyStore;
     }
 
     /// <summary>Llave privada con la que la API firma los JWT en esta fábrica.</summary>
@@ -83,8 +92,13 @@ internal sealed class IdentityApiFactory : WebApplicationFactory<Program>
         builder.ConfigureLogging(logging => logging.AddProvider(Logs));
         builder.ConfigureTestServices(services =>
         {
-            services.AddSingleton<IApiKeyStore>(ApiKeys);
+            if (!_withRealApiKeyStore)
+            {
+                services.AddSingleton<IApiKeyStore>(ApiKeys);
+            }
+
             services.AddSingleton<IEndpointModule, TestEndpoints>();
+            services.AddSingleton<IStartupFilter, TestRemoteAddress>();
         });
     }
 

@@ -42,6 +42,25 @@ public sealed class JwtSigningKeyStartupTests
     }
 
     [Test]
+    public void A_previous_public_key_that_carries_private_key_material_stops_startup()
+    {
+        using var previous = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        using var factory = new IdentityApiFactory("Production", settings: new Dictionary<string, string?>
+        {
+            ["Jwt:PreviousPublicKeys:0"] = previous.ExportPkcs8PrivateKeyPem(),
+        });
+
+        var exception = Assert.Throws<OptionsValidationException>(() => factory.CreateClient());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception?.Message, Does.Contain($"{nameof(JwtOptions.PreviousPublicKeys)}:0"));
+            Assert.That(exception?.Message, Does.Contain("private key"));
+            Assert.That(exception?.Message, Does.Not.Contain("BEGIN"));
+        });
+    }
+
+    [Test]
     public async Task In_development_an_ephemeral_key_is_generated_and_logged_as_a_warning()
     {
         using var factory = new IdentityApiFactory("Development", withSigningKey: false);

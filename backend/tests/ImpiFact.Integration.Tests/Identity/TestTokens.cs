@@ -25,17 +25,20 @@ internal static class TestTokens
         string issuer = "impifact",
         string audience = "impifact-web",
         Guid? userId = null,
-        Guid? companyId = null)
+        Guid? companyId = null,
+        string? subject = null,
+        string? companyIdText = null)
     {
         var iat = issuedAt ?? DateTimeOffset.UtcNow;
         var claims = new Dictionary<string, object>
         {
-            ["sub"] = (userId ?? Guid.CreateVersion7()).ToString(),
+            // subject y companyIdText permiten poner valores que no son GUID, para probar que se rechazan.
+            ["sub"] = subject ?? (userId ?? Guid.CreateVersion7()).ToString(),
             ["role"] = "owner",
         };
-        if (companyId is not null)
+        if ((companyIdText ?? companyId?.ToString()) is { } company)
         {
-            claims["company_id"] = companyId.Value.ToString();
+            claims["company_id"] = company;
         }
 
         var descriptor = new SecurityTokenDescriptor

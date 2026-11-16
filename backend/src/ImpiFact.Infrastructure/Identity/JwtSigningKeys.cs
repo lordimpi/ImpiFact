@@ -53,6 +53,12 @@ public sealed class JwtSigningKeys : IDisposable
         var validation = new List<ECDsaSecurityKey> { SigningKey };
         foreach (var pem in jwt.PreviousPublicKeys)
         {
+            // La validación al arrancar ya lo rechaza; se repite por si alguien crea esta clase sin pasar por ella.
+            if (EcdsaPem.ContainsPrivateKey(pem))
+            {
+                throw new InvalidOperationException("A previous JWT public key contains private key material.");
+            }
+
             var previous = EcdsaPem.TryImportPublic(pem)
                 ?? throw new InvalidOperationException("A previous JWT public key is not a valid P-256 public key.");
             validation.Add(Own(previous));

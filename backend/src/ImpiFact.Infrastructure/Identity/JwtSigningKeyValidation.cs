@@ -33,10 +33,21 @@ internal sealed class JwtSigningKeyValidation(IHostEnvironment environment) : IV
 
         for (var index = 0; index < options.PreviousPublicKeys.Length; index++)
         {
-            using var key = EcdsaPem.TryImportPublic(options.PreviousPublicKeys[index]);
+            var pem = options.PreviousPublicKeys[index];
+            var setting = $"{JwtOptions.SectionName}:{nameof(JwtOptions.PreviousPublicKeys)}:{index}";
+
+            // Esta lista no es secreta y puede terminar en archivos de configuración versionados: si alguien pega
+            // por error una llave privada, el arranque falla en lugar de dejarla circular como si fuera pública.
+            if (EcdsaPem.ContainsPrivateKey(pem))
+            {
+                failures.Add($"{setting} contains private key material; only the public part of a previous key belongs there.");
+                continue;
+            }
+
+            using var key = EcdsaPem.TryImportPublic(pem);
             if (key is null)
             {
-                failures.Add($"{JwtOptions.SectionName}:{nameof(JwtOptions.PreviousPublicKeys)}:{index} is not a valid PEM-encoded P-256 public key.");
+                failures.Add($"{setting} is not a valid PEM-encoded P-256 public key.");
             }
         }
 

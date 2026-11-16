@@ -63,8 +63,28 @@ internal static class BearerAuthenticationExtensions
                     RoleClaimType = IdentityClaimTypes.Role,
                     AuthenticationType = AuthenticationSchemes.Jwt,
                 };
+                options.Events = new JwtBearerEvents { OnTokenValidated = RejectMalformedIdentifiers };
             });
         return services;
+    }
+
+    /// <summary>
+    /// Un token con la firma correcta pero con <c>sub</c> ausente o que no es un GUID (identificador único global), o
+    /// con un <c>company_id</c> que no es un GUID (o repetido), no autentica. Si autenticara, la solicitud quedaría
+    /// «autenticada» con un contexto de tenant anónimo y pasaría las políticas que solo exigen estar autenticado.
+    /// </summary>
+    private static Task RejectMalformedIdentifiers(TokenValidatedContext context)
+    {
+        var principal = context.Principal;
+        var subjects = principal?.FindAll(IdentityClaimTypes.Subject).ToList() ?? [];
+        var companies = principal?.FindAll(IdentityClaimTypes.CompanyId).ToList() ?? [];
+        if (subjects is not [{ } subject] || !Guid.TryParse(subject.Value, out _)
+            || companies.Count > 1 || companies.Any(company => !Guid.TryParse(company.Value, out _)))
+        {
+            context.Fail("The token subject or company is not a valid identifier.");
+        }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>

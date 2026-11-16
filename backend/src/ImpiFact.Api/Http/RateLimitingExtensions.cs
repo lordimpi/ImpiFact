@@ -10,7 +10,8 @@ namespace ImpiFact.Api.Http;
 
 /// <summary>
 /// Límite de solicitudes por minuto (Arquitectura detallada, secciones 9.1, 11 y 19.1), en memoria de cada
-/// instancia y con ventana fija de un minuto: uno por API key y otro por dirección IP que se aplican juntos, y una
+/// instancia y con ventana fija de un minuto: uno por dirección IP y otro por API key que se aplican juntos, en ese
+/// orden, y una
 /// política más estricta para el inicio de sesión. Corre antes de la autenticación, así que la API key se cuenta
 /// aunque todavía no se sepa si es válida; se identifica por su resumen SHA-256, nunca por el texto.
 /// </summary>
@@ -31,12 +32,15 @@ public static class RateLimitingExtensions
                 var perIp = limits.Value.PermitPerMinutePerIp;
                 var login = limits.Value.LoginPerMinute;
 
+                // Primero el límite por IP: si una IP ya lo agotó, la solicitud se rechaza sin crear un contador para la
+                // llave que trae. Así, quien prueba miles de llaves inventadas desde una IP no llena la memoria con
+                // contadores por llave.
                 options.GlobalLimiter = PartitionedRateLimiter.CreateChained(
+                    PartitionedRateLimiter.Create<HttpContext, string>(context =>
+                        RateLimitPartition.GetFixedWindowLimiter(IpPartition(context), _ => FixedWindow(perIp))),
                     PartitionedRateLimiter.Create<HttpContext, string>(context => ApiKeyPartition(context) is { } key
                         ? RateLimitPartition.GetFixedWindowLimiter(key, _ => FixedWindow(perKey))
-                        : RateLimitPartition.GetNoLimiter("no-api-key")),
-                    PartitionedRateLimiter.Create<HttpContext, string>(context =>
-                        RateLimitPartition.GetFixedWindowLimiter(IpPartition(context), _ => FixedWindow(perIp))));
+                        : RateLimitPartition.GetNoLimiter("no-api-key")));
                 options.AddPolicy(LoginPolicy, context =>
                     RateLimitPartition.GetFixedWindowLimiter(IpPartition(context), _ => FixedWindow(login)));
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -48,8 +52,14 @@ public static class RateLimitingExtensions
     private static FixedWindowRateLimiterOptions FixedWindow(int permits) =>
         new() { PermitLimit = permits, Window = Window, QueueLimit = 0, AutoReplenishment = true };
 
+    /// <summary>
+    /// Contador por llave solo para textos que pueden ser una API key: con el prefijo y sin pasar del largo máximo
+    /// que acepta la autenticación. Un texto más largo nunca autentica y no merece un contador propio; cuenta solo
+    /// en el límite por IP.
+    /// </summary>
     private static string? ApiKeyPartition(HttpContext context) =>
         BearerToken.TryRead(context.Request, out var token)
+        && token.Length <= ApiKeyAuthenticator.MaxLength
         && context.RequestServices.GetRequiredService<ApiKeyFormat>().IsApiKey(token)
             ? "key:" + CredentialHash.Sha256Hex(token)
             : null;

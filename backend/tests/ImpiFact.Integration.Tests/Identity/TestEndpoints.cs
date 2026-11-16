@@ -34,6 +34,7 @@ internal sealed class TestEndpoints : IEndpointModule
         group.MapGet("/platform", () => "ok").RequireAuthorization(ApiScopes.Platform);
 
         group.MapGet("/ok", () => Result<string>.Ok("hola").ToHttpResult()).AllowAnonymous();
+        group.MapGet("/client-ip", (HttpContext context) => context.Connection.RemoteIpAddress?.ToString() ?? "").AllowAnonymous();
         group.MapGet("/errors/{type}", (ErrorType type) => Result<string>.Fail(ErrorFor(type)).ToHttpResult()).AllowAnonymous();
         group.MapGet("/throw", string () => throw new InvalidOperationException(InternalDetail)).AllowAnonymous();
     }

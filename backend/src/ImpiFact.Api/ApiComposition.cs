@@ -1,3 +1,4 @@
+using System.Net;
 using ImpiFact.Api.Companies;
 using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
@@ -33,9 +34,22 @@ internal static class ApiComposition
             options.CustomizeProblemDetails = context => LegacyProblemFields.Apply(context.ProblemDetails, context.HttpContext));
 
         // Detrás de un proxy o ingress: la IP y el esquema reales vienen en X-Forwarded-For y X-Forwarded-Proto. Por
-        // defecto solo se confía en proxies locales; cada despliegue agrega los suyos (KnownProxies/KnownIPNetworks).
-        services.Configure<ForwardedHeadersOptions>(options =>
-            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto);
+        // defecto solo se confía en la propia máquina (loopback); cada despliegue agrega sus proxies en la sección
+        // ForwardedHeaders (KnownProxies y KnownNetworks), validada al arrancar.
+        services.AddValidatedOptions<ForwardedHeadersTrustOptions>(configuration, ForwardedHeadersTrustOptions.SectionName);
+        services.AddOptions<ForwardedHeadersOptions>().Configure<IOptionsService<ForwardedHeadersTrustOptions>>((options, trust) =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            foreach (var proxy in trust.Value.KnownProxies)
+            {
+                options.KnownProxies.Add(IPAddress.Parse(proxy));
+            }
+
+            foreach (var network in trust.Value.KnownNetworks)
+            {
+                options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+            }
+        });
 
         services.AddCors();
         services.AddOptions<CorsOptions>().Configure<IOptionsService<CorsOriginsOptions>>((options, cors) =>

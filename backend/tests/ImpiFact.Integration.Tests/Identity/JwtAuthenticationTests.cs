@@ -138,6 +138,19 @@ public sealed class JwtAuthenticationTests
         Assert.That(whoAmI, Is.EqualTo(new TestEndpoints.WhoAmI(null, userId, "User")));
     }
 
+    [TestCase("not-a-guid", null)]
+    [TestCase(null, "not-a-guid")]
+    [TestCase(null, "")]
+    public async Task A_signed_token_whose_sub_or_company_id_is_not_a_guid_is_rejected_with_401(string? subject, string? companyId)
+    {
+        var token = TestTokens.Sign(_factory.SigningKey, subject: subject, companyIdText: companyId);
+        using var client = _factory.CreateClient(token);
+
+        using var response = await client.GetAsync("/test/whoami");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
     [Test]
     public async Task A_garbage_bearer_token_is_rejected_with_401()
     {

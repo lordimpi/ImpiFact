@@ -61,4 +61,49 @@ public sealed class RateLimitTests
 
         Assert.That(statuses, Is.EqualTo(new[] { HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.TooManyRequests }));
     }
+
+    [Test]
+    public async Task The_per_ip_limit_is_checked_first_so_requests_with_an_exhausted_key_still_count_against_the_ip()
+    {
+        using var factory = new IdentityApiFactory(settings: new Dictionary<string, string?>
+        {
+            ["RateLimit:PermitPerMinutePerKey"] = "1",
+            ["RateLimit:PermitPerMinutePerIp"] = "2",
+        });
+        var (key, _) = factory.AddApiKey(Guid.CreateVersion7(), [ApiScopes.DocumentsRead]);
+        using var withKey = factory.CreateClient(key);
+        using var anonymous = factory.CreateClient();
+
+        using var first = await withKey.GetAsync("/test/whoami");
+        using var keyExhausted = await withKey.GetAsync("/test/whoami");
+        using var ipExhausted = await anonymous.GetAsync("/test/ok");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(keyExhausted.StatusCode, Is.EqualTo(HttpStatusCode.TooManyRequests));
+            Assert.That(ipExhausted.StatusCode, Is.EqualTo(HttpStatusCode.TooManyRequests));
+        });
+    }
+
+    [Test]
+    public async Task A_bearer_token_longer_than_any_api_key_gets_no_per_key_partition()
+    {
+        using var factory = new IdentityApiFactory(settings: new Dictionary<string, string?>
+        {
+            ["RateLimit:PermitPerMinutePerKey"] = "1",
+        });
+        using var client = factory.CreateClient("apk_" + new string('a', ApiKeyAuthenticatorMaxLength));
+
+        using var first = await client.GetAsync("/test/ok");
+        using var second = await client.GetAsync("/test/ok");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(second.StatusCode, Is.EqualTo(HttpStatusCode.OK), "An over-long token must not be limited as if it were a key.");
+        });
+    }
+
+    private const int ApiKeyAuthenticatorMaxLength = ImpiFact.Infrastructure.Identity.ApiKeyAuthenticator.MaxLength;
 }
