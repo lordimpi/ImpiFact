@@ -14,12 +14,14 @@ public sealed class CreateCompanyTests
 {
     private FakeCompanyRepository _companies = null!;
     private FakeApiKeyGenerator _keys = null!;
+    private FakeApiKeyStore _keyStore = null!;
 
     [SetUp]
     public void SetUp()
     {
         _companies = new FakeCompanyRepository();
         _keys = new FakeApiKeyGenerator();
+        _keyStore = new FakeApiKeyStore();
     }
 
     [Test]
@@ -104,7 +106,7 @@ public sealed class CreateCompanyTests
     {
         var result = await Handle(CompanySamples.Create());
 
-        var key = _companies.AddedOf<ApiKey>().Single();
+        var key = _keyStore.Added.Single();
         var company = _companies.AddedOf<Company>().Single();
         Assert.Multiple(() =>
         {
@@ -113,7 +115,7 @@ public sealed class CreateCompanyTests
             Assert.That(key.CompanyId, Is.EqualTo(company.Id));
             Assert.That(key.KeyHash, Is.EqualTo(new string('a', 64)));
             Assert.That(key.KeyPrefix, Is.EqualTo("apk_plain_1"));
-            Assert.That(key.Scopes.Split(','), Is.EquivalentTo(new[] { ApiScopes.DocumentsWrite, ApiScopes.DocumentsRead, ApiScopes.ConfigWrite }));
+            Assert.That(key.Scopes, Is.EquivalentTo(new[] { ApiScopes.DocumentsWrite, ApiScopes.DocumentsRead, ApiScopes.ConfigWrite }));
             Assert.That(result.Value.ToString(), Does.Not.Contain("apk_plain_1"));
         });
     }
@@ -159,7 +161,7 @@ public sealed class CreateCompanyTests
             Assert.That(existing.LanguageId, Is.EqualTo(79), "Like the PHP, a missing catalog goes back to its default.");
             Assert.That(_companies.Added.OfType<Company>(), Is.Empty);
             Assert.That(_companies.Added.OfType<Customer>(), Is.Empty);
-            Assert.That(_companies.Added.OfType<ApiKey>(), Is.Empty);
+            Assert.That(_keyStore.Added, Is.Empty);
             Assert.That(_companies.Added.OfType<CompanyEnvironment>(), Is.Empty, "Environments only change through SetEnvironment.");
             Assert.That(_companies.Removed.OfType<CompanyLiability>().Single().TypeLiabilityId, Is.EqualTo(7));
             Assert.That(_companies.AddedOf<CompanyLiability>().Single().TypeLiabilityId, Is.EqualTo(14));
@@ -216,5 +218,5 @@ public sealed class CreateCompanyTests
     }
 
     private Task<Result<CompanySavedResponse>> Handle(CreateCompanyCommand command, FakeTenant? tenant = null) =>
-        new CreateCompanyHandler(_companies, tenant ?? CompanySamples.Platform(), _keys).HandleAsync(command, CancellationToken.None);
+        new CreateCompanyHandler(_companies, tenant ?? CompanySamples.Platform(), _keys, _keyStore).HandleAsync(command, CancellationToken.None);
 }

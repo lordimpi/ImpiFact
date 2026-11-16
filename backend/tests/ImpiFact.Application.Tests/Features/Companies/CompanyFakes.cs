@@ -84,6 +84,26 @@ public sealed class FakeApiKeyGenerator : IApiKeyGenerator
     }
 }
 
+/// <summary>Almacén de API keys en memoria: solo anota las llaves que se agregan.</summary>
+public sealed class FakeApiKeyStore : IApiKeyStore
+{
+    public List<NewApiKey> Added { get; } = [];
+
+    public Task AddAsync(NewApiKey key, CancellationToken ct)
+    {
+        Added.Add(key);
+        return Task.CompletedTask;
+    }
+
+    public Task<ApiKeyRecord?> FindByHashAsync(string keyHash, CancellationToken ct) => throw new NotSupportedException();
+
+    public Task<ApiKeyRecord?> FindByIdAsync(Guid apiKeyId, CancellationToken ct) => throw new NotSupportedException();
+
+    public Task MarkUsedAsync(Guid apiKeyId, DateTimeOffset usedAt, CancellationToken ct) => throw new NotSupportedException();
+
+    public Task RevokeAsync(Guid apiKeyId, DateTimeOffset revokedAt, CancellationToken ct) => throw new NotSupportedException();
+}
+
 /// <summary>Cifrado de mentira que deja ver el propósito usado; nunca devuelve el texto claro tal cual.</summary>
 public sealed class FakeSecretProtector : ISecretProtector
 {

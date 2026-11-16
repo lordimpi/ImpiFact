@@ -5,7 +5,6 @@ using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Abstractions.Results;
 using ImpiFact.Domain.Common;
 using ImpiFact.Domain.Companies;
-using ImpiFact.Domain.Identity;
 using ImpiFact.Domain.Masters;
 
 namespace ImpiFact.Application.Features.Companies.CreateCompany;
@@ -20,7 +19,8 @@ namespace ImpiFact.Application.Features.Companies.CreateCompany;
 /// el <c>token</c> es una API key aleatoria de la empresa con los alcances de una integración (emitir y consultar
 /// documentos y cambiar su configuración); de ella solo se guarda el resumen.
 /// </remarks>
-internal sealed class CreateCompanyHandler(ICompanyRepository companies, ITenantContext tenant, IApiKeyGenerator apiKeys)
+internal sealed class CreateCompanyHandler(
+    ICompanyRepository companies, ITenantContext tenant, IApiKeyGenerator apiKeys, IApiKeyStore apiKeyStore)
     : IHandler<CreateCompanyCommand, CompanySavedResponse>
 {
     /// <summary>
@@ -37,8 +37,7 @@ internal sealed class CreateCompanyHandler(ICompanyRepository companies, ITenant
 
     internal const string InitialApiKeyName = "Llave inicial";
 
-    internal static readonly string InitialApiKeyScopes =
-        string.Join(',', ApiScopes.DocumentsWrite, ApiScopes.DocumentsRead, ApiScopes.ConfigWrite);
+    internal static readonly string[] InitialApiKeyScopes = [ApiScopes.DocumentsWrite, ApiScopes.DocumentsRead, ApiScopes.ConfigWrite];
 
     public async Task<Result<CompanySavedResponse>> HandleAsync(CreateCompanyCommand request, CancellationToken ct)
     {
@@ -80,16 +79,12 @@ internal sealed class CreateCompanyHandler(ICompanyRepository companies, ITenant
             Email = company.Email,
         });
 
+        // La llave la guarda Identity, dueño de la tabla api_keys, a través de su puerto (regla 4: ningún módulo
+        // escribe las tablas de otro). Se guarda en la misma transacción que la empresa.
         var key = apiKeys.Generate();
-        companies.Add(new ApiKey
-        {
-            CompanyId = company.Id,
-            Name = InitialApiKeyName,
-            KeyPrefix = key.DisplayPrefix,
-            KeyHash = key.Hash,
-            Scopes = InitialApiKeyScopes,
-            CreatedBy = tenant.UserId,
-        });
+        await apiKeyStore.AddAsync(
+            new NewApiKey(Guid.CreateVersion7(), company.Id, InitialApiKeyName, key.DisplayPrefix, key.Hash, InitialApiKeyScopes, ExpiresAt: null, tenant.UserId),
+            ct);
 
         return new CompanySavedResponse
         {
