@@ -34,6 +34,13 @@ public readonly record struct LegacyScalar(string Text, LegacyScalarKind Kind)
     /// Verdadero si PHP lo considera vacío (falso en un <c>@if</c> de las plantillas): <c>""</c>, <c>"0"</c>, el
     /// número 0 y <c>false</c>. El texto <c>"0.00"</c>, en cambio, cuenta como no vacío.
     /// </summary>
+    /// <summary>
+    /// Si el dato falta para las reglas «obligatorio»: no llegó o llegó como texto vacío. Laravel convierte el texto
+    /// vacío en nulo antes de validar, así que <c>""</c> cuenta como ausente (a diferencia de <c>"0"</c>).
+    /// </summary>
+    public static bool IsMissing(LegacyScalar? value) =>
+        value is not { } scalar || (scalar.Kind == LegacyScalarKind.String && scalar.Text.Length == 0);
+
     public bool IsPhpEmpty => Kind switch
     {
         LegacyScalarKind.String => Text.Length == 0 || Text == "0",

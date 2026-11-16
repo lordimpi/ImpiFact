@@ -349,7 +349,8 @@ public static class IssueDocumentJson
         document = null;
         try
         {
-            using var parsed = JsonDocument.Parse(body, new JsonDocumentOptions { MaxDepth = Options.MaxDepth });
+            // Una propiedad repetida es ambigua (¿cuál valor vale?): se rechaza como JSON inválido.
+            using var parsed = JsonDocument.Parse(body, new JsonDocumentOptions { MaxDepth = Options.MaxDepth, AllowDuplicateProperties = false });
             if (parsed.RootElement.ValueKind != JsonValueKind.Object)
             {
                 return false;
@@ -367,13 +368,17 @@ public static class IssueDocumentJson
     /// <summary>Bytes que se guardan como solicitud: el cuerpo tal cual, o sin sus campos secretos si los trae.</summary>
     public static byte[] ForStorage(byte[] body)
     {
+        // Se buscan sin distinguir mayúsculas: «SMTP_PARAMETERS» también es un secreto aunque el contrato no lo lea.
         var root = JsonNode.Parse(body) as JsonObject;
-        if (root is null || !SecretFields.Any(root.ContainsKey))
+        var secrets = root?.Select(property => property.Key)
+            .Where(key => SecretFields.Contains(key, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        if (root is null || secrets is not { Count: > 0 })
         {
             return body;
         }
 
-        foreach (var field in SecretFields)
+        foreach (var field in secrets)
         {
             root.Remove(field);
         }

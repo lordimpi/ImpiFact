@@ -90,7 +90,11 @@ public sealed record NumberingResolution(
     string TechnicalKey);
 
 /// <summary>Software registrado ante la DIAN; entra en sts:SoftwareID y sts:SoftwareSecurityCode.</summary>
-public sealed record SoftwareCredentials(string SoftwareId, string Pin);
+public sealed record SoftwareCredentials(string SoftwareId, string Pin)
+{
+    /// <summary>No incluye el PIN, para que un registro accidental del objeto no lo filtre.</summary>
+    public override string ToString() => $"SoftwareCredentials {{ SoftwareId = {SoftwareId} }}";
+}
 
 /// <summary>
 /// Moneda extranjera del documento. cac:PaymentExchangeRate solo se escribe cuando se conocen tanto la

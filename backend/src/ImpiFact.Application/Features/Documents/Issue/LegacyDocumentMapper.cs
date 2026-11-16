@@ -20,7 +20,11 @@ internal sealed record IssueFrame(
     DateOnly IssueDate,
     TimeOnly IssueTime,
     string SoftwarePin,
-    string QrCodeBaseUrl);
+    string QrCodeBaseUrl)
+{
+    /// <summary>No incluye el PIN del software, para que un registro accidental del objeto no lo filtre.</summary>
+    public override string ToString() => $"IssueFrame {{ Spec = {Spec}, Number = {Number}, IssueDate = {IssueDate} }}";
+}
 
 /// <summary>
 /// Convierte el cuerpo heredado al modelo de <c>ImpiFact.Dian</c> (<see cref="SalesInvoice"/> o <see cref="SalesNote"/>)
@@ -452,7 +456,7 @@ internal static class CatalogNeeds
                     errors.Add(new FieldError($"{path}.{index}.unit_measure_id", IssueMessages.RequiredWith($"{path}.{index}.unit_measure_id", $"{path}.{index}.base_unit_measure")));
                 }
 
-                if (tax.PerUnitAmount is null)
+                if (LegacyScalar.IsMissing(tax.PerUnitAmount))
                 {
                     errors.Add(new FieldError($"{path}.{index}.per_unit_amount", IssueMessages.RequiredWith($"{path}.{index}.per_unit_amount", $"{path}.{index}.base_unit_measure")));
                 }

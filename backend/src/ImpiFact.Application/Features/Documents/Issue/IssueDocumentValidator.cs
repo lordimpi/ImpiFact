@@ -230,7 +230,7 @@ internal static class IssueDocumentRules
             {
                 foreach (var (field, value) in new[] { ("unit_measure_id", item.UnitMeasureId), ("per_unit_amount", item.PerUnitAmount), ("base_unit_measure", item.BaseUnitMeasure) })
                 {
-                    if (value is null)
+                    if (LegacyScalar.IsMissing(value))
                     {
                         check.Fail($"{at}.{field}", IssueMessages.RequiredIf($"{at}.{field}", $"{at}.tax_id", "10"));
                     }
@@ -319,7 +319,7 @@ internal static class IssueDocumentRules
                 check.Fail("billing_reference.uuid", IssueMessages.Size("billing_reference.uuid", 96));
             }
 
-            if (reference.IssueDate is null)
+            if (LegacyScalar.IsMissing(reference.IssueDate))
             {
                 check.Fail("billing_reference.issue_date", IssueMessages.RequiredWith("billing_reference.issue_date", "billing_reference"));
             }
@@ -333,7 +333,7 @@ internal static class IssueDocumentRules
         {
             foreach (var (field, value) in new[] { ("start_date", period.StartDate), ("end_date", period.EndDate) })
             {
-                if (value is null)
+                if (LegacyScalar.IsMissing(value))
                 {
                     check.Fail($"invoice_period.{field}", IssueMessages.RequiredWith($"invoice_period.{field}", "invoice_period"));
                 }

@@ -335,6 +335,46 @@ public sealed class DocumentIssueApiTests
         return content;
     }
 
+    private static string Dir(string kind, string name) => Path.Combine(GoldenIssueTests.GoldenRoot(), kind, name);
+
+    // Datos mal formados nunca deben terminar en un error interno (500): son errores del cliente (422).
+    [TestCase("credit-note", "partial-return-with-reference", "billing_reference", "issue_date")]
+    [TestCase("credit-note", "without-reference-invoice-period", "invoice_period", "start_date")]
+    [TestCase("credit-note", "without-reference-invoice-period", "invoice_period", "end_date")]
+    public async Task An_empty_date_inside_a_nested_object_answers_422(string kind, string name, string parent, string field)
+    {
+        using var issuer = await NewIssuerAsync();
+
+        using var response = await PostAsync(issuer.Client, kind, Edited(Dir(kind, name), json => json[parent]![field] = ""));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
+    }
+
+    [Test]
+    public async Task An_empty_per_unit_amount_on_a_fixed_value_tax_answers_422()
+    {
+        using var issuer = await NewIssuerAsync();
+
+        using var response = await PostAsync(issuer.Client, "invoice", Edited(Dir("invoice", "inc-bags-fixed-value"), json =>
+        {
+            json["tax_totals"]![1]!["per_unit_amount"] = "";
+            json["invoice_lines"]![1]!["tax_totals"]![0]!["per_unit_amount"] = "";
+        }));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
+    }
+
+    [Test]
+    public async Task A_property_repeated_at_the_root_answers_422()
+    {
+        using var issuer = await NewIssuerAsync();
+        var text = Encoding.UTF8.GetString(Edited(Invoice, json => json.Remove("number")));
+
+        using var response = await PostAsync(issuer.Client, "invoice", Encoding.UTF8.GetBytes("{\"notes\":\"a\",\"notes\":\"b\"," + text[1..]));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
+    }
+
     private static async Task<HttpResponseMessage> PostAsync(HttpClient client, string route, byte[] body, string? idempotencyKey = null)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/ubl2.1/{route}") { Content = Content(body) };
