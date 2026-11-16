@@ -12,6 +12,10 @@ namespace ImpiFact.Domain.Documents;
 /// </summary>
 public sealed class Document : TenantEntity
 {
+    // EF Core (Entity Framework, el mapeador de objetos a tablas) lee y escribe este campo directamente al cargar
+    // la fila; el código del dominio lo cambia solo desde MoveTo.
+    private DocumentStatus _status = DocumentStatus.Received;
+
     public int DocumentTypeId { get; init; }
 
     /// <summary>Ambiente DIAN en que se emitió.</summary>
@@ -27,7 +31,18 @@ public sealed class Document : TenantEntity
     /// <summary>Prefijo y número juntos, como se muestran.</summary>
     public required string FullNumber { get; init; }
 
-    public DocumentStatus Status { get; set; }
+    /// <summary>
+    /// Estado del documento. Un documento nuevo empieza en <see cref="DocumentStatus.Received"/>; después solo
+    /// cambia con <see cref="MoveTo"/>, que aplica las transiciones permitidas. El valor inicial se puede fijar al
+    /// crear el objeto (por ejemplo, al cargar datos de prueba), pero nunca después.
+    /// </summary>
+    public DocumentStatus Status
+    {
+        get => _status;
+        init => _status = Enum.IsDefined(value)
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(Status), value, "Unknown document status.");
+    }
 
     /// <summary>CUFE, CUDE o CUNE (códigos únicos de factura, documento y nómina) en hexadecimal minúsculo.</summary>
     public string? Cufe { get; set; }
@@ -107,6 +122,20 @@ public sealed class Document : TenantEntity
 
     /// <summary>Usuario o API key que lo creó.</summary>
     public Guid? CreatedById { get; init; }
+
+    /// <summary>
+    /// Pasa el documento al estado indicado si la transición está permitida (Modelo de datos detallado, sección 4).
+    /// </summary>
+    /// <exception cref="InvalidDocumentTransitionException">Si la transición no está en la tabla; el estado no cambia.</exception>
+    public void MoveTo(DocumentStatus next)
+    {
+        if (!DocumentStatusTransitions.IsAllowed(_status, next))
+        {
+            throw new InvalidDocumentTransitionException(_status, next);
+        }
+
+        _status = next;
+    }
 }
 
 /// <summary>Datos del adquiriente copiados al emitir el documento (columna JSON <c>customer_snapshot</c>).</summary>
@@ -379,11 +408,30 @@ public sealed class ReceivedDocument : TenantEntity
 
 /// <summary>
 /// Consecutivo (<c>numbering_sequences</c>; en el PHP, <c>sends</c>). La clave es <c>R:{resolution_id}</c> con
-/// resolución, o <c>T:{document_type_id}:{ambiente}:{prefijo}:{año}</c> sin ella. Se toma con un UPDATE atómico.
+/// resolución, o <c>T:{document_type_id}:{ambiente}:{prefijo}:{año}</c> sin ella (ver <see cref="NumberingScope"/>).
 /// </summary>
+/// <remarks>
+/// El número se toma con un solo UPDATE atómico en la base (Modelo de datos detallado, sección 5), no cambiando
+/// esta entidad en memoria: así dos solicitudes simultáneas nunca obtienen el mismo número. En memoria solo se
+/// crea la fila y se adelanta con <see cref="RaiseTo"/>, que nunca la hace bajar.
+/// </remarks>
 public sealed class NumberingSequence : TenantEntity
 {
+    // EF Core lee y escribe este campo directamente al cargar la fila.
+    private long _nextNumber;
+
     public required string ScopeKey { get; init; }
 
-    public long NextNumber { get; set; }
+    /// <summary>Siguiente número que entregará el consecutivo.</summary>
+    public long NextNumber
+    {
+        get => _nextNumber;
+        init => _nextNumber = value;
+    }
+
+    /// <summary>
+    /// Adelanta el consecutivo hasta <paramref name="number"/> si está por debajo; si ya va más adelante, no cambia.
+    /// Sirve, por ejemplo, cuando una resolución actualizada empieza su rango más arriba.
+    /// </summary>
+    public void RaiseTo(long number) => _nextNumber = Math.Max(_nextNumber, number);
 }
