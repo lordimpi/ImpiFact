@@ -52,4 +52,4 @@ No se exportan `created_at` ni `updated_at`. Tampoco `is_active`, `valid_from` n
 
 Los valores se copian tal cual, incluidos los espacios finales de algunos nombres (219 municipios y 3 medios de pago) y la diferencia entre `""` y `null` en `type_documents`.
 
-La única excepción son las correcciones de `CORRECTIONS` en `export_catalogs.py`: errores de datos del PHP que ImpiFact corrige a propósito, como el código de Suecia (`SI` en el PHP, `SE` según ISO 3166). Cada corrección guarda el valor que se espera encontrar en el PHP; si ese valor cambia, el exportador se detiene para que alguien la revise. Por eso `--check` informa `countries` como distinto de la base de referencia: es esperado.
+La única excepción son las correcciones de `CORRECTIONS` en `export_catalogs.py`: errores de datos del PHP que ImpiFact corrige a propósito, como el código de Suecia (`SI` en el PHP, `SE` según ISO 3166). Cada corrección guarda el valor que se espera encontrar en el PHP; si ese valor cambia, el exportador se detiene para que alguien la revise. `--check` aplica las mismas correcciones antes de comparar, así que con la base de referencia intacta informa todo `OK`.
