@@ -377,11 +377,15 @@ Módulos del panel de la fase 5:
   "Database":   { "Provider": "Postgres", "ConnectionString": "" },        // Postgres | SqlServer | MySql
   "Dian":       { "HabilitacionUrl": "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc",
                   "ProduccionUrl":   "https://vpfe.dian.gov.co/WcfDianCustomerServices.svc",
+                  "HabilitacionQrUrl": "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=",
+                  "ProduccionQrUrl":   "https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=",
                   "TimeoutSeconds": 60 },
   "Storage":    { "Provider": "Local", "Local": { "Root": "/data" },    // Local | AzureBlob | S3 | Gcs
                   "AzureBlob": { "Container": "impifact" }, "S3": { "Bucket": "", "Region": "" }, "Gcs": { "Bucket": "" } },
-  "Secrets":    { "Provider": "LocalAesGcm", "KeyVaultUri": "", "AwsRegion": "", "GcpProject": "" },
-  "Jwt":        { "Issuer": "impifact", "Audience": "impifact-web", "AccessMinutes": 15, "RefreshDays": 14 },
+  "Secrets":    { "Provider": "LocalAesGcm", "LocalAesGcm": { "CertificateDirectory": "/data/certificates" },  // MasterKeyFile: ruta del secreto montado
+                  "KeyVaultUri": "", "AwsRegion": "", "GcpProject": "" },
+  "Jwt":        { "Issuer": "impifact", "Audience": "impifact-web", "AccessMinutes": 15, "RefreshDays": 14 },  // SigningKey (PEM) es secreto
+  "ForwardedHeaders": { "KnownProxies": [], "KnownNetworks": [] },          // vacío = solo loopback
   "ApiKey":     { "Prefix": "apk_" },
   "Outbox":     { "PollSeconds": 2, "LockMinutes": 5, "MaxAttempts": 5 },
   "Resilience": { "Retries": 3, "BreakerFailures": 5, "BreakerSeconds": 30 },
@@ -426,7 +430,7 @@ Cobertura mínima exigida en CI: `Domain` y `Dian` 90 %, `Application` 80 %; los
 - Imágenes: `Dockerfile.api`, `Dockerfile.worker`, `Dockerfile.web` (Nginx con el build de Angular), multi-etapa, usuario no root, sin secretos en capas.
 - `docker-compose.yml` para desarrollo: Postgres, SQL Server, MySQL (perfiles), Azurite/MinIO para blobs, MailHog para correo, Api, Worker y web.
 - CI (GitHub Actions): restaurar → compilar con `TreatWarningsAsErrors` → pruebas unitarias → integración (PostgreSQL; matriz de motores desde la fase 6) → golden → contract → análisis de vulnerabilidades → imágenes.
-- Migraciones se aplican con `ImpiFact.Migrator` como paso previo al despliegue (job de Kubernetes, tarea ECS, job de Cloud Run o contenedor de inicio en Azure Container Apps).
+- Migraciones se aplican con `ImpiFact.Migrator migrate` como paso previo al despliegue (job de Kubernetes, tarea ECS, job de Cloud Run o contenedor de inicio en Azure Container Apps); el mismo comando sincroniza los catálogos DIAN. `ImpiFact.Migrator create-platform-key <nombre>` crea la primera API key de plataforma de una instalación nueva.
 
 | Necesidad | Azure | AWS | GCP |
 | --- | --- | --- | --- |

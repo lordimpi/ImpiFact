@@ -489,10 +489,11 @@ src/ImpiFact.Infrastructure/Seed/*.json   catálogos versionados (id, code, name
 
 - El proveedor se elige por `Database:Provider` (IOptions con `ValidateOnStart`) y `Database:ConnectionString`.
 - Migraciones: `dotnet ef migrations add <Nombre> -p ImpiFact.Infrastructure.<Proveedor>`, generadas **por proveedor**, nunca copiadas a mano entre ellos. CI falla si el modelo y el snapshot de algún proveedor difieren.
-- Aplicación: herramienta de consola `ImpiFact.Migrator` o el flag `--migrate` del Api en desarrollo; en producción se generan scripts idempotentes (`dotnet ef migrations script --idempotent`).
-- Semillas: los JSON de `Seed/` se generan **una vez** extrayendo los `insert` de las migraciones PHP (con sus ids) y se corrigen con los valores finales (nombres de impuestos, `codefacturador`). Un test compara cada catálogo sembrado contra su JSON y falla si cambia un `id` o un `code`.
-- Cambios futuros de catálogo (nuevo anexo DIAN) = nueva migración de datos con `valid_from`; nunca se edita una fila existente.
-- Semilla de plataforma: roles, planes base y tipos de ambiente. Por empresa, al crearla: cliente consumidor final.
+- Aplicación: herramienta de consola `ImpiFact.Migrator` (`migrate`), en todos los ambientes; la API no aplica migraciones. Para revisar el SQL antes de un despliegue se puede generar un script idempotente (`dotnet ef migrations script --idempotent`). En PostgreSQL: `dotnet ef migrations add <Nombre> -p src/ImpiFact.Infrastructure.Postgres -s src/ImpiFact.Infrastructure.Postgres` (la herramienta está fijada en `backend/dotnet-tools.json`).
+- Semillas de catálogos (16-nov): los JSON de `Seed/` se exportan de la base de referencia del PHP con `backend/tools/catalog-export` (ids del PHP; correcciones documentadas en el exportador). No van en las migraciones con `HasData`, porque EF copiaría ~3.000 filas en la instantánea y en cada migración: los sincroniza `CatalogSynchronizer` desde el Migrator después de migrar (agrega y corrige filas, nunca borra, no toca `is_active` ni la vigencia). Un test compara cada catálogo sembrado contra su JSON.
+- Cambios futuros de catálogo (nuevo anexo DIAN): se regenera o edita el JSON (filas nuevas con `valid_from`) y el Migrator lo sincroniza en el siguiente despliegue.
+- Semilla de plataforma: los cinco roles, con `HasData` en la migración (ids fijos). Los planes base no se siembran todavía: el modelo no define sus valores. Los tipos de ambiente son un catálogo. Por empresa, al crearla: el cliente por defecto del PHP (`2222222222`, «Cliente por Defecto», cédula) y su primera API key.
+- Primera API key de plataforma de una instalación nueva: `ImpiFact.Migrator create-platform-key <nombre>`; se muestra una sola vez.
 
 ## 10. Mapeo PHP → .NET
 
