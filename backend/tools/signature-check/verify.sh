@@ -2,7 +2,8 @@
 # Verifica las firmas producidas por ImpiFact.Dian con xmlsec1, una herramienta de verificación de
 # firmas XML que no depende de .NET (usa libxmlsec1 y OpenSSL). Las firmas son XAdES-EPES: firma XML
 # estándar más los datos que exige la DIAN (hora de firma, certificado y política de firma).
-# Las muestras se generan con la prueba SignatureSampleWriter; la verificación corre en un contenedor Docker.
+# Las muestras se generan con "dotnet run --project tools/ImpiFact.Prototype -- sign-samples" (ver README);
+# la verificación corre en un contenedor Docker.
 # Uso: verify.sh <directorio con signer.pem y signed/*.xml>
 set -euo pipefail
 

@@ -4,9 +4,15 @@
 //
 // Uso (desde la carpeta backend/):
 //   dotnet run --project tools/ImpiFact.Prototype -- [--out <dir>] [--cert <file.p12> --password <pwd>]
+//   dotnet run --project tools/ImpiFact.Prototype -- sign-samples [--out <dir>]
 //
 // Sin --cert se crea en memoria un certificado autofirmado desechable. Basta para verificar la firma
 // localmente, pero la DIAN no lo aceptará.
+//
+// sign-samples firma todos los casos de referencia de tests/golden (el XML que generó ApiDian, el PHP
+// original) y los escribe en <dir>/signed/, junto con el certificado público en <dir>/signer.pem, para que
+// tools/signature-check los verifique con xmlsec1, un verificador de firmas XML independiente de .NET.
+// Sin --out escribe en una carpeta temporal nueva; nunca escribe dentro del repositorio.
 
 using System.Globalization;
 using System.IO.Compression;
@@ -18,6 +24,11 @@ using System.Xml;
 using ImpiFact.Dian.Cufe;
 using ImpiFact.Dian.Signing;
 using ImpiFact.Dian.Ubl;
+
+if (args is ["sign-samples", ..])
+{
+    return SignSamples(ParseArguments(args[1..]));
+}
 
 var options = ParseArguments(args);
 var outputDirectory = options.GetValueOrDefault("--out")
@@ -55,6 +66,72 @@ Console.WriteLine($"Signature    {(signatureValid ? "valid" : "INVALID")}");
 Console.WriteLine($"Output       {outputDirectory}");
 Console.WriteLine($"             unsigned.xml, {xmlName}, {zipName}, signer.pem");
 return signatureValid ? 0 : 1;
+
+static int SignSamples(Dictionary<string, string> options)
+{
+    var directory = Path.GetFullPath(options.GetValueOrDefault("--out")
+        ?? Path.Combine(Path.GetTempPath(), "impifact-signature-samples-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)));
+    var repositoryRoot = FindAbove(AppContext.BaseDirectory, dir =>
+        Directory.Exists(Path.Combine(dir, ".git")) || File.Exists(Path.Combine(dir, ".git")));
+    if (repositoryRoot is not null && IsInside(directory, repositoryRoot))
+    {
+        Console.Error.WriteLine($"Refusing to write inside the repository: {directory}");
+        return 2;
+    }
+
+    var goldenRoot = FindAbove(AppContext.BaseDirectory, dir => Directory.Exists(Path.Combine(dir, "tests", "golden")))
+        ?? throw new DirectoryNotFoundException("tests/golden not found above " + AppContext.BaseDirectory);
+    goldenRoot = Path.Combine(goldenRoot, "tests", "golden");
+
+    using var certificate = CreateThrowawayCertificate();
+    var signedDirectory = Path.Combine(directory, "signed");
+    Directory.CreateDirectory(signedDirectory);
+    var signingTime = DateTimeOffset.Now;
+    var count = 0;
+    var allValid = true;
+
+    // Un archivo por caso de referencia (facturas, notas crédito, nota débito), llamado <tipo>.<caso>.xml.
+    foreach (var caseDirectory in Directory.EnumerateDirectories(goldenRoot)
+        .SelectMany(Directory.EnumerateDirectories)
+        .Where(dir => File.Exists(Path.Combine(dir, "expected.xml")))
+        .Order(StringComparer.Ordinal))
+    {
+        var documentType = Path.GetFileName(Path.GetDirectoryName(caseDirectory)!);
+        var signed = XmlSigner.Sign(File.ReadAllText(Path.Combine(caseDirectory, "expected.xml")), certificate, signingTime);
+        allValid &= VerifySignature(signed);
+        File.WriteAllText(Path.Combine(signedDirectory, $"{documentType}.{Path.GetFileName(caseDirectory)}.xml"), signed, new UTF8Encoding(false));
+        count++;
+    }
+
+    // Solo el certificado público: la clave privada se queda en memoria y nunca se escribe.
+    File.WriteAllText(Path.Combine(directory, "signer.pem"), certificate.ExportCertificatePem(), new UTF8Encoding(false));
+
+    Console.WriteLine($"Signed       {count} reference documents");
+    Console.WriteLine($"Signature    {(allValid ? "valid (.NET check)" : "INVALID")}");
+    Console.WriteLine($"Output       {directory}");
+    Console.WriteLine($"Next         bash tools/signature-check/verify.sh \"{directory}\"");
+    return allValid ? 0 : 1;
+}
+
+// Sube desde start hasta la raíz del disco y devuelve la primera carpeta que cumple la condición.
+static string? FindAbove(string start, Func<string, bool> matches)
+{
+    for (var dir = new DirectoryInfo(start); dir is not null; dir = dir.Parent)
+    {
+        if (matches(dir.FullName))
+        {
+            return dir.FullName;
+        }
+    }
+
+    return null;
+}
+
+static bool IsInside(string path, string root)
+{
+    var relative = Path.GetRelativePath(root, path);
+    return relative == "." || !(relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative));
+}
 
 static Dictionary<string, string> ParseArguments(string[] args)
 {

@@ -11,15 +11,14 @@ Comprueba con `xmlsec1` (libxmlsec1 sobre OpenSSL) que la firma XAdES-EPES de `I
 
 Los comandos se ejecutan desde la carpeta `backend/`.
 
-1. Genere las muestras en un directorio **fuera del repositorio**. La prueba se niega a escribir dentro del repositorio.
+1. Genere las muestras en un directorio **fuera del repositorio**. La herramienta se niega a escribir dentro del repositorio.
 
    ```bash
    dir="$(mktemp -d)"
-   IMPIFACT_SIGNATURE_SAMPLE_DIR="$dir" dotnet test tests/ImpiFact.Dian.Tests \
-     --filter "FullyQualifiedName~Writes_a_signed_sample_for_the_independent_check"
+   dotnet run --project tools/ImpiFact.Prototype -- sign-samples --out "$dir"
    ```
 
-   La prueba es `Explicit` y solo corre cuando el filtro la nombra. Escribe en `$dir/signed/` cada caso golden firmado (facturas, notas crédito y nota débito) y en `$dir/signer.pem` el certificado público de prueba. El certificado se genera en memoria en cada corrida y la llave privada nunca se escribe.
+   Sin `--out` usa una carpeta temporal nueva y la muestra al terminar. Escribe en `$dir/signed/` cada caso de referencia (golden) firmado (facturas, notas crédito y nota débito) y en `$dir/signer.pem` el certificado público de prueba. El certificado se genera en memoria en cada corrida y la llave privada nunca se escribe.
 
 2. Verifique las firmas:
 
