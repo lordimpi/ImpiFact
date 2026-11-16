@@ -12,6 +12,13 @@ public sealed record SalesInvoice
 {
     public required DianEnvironment Environment { get; init; }
 
+    /// <summary>
+    /// Inicio de la URL de consulta de la factura en el portal de la DIAN; el CUFE se agrega al final y el
+    /// resultado va en sts:QRCode. Depende del ambiente (habilitación o producción) y sale de la
+    /// configuración (DianOptions), no del código.
+    /// </summary>
+    public required string QrCodeBaseUrl { get; init; }
+
     /// <summary>Código del tipo de operación que se escribe en cbc:CustomizationID (10 = estándar).</summary>
     public required string OperationTypeCode { get; init; }
 

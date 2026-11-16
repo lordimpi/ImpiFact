@@ -178,7 +178,7 @@ public static class InvoiceUblBuilder
                 .Add(DianAgency(new UblElement("sts:AuthorizationProviderID", AuthorizationProviderNit))
                     .Attr("schemeID", "4")
                     .Attr("schemeName", "31")))
-            .Add("sts:QRCode", QrUrl(invoice.Environment) + cufe);
+            .Add("sts:QRCode", invoice.QrCodeBaseUrl + cufe);
 
         return new UblElement("ext:UBLExtensions")
             .Add(new UblElement("ext:UBLExtension")
@@ -474,10 +474,6 @@ public static class InvoiceUblBuilder
         element.Attr("schemeAgencyID", DianAgencyId).Attr("schemeAgencyName", DianAgencyName);
 
     private static string EnvironmentCode(DianEnvironment environment) => ((int)environment).ToString(CultureInfo.InvariantCulture);
-
-    private static string QrUrl(DianEnvironment environment) => environment == DianEnvironment.Production
-        ? "https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey="
-        : "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=";
 
     private static string Date(DateOnly date) => date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 

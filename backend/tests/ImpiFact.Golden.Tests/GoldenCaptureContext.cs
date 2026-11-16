@@ -42,6 +42,9 @@ public static class GoldenCaptureContext
     /// </summary>
     public const int EnvironmentId = 2;
 
+    /// <summary>URL de consulta del QR en habilitación, la que escribió ApiDian en los casos capturados.</summary>
+    public const string QrCodeBaseUrl = "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=";
+
     /// <summary>type_currency_id 35: COP.</summary>
     public const int CompanyCurrencyId = 35;
 
