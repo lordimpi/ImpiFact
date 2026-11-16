@@ -499,6 +499,8 @@ flowchart LR
 
 **Estado al 15-nov-2026.** Fase 0 cerrada (los pendientes de licencia, consulta regulatoria y reglas de totales no bloquean el desarrollo). Fase 1a cerrada: `ImpiFact.Dian` genera el XML de factura idéntico byte a byte a los 11 golden, calcula los 14 CUFE/CUDE y firma con XAdES-EPES; la firma la validan .NET y `xmlsec1`. Siguen la fase 1b (espera certificado y `testSetId`) y la fase 2.
 
+**Estado al 17-nov-2026.** Fase 2 cerrada: solución por capas (Domain, Application, Dian, Infrastructure, Infrastructure.Postgres, Api, Migrator), modelo completo en PostgreSQL con su migración inicial y los 29 catálogos sincronizados desde los JSON del PHP, Identity (login, renovación con detección de reuso, API keys, usuarios, alcances por rol) y Company (empresa, ambientes, software, certificado cifrado, resoluciones, con los alias del Postman). La puerta de salida se cumple: pruebas de arquitectura (capas, módulos, controlador de PostgreSQL, Dapper con `company_id`) y de aislamiento por empresa en verde, 591 pruebas y CI en verde. Quedan para la fase siguiente: bloqueo de cuenta por intentos fallidos, límite explícito del tamaño del certificado y cierre de sesiones al cambiar clave o rol.
+
 **Estrategia de pruebas**
 
 1. **Golden tests (la más importante).** Se corre el PHP con un conjunto de JSON de entrada, se guarda el XML y el CUFE, y .NET debe producir los mismos. Cubre cada tipo de documento y los casos límite: descuentos, impuestos, retenciones, moneda extranjera y redondeo.
