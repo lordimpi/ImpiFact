@@ -27,6 +27,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         return new SalesInvoice
         {
             Environment = (DianEnvironment)GoldenCaptureContext.EnvironmentId,
+            QrCodeBaseUrl = GoldenCaptureContext.QrCodeBaseUrl,
             OperationTypeCode = catalog.Get("operationTypes", GoldenCaptureContext.OperationTypeId).Code,
             InvoiceTypeCode = catalog.Get("documentTypes", RequiredInt(request, "type_document_id")).Code,
             Resolution = new NumberingResolution(

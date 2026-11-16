@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Casos de uso y puertos. Sin EF, Dapper, ASP.NET ni SDK de nube (Arquitectura, sección 1). -->
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Mapster" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Scrutor" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ImpiFact.Domain\ImpiFact.Domain.csproj" />
+    <ProjectReference Include="..\ImpiFact.Dian\ImpiFact.Dian.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ImpiFact.Application.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,14 @@
+[
+  {"id": 1, "code": "00", "name": "Descuento por impuesto asumido"},
+  {"id": 2, "code": "01", "name": "Pague uno lleve otro"},
+  {"id": 3, "code": "02", "name": "Descuentos contractulales"},
+  {"id": 4, "code": "03", "name": "Descuento por pronto pago"},
+  {"id": 5, "code": "04", "name": "Envío gratis"},
+  {"id": 6, "code": "05", "name": "Descuentos escpecíficos por inventarios"},
+  {"id": 7, "code": "06", "name": "Descuento por monto de compras"},
+  {"id": 8, "code": "07", "name": "Descuento de temporada"},
+  {"id": 9, "code": "08", "name": "Descuento por acturalización de productos / servicios"},
+  {"id": 10, "code": "09", "name": "Descuento general"},
+  {"id": 11, "code": "10", "name": "Descuento por volumen"},
+  {"id": 12, "code": "11", "name": "Otro descuento"}
+]

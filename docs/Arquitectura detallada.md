@@ -7,11 +7,12 @@ Especificación de implementación. Complementa la sección 6 del PRD (visión y
 ```
 ImpiFact.Domain          ← no depende de nada (ni de EF, ni de JSON, ni de DI)
 ImpiFact.Application     ← Domain, Dian
-ImpiFact.Dian            ← Domain (puro: UBL, CUFE, firma, SOAP; sin acceso a BD)
+ImpiFact.Dian            ← nada (puro: UBL, CUFE, firma, SOAP; sin acceso a BD; ADR-26)
 ImpiFact.Infrastructure  ← Application, Dian, Domain  (EF, Dapper, blobs, correo, PDF, secretos)
 ImpiFact.Infrastructure.<Proveedor> ← Infrastructure (migraciones y SQL no portable)
-ImpiFact.Api             ← Application, Infrastructure (composición)
-ImpiFact.Worker          ← Application, Infrastructure (composición)
+ImpiFact.Api             ← Application, Infrastructure, Infrastructure.<Proveedor> (composición)
+ImpiFact.Worker          ← Application, Infrastructure, Infrastructure.<Proveedor> (composición)
+ImpiFact.Migrator        ← Application, Infrastructure, Infrastructure.<Proveedor> (aplica migraciones y semillas)
 ```
 
 Reglas verificadas por pruebas de arquitectura (NetArchTest):
@@ -49,7 +50,7 @@ ImpiFact/
 │  │  │  ├─ Persistence/       DbContext, configuraciones, UnitOfWork, interceptores, convenciones
 │  │  │  ├─ Reads/             consultas Dapper por módulo
 │  │  │  ├─ Storage/           IBlobStorage: Local, AzureBlob, S3, Gcs
-│  │  │  ├─ Secrets/           ICertificateStore, ISecretProtector: KeyVault, AwsSecrets, GcpSecrets, LocalAesGcm
+│  │  │  ├─ Protection/        ICertificateStore, ISecretProtector: KeyVault, AwsSecrets, GcpSecrets, LocalAesGcm
 │  │  │  ├─ Email/             IEmailSender (MailKit, SMTP por empresa)
 │  │  │  ├─ Pdf/               IPdfRenderer + plantillas
 │  │  │  ├─ Outbox/            publicador y procesador
@@ -176,11 +177,11 @@ public interface IBlobStorage {
 
 public interface ICertificateStore {
     Task<string> SaveAsync(Guid companyId, byte[] pfx, string password, CancellationToken ct);   // devuelve secret_ref
-    Task<SigningCertificate> LoadAsync(string secretRef, CancellationToken ct);                // X509Certificate2 en memoria
-    Task DeleteAsync(string secretRef, CancellationToken ct);
+    Task<X509Certificate2> LoadAsync(Guid companyId, string secretRef, CancellationToken ct);  // en memoria
+    Task DeleteAsync(Guid companyId, string secretRef, CancellationToken ct);                   // companyId: datos asociados
 }
 
-public interface ISecretProtector { string Protect(string plain); string Unprotect(string cipher); }  // PIN, SMTP, tokens
+public interface ISecretProtector { string Protect(string purpose, string plain); string Unprotect(string purpose, string cipher); }  // PIN, SMTP, tokens; el propósito separa las llaves por uso
 
 // --- Definidos e implementados en ImpiFact.Dian (ADR-23) ---
 public interface IDianClient {
@@ -243,7 +244,7 @@ Estado al 15-nov (fase 1a): `XmlSigner` firma con RSA-SHA256, C14N inclusivo y d
 
 - `Opción A (por defecto hasta el spike): cliente propio sobre HttpClient; opción B: cliente WCF con CustomBinding y un MessageInspector para la seguridad. E`l sobre SOAP 1.2 se construye a mano con WS-Addressing y un `wsse:Security` que incluye `Timestamp`, `BinarySecurityToken` (el certificado) y una firma `ds:Signature` sobre el `wsa:To` **\[verificar con la DIAN en la fase 1\]**.
 - URLs por ambiente en `DianOptions`: habilitación `https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc`, producción `https://vpfe.dian.gov.co/WcfDianCustomerServices.svc`.
-- URLs de consulta del QR por ambiente, también en `DianOptions`: habilitación `https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=`, producción `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=`. Hoy están fijas en `InvoiceUblBuilder` (fase 1a, antes de que exista la configuración). En la fase 2 Application las pasa a `ImpiFact.Dian` en su modelo de entrada; el núcleo no depende de `IOptions` (ADR-26).
+- URLs de consulta del QR por ambiente, también en `DianOptions`: habilitación `https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=`, producción `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=`. `ImpiFact.Dian` las recibe en su modelo de entrada (`SalesInvoice.QrCodeBaseUrl`, 16-nov) y Application se las pasa desde `DianOptions`; el núcleo no depende de `IOptions` (ADR-26).
 - Lo que no va en configuración: espacios de nombres, algoritmos, política de firma, NIT de la DIAN y códigos de catálogo. Son reglas del anexo técnico: si la DIAN las cambia, se cambia el código con sus pruebas golden.
 - Operaciones: `SendBillSync`, `SendTestSetAsync`, `SendBillAsync`, `GetStatus`, `GetStatusZip`, `SendEventUpdateStatus`, `GetNumberingRange`, `GetXmlByDocumentKey`.
 - Los archivos se envían como ZIP en base64 con el nombre de archivo que exige la DIAN por tipo de documento.
@@ -315,7 +316,7 @@ Cada mensaje del outbox lleva `company_id`; el Worker lo establece en `ITenantCo
 - **JWT** del panel: vida 15 min, refresh de 14 días rotativo (`refresh_tokens`), claims `sub`, `role` y `company_id` activa; cambiar de empresa emite un token nuevo.
 - **Plataforma**: llave con `company_id` nulo y alcance `platform:*` reemplaza `X-Admin-Token` para crear/borrar empresas, planes y revendedores.
 - **Propiedad por NIT**: toda ruta con `{nit}` o con NIT en el cuerpo compara contra la empresa del token; si no coincide responde 403 sin revelar si el NIT existe.
-- Políticas de autorización por alcance (`documents:write`, `documents:read`, `config:write`, `platform:*`) y por rol en el panel.
+- Políticas de autorización por alcance (`documents:write`, `documents:read`, `config:write`, `platform:*`) y por rol en el panel. Los usuarios del panel reciben sus alcances según sus roles al emitir el JWT (16-nov), en claims `scope`, así las mismas políticas sirven para usuarios y API keys: `owner` → `documents:read`, `documents:write` y `config:write`; `seller` → `documents:read` y `documents:write`; `customer` → `documents:read`; `platform_admin` → `platform:*`; `reseller` → ninguno por ahora. Los alcances de empresa solo se dan con empresa activa en el token y `platform:*` solo sin empresa activa.
 
 ### 9.3 Endpoints
 
@@ -376,11 +377,15 @@ Módulos del panel de la fase 5:
   "Database":   { "Provider": "Postgres", "ConnectionString": "" },        // Postgres | SqlServer | MySql
   "Dian":       { "HabilitacionUrl": "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc",
                   "ProduccionUrl":   "https://vpfe.dian.gov.co/WcfDianCustomerServices.svc",
+                  "HabilitacionQrUrl": "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=",
+                  "ProduccionQrUrl":   "https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=",
                   "TimeoutSeconds": 60 },
   "Storage":    { "Provider": "Local", "Local": { "Root": "/data" },    // Local | AzureBlob | S3 | Gcs
                   "AzureBlob": { "Container": "impifact" }, "S3": { "Bucket": "", "Region": "" }, "Gcs": { "Bucket": "" } },
-  "Secrets":    { "Provider": "LocalAesGcm", "KeyVaultUri": "", "AwsRegion": "", "GcpProject": "" },
-  "Jwt":        { "Issuer": "impifact", "Audience": "impifact-web", "AccessMinutes": 15, "RefreshDays": 14 },
+  "Secrets":    { "Provider": "LocalAesGcm", "LocalAesGcm": { "CertificateDirectory": "/data/certificates" },  // MasterKeyFile: ruta del secreto montado
+                  "KeyVaultUri": "", "AwsRegion": "", "GcpProject": "" },
+  "Jwt":        { "Issuer": "impifact", "Audience": "impifact-web", "AccessMinutes": 15, "RefreshDays": 14 },  // SigningKey (PEM) es secreto
+  "ForwardedHeaders": { "KnownProxies": [], "KnownNetworks": [] },          // vacío = solo loopback
   "ApiKey":     { "Prefix": "apk_" },
   "Outbox":     { "PollSeconds": 2, "LockMinutes": 5, "MaxAttempts": 5 },
   "Resilience": { "Retries": 3, "BreakerFailures": 5, "BreakerSeconds": 30 },
@@ -425,7 +430,7 @@ Cobertura mínima exigida en CI: `Domain` y `Dian` 90 %, `Application` 80 %; los
 - Imágenes: `Dockerfile.api`, `Dockerfile.worker`, `Dockerfile.web` (Nginx con el build de Angular), multi-etapa, usuario no root, sin secretos en capas.
 - `docker-compose.yml` para desarrollo: Postgres, SQL Server, MySQL (perfiles), Azurite/MinIO para blobs, MailHog para correo, Api, Worker y web.
 - CI (GitHub Actions): restaurar → compilar con `TreatWarningsAsErrors` → pruebas unitarias → integración (PostgreSQL; matriz de motores desde la fase 6) → golden → contract → análisis de vulnerabilidades → imágenes.
-- Migraciones se aplican con `ImpiFact.Migrator` como paso previo al despliegue (job de Kubernetes, tarea ECS, job de Cloud Run o contenedor de inicio en Azure Container Apps).
+- Migraciones se aplican con `ImpiFact.Migrator migrate` como paso previo al despliegue (job de Kubernetes, tarea ECS, job de Cloud Run o contenedor de inicio en Azure Container Apps); el mismo comando sincroniza los catálogos DIAN. `ImpiFact.Migrator create-platform-key <nombre>` crea la primera API key de plataforma de una instalación nueva.
 
 | Necesidad | Azure | AWS | GCP |
 | --- | --- | --- | --- |
@@ -458,6 +463,7 @@ Convenciones que sigue todo el código del repositorio. Los documentos de `docs/
 - Idioma (15-nov): comentarios y documentación XML (`///`) en español neutro y profesional; identificadores, nombres de pruebas, mensajes de excepción y registros en inglés, como es convención en .NET.
 - Claridad (15-nov): los comentarios explican qué hace el código y por qué, en palabras simples, para alguien que no conoce las normas de firma XML ni la DIAN. Ninguna sigla ni término técnico sin explicar la primera vez que aparece en cada archivo (por ejemplo, «canonicalización (C14N): escribir el XML de forma estándar para que el mismo contenido dé siempre los mismos bytes»); los nombres oficiales (CUFE, UBL, XAdES) se conservan y se explican.
 - Ramas (16-nov): `develop` es la rama de integración y `main` solo recibe versiones. Cada cambio sale de `develop` en una rama con prefijo de Conventional Commits (`feat/`, `fix/`, `docs/`, `test/`, `refactor/`, `chore/`) y vuelve a `develop`; `main` se actualiza desde `develop` al cerrar una fase, con una etiqueta de versión.
+- Escrituras (16-nov): toda fila de empresa se escribe por el `DbContext` y `SaveChanges`, que aplican la guardia por empresa, `created_at`/`updated_at` y `row_version`. No se usan `ExecuteUpdate` ni `ExecuteDelete` sobre entidades auditadas o de borrado lógico: saltan esos interceptores. Un caso de uso no llama a otro comando decorado: la transacción es una por solicitud.
 - .NET 10, C# con `Nullable` y `TreatWarningsAsErrors`.
 - Clean Architecture: `Domain` sin dependencias, `Application` solo con puertos y `Dian` puro. Las pruebas de arquitectura deben pasar.
 - Sin MediatR ni AutoMapper. Casos de uso con `IHandler<TIn, TOut>` y decoradores; mapeo con Mapster.

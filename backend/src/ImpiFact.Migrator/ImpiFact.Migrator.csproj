@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Herramienta de línea de comandos que prepara la base antes de cada despliegue: aplica las migraciones y
+    sincroniza los catálogos DIAN (Arquitectura detallada, sección 13). Se ejecuta como paso previo (un job de
+    Kubernetes, una tarea de ECS, un job de Cloud Run o un contenedor de inicio).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ImpiFact.Application\ImpiFact.Application.csproj" />
+    <ProjectReference Include="..\ImpiFact.Infrastructure\ImpiFact.Infrastructure.csproj" />
+    <ProjectReference Include="..\ImpiFact.Infrastructure.Postgres\ImpiFact.Infrastructure.Postgres.csproj" />
+  </ItemGroup>
+</Project>

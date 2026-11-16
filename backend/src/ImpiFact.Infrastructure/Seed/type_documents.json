@@ -1,0 +1,16 @@
+[
+  {"id": 1, "code": "01", "name": "Factura de Venta Nacional", "cufe_algorithm": "CUFE-SHA384", "prefix": "fv"},
+  {"id": 2, "code": "02", "name": "Factura de Exportación", "cufe_algorithm": "CUFE-SHA384", "prefix": "fv"},
+  {"id": 3, "code": "03", "name": "Factura de Contingencia", "cufe_algorithm": "CUDE-SHA384", "prefix": "fv"},
+  {"id": 4, "code": "91", "name": "Nota Crédito", "cufe_algorithm": "CUDE-SHA384", "prefix": "nc"},
+  {"id": 5, "code": "92", "name": "Nota Débito", "cufe_algorithm": "CUDE-SHA384", "prefix": "nd"},
+  {"id": 6, "code": "", "name": "ZIP", "cufe_algorithm": "", "prefix": "z"},
+  {"id": 7, "code": "89", "name": "AttachedDocument", "cufe_algorithm": "", "prefix": "at"},
+  {"id": 8, "code": "88", "name": "ApplicationResponse", "cufe_algorithm": "CUDE-SHA384", "prefix": "ar"},
+  {"id": 9, "code": "1", "name": "Nomina Individual", "cufe_algorithm": "CUNE-SHA384", "prefix": "ni"},
+  {"id": 10, "code": "2", "name": "Nomina Individual de Ajuste", "cufe_algorithm": "CUNE-SHA384", "prefix": "na"},
+  {"id": 11, "code": "05", "name": "Documento Soporte Electrónico", "cufe_algorithm": "CUDS-SHA384", "prefix": "dse"},
+  {"id": 12, "code": "04", "name": "Factura electrónica de Venta - tipo 04", "cufe_algorithm": "CUFE-SHA384", "prefix": "fv"},
+  {"id": 13, "code": "95", "name": "Nota de Ajuste al Documento Soporte Electrónico", "cufe_algorithm": "CUDS-SHA384", "prefix": "nds"},
+  {"id": 14, "code": "96", "name": "Eventos (ApplicationResponse)", "cufe_algorithm": null, "prefix": null}
+]

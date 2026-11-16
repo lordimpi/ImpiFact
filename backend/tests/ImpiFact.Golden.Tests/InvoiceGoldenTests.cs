@@ -43,6 +43,22 @@ public sealed class InvoiceGoldenTests
         }
     }
 
+    // La URL del QR llega en el modelo de entrada (viene de la configuración por ambiente), no fija en el código.
+    [Test]
+    public void Qr_code_uses_the_base_url_given_in_the_input()
+    {
+        var caseDir = GoldenCases.Invoices().First();
+        using var input = JsonDocument.Parse(File.ReadAllText(Path.Combine(caseDir, "input.json"), Encoding.UTF8));
+        var invoice = new ApiDianInvoiceAdapter(Catalog).Map(input.RootElement) with
+        {
+            QrCodeBaseUrl = "https://qr.example.test/search?documentkey=",
+        };
+
+        var result = InvoiceUblBuilder.Build(invoice);
+
+        Assert.That(result.Xml, Does.Contain($"<sts:QRCode>https://qr.example.test/search?documentkey={result.Cufe}</sts:QRCode>"));
+    }
+
     private static InvoiceUblResult Build(string caseDir)
     {
         using var input = JsonDocument.Parse(File.ReadAllText(Path.Combine(caseDir, "input.json"), Encoding.UTF8));

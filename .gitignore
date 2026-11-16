@@ -23,3 +23,8 @@ TestResults/
 
 # Python cache
 __pycache__/
+
+# Local environment files with secrets; only the examples are versioned
+.env
+.env.*
+!.env.example

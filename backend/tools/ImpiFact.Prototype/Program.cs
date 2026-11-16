@@ -180,6 +180,8 @@ static SalesInvoice SampleInvoice()
     return new SalesInvoice
     {
         Environment = DianEnvironment.Testing,
+        // En la API este valor sale de DianOptions; el prototipo usa la URL de habilitación.
+        QrCodeBaseUrl = "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=",
         OperationTypeCode = "10",
         InvoiceTypeCode = "01",
         Resolution = new NumberingResolution(

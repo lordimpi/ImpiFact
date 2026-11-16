@@ -1,0 +1,7 @@
+[
+  {"id": 1, "code": "1", "name": "Devolución parcial de los bienes y/o no aceptación parcial del servicio"},
+  {"id": 2, "code": "2", "name": "Anulación del documento soporte en adquisiciones efectuadas a sujetos no obligados a expedir factura de venta o documento equivalente"},
+  {"id": 3, "code": "3", "name": "Rebaja o descuento parcial o total"},
+  {"id": 4, "code": "4", "name": "Ajuste de precio"},
+  {"id": 5, "code": "5", "name": "Otros"}
+]

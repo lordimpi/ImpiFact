@@ -53,18 +53,21 @@ Todas estas tablas comparten la forma base, con las columnas extra indicadas:
   is_active     bool not null default true
   valid_from    date null           — vigencia DIAN (nuevo)
   valid_to      date null
-  UQ ux_<catalogo>_code (code)  — salvo municipalities (ver abajo)
+  UQ ux_<catalogo>_code (code)  — salvo municipalities, unit_measures, type_operations, countries y languages (ver abajo)
 ```
 
 | Tabla (origen PHP) | Extras |
 | --- | --- |
-| `type_documents` | `cufe_algorithm varchar(10) null`, `prefix varchar(10) null`. Incluye factura, notas, soporte, nómina y equivalentes (ids 1–26 vistos en la colección). |
+| `type_documents` | `cufe_algorithm varchar(16) null` (`CUFE-SHA384` tiene 11 caracteres), `prefix varchar(10) null`. El PHP tiene 14 filas (ids 1–14); el id 6 (ZIP) tiene `code` vacío, que no es nulo. |
 | `taxes` | `description varchar(255)`. El id 15 es «ZZ» (no aplica); el PHP corrigió su nombre en 3 migraciones, se siembra ya corregido. |
-| `type_regimes`, `type_organizations`, `type_liabilities`, `type_environments`, `type_currencies`, `unit_measures`, `type_operations`, `type_discounts`, `discounts`, `reference_prices`, `type_item_identifications`, `payment_forms`, `payment_methods`, `type_rejections`, `events`, `incoterms`, `prepaid_payment_types`, `type_generation_transmitions`, `type_spds`, `languages` | solo forma base |
+| `type_regimes`, `type_organizations`, `type_liabilities`, `type_environments`, `type_currencies`, `unit_measures`, `type_operations`, `type_discounts`, `discounts`, `reference_prices`, `payment_forms`, `payment_methods`, `type_rejections`, `events`, `incoterms`, `prepaid_payment_types`, `type_generation_transmitions`, `type_spds`, `languages` | solo forma base |
 | `type_document_identifications` | `rips_code varchar(10) null` (migración `add_field_code_rips`). |
+| `type_item_identifications` | `code_agency varchar(10) null`: el XML lo escribe como `schemeAgencyID`. |
+| `unit_measures`, `type_operations` | Códigos repetidos en el PHP (MGM, ONZ, PD y SO en unidades; 10 y 11 en operaciones, reusados por el documento soporte): índice no único `ix_<catalogo>_code` en lugar de `UQ`. |
 | `health_type_document_identifications` | solo forma base (Enterprise RIPS; se omite en la paridad Community). |
 | `credit_note_discrepancy_responses`, `debit_note_discrepancy_responses`, `credit_note_discrepancy_responses_sd` | solo forma base; tres tablas porque los códigos difieren por documento. |
-| `countries` | `code varchar(5)` (ISO). |
+| `countries` | `code varchar(5)` (ISO). Índice no único: el PHP repetía `SI` en Suecia (id 218); la semilla lo corrige a `SE`, pero el índice no se vuelve único para no romper la paridad si aparece otro duplicado. |
+| `languages` | 185 pares de códigos que solo difieren en mayúsculas (`aa`/`AA`): índice no único, porque SQL Server y MySQL comparan sin distinguir mayúsculas. |
 | `departments` | `country_id int FK`, `code`. |
 | `municipalities` | `department_id int FK`, `code varchar(10)`, `codefacturador bigint null` (corregido en 8 migraciones PHP; se carga el valor final). `UQ (department_id, code)`. |
 
@@ -486,10 +489,11 @@ src/ImpiFact.Infrastructure/Seed/*.json   catálogos versionados (id, code, name
 
 - El proveedor se elige por `Database:Provider` (IOptions con `ValidateOnStart`) y `Database:ConnectionString`.
 - Migraciones: `dotnet ef migrations add <Nombre> -p ImpiFact.Infrastructure.<Proveedor>`, generadas **por proveedor**, nunca copiadas a mano entre ellos. CI falla si el modelo y el snapshot de algún proveedor difieren.
-- Aplicación: herramienta de consola `ImpiFact.Migrator` o el flag `--migrate` del Api en desarrollo; en producción se generan scripts idempotentes (`dotnet ef migrations script --idempotent`).
-- Semillas: los JSON de `Seed/` se generan **una vez** extrayendo los `insert` de las migraciones PHP (con sus ids) y se corrigen con los valores finales (nombres de impuestos, `codefacturador`). Un test compara cada catálogo sembrado contra su JSON y falla si cambia un `id` o un `code`.
-- Cambios futuros de catálogo (nuevo anexo DIAN) = nueva migración de datos con `valid_from`; nunca se edita una fila existente.
-- Semilla de plataforma: roles, planes base y tipos de ambiente. Por empresa, al crearla: cliente consumidor final.
+- Aplicación: herramienta de consola `ImpiFact.Migrator` (`migrate`), en todos los ambientes; la API no aplica migraciones. Para revisar el SQL antes de un despliegue se puede generar un script idempotente (`dotnet ef migrations script --idempotent`). En PostgreSQL: `dotnet ef migrations add <Nombre> -p src/ImpiFact.Infrastructure.Postgres -s src/ImpiFact.Infrastructure.Postgres` (la herramienta está fijada en `backend/dotnet-tools.json`).
+- Semillas de catálogos (16-nov): los JSON de `Seed/` se exportan de la base de referencia del PHP con `backend/tools/catalog-export` (ids del PHP; correcciones documentadas en el exportador). No van en las migraciones con `HasData`, porque EF copiaría ~3.000 filas en la instantánea y en cada migración: los sincroniza `CatalogSynchronizer` desde el Migrator después de migrar (agrega y corrige filas, nunca borra, no toca `is_active` ni la vigencia). Un test compara cada catálogo sembrado contra su JSON.
+- Cambios futuros de catálogo (nuevo anexo DIAN): se regenera o edita el JSON (filas nuevas con `valid_from`) y el Migrator lo sincroniza en el siguiente despliegue.
+- Semilla de plataforma: los cinco roles, con `HasData` en la migración (ids fijos). Los planes base no se siembran todavía: el modelo no define sus valores. Los tipos de ambiente son un catálogo. Por empresa, al crearla: el cliente por defecto del PHP (`2222222222`, «Cliente por Defecto», cédula) y su primera API key.
+- Primera API key de plataforma de una instalación nueva: `ImpiFact.Migrator create-platform-key <nombre>`; se muestra una sola vez.
 
 ## 10. Mapeo PHP → .NET
 

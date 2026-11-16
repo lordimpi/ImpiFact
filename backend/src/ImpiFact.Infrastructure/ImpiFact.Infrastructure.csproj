@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Adaptadores: persistencia, almacenamiento, secretos, correo y PDF. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Identity.Core" />
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ImpiFact.Application\ImpiFact.Application.csproj" />
+    <ProjectReference Include="..\ImpiFact.Dian\ImpiFact.Dian.csproj" />
+    <ProjectReference Include="..\ImpiFact.Domain\ImpiFact.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ImpiFact.Integration.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Semillas de catálogos: viajan dentro del ensamblado con un nombre fijo, «Seed/<tabla>.json». -->
+    <EmbeddedResource Include="Seed\*.json" LogicalName="Seed/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
