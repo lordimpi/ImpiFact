@@ -316,7 +316,7 @@ Cada mensaje del outbox lleva `company_id`; el Worker lo establece en `ITenantCo
 - **JWT** del panel: vida 15 min, refresh de 14 días rotativo (`refresh_tokens`), claims `sub`, `role` y `company_id` activa; cambiar de empresa emite un token nuevo.
 - **Plataforma**: llave con `company_id` nulo y alcance `platform:*` reemplaza `X-Admin-Token` para crear/borrar empresas, planes y revendedores.
 - **Propiedad por NIT**: toda ruta con `{nit}` o con NIT en el cuerpo compara contra la empresa del token; si no coincide responde 403 sin revelar si el NIT existe.
-- Políticas de autorización por alcance (`documents:write`, `documents:read`, `config:write`, `platform:*`) y por rol en el panel.
+- Políticas de autorización por alcance (`documents:write`, `documents:read`, `config:write`, `platform:*`) y por rol en el panel. Los usuarios del panel reciben sus alcances según sus roles al emitir el JWT (16-nov), en claims `scope`, así las mismas políticas sirven para usuarios y API keys: `owner` → `documents:read`, `documents:write` y `config:write`; `seller` → `documents:read` y `documents:write`; `customer` → `documents:read`; `platform_admin` → `platform:*`; `reseller` → ninguno por ahora. Los alcances de empresa solo se dan con empresa activa en el token y `platform:*` solo sin empresa activa.
 
 ### 9.3 Endpoints
 

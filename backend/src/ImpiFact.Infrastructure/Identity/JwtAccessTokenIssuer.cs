@@ -9,7 +9,7 @@ namespace ImpiFact.Infrastructure.Identity;
 /// <summary>
 /// Emite los JWT (JSON Web Token) de acceso del panel firmados con ES256 (ECDSA P-256 con SHA-256) y la llave
 /// actual de <see cref="JwtSigningKeys"/>; el encabezado lleva su kid (identificador de llave). Claims: <c>sub</c>,
-/// <c>role</c>, <c>company_id</c> (si hay empresa activa), <c>jti</c> (identificador único del token), emisor,
+/// <c>role</c>, <c>scope</c> (uno por alcance, según <see cref="RoleScopes"/>), <c>company_id</c> (si hay empresa activa), <c>jti</c> (identificador único del token), emisor,
 /// audiencia y fechas tomadas de <see cref="IClock"/>.
 /// </summary>
 internal sealed class JwtAccessTokenIssuer(JwtSigningKeys keys, IOptionsService<JwtOptions> options, IClock clock) : IAccessTokenIssuer
@@ -29,6 +29,13 @@ internal sealed class JwtAccessTokenIssuer(JwtSigningKeys keys, IOptionsService<
             [IdentityClaimTypes.Role] = roles.ToArray(),
             [JwtRegisteredClaimNames.Jti] = Guid.CreateVersion7().ToString(),
         };
+        // Un claim scope por alcance que dan los roles (RoleScopes), para que las políticas por alcance de las API keys
+        // sirvan igual para los usuarios. Sin alcances no se pone el claim.
+        if (RoleScopes.For(roles, companyId) is { Count: > 0 } scopes)
+        {
+            claims[IdentityClaimTypes.Scope] = scopes.ToArray();
+        }
+
         if (companyId is not null)
         {
             claims[IdentityClaimTypes.CompanyId] = companyId.Value.ToString();
