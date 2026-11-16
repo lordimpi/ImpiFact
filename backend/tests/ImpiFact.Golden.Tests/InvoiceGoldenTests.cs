@@ -25,7 +25,7 @@ public sealed class InvoiceGoldenTests
     private static readonly ApiDianCatalog Catalog = ApiDianCatalog.Load();
 
     public static IEnumerable<TestCaseData> Cases() =>
-        GoldenCases.Invoices().Select(dir => new TestCaseData(dir).SetName("invoice/" + Path.GetFileName(dir)));
+        GoldenCases.Invoices().Select(dir => new TestCaseData(dir).SetArgDisplayNames("invoice/" + Path.GetFileName(dir)));
 
     [TestCaseSource(nameof(Cases))]
     public void Builder_matches_ApiDian_xml_and_cufe(string caseDir)

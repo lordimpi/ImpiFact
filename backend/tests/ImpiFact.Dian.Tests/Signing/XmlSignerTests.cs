@@ -24,7 +24,7 @@ public class XmlSignerTests
     private static readonly DateTimeOffset SigningTime = new(2026, 11, 15, 15, 30, 45, 123, TimeSpan.Zero);
 
     public static IEnumerable<TestCaseData> GoldenCases() =>
-        GoldenFixtures.All().Select(c => new TestCaseData(c).SetName($"{c.DocumentType}/{c.Name}"));
+        GoldenFixtures.All().Select(c => new TestCaseData(c).SetArgDisplayNames($"{c.DocumentType}/{c.Name}"));
 
     [TestCaseSource(nameof(GoldenCases))]
     public void Signed_golden_document_passes_SignedXml_verification(GoldenFixture fixture)

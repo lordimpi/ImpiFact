@@ -18,7 +18,7 @@ public class CufeCalculatorTests
     private static readonly XNamespace Cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
 
     public static IEnumerable<TestCaseData> GoldenCases() =>
-        GoldenFixtures.All().Select(c => new TestCaseData(c).SetName($"{c.DocumentType}/{c.Name}"));
+        GoldenFixtures.All().Select(c => new TestCaseData(c).SetArgDisplayNames($"{c.DocumentType}/{c.Name}"));
 
     [TestCaseSource(nameof(GoldenCases))]
     public void Matches_the_code_ApiDian_produced(GoldenFixture fixture)
