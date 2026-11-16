@@ -23,8 +23,8 @@ namespace ImpiFact.Integration.Tests.Companies;
 /// <summary>
 /// Levanta un PostgreSQL desechable en Docker y la API real encima, una sola vez para las pruebas de este espacio de
 /// nombres (un <c>SetUpFixture</c> de NUnit solo cubre su propio espacio de nombres). El esquema sale del modelo con
-/// las migraciones reales y el sincronizador de catálogos. Las API keys se leen de la tabla <c>api_keys</c> con un almacén de prueba, porque el adaptador
-/// real lo hace otra tarea; así la llave que devuelve el alta de una empresa sirve en las solicitudes siguientes.
+/// las migraciones reales y el sincronizador de catálogos. Las API keys se leen de la tabla <c>api_keys</c> con el adaptador
+/// real, así la llave que devuelve el alta de una empresa sirve en las solicitudes siguientes.
 /// </summary>
 [SetUpFixture]
 [Category("Integration")]
@@ -135,7 +135,6 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<IClock>(Clock);
-            services.AddSingleton<IApiKeyStore, TableApiKeyStore>();
         });
     }
 
@@ -147,23 +146,6 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
             _signingKey.Dispose();
             _protection.Dispose();
         }
-    }
-
-    /// <summary>Lee las API keys de la tabla; el uso no se anota.</summary>
-    private sealed class TableApiKeyStore(IServiceScopeFactory scopes) : IApiKeyStore
-    {
-        public async Task<ApiKeyRecord?> FindByHashAsync(string keyHash, CancellationToken ct)
-        {
-            await using var scope = scopes.CreateAsyncScope();
-            var key = await scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>().Set<ApiKey>()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(candidate => candidate.KeyHash == keyHash, ct);
-            return key is null
-                ? null
-                : new ApiKeyRecord(key.Id, key.CompanyId, key.KeyHash, key.Scopes.Split(','), key.ExpiresAt, key.RevokedAt);
-        }
-
-        public Task MarkUsedAsync(Guid apiKeyId, DateTimeOffset usedAt, CancellationToken ct) => Task.CompletedTask;
     }
 }
 

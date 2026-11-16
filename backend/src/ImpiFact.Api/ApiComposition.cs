@@ -67,7 +67,6 @@ internal static class ApiComposition
         services.AddScopeAuthorization();
         services.AddOpenApi();
 
-        services.AddApplication();
         services.AddSingleton<IEndpointModule, IdentityEndpoints>();
         services.AddSingleton<IEndpointModule, CompanyEndpoints>();
         return builder;
