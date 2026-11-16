@@ -25,13 +25,20 @@ public static class SourceProjects
     {
         var project = XDocument.Load(path);
         var projectReferences = project.Descendants("ProjectReference")
-            .Select(reference => Path.GetFileNameWithoutExtension((string)reference.Attribute("Include")!))
+            .Select(reference => ProjectName((string)reference.Attribute("Include")!))
             .ToList();
         var packageReferences = project.Descendants("PackageReference")
             .Select(reference => (string)reference.Attribute("Include")!)
             .ToList();
         return new SourceProject(Path.GetFileNameWithoutExtension(path), projectReferences, packageReferences);
     }
+
+    /// <summary>
+    /// Nombre del proyecto a partir de la ruta de un ProjectReference. Los .csproj escriben las rutas con «\»,
+    /// que en Linux no separa carpetas; por eso se cambia por «/» antes de quitar la carpeta y la extensión.
+    /// </summary>
+    internal static string ProjectName(string includePath) =>
+        Path.GetFileNameWithoutExtension(includePath.Replace('\\', '/'));
 
     private static bool IsBuildOutput(string path) =>
         path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(part => part is "bin" or "obj");
