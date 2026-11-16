@@ -30,8 +30,9 @@ namespace ImpiFact.Application.Features.Documents.Delivery;
 /// 90 se consulta GetStatus con el CUFE (código único de la factura electrónica) y se toma esa respuesta; si se envió
 /// sin respuesta o «en proceso» (98), <c>Sent</c> → <c>Unconfirmed</c> y se programa <c>PollDianStatus</c>; con la
 /// ZipKey del set de pruebas, <c>Sent</c> y se programa GetStatusZip; con un SOAP Fault del que envía,
-/// <c>Failed</c> y aviso. Un documento que ya no está en <c>Queued</c> no se vuelve a enviar: el mensaje repetido no
-/// hace nada.
+/// <c>Failed</c> y aviso, salvo que un intento anterior (de esta llamada o de un mensaje anterior) haya podido llegar
+/// a la DIAN: entonces cuenta como «sin respuesta». Un documento que ya no está en <c>Queued</c> no se vuelve a
+/// enviar: el mensaje repetido no hace nada.
 /// </para>
 /// </remarks>
 internal sealed class SendDocumentToDianHandler(
@@ -76,6 +77,11 @@ internal sealed class SendDocumentToDianHandler(
             ? null
             : payload.TestSetId.Trim();
         var operation = testSetId is null ? DianOperation.SendBillSync : DianOperation.SendTestSetAsync;
+
+        // El certificado y la dirección se resuelven antes de guardar la fila del intento: así una fila sin resultado
+        // (finished_at nulo) siempre es una llamada que empezó y que la DIAN pudo haber recibido.
+        using var certificate = await certificates.LoadAsync(companyId, secretRef, ct);
+        var endpoint = new DianEndpoint(urls.ForEnvironment(document.TypeEnvironmentId), certificate);
         var startedAt = clock.UtcNow;
 
         // Transacción corta: el consecutivo de nombres de archivo y la fila del intento con el ZIP enviado.
@@ -97,12 +103,18 @@ internal sealed class SendDocumentToDianHandler(
             ? new SendBillSyncRequest(fileName, content)
             : new SendTestSetAsyncRequest(fileName, content, testSetId);
 
-        using var certificate = await certificates.LoadAsync(companyId, secretRef, ct);
-        var endpoint = new DianEndpoint(urls.ForEnvironment(document.TypeEnvironmentId), certificate);
         var answer = await delivery.CallAsync(submission, request, endpoint, ct);
         if (answer is DianAnswer.AlreadyProcessed)
         {
             answer = await delivery.ReconcileAsync(document, endpoint, ct);
+        }
+
+        if (answer is DianAnswer.Refused refused
+            && await documents.FirstPossibleArrivalAsync(companyId, document.Id, submission.Id, ct) is not null)
+        {
+            // Un intento anterior pudo llegar a la DIAN (por ejemplo, su respuesta no se alcanzó a guardar): el SOAP
+            // Fault puede ser la DIAN rechazando una repetición, no el documento. Se consulta su estado.
+            answer = new DianAnswer.NoAnswer($"An earlier attempt may have reached the DIAN; this one was refused: {refused.Reason}");
         }
 
         if (answer is DianAnswer.NotDelivered notDelivered)
@@ -117,15 +129,35 @@ internal sealed class SendDocumentToDianHandler(
     }
 
     /// <summary>
-    /// El Worker se rindió con el mensaje (por ejemplo, la DIAN no respondió en ninguno de los intentos): el documento
-    /// que sigue en <c>Queued</c> pasa a <c>Failed</c>. El aviso a la empresa ya lo dejó el Worker.
+    /// El Worker se rindió con el mensaje (por ejemplo, la DIAN no estuvo disponible en ninguno de los intentos) y el
+    /// documento sigue en <c>Queued</c>. Si algún intento guardado pudo llegar a la DIAN (ver
+    /// <see cref="IDocumentDelivery.FirstPossibleArrivalAsync"/>), el documento pasa a <c>Sent</c> → <c>Unconfirmed</c>
+    /// y se programa <c>PollDianStatus</c> con GetStatus y el CUFE, porque la DIAN pudo haberlo aceptado; solo si
+    /// ninguno pudo llegar pasa a <c>Failed</c>. El aviso de la tarea fallida lo deja el Worker.
     /// </summary>
+    /// <remarks>
+    /// El Worker lo llama antes de guardar el fallo del mensaje y puede llamarlo otra vez si el proceso se cae en medio:
+    /// un documento que ya no está en <c>Queued</c> no se toca.
+    /// </remarks>
     public async Task OnFailedAsync(OutboxMessageContext message, CancellationToken ct)
     {
         var payload = message.GetPayload<SendDocumentToDianPayload>();
         if (message.CompanyId is not { } companyId
             || await documents.FindForUpdateAsync(companyId, payload.DocumentId, ct) is not { Status: DocumentStatus.Queued } document)
         {
+            return;
+        }
+
+        if (await documents.FirstPossibleArrivalAsync(companyId, document.Id, exceptSubmissionId: null, ct) is { } sentAt)
+        {
+            document.MoveTo(DocumentStatus.Sent);
+            document.SentAt = sentAt;
+            document.MoveTo(DocumentStatus.Unconfirmed);
+            await delivery.SchedulePollAsync(document, DianStatusQuery.GetStatus, clock.UtcNow + FirstStatusPoll, ct);
+            await unitOfWork.SaveChangesAsync(ct);
+            logger.LogWarning(
+                "Document {DocumentId} could not be sent to the DIAN after every attempt, but an attempt may have reached it; it is marked Unconfirmed and its status will be polled.",
+                document.Id);
             return;
         }
 

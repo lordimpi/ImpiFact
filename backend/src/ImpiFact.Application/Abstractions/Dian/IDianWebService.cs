@@ -22,13 +22,25 @@ public interface IDianWebService
 }
 
 /// <summary>Una llamada al servicio web de la DIAN y su resultado.</summary>
-/// <param name="Outcome">Si hubo respuesta, si no se alcanzó a enviar nada o si se envió y no hubo respuesta.</param>
-/// <param name="Envelope">Sobre SOAP enviado (sin la llave privada: solo lleva el certificado público y la firma).</param>
+/// <param name="Outcome">
+/// Si hubo respuesta, si no se alcanzó a enviar nada o si se envió y no hubo respuesta. Con reintentos manda lo que
+/// pasó con todos los intentos, no solo con el último: si alguno pudo llegar a la DIAN, la llamada nunca es
+/// <see cref="DianCallOutcome.NotSent"/>.
+/// </param>
+/// <param name="Envelope">
+/// Sobre SOAP del último intento (sin la llave privada: solo lleva el certificado público y la firma). Cada intento
+/// arma su propio sobre, con su marca de tiempo.
+/// </param>
 /// <param name="HttpStatus">Código HTTP de la última respuesta; nulo si no hubo respuesta.</param>
 /// <param name="Body">Cuerpo de la última respuesta tal como llegó; nulo si no hubo respuesta.</param>
 /// <param name="Response">Respuesta interpretada por <see cref="DianResponseReader"/>; nula si no hubo respuesta.</param>
 /// <param name="Duration">Tiempo total de la llamada, con sus reintentos.</param>
 /// <param name="Failure">Motivo técnico cuando no hubo respuesta (para registros, en inglés); nulo si la hubo.</param>
+/// <param name="PossiblyReceived">
+/// Verdadero si algún intento pudo llegar a la DIAN sin que llegara su respuesta (se agotó el tiempo o se cortó la
+/// conexión después de enviar). En una llamada <see cref="DianCallOutcome.Answered"/> significa que la respuesta del
+/// último intento (por ejemplo, un 503 o un SOAP Fault) no prueba que la DIAN no tenga el documento.
+/// </param>
 public sealed record DianCall(
     DianCallOutcome Outcome,
     string Envelope,
@@ -36,7 +48,8 @@ public sealed record DianCall(
     string? Body,
     DianSoapResponse? Response,
     TimeSpan Duration,
-    string? Failure);
+    string? Failure,
+    bool PossiblyReceived = false);
 
 /// <summary>Qué pasó con una llamada al servicio web de la DIAN.</summary>
 public enum DianCallOutcome

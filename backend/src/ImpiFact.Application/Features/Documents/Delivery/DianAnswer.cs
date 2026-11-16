@@ -14,7 +14,9 @@ namespace ImpiFact.Application.Features.Documents.Delivery;
 /// advertencias si trae notificaciones; <c>IsValid</c> falso con la regla 90 («documento procesado anteriormente») es
 /// un documento ya procesado que hay que reconciliar con GetStatus; <c>IsValid</c> falso con reglas de rechazo o con
 /// código <c>99</c> es rechazado. Cualquier otro resultado (por ejemplo, GetStatus de un documento que la DIAN todavía
-/// no registra) no es una decisión y se sigue consultando.
+/// no registra) no es una decisión y se sigue consultando. Si algún intento de la llamada pudo llegar a la DIAN
+/// (<see cref="DianCall.PossiblyReceived"/>), una respuesta que diría «no se entregó» o «rechazó el mensaje» (un 503,
+/// un SOAP Fault) se lee como «sin respuesta»: la DIAN pudo haber recibido el documento y hay que consultar su estado.
 /// </remarks>
 internal abstract partial record DianAnswer
 {
@@ -33,7 +35,12 @@ internal abstract partial record DianAnswer
         {
             DianCallOutcome.NotSent => new NotDelivered(call.Failure ?? "The request was not sent."),
             DianCallOutcome.NoAnswer => new NoAnswer(call.Failure ?? "The request got no answer."),
-            _ => FromResponse(call.Response ?? throw new ArgumentException("An answered call has a response.", nameof(call))),
+            _ => FromResponse(call.Response ?? throw new ArgumentException("An answered call has a response.", nameof(call))) switch
+            {
+                NotDelivered or Refused when call.PossiblyReceived => new NoAnswer(
+                    "An earlier attempt may have reached the DIAN without an answer; the last answer does not settle it."),
+                var answer => answer,
+            },
         };
     }
 

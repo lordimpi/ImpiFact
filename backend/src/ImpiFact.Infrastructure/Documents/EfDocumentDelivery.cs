@@ -43,4 +43,16 @@ internal sealed class EfDocumentDelivery(ImpiFactDbContext db, ITenantContext te
         TenantWriteCheck.EnsureCanWrite(tenant, submission.CompanyId, nameof(DianSubmission));
         db.Set<DianSubmission>().Add(submission);
     }
+
+    public Task<DateTimeOffset?> FirstPossibleArrivalAsync(Guid companyId, Guid documentId, Guid? exceptSubmissionId, CancellationToken ct) =>
+        db.Set<DianSubmission>()
+            .IgnoreQueryFilters([QueryFilters.Tenant])
+            .AsNoTracking()
+            .Where(submission => submission.CompanyId == companyId && submission.DocumentId == documentId
+                && submission.Id != exceptSubmissionId
+                && (submission.FinishedAt == null
+                    || submission.IsValid != null
+                    || submission.Operation == DianOperation.GetStatus
+                    || submission.Operation == DianOperation.GetStatusZip))
+            .MinAsync(submission => (DateTimeOffset?)submission.StartedAt, ct);
 }

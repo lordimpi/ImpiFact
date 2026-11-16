@@ -19,4 +19,19 @@ public interface IDocumentDelivery
     /// <summary>Agrega el intento; se guarda con el próximo <c>SaveChangesAsync</c>.</summary>
     /// <exception cref="InvalidOperationException">Si la solicitud es de otra empresa.</exception>
     void AddSubmission(DianSubmission submission);
+
+    /// <summary>
+    /// Inicio (<c>started_at</c>) del primer intento guardado que pudo llegar a la DIAN; nulo si ninguno pudo. Se usa
+    /// solo con un documento que sigue en <c>Queued</c>, cuyas filas guardadas pudo dejar un intento que no alcanzó a
+    /// cambiar su estado.
+    /// </summary>
+    /// <remarks>
+    /// Un intento pudo llegar si su resultado no quedó guardado (<c>finished_at</c> nulo: la llamada empezó y el
+    /// proceso se cayó o falló al guardar lo que respondió la DIAN), si la DIAN respondió un resultado
+    /// (<c>is_valid</c> no nulo, por ejemplo la regla 90) o si es una consulta de estado. Los intentos que la DIAN no
+    /// recibió se guardan con <c>finished_at</c> y sin resultado; cualquier otro desenlace cambia el estado del
+    /// documento en el mismo guardado.
+    /// </remarks>
+    /// <param name="exceptSubmissionId">Intento que no se cuenta (el que está en curso).</param>
+    Task<DateTimeOffset?> FirstPossibleArrivalAsync(Guid companyId, Guid documentId, Guid? exceptSubmissionId, CancellationToken ct);
 }

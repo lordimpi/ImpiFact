@@ -156,6 +156,35 @@ public sealed class DianAnswerTests
         Assert.That(answer, Is.EqualTo(new DianAnswer.NoAnswer("Timed out")));
     }
 
+    [Test]
+    public void An_error_page_after_an_attempt_that_may_have_arrived_is_no_answer()
+    {
+        var answer = DianAnswer.From(Call(DianCallOutcome.Answered, new DianServiceUnavailableResponse("<html/>")) with { PossiblyReceived = true });
+
+        Assert.That(answer, Is.InstanceOf<DianAnswer.NoAnswer>());
+    }
+
+    [TestCase("s:Client")]
+    [TestCase("s:Receiver")]
+    public void A_fault_after_an_attempt_that_may_have_arrived_is_no_answer(string code)
+    {
+        var answer = DianAnswer.From(
+            Call(DianCallOutcome.Answered, new DianSoapFaultResponse(code, null, "The creator of this fault did not specify a Reason.")) with
+            {
+                PossiblyReceived = true,
+            });
+
+        Assert.That(answer, Is.InstanceOf<DianAnswer.NoAnswer>());
+    }
+
+    [Test]
+    public void A_decision_after_an_attempt_that_may_have_arrived_is_still_a_decision()
+    {
+        var answer = DianAnswer.From(Answered("SendBillSync", Result(true, "00")) with { PossiblyReceived = true });
+
+        Assert.That(((DianAnswer.Decided)answer).Status, Is.EqualTo(DocumentStatus.Accepted));
+    }
+
     private static readonly IEqualityComparer<DianAnswer> DecidedStatus = EqualityComparer<DianAnswer>.Create(
         (left, right) => left is DianAnswer.Decided a && right is DianAnswer.Decided b && a.Status == b.Status);
 

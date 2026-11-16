@@ -405,6 +405,146 @@ public sealed class SendDocumentToDianTests
     }
 
     [Test]
+    public async Task A_timeout_masked_by_unavailable_retries_ends_unconfirmed_and_the_status_poll_accepts_it()
+    {
+        await using var host = await DianSendHost.StartAsync(new Dictionary<string, string?>
+        {
+            ["Dian:TimeoutSeconds"] = "1", ["Resilience:TotalSeconds"] = "10", ["Outbox:MaxAttempts"] = "2",
+        });
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer);
+        // El primer intento llega y se queda sin respuesta; después la DIAN solo devuelve 503 a los envíos, pero ya tiene
+        // el documento y GetStatus lo da por aceptado.
+        host.Dian.HangOnce();
+        host.Dian.Route = request => request.Operation == "GetStatus"
+            ? FakeDian.Response(DianReplies.GetStatus(true, "00"))
+            : FakeDian.Response(DianReplies.ServiceUnavailablePage, HttpStatusCode.ServiceUnavailable);
+
+        await host.RunOutboxAsync();
+        host.Clock.Advance(TimeSpan.FromSeconds(10));
+        await host.RunOutboxAsync();
+        host.Clock.Advance(TimeSpan.FromMinutes(1));
+        await host.RunOutboxAsync();
+
+        var stored = await host.DocumentAsync(document.Id);
+        Assert.Multiple(async () =>
+        {
+            Assert.That(stored.Status, Is.EqualTo(DocumentStatus.Accepted));
+            Assert.That(host.Dian.Requests.Count(request => request.Operation == "SendBillSync"), Is.EqualTo(4));
+            Assert.That(host.Dian.Requests.Last().Operation, Is.EqualTo("GetStatus"));
+            Assert.That((await host.NotificationsAsync(issuer.CompanyId)), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task Every_retry_of_a_call_carries_a_freshly_built_envelope()
+    {
+        await using var host = await DianSendHost.StartAsync();
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer);
+        host.Dian.OnRequest = _ => host.Clock.Advance(TimeSpan.FromSeconds(1));
+        host.Dian.Reply(DianReplies.ServiceUnavailablePage, HttpStatusCode.ServiceUnavailable);
+        host.Dian.Reply(DianReplies.SendBillSync(true, "00"));
+
+        await host.RunOutboxAsync();
+
+        var requests = host.Dian.Requests;
+        Assert.Multiple(async () =>
+        {
+            Assert.That((await host.DocumentAsync(document.Id)).Status, Is.EqualTo(DocumentStatus.Accepted));
+            Assert.That(requests, Has.Count.EqualTo(2));
+            Assert.That(requests[0].Created, Is.Not.Empty);
+            Assert.That(requests[1].Created, Is.Not.EqualTo(requests[0].Created));
+            Assert.That(requests[1].Parameter("contentFile"), Is.EqualTo(requests[0].Parameter("contentFile")));
+        });
+    }
+
+    [Test]
+    public async Task A_sender_fault_after_an_attempt_that_got_no_answer_is_not_a_refusal()
+    {
+        await using var host = await DianSendHost.StartAsync(new Dictionary<string, string?>
+        {
+            ["Dian:TimeoutSeconds"] = "1", ["Resilience:TotalSeconds"] = "10",
+        });
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer);
+        // Por ejemplo, la DIAN toma el reintento como una repetición del primer sobre, que sí recibió.
+        host.Dian.HangOnce();
+        host.Dian.Reply(DianReplies.ClientFault, HttpStatusCode.InternalServerError);
+
+        await host.RunOutboxAsync();
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That((await host.DocumentAsync(document.Id)).Status, Is.EqualTo(DocumentStatus.Unconfirmed));
+            Assert.That((await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.PollDianStatus)).Single().Status,
+                Is.EqualTo(OutboxStatus.Pending));
+            Assert.That(await host.NotificationsAsync(issuer.CompanyId), Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task A_storage_failure_after_the_dian_answered_ends_unconfirmed_and_the_status_poll_accepts_it()
+    {
+        await using var host = await DianSendHost.StartAsync(new Dictionary<string, string?> { ["Outbox:MaxAttempts"] = "2" });
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer);
+        // El almacenamiento se cae justo cuando la DIAN recibe el documento: su respuesta no se puede guardar.
+        host.Dian.OnRequest = _ => host.Storage.Failing = true;
+        host.Dian.Reply(DianReplies.SendBillSync(true, "00"));
+
+        await host.RunOutboxAsync();
+        host.Clock.Advance(TimeSpan.FromSeconds(10));
+        await host.RunOutboxAsync();
+
+        var unconfirmed = await host.DocumentAsync(document.Id);
+        var poll = (await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.PollDianStatus)).Single();
+        Assert.Multiple(async () =>
+        {
+            Assert.That(unconfirmed.Status, Is.EqualTo(DocumentStatus.Unconfirmed));
+            Assert.That(unconfirmed.SentAt, Is.EqualTo(host.Clock.UtcNow.AddSeconds(-10)));
+            Assert.That(poll.Status, Is.EqualTo(OutboxStatus.Pending));
+            Assert.That(poll.Payload["query"]!.GetValue<int>(), Is.EqualTo((int)DianStatusQuery.GetStatus));
+            Assert.That((await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.SendDocumentToDian)).Single().Status,
+                Is.EqualTo(OutboxStatus.Failed));
+        });
+
+        host.Storage.Failing = false;
+        host.Dian.OnRequest = null;
+        host.Clock.Advance(TimeSpan.FromMinutes(1));
+        host.Dian.Reply(DianReplies.GetStatus(true, "00"));
+        await host.RunOutboxAsync();
+
+        Assert.That((await host.DocumentAsync(document.Id)).Status, Is.EqualTo(DocumentStatus.Accepted));
+    }
+
+    [Test]
+    public async Task A_sender_fault_on_a_resend_after_an_unrecorded_answer_is_not_a_refusal()
+    {
+        await using var host = await DianSendHost.StartAsync();
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer);
+        host.Dian.OnRequest = _ => host.Storage.Failing = true;
+        host.Dian.Reply(DianReplies.SendBillSync(true, "00"));
+        await host.RunOutboxAsync();
+
+        host.Storage.Failing = false;
+        host.Dian.OnRequest = null;
+        host.Clock.Advance(TimeSpan.FromSeconds(10));
+        host.Dian.Reply(DianReplies.ClientFault, HttpStatusCode.InternalServerError);
+        await host.RunOutboxAsync();
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That((await host.DocumentAsync(document.Id)).Status, Is.EqualTo(DocumentStatus.Unconfirmed));
+            Assert.That((await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.PollDianStatus)).Single().Status,
+                Is.EqualTo(OutboxStatus.Pending));
+            Assert.That((await host.NotificationsAsync(issuer.CompanyId)).Select(row => row.Type),
+                Has.None.EqualTo(DianNotificationTypes.Refused));
+        });
+    }
+
+    [Test]
     public async Task A_repeated_message_for_a_document_already_sent_does_nothing()
     {
         await using var host = await DianSendHost.StartAsync();

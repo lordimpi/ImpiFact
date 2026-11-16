@@ -7,6 +7,7 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Application.Abstractions.Protection;
+using ImpiFact.Application.Abstractions.Storage;
 using ImpiFact.Application.Features.Documents.Delivery;
 using ImpiFact.Application.Features.Documents.Issue;
 using ImpiFact.Domain.Common;
@@ -18,6 +19,7 @@ using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Platform.Outbox;
 using ImpiFact.Infrastructure.Postgres;
+using ImpiFact.Infrastructure.Storage;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Model;
 using ImpiFact.Integration.Tests.Persistence;
@@ -113,6 +115,11 @@ public sealed class DianSendHost : IAsyncDisposable
         collection.AddLogging();
         collection.AddWorkerServices(configuration, new PostgresDatabaseProvider());
         collection.AddSingleton<IClock>(Clock);
+        collection.AddSingleton<IBlobStorage>(provider =>
+        {
+            Storage.Inner = ActivatorUtilities.CreateInstance<LocalBlobStorage>(provider);
+            return Storage;
+        });
         collection.AddHttpClient(DianSoapClient.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(() => Dian)
             .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
@@ -123,6 +130,9 @@ public sealed class DianSendHost : IAsyncDisposable
     public FixedClock Clock { get; } = new(new DateTimeOffset(2026, 3, 2, 13, 0, 0, TimeSpan.Zero));
 
     public FakeDian Dian { get; } = new();
+
+    /// <summary>El almacenamiento de archivos real (local) con un interruptor para simular que deja de funcionar.</summary>
+    public SwitchableBlobStorage Storage { get; } = new();
 
     internal OutboxProcessor Processor => services.GetRequiredService<OutboxProcessor>();
 
@@ -180,6 +190,24 @@ public sealed class DianSendHost : IAsyncDisposable
         });
         await db.SaveChangesAsync();
         return new TestIssuer(companyId, nit);
+    }
+
+    /// <summary>Desactiva los certificados de la empresa, como si se hubieran vencido o reemplazado.</summary>
+    public async Task DeactivateCertificatesAsync(TestIssuer issuer)
+    {
+        await using var scope = OpenScope();
+        await Db(scope).Set<Certificate>().IgnoreQueryFilters([QueryFilters.Tenant])
+            .Where(row => row.CompanyId == issuer.CompanyId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.IsActive, false));
+    }
+
+    /// <summary>Borra los archivos cifrados de los certificados: cargarlos falla aunque sigan activos.</summary>
+    public void RemoveStoredCertificates()
+    {
+        foreach (var file in Directory.EnumerateFiles(protection.CertificateDirectory, "*", SearchOption.AllDirectories))
+        {
+            File.Delete(file);
+        }
     }
 
     /// <summary>
@@ -308,7 +336,7 @@ public sealed class DianSendHost : IAsyncDisposable
     public async Task<byte[]> ReadFileAsync(DocumentFile file)
     {
         await using var scope = OpenScope();
-        await using var stream = await scope.ServiceProvider.GetRequiredService<Application.Abstractions.Storage.IBlobStorage>()
+        await using var stream = await scope.ServiceProvider.GetRequiredService<IBlobStorage>()
             .OpenReadAsync(file.StorageKey, CancellationToken.None);
         using var buffer = new MemoryStream();
         await stream.CopyToAsync(buffer);
@@ -337,3 +365,28 @@ public sealed class DianSendHost : IAsyncDisposable
 
 /// <summary>Empresa emisora de una prueba.</summary>
 public sealed record TestIssuer(Guid CompanyId, string Nit);
+
+/// <summary>
+/// Almacenamiento de archivos de prueba: delega en el real y, mientras <see cref="Failing"/> es verdadero, falla al
+/// escribir, como un almacenamiento caído.
+/// </summary>
+public sealed class SwitchableBlobStorage : IBlobStorage
+{
+    internal IBlobStorage? Inner { get; set; }
+
+    /// <summary>Si es verdadero, toda escritura falla.</summary>
+    public bool Failing { get; set; }
+
+    public StorageProvider Provider => Real.Provider;
+
+    private IBlobStorage Real => Inner ?? throw new InvalidOperationException("The storage was not created yet.");
+
+    public Task<string> PutAsync(string key, Stream content, string contentType, CancellationToken ct) =>
+        Failing ? throw new IOException("The test storage is down.") : Real.PutAsync(key, content, contentType, ct);
+
+    public Task<Stream> OpenReadAsync(string key, CancellationToken ct) => Real.OpenReadAsync(key, ct);
+
+    public Task DeleteAsync(string key, CancellationToken ct) => Real.DeleteAsync(key, ct);
+
+    public Uri CreateSignedUrl(string key, TimeSpan lifetime) => Real.CreateSignedUrl(key, lifetime);
+}
