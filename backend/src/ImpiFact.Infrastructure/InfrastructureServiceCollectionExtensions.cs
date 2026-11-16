@@ -2,6 +2,7 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
+using ImpiFact.Infrastructure.Protection;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Infrastructure.Time;
 using Microsoft.Extensions.Configuration;
@@ -38,6 +39,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton(provider);
         provider.AddServices(services);
         services.AddImpiFactDbContext<ImpiFactDbContext>();
+        services.AddSecrets();
         return services;
     }
 

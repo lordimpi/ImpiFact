@@ -2,8 +2,10 @@ using System.Reflection;
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Domain.Common;
 using ImpiFact.Infrastructure.Persistence.Conventions;
+using ImpiFact.Infrastructure.Persistence.DataProtection;
 using ImpiFact.Infrastructure.Persistence.Conversions;
 using ImpiFact.Infrastructure.Persistence.Interceptors;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace ImpiFact.Infrastructure.Persistence;
@@ -18,8 +20,9 @@ namespace ImpiFact.Infrastructure.Persistence;
 /// <remarks>
 /// Las reglas están en métodos sellados (que una clase hija no puede cambiar); una hija solo cambia qué entidades
 /// hay, con <see cref="ConfigureEntities"/>. Así el contexto de las pruebas comprueba exactamente las mismas reglas.
+/// La tabla de llaves de Data Protection (<see cref="DataProtectionKeys"/>) está siempre, también en esos contextos.
 /// </remarks>
-public class ImpiFactDbContext : DbContext
+public class ImpiFactDbContext : DbContext, IDataProtectionKeyContext
 {
     private static readonly MethodInfo ApplyTenantFilterMethod =
         typeof(ImpiFactDbContext).GetMethod(nameof(ApplyTenantFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -49,6 +52,12 @@ public class ImpiFactDbContext : DbContext
     /// </summary>
     private Guid? CurrentCompanyId => tenant.CompanyId;
 
+    /// <summary>
+    /// Llaves de ASP.NET Core Data Protection, compartidas por todas las instancias (ADR-25). Solo las lee y
+    /// escribe Data Protection; ningún caso de uso las toca.
+    /// </summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
     protected sealed override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder.AddInterceptors(new AuditInterceptor(clock));
 
@@ -63,6 +72,7 @@ public class ImpiFactDbContext : DbContext
 
     protected sealed override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<DataProtectionKey>(DataProtectionKeyMapping.Configure);
         ConfigureEntities(modelBuilder);
 
         // Solo se toca modelBuilder.Entity cuando hay una regla que aplicar: llamarlo marca el tipo como entidad

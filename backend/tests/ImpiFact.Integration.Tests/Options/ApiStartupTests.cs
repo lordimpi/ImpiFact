@@ -1,6 +1,7 @@
 using System.Net;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Infrastructure.Options;
+using ImpiFact.Integration.Tests.Protection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,16 +12,25 @@ namespace ImpiFact.Integration.Tests.Options;
 /// <summary>
 /// Arranca la API real en memoria (WebApplicationFactory) con su <c>appsettings.json</c>. La cadena de conexión
 /// es un secreto: no está en <c>appsettings.json</c> y, si no llega por otra fuente, la API no arranca. No abre
-/// conexiones a la base de datos, por eso no necesita Docker.
+/// conexiones a la base de datos, por eso no necesita Docker. La llave maestra local también es un secreto: cada
+/// prueba la pasa desde una carpeta temporal.
 /// </summary>
 [TestFixture]
 public sealed class ApiStartupTests
 {
+    private ProtectionScratch scratch = null!;
+
+    [SetUp]
+    public void CreateScratch() => scratch = new ProtectionScratch();
+
+    [TearDown]
+    public void DeleteScratch() => scratch.Dispose();
+
     [Test]
     public void The_api_does_not_start_without_a_connection_string()
     {
         using var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder => builder.UseSetting("Database:ConnectionString", ""));
+            .WithWebHostBuilder(builder => WithMasterKey(builder).UseSetting("Database:ConnectionString", ""));
 
         var exception = Assert.Throws<OptionsValidationException>(() => factory.CreateClient());
 
@@ -31,7 +41,7 @@ public sealed class ApiStartupTests
     public async Task With_a_connection_string_the_api_starts_with_the_appsettings_defaults()
     {
         using var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder => builder.UseSetting("Database:ConnectionString", "Host=localhost;Database=impifact"));
+            .WithWebHostBuilder(builder => WithMasterKey(builder).UseSetting("Database:ConnectionString", "Host=localhost;Database=impifact"));
 
         using var client = factory.CreateClient();
         using var response = await client.GetAsync("/health/live");
@@ -59,4 +69,8 @@ public sealed class ApiStartupTests
             Assert.That(scope.ServiceProvider.GetService<IReadConnectionFactory>(), Is.Not.Null);
         });
     }
+
+    private IWebHostBuilder WithMasterKey(IWebHostBuilder builder) => builder
+        .UseSetting("Secrets:LocalAesGcm:MasterKeyFile", scratch.MasterKeyFile)
+        .UseSetting("Secrets:LocalAesGcm:CertificateDirectory", scratch.CertificateDirectory);
 }
