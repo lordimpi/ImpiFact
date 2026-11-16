@@ -58,6 +58,11 @@ public static class InvoiceUblBuilder
         root.Add("cbc:IssueDate", Date(invoice.IssueDate));
         root.Add("cbc:IssueTime", Time(invoice.IssueTime));
         root.Add("cbc:InvoiceTypeCode", invoice.InvoiceTypeCode);
+        if (invoice.Note is not null)
+        {
+            root.Add("cbc:Note", invoice.Note);
+        }
+
         root.Add("cbc:DocumentCurrencyCode", invoice.ForeignCurrency?.CurrencyCode ?? invoice.LocalCurrencyCode);
         root.Add("cbc:LineCountNumeric", invoice.Lines.Count.ToString(CultureInfo.InvariantCulture));
         root.Add(Party("cac:AccountingSupplierParty", invoice.Supplier, isSupplier: true, invoice.Resolution.Prefix));

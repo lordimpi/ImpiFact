@@ -57,6 +57,7 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             QrCodeBaseUrl = frame.QrCodeBaseUrl,
             OperationTypeCode = Get(DianCatalog.OperationType, OperationTypeId(frame.Spec, body)).Code,
             InvoiceTypeCode = Get(DianCatalog.DocumentType, frame.Spec.DocumentTypeId).Code,
+            Note = PhpText.CleanOrNull(body.Notes),
             Resolution = new NumberingResolution(
                 resolution.ResolutionNumber ?? "",
                 resolution.ValidFrom ?? throw new InvalidOperationException("An invoice resolution needs a validity start."),
