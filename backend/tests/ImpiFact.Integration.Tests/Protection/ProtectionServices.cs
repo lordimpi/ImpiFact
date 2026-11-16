@@ -28,6 +28,8 @@ public static class ProtectionServices
             ["Jwt:AccessMinutes"] = "15",
             ["Jwt:RefreshDays"] = "14",
             ["ApiKey:Prefix"] = "apk_",
+            ["Storage:Provider"] = "Local",
+            ["Storage:Local:Root"] = Path.Combine(Path.GetTempPath(), "impifact-tests", "protection-storage"),
         };
         foreach (var (key, value) in secrets)
         {
