@@ -3,6 +3,7 @@ using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Application.Features.Documents.Delivery;
 using ImpiFact.Domain.Documents;
 using ImpiFact.Domain.Platform;
+using ImpiFact.Infrastructure.Platform.Outbox;
 
 namespace ImpiFact.Integration.Tests.DianSend;
 
@@ -113,6 +114,94 @@ public sealed class PollDianStatusTests
         {
             Assert.That(host.Dian.Requests.Select(request => request.Operation), Is.EqualTo(new[] { "GetStatusZip", "GetStatus" }));
             Assert.That((await host.DocumentAsync(document.Id)).Status, Is.EqualTo(DocumentStatus.Rejected));
+        });
+    }
+
+    [Test]
+    public async Task Without_an_active_certificate_an_unconfirmed_document_keeps_being_polled()
+    {
+        await using var host = await DianSendHost.StartAsync();
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer);
+        host.Dian.Reply(DianReplies.SendBillSync(false, "98"));
+        await host.RunOutboxAsync();
+        await host.DeactivateCertificatesAsync(issuer);
+
+        host.Clock.Advance(TimeSpan.FromMinutes(1));
+        await host.RunOutboxAsync();
+
+        var polls = await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.PollDianStatus);
+        Assert.Multiple(async () =>
+        {
+            Assert.That((await host.DocumentAsync(document.Id)).Status, Is.EqualTo(DocumentStatus.Unconfirmed));
+            Assert.That(host.Dian.Requests, Has.Count.EqualTo(1));
+            Assert.That(polls.Select(poll => poll.Status), Is.EqualTo(new[] { OutboxStatus.Done, OutboxStatus.Pending }));
+            Assert.That(polls[1].NextAttemptAt, Is.EqualTo(host.Clock.UtcNow.AddMinutes(1)));
+        });
+    }
+
+    [Test]
+    public async Task Without_an_active_certificate_after_24_hours_the_document_fails_with_a_notification()
+    {
+        await using var host = await DianSendHost.StartAsync();
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer);
+        host.Dian.Reply(DianReplies.SendBillSync(false, "98"));
+        await host.RunOutboxAsync();
+        await host.DeactivateCertificatesAsync(issuer);
+
+        host.Clock.Advance(TimeSpan.FromHours(24));
+        await host.RunOutboxAsync();
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That((await host.DocumentAsync(document.Id)).Status, Is.EqualTo(DocumentStatus.Failed));
+            Assert.That((await host.NotificationsAsync(issuer.CompanyId)).Select(row => row.Type),
+                Is.EqualTo(new[] { DianNotificationTypes.Unconfirmed }));
+            Assert.That((await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.PollDianStatus)).Select(poll => poll.Status),
+                Is.EqualTo(new[] { OutboxStatus.Done }));
+        });
+    }
+
+    [Test]
+    public async Task When_the_outbox_gives_up_a_poll_the_document_is_polled_again()
+    {
+        await using var host = await DianSendHost.StartAsync(new Dictionary<string, string?> { ["Outbox:MaxAttempts"] = "1" });
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer, status: DocumentStatus.Unconfirmed, sentAt: host.Clock.UtcNow.AddMinutes(-2));
+        await host.EnqueuePollAsync(document, DianStatusQuery.GetStatus);
+        host.RemoveStoredCertificates();
+
+        await host.RunOutboxAsync();
+
+        var polls = await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.PollDianStatus);
+        Assert.Multiple(async () =>
+        {
+            Assert.That((await host.DocumentAsync(document.Id)).Status, Is.EqualTo(DocumentStatus.Unconfirmed));
+            Assert.That(polls.Select(poll => poll.Status), Is.EqualTo(new[] { OutboxStatus.Failed, OutboxStatus.Pending }));
+            Assert.That(polls[1].NextAttemptAt, Is.EqualTo(host.Clock.UtcNow.AddMinutes(1)));
+        });
+    }
+
+    [Test]
+    public async Task When_the_outbox_gives_up_a_poll_after_24_hours_the_document_fails_with_a_notification()
+    {
+        await using var host = await DianSendHost.StartAsync(new Dictionary<string, string?> { ["Outbox:MaxAttempts"] = "1" });
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(
+            issuer, status: DocumentStatus.Sent, sentAt: host.Clock.UtcNow.AddHours(-25), trackId: "zip-key-3");
+        await host.EnqueuePollAsync(document, DianStatusQuery.GetStatusZip);
+        host.RemoveStoredCertificates();
+
+        await host.RunOutboxAsync();
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That((await host.DocumentAsync(document.Id)).Status, Is.EqualTo(DocumentStatus.Failed));
+            Assert.That((await host.NotificationsAsync(issuer.CompanyId)).Select(row => row.Type),
+                Is.EquivalentTo(new[] { OutboxNotifications.FailedType, DianNotificationTypes.Unconfirmed }));
+            Assert.That((await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.PollDianStatus)).Single().Status,
+                Is.EqualTo(OutboxStatus.Failed));
         });
     }
 
