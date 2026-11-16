@@ -35,4 +35,19 @@ internal sealed class InMemoryApiKeyStore : IApiKeyStore
         Uses.Enqueue((apiKeyId, usedAt));
         return Task.CompletedTask;
     }
+
+    public Task<ApiKeyRecord?> FindByIdAsync(Guid apiKeyId, CancellationToken ct) =>
+        Task.FromResult(_keys.Values.FirstOrDefault(key => key.Id == apiKeyId));
+
+    public Task AddAsync(NewApiKey key, CancellationToken ct)
+    {
+        Add(new ApiKeyRecord(key.Id, key.CompanyId, key.KeyHash, key.Scopes, key.ExpiresAt, RevokedAt: null));
+        return Task.CompletedTask;
+    }
+
+    public Task RevokeAsync(Guid apiKeyId, DateTimeOffset revokedAt, CancellationToken ct)
+    {
+        Revoke(apiKeyId, revokedAt);
+        return Task.CompletedTask;
+    }
 }

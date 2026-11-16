@@ -18,6 +18,7 @@ public static class IdentityServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddIdentityInfrastructure(this IServiceCollection services)
     {
+        services.AddIdentityPersistence();
         services.AddHybridCache();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<JwtOptions>, JwtSigningKeyValidation>());
 
@@ -32,7 +33,6 @@ public static class IdentityServiceCollectionExtensions
         services.TryAddSingleton<IApiKeyCacheInvalidator>(serviceProvider => serviceProvider.GetRequiredService<ApiKeyCache>());
         services.TryAddSingleton<ApiKeyUsageRecorder>();
         services.AddHostedService<ApiKeyUsageWriter>();
-        services.TryAddScoped<IApiKeyStore, EmptyApiKeyStore>();
         services.TryAddScoped(serviceProvider => new ApiKeyAuthenticator(
             serviceProvider.GetRequiredService<IApiKeyStore>(),
             serviceProvider.GetRequiredService<ApiKeyCache>(),
@@ -40,6 +40,21 @@ public static class IdentityServiceCollectionExtensions
             serviceProvider.GetRequiredService<IClock>(),
             serviceProvider.GetRequiredService<ApiKeyFormat>(),
             serviceProvider.GetRequiredService<ILogger<ApiKeyAuthenticator>>()));
+        return services;
+    }
+
+    /// <summary>
+    /// Registra los adaptadores de Identity sobre las tablas (API keys, usuarios con sus roles y tokens de
+    /// renovación) y el resumidor de contraseñas, sin nada de JWT (JSON Web Token) ni de caché. La API los recibe
+    /// con <see cref="AddIdentityInfrastructure"/>; el Migrator puede usar solo esta parte para crear la primera
+    /// llave de plataforma. Se llama después de <c>AddInfrastructure</c>, que registra el contexto de base de datos.
+    /// </summary>
+    public static IServiceCollection AddIdentityPersistence(this IServiceCollection services)
+    {
+        services.TryAddScoped<IApiKeyStore, EfApiKeyStore>();
+        services.TryAddScoped<IRefreshTokenStore, EfRefreshTokenStore>();
+        services.TryAddScoped<IUserStore, EfUserStore>();
+        services.TryAddSingleton<IPasswordHasher, AspNetPasswordHasher>();
         return services;
     }
 }

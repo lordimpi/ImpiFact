@@ -32,6 +32,7 @@ internal static class ApiComposition
         services.AddHealthChecks();
         services.AddProblemDetails(options =>
             options.CustomizeProblemDetails = context => LegacyProblemFields.Apply(context.ProblemDetails, context.HttpContext));
+        services.AddExceptionHandler<CredentialStoreUnavailableHandler>();
 
         // Detrás de un proxy o ingress: la IP y el esquema reales vienen en X-Forwarded-For y X-Forwarded-Proto. Por
         // defecto solo se confía en la propia máquina (loopback); cada despliegue agrega sus proxies en la sección
