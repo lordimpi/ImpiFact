@@ -71,6 +71,7 @@ internal static class ApiComposition
         services.AddSingleton<IEndpointModule, IdentityEndpoints>();
         services.AddSingleton<IEndpointModule, CompanyEndpoints>();
         services.AddSingleton<IEndpointModule, DocumentQueryEndpoints>();
+        services.AddSingleton<IEndpointModule, DocumentIssueEndpoints>();
         return builder;
     }
 
