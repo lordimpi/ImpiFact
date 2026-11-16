@@ -193,6 +193,9 @@ public sealed class HandlerScript
 
     /// <summary>Se ejecuta cuando el handler termina bien; sirve para simular que el Worker se apaga justo después.</summary>
     public Action? AfterSuccess { get; set; }
+
+    /// <summary>Se ejecuta cuando el Worker se rinde con un mensaje (<see cref="IOutboxMessageHandler.OnFailedAsync"/>).</summary>
+    public Func<Guid, Task>? OnFailed { get; set; }
 }
 
 /// <summary>Handler de prueba: anota el tenant que ve y falla cuando el guion lo pide.</summary>
@@ -215,4 +218,7 @@ public sealed class ScriptedHandler(string messageType, ITenantContext tenant, H
 
         script.AfterSuccess?.Invoke();
     }
+
+    public Task OnFailedAsync(OutboxMessageContext message, CancellationToken ct) =>
+        script.OnFailed?.Invoke(message.MessageId) ?? Task.CompletedTask;
 }

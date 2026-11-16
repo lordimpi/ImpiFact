@@ -335,6 +335,62 @@ public sealed class OutboxProcessorTests
     }
 
     [Test]
+    public async Task The_handler_hears_of_the_final_failure_before_it_is_recorded_so_a_crash_leaves_the_message_to_be_taken_again()
+    {
+        await using var host = OutboxHost.Create();
+        var companyId = await host.CreateCompanyAsync();
+        var id = await host.EnqueueAsync(companyId);
+        host.Script.FailWith(id, () => new PermanentOutboxFailureException("The document does not exist."));
+        OutboxStatus? seenByTheHandler = null;
+        var notificationsSeen = -1;
+        host.Script.OnFailed = async messageId =>
+        {
+            seenByTheHandler = (await host.FindAsync(messageId)).Status;
+            notificationsSeen = await host.CountNotificationsAboutAsync(messageId);
+        };
+
+        await host.Processor.ProcessBatchAsync(CancellationToken.None);
+
+        Assert.Multiple(async () =>
+        {
+            // Si el proceso se cae aquí, el mensaje sigue en proceso y se vuelve a tomar al vencer su bloqueo.
+            Assert.That(seenByTheHandler, Is.EqualTo(OutboxStatus.Processing));
+            Assert.That(notificationsSeen, Is.Zero);
+            Assert.That((await host.FindAsync(id)).Status, Is.EqualTo(OutboxStatus.Failed));
+            Assert.That(await host.CountNotificationsAboutAsync(id), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task A_message_reclaimed_beyond_the_maximum_attempts_lets_its_handler_record_the_failure()
+    {
+        await using var host = OutboxHost.Create(new Dictionary<string, string?> { ["Outbox:MaxAttempts"] = "1" });
+        var companyId = await host.CreateCompanyAsync();
+        var id = await host.EnqueueAsync(companyId);
+        var failedCalls = 0;
+        host.Script.OnFailed = _ =>
+        {
+            Interlocked.Increment(ref failedCalls);
+            return Task.CompletedTask;
+        };
+        await using (var scope = host.OpenScope())
+        {
+            // Una toma que se cayó sin registrar su resultado (por ejemplo, durante el aviso al handler).
+            await scope.ServiceProvider.GetRequiredService<OutboxQueue>()
+                .ClaimAsync("crashing-worker", [host.MessageType], batchSize: 10, CancellationToken.None);
+        }
+
+        host.Clock.Advance(TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(1));
+        await host.Processor.ProcessBatchAsync(CancellationToken.None);
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(failedCalls, Is.EqualTo(1));
+            Assert.That((await host.FindAsync(id)).Status, Is.EqualTo(OutboxStatus.Failed));
+        });
+    }
+
+    [Test]
     public async Task The_failure_notification_is_written_in_spanish()
     {
         await using var host = OutboxHost.Create();

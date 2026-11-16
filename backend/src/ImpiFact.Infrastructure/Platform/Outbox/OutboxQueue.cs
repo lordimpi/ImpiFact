@@ -78,8 +78,7 @@ internal sealed class OutboxQueue(ImpiFactDbContext db, IOutboxQueueSql sql, ICl
     {
         var now = clock.UtcNow;
         var lastError = Truncate($"{error.GetType().Name}: {error.Message}");
-        var final = error is PermanentOutboxFailureException || message.Attempts >= options.Value.MaxAttempts;
-        if (!final)
+        if (!IsFinal(message, error))
         {
             var nextAttemptAt = now + Backoff[Math.Clamp(message.Attempts - 1, 0, Backoff.Length - 1)];
             var rescheduled = await Owned(workerId, message).ExecuteUpdateAsync(
@@ -116,6 +115,13 @@ internal sealed class OutboxQueue(ImpiFactDbContext db, IOutboxQueueSql sql, ICl
         await transaction.CommitAsync(ct);
         return OutboxFailureOutcome.Failed;
     }
+
+    /// <summary>
+    /// Si esta falla deja el mensaje fallido, sin más intentos: es permanente
+    /// (<see cref="PermanentOutboxFailureException"/>) o ya no quedan intentos.
+    /// </summary>
+    public bool IsFinal(ClaimedOutboxMessage message, Exception error) =>
+        error is PermanentOutboxFailureException || message.Attempts >= options.Value.MaxAttempts;
 
     // El número de intento identifica la toma: si la misma instancia volvió a tomar el mensaje después de que venció
     // su bloqueo, la ejecución anterior ya no puede cerrarlo.

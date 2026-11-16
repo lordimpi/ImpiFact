@@ -167,6 +167,15 @@ internal sealed class OutboxProcessor(
             return;
         }
 
+        if (queue.IsFinal(message, failure))
+        {
+            // Primero el handler deja en un estado final lo que el mensaje iba a cambiar y después se guarda el fallo.
+            // Si el proceso se cae entre los dos pasos, el mensaje sigue en proceso: otra vuelta lo toma al vencer su
+            // bloqueo, pasado el máximo de intentos, y vuelve a avisar al handler. En el orden contrario, el mensaje
+            // quedaría fallido para siempre y lo que iba a cambiar (por ejemplo, el documento) a medias.
+            await NotifyFailedAsync(message);
+        }
+
         switch (await queue.FailAsync(workerId.Value, message, failure, ct))
         {
             case OutboxFailureOutcome.Rescheduled:
@@ -178,7 +187,6 @@ internal sealed class OutboxProcessor(
                 logger.LogError(
                     failure, "Outbox message {MessageId} of type {MessageType} failed on attempt {Attempt} and will not be retried.",
                     message.Id, message.Type, message.Attempts);
-                await NotifyFailedAsync(message);
                 break;
             default:
                 LogNotOwned(message);
@@ -187,9 +195,9 @@ internal sealed class OutboxProcessor(
     }
 
     /// <summary>
-    /// Avisa al handler que el mensaje quedó fallido (<see cref="IOutboxMessageHandler.OnFailedAsync"/>), en un ámbito
-    /// nuevo con el tenant del mensaje y el mismo plazo que un intento. Su falla solo se registra: el mensaje ya quedó
-    /// fallido y con su notificación.
+    /// Avisa al handler que el mensaje va a quedar fallido (<see cref="IOutboxMessageHandler.OnFailedAsync"/>), en un
+    /// ámbito nuevo con el tenant del mensaje y el mismo plazo que un intento, antes de guardar el fallo. Su falla solo
+    /// se registra: el mensaje queda fallido y con su notificación de todos modos.
     /// </summary>
     private async Task NotifyFailedAsync(ClaimedOutboxMessage message)
     {
