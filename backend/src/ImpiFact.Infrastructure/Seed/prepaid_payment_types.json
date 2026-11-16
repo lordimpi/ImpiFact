@@ -1,0 +1,7 @@
+[
+  {"id": 1, "code": "01", "name": "Copago"},
+  {"id": 2, "code": "02", "name": "Cuota moderadora"},
+  {"id": 3, "code": "03", "name": "Pagos compartidos en planes voluntarios de salud"},
+  {"id": 4, "code": "04", "name": "Anticipo"},
+  {"id": 5, "code": "05", "name": "No aplica"}
+]

@@ -1,0 +1,14 @@
+[
+  {"id": 1, "code": "11", "name": "Registro civil", "rips_code": "RC"},
+  {"id": 2, "code": "12", "name": "Tarjeta de identidad", "rips_code": "TI"},
+  {"id": 3, "code": "13", "name": "Cédula de ciudadanía", "rips_code": "CC"},
+  {"id": 4, "code": "21", "name": "Tarjeta de extranjería", "rips_code": "CN"},
+  {"id": 5, "code": "22", "name": "Cédula de extranjería", "rips_code": "CE"},
+  {"id": 6, "code": "31", "name": "NIT", "rips_code": "NI"},
+  {"id": 7, "code": "41", "name": "Pasaporte", "rips_code": "PA"},
+  {"id": 8, "code": "42", "name": "Documento de identificación extranjero", "rips_code": "DE"},
+  {"id": 9, "code": "50", "name": "NIT de otro país", "rips_code": "NI"},
+  {"id": 10, "code": "91", "name": "NUIP *", "rips_code": null},
+  {"id": 11, "code": "47", "name": "PEP (Permiso Especial de Permanencia)", "rips_code": "PE"},
+  {"id": 12, "code": "48", "name": "PPT (Permiso Protección Temporal)", "rips_code": "PT"}
+]

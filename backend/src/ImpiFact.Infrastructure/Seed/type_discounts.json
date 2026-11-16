@@ -1,0 +1,6 @@
+[
+  {"id": 1, "code": "00", "name": "Descuento no condicionado"},
+  {"id": 2, "code": "01", "name": "Descuento condicionado"},
+  {"id": 3, "code": "02", "name": "Recargo no condicionado"},
+  {"id": 4, "code": "03", "name": "Recargo condicionado"}
+]
