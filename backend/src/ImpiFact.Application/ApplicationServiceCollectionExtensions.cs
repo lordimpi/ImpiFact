@@ -52,6 +52,7 @@ public static class ApplicationServiceCollectionExtensions
 
         // Piezas comunes de los handlers que hablan con la DIAN (envío y consulta de estado).
         services.TryAddScoped<DianDelivery>();
+        services.TryAddScoped<Features.Documents.Pdf.DocumentPdfModelBuilder>();
         return services;
     }
 
