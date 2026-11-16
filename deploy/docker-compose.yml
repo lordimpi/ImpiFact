@@ -5,8 +5,8 @@
 #
 # Los puertos quedan atados a 127.0.0.1: solo se puede entrar desde este mismo equipo.
 # MinIO (almacenamiento compatible con S3) va en el perfil «s3»; ver el servicio más abajo.
-# Los demás servicios (SQL Server y MySQL como perfiles, correo, Api, Worker y web) se agregan en la fase que los
-# necesita.
+# Gotenberg (HTML a PDF) y MailHog (correo de prueba) arrancan con los demás; ver sus servicios más abajo.
+# Los demás servicios (SQL Server y MySQL como perfiles, Api, Worker y web) se agregan en la fase que los necesita.
 name: impifact
 
 services:
@@ -98,6 +98,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+  # Capturador de correo de desarrollo: recibe por SMTP todo lo que envía el Worker y no lo entrega a nadie. Los
+  # correos se ven en http://127.0.0.1:8025. Para usarlo, el Worker lleva Email__Host=127.0.0.1, Email__Port=1025,
+  # Email__Encryption=none y Email__FromAddress=<un remitente de prueba>.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "127.0.0.1:${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILHOG_UI_PORT:-8025}:8025"
 
 volumes:
   postgres-data:
