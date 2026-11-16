@@ -4,5 +4,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ImpiFact.Dian.Tests/ImpiFact.Dian.Tests.csproj" />
+    <Project Path="tests/ImpiFact.Golden.Tests/ImpiFact.Golden.Tests.csproj" />
   </Folder>
 </Solution>

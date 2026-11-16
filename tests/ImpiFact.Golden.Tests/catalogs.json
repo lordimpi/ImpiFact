@@ -1,0 +1,73 @@
+{
+  "_source": "Extracted from ApiDian Community seed CSVs (apidian/public/csv/*.csv, commit da4ed76), keeping only the IDs the golden inputs and the fixed capture context use. Values are copied verbatim, including the trailing space of municipality 149.",
+  "countries": {
+    "46": { "name": "Colombia", "code": "CO" }
+  },
+  "departments": {
+    "5": { "name": "Bogotá", "code": "11" }
+  },
+  "municipalities": {
+    "149": { "name": "Bogotá, D.c. ", "code": "11001", "departmentId": "5" }
+  },
+  "languages": {
+    "79": { "name": "Spanish; Castilian", "code": "es" }
+  },
+  "currencies": {
+    "35": { "name": "Peso colombiano", "code": "COP" },
+    "149": { "name": "Dólar estadounidense", "code": "USD" }
+  },
+  "identificationTypes": {
+    "3": { "name": "Cédula de ciudadanía", "code": "13" },
+    "6": { "name": "NIT", "code": "31" }
+  },
+  "organizationTypes": {
+    "1": { "name": "Persona Jurídica y asimiladas", "code": "1" },
+    "2": { "name": "Persona Natural y asimiladas", "code": "2" }
+  },
+  "regimes": {
+    "1": { "name": "Responsable de IVA", "code": "48" },
+    "2": { "name": "No Responsable de IVA", "code": "49" }
+  },
+  "liabilities": {
+    "14": { "name": "Agente de retención en el impuesto sobre las ventas", "code": "O-23" },
+    "117": { "name": "No aplica – Otros", "code": "R-99-PN" }
+  },
+  "taxes": {
+    "1": { "name": "IVA", "code": "01" },
+    "4": { "name": "INC", "code": "04" },
+    "5": { "name": "ReteIVA", "code": "05" },
+    "6": { "name": "ReteRenta", "code": "06" },
+    "7": { "name": "ReteICA", "code": "07" },
+    "10": { "name": "INC Bolsas", "code": "22" }
+  },
+  "unitMeasures": {
+    "70": { "name": "Unidad", "code": "94" },
+    "767": { "name": "kilogramo", "code": "KGM" }
+  },
+  "paymentForms": {
+    "1": { "name": "Contado", "code": "1" },
+    "2": { "name": "Crédito", "code": "2" }
+  },
+  "paymentMethods": {
+    "10": { "name": "Efectivo", "code": "10" },
+    "30": { "name": "Transferecia Crédito", "code": "30" }
+  },
+  "discounts": {
+    "1": { "name": "Descuento por impuesto asumido", "code": "00" },
+    "10": { "name": "Descuento general", "code": "09" },
+    "11": { "name": "Descuento por volumen", "code": "10" },
+    "12": { "name": "Otro descuento", "code": "11" }
+  },
+  "referencePrices": {
+    "1": { "name": "Valor comercial", "code": "01" }
+  },
+  "itemIdentificationTypes": {
+    "4": { "name": "Estándar de adopción del contribuyente", "code": "999", "codeAgency": "" }
+  },
+  "operationTypes": {
+    "10": { "name": "Estandar", "code": "10" }
+  },
+  "documentTypes": {
+    "1": { "name": "Factura de Venta Nacional", "code": "01" }
+  }
+}
