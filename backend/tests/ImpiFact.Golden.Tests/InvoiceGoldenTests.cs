@@ -59,6 +59,19 @@ public sealed class InvoiceGoldenTests
         Assert.That(result.Xml, Does.Contain($"<sts:QRCode>https://qr.example.test/search?documentkey={result.Cufe}</sts:QRCode>"));
     }
 
+    // Como el PHP (01.blade.php), la nota de la factura va justo después de cbc:InvoiceTypeCode y solo si llega.
+    [Test]
+    public void Invoice_note_goes_right_after_the_invoice_type_code()
+    {
+        var caseDir = GoldenCases.Invoices().First();
+        using var input = JsonDocument.Parse(File.ReadAllText(Path.Combine(caseDir, "input.json"), Encoding.UTF8));
+        var invoice = new ApiDianInvoiceAdapter(Catalog).Map(input.RootElement) with { Note = "Entrega en bodega" };
+
+        var xml = InvoiceUblBuilder.Build(invoice).Xml;
+
+        Assert.That(xml, Does.Contain("</cbc:InvoiceTypeCode>\n  <cbc:Note>Entrega en bodega</cbc:Note>\n  <cbc:DocumentCurrencyCode>"));
+    }
+
     private static InvoiceUblResult Build(string caseDir)
     {
         using var input = JsonDocument.Parse(File.ReadAllText(Path.Combine(caseDir, "input.json"), Encoding.UTF8));
@@ -66,7 +79,7 @@ public sealed class InvoiceGoldenTests
         return InvoiceUblBuilder.Build(invoice);
     }
 
-    private static byte[] ExpectedBeforeSigning(string caseDir)
+    internal static byte[] ExpectedBeforeSigning(string caseDir)
     {
         var text = Encoding.UTF8.GetString(File.ReadAllBytes(Path.Combine(caseDir, "expected.xml")));
         var first = text.IndexOf(SignatureSlotInFixture, StringComparison.Ordinal);

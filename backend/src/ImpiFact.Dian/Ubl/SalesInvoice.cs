@@ -45,6 +45,12 @@ public sealed record SalesInvoice
     /// <summary>Se asigna cuando la factura se emite en otra moneda.</summary>
     public ForeignCurrency? ForeignCurrency { get; init; }
 
+    /// <summary>
+    /// Nota libre de la factura (<c>cbc:Note</c>). Nula si el cliente no la envía; el texto llega ya sin saltos de
+    /// línea ni «|», como lo deja el PHP.
+    /// </summary>
+    public string? Note { get; init; }
+
     public required InvoiceParty Supplier { get; init; }
 
     public required InvoiceParty Customer { get; init; }
@@ -84,7 +90,11 @@ public sealed record NumberingResolution(
     string TechnicalKey);
 
 /// <summary>Software registrado ante la DIAN; entra en sts:SoftwareID y sts:SoftwareSecurityCode.</summary>
-public sealed record SoftwareCredentials(string SoftwareId, string Pin);
+public sealed record SoftwareCredentials(string SoftwareId, string Pin)
+{
+    /// <summary>No incluye el PIN, para que un registro accidental del objeto no lo filtre.</summary>
+    public override string ToString() => $"SoftwareCredentials {{ SoftwareId = {SoftwareId} }}";
+}
 
 /// <summary>
 /// Moneda extranjera del documento. cac:PaymentExchangeRate solo se escribe cuando se conocen tanto la
@@ -221,7 +231,7 @@ public sealed record MonetaryTotals
     public required decimal PayableAmount { get; init; }
 }
 
-/// <summary>Una línea de la factura.</summary>
+/// <summary>Una línea de la factura o de una nota crédito o débito.</summary>
 public sealed record InvoiceLine
 {
     public required string UnitCode { get; init; }
@@ -242,6 +252,12 @@ public sealed record InvoiceLine
     public required decimal PriceAmount { get; init; }
 
     public required decimal BaseQuantity { get; init; }
+
+    /// <summary>
+    /// Código del tipo de precio de referencia (01 valor comercial, ...). Solo lo usan las notas, que lo
+    /// escriben en cbc:PriceTypeCode de las líneas gratuitas; la factura no lo escribe.
+    /// </summary>
+    public string? ReferencePriceCode { get; init; }
 
     public IReadOnlyList<AllowanceCharge> AllowanceCharges { get; init; } = [];
 

@@ -1,4 +1,5 @@
 using ImpiFact.Application.Abstractions.Persistence;
+using ImpiFact.Infrastructure.Documents;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -25,6 +26,7 @@ public sealed class PostgresDatabaseProvider : IDatabaseProvider
         services.TryAddSingleton(serviceProvider =>
             NpgsqlDataSource.Create(serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString));
         services.TryAddSingleton<IReadConnectionFactory, NpgsqlReadConnectionFactory>();
+        services.TryAddSingleton<INumberingSql, PostgresNumberingSql>();
     }
 
     public void ConfigureDbContext(IServiceProvider services, DbContextOptionsBuilder options) =>

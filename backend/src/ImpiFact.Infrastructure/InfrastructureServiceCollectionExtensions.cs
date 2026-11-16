@@ -1,9 +1,13 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Infrastructure.Companies;
+using ImpiFact.Infrastructure.Documents;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
+using ImpiFact.Infrastructure.Platform;
 using ImpiFact.Infrastructure.Protection;
+using ImpiFact.Infrastructure.Reads;
+using ImpiFact.Infrastructure.Storage;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Infrastructure.Time;
 using Microsoft.Extensions.Configuration;
@@ -31,6 +35,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddValidatedOptions<JwtOptions>(configuration, JwtOptions.SectionName);
         services.AddValidatedOptions<ApiKeyOptions>(configuration, ApiKeyOptions.SectionName);
         services.AddValidatedOptions<SecretsOptions>(configuration, SecretsOptions.SectionName);
+        services.AddValidatedOptions<StorageOptions>(configuration, StorageOptions.SectionName);
 
         services.TryAddSingleton<IClock, SystemClock>();
         services.TryAddScoped<TenantContext>();
@@ -42,6 +47,12 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddImpiFactDbContext<ImpiFactDbContext>();
         services.AddSecrets();
         services.AddCompanies();
+        services.AddStorage();
+        // La carpeta de certificados cifrados no puede quedar dentro del almacenamiento de documentos, ni al revés.
+        services.AddSingleton(new ReservedDirectory("Secrets:LocalAesGcm:CertificateDirectory", configuration["Secrets:LocalAesGcm:CertificateDirectory"]));
+        services.AddDocuments();
+        services.AddPlatform();
+        services.AddReads();
         return services;
     }
 

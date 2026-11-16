@@ -1,16 +1,26 @@
 namespace ImpiFact.Golden.Tests;
 
 /// <summary>
-/// Ubica los casos de referencia en tests/golden: XML y CUFE generados por el PHP original (ApiDian), que
-/// ImpiFact debe reproducir byte a byte. Se capturan con tools/golden-capture.
+/// Ubica los casos de referencia en tests/golden: XML y CUFE/CUDE generados por el PHP original (ApiDian),
+/// que ImpiFact debe reproducir byte a byte. Se capturan con tools/golden-capture. El CUFE (código único de
+/// la factura electrónica) identifica una factura; el CUDE (código único de documento electrónico), una
+/// nota crédito o débito.
 /// </summary>
 public static class GoldenCases
 {
     /// <summary>Carpetas de casos de tests/golden/invoice que tienen una entrada y un XML esperado.</summary>
-    public static IReadOnlyList<string> Invoices()
+    public static IReadOnlyList<string> Invoices() => Of("invoice");
+
+    /// <summary>Carpetas de casos de tests/golden/credit-note.</summary>
+    public static IReadOnlyList<string> CreditNotes() => Of("credit-note");
+
+    /// <summary>Carpetas de casos de tests/golden/debit-note.</summary>
+    public static IReadOnlyList<string> DebitNotes() => Of("debit-note");
+
+    private static List<string> Of(string documentType)
     {
-        var invoiceRoot = Path.Combine(FindGoldenRoot(), "invoice");
-        return Directory.EnumerateDirectories(invoiceRoot)
+        var typeRoot = Path.Combine(FindGoldenRoot(), documentType);
+        return Directory.EnumerateDirectories(typeRoot)
             .Where(dir => File.Exists(Path.Combine(dir, "input.json")) && File.Exists(Path.Combine(dir, "expected.xml")))
             .OrderBy(dir => dir, StringComparer.Ordinal)
             .ToList();

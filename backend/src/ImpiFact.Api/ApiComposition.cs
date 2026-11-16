@@ -1,5 +1,6 @@
 using System.Net;
 using ImpiFact.Api.Companies;
+using ImpiFact.Api.Documents;
 using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
 using ImpiFact.Api.Identity;
@@ -69,6 +70,8 @@ internal static class ApiComposition
 
         services.AddSingleton<IEndpointModule, IdentityEndpoints>();
         services.AddSingleton<IEndpointModule, CompanyEndpoints>();
+        services.AddSingleton<IEndpointModule, DocumentQueryEndpoints>();
+        services.AddSingleton<IEndpointModule, DocumentIssueEndpoints>();
         return builder;
     }
 

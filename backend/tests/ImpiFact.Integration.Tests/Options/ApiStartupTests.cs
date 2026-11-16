@@ -49,6 +49,7 @@ public sealed class ApiStartupTests
         var jwt = factory.Services.GetRequiredService<IOptionsService<JwtOptions>>().Value;
         var apiKey = factory.Services.GetRequiredService<IOptionsService<ApiKeyOptions>>().Value;
         var secrets = factory.Services.GetRequiredService<IOptionsService<SecretsOptions>>().Value;
+        var storage = factory.Services.GetRequiredService<IOptionsService<StorageOptions>>().Value;
         using var scope = factory.Services.CreateScope();
 
         Assert.Multiple(() =>
@@ -65,6 +66,7 @@ public sealed class ApiStartupTests
             Assert.That(jwt.RefreshDays, Is.EqualTo(14));
             Assert.That(apiKey.Prefix, Is.EqualTo("apk_"));
             Assert.That(secrets.Provider, Is.EqualTo("LocalAesGcm"));
+            Assert.That(storage.Provider, Is.EqualTo("Local"));
             Assert.That(scope.ServiceProvider.GetService<IUnitOfWork>(), Is.Not.Null);
             Assert.That(scope.ServiceProvider.GetService<IReadConnectionFactory>(), Is.Not.Null);
         });
@@ -72,5 +74,6 @@ public sealed class ApiStartupTests
 
     private IWebHostBuilder WithMasterKey(IWebHostBuilder builder) => builder
         .UseSetting("Secrets:LocalAesGcm:MasterKeyFile", scratch.MasterKeyFile)
-        .UseSetting("Secrets:LocalAesGcm:CertificateDirectory", scratch.CertificateDirectory);
+        .UseSetting("Secrets:LocalAesGcm:CertificateDirectory", scratch.CertificateDirectory)
+        .UseSetting("Storage:Local:Root", Path.Combine(scratch.Root, "storage"));
 }

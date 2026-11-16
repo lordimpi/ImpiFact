@@ -3,6 +3,7 @@ using System.Text.Json;
 using ImpiFact.Dian.Cufe;
 using ImpiFact.Dian.Rounding;
 using ImpiFact.Dian.Ubl;
+using static ImpiFact.Golden.Tests.ApiDianJson;
 
 namespace ImpiFact.Golden.Tests;
 
@@ -11,7 +12,9 @@ namespace ImpiFact.Golden.Tests;
 /// generó el PHP original) más la configuración fija de captura al modelo <see cref="SalesInvoice"/> de
 /// ImpiFact.Dian, traduciendo los ID de catálogo con <see cref="ApiDianCatalog"/>. Un valor opcional solo
 /// se pasa cuando ApiDian lo habría escrito en el XML, según cómo PHP decide si un valor cuenta como vacío
-/// (ver TruthyDecimal). Así el constructor recibe exactamente lo que escribió ApiDian.
+/// (ver <see cref="ApiDianJson.TruthyDecimal"/>). Así el constructor recibe exactamente lo que escribió
+/// ApiDian. <see cref="ApiDianNoteAdapter"/> reutiliza las conversiones de partes, pagos, impuestos, totales
+/// y líneas, que son las mismas en las notas.
 /// </summary>
 public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
 {
@@ -55,7 +58,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         };
     }
 
-    private ForeignCurrency? MapForeignCurrency(JsonElement request)
+    internal ForeignCurrency? MapForeignCurrency(JsonElement request)
     {
         var currencyId = OptionalText(request, "idcurrency");
         if (currencyId is null)
@@ -71,7 +74,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             date is null ? null : DateOnly.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture));
     }
 
-    private InvoiceParty MapSupplier() => new()
+    internal InvoiceParty MapSupplier() => new()
     {
         OrganizationTypeCode = catalog.Get("organizationTypes", GoldenCaptureContext.CompanyOrganizationTypeId).Code,
         IdentificationNumber = GoldenCaptureContext.CompanyNit,
@@ -88,7 +91,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         Email = GoldenCaptureContext.CompanyEmail,
     };
 
-    private InvoiceParty MapCustomer(JsonElement customer)
+    internal InvoiceParty MapCustomer(JsonElement customer)
     {
         var municipalityId = OptionalText(customer, "municipality_id");
         var address = OptionalText(customer, "address");
@@ -124,7 +127,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             addressLine, country.Code, country.Name, language.Code);
     }
 
-    private PaymentTerms MapPayment(JsonElement payment)
+    internal PaymentTerms MapPayment(JsonElement payment)
     {
         var dueDate = OptionalText(payment, "payment_due_date");
         var duration = OptionalText(payment, "duration_measure");
@@ -135,7 +138,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             duration is null ? null : int.Parse(duration, CultureInfo.InvariantCulture));
     }
 
-    private AllowanceCharge MapAllowanceCharge(JsonElement item)
+    internal AllowanceCharge MapAllowanceCharge(JsonElement item)
     {
         var isCharge = item.GetProperty("charge_indicator").GetBoolean();
         var discountId = OptionalText(item, "discount_id");
@@ -153,7 +156,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         };
     }
 
-    private TaxSubtotal MapTaxSubtotal(JsonElement item)
+    internal TaxSubtotal MapTaxSubtotal(JsonElement item)
     {
         var taxId = RequiredInt(item, "tax_id");
         var tax = catalog.Get("taxes", taxId);
@@ -178,7 +181,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         };
     }
 
-    private static MonetaryTotals MapTotals(JsonElement totals) => new()
+    internal static MonetaryTotals MapTotals(JsonElement totals) => new()
     {
         LineExtensionAmount = RequiredDecimal(totals, "line_extension_amount"),
         TaxExclusiveAmount = RequiredDecimal(totals, "tax_exclusive_amount"),
@@ -189,15 +192,12 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         PayableAmount = RequiredDecimal(totals, "payable_amount"),
     };
 
-    private InvoiceLine MapLine(JsonElement line)
+    internal InvoiceLine MapLine(JsonElement line)
     {
         var itemType = catalog.Get("itemIdentificationTypes", RequiredInt(line, "type_item_identification_id"));
-        if (OptionalText(line, "reference_price_id") is { } referencePriceId)
-        {
-            // Solo se valida: ApiDian no escribe el tipo de precio de referencia en la línea.
-            catalog.Get("referencePrices", referencePriceId);
-        }
 
+        // La factura no escribe el tipo de precio de referencia; las notas sí, en las líneas gratuitas.
+        var referencePriceId = OptionalText(line, "reference_price_id");
         return new InvoiceLine
         {
             UnitCode = catalog.Get("unitMeasures", RequiredInt(line, "unit_measure_id")).Code,
@@ -209,56 +209,9 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             ItemScheme = new ItemIdentificationScheme(itemType.Code, itemType.Name, itemType.CodeAgency ?? ""),
             PriceAmount = RequiredDecimal(line, "price_amount"),
             BaseQuantity = RequiredDecimal(line, "base_quantity"),
+            ReferencePriceCode = referencePriceId is null ? null : catalog.Get("referencePrices", referencePriceId).Code,
             AllowanceCharges = MapList(line, "allowance_charges", MapAllowanceCharge),
             TaxSubtotals = MapList(line, "tax_totals", MapTaxSubtotal),
         };
-    }
-
-    private static List<T> MapList<T>(JsonElement parent, string name, Func<JsonElement, T> map) =>
-        parent.TryGetProperty(name, out var array) && array.ValueKind == JsonValueKind.Array
-            ? array.EnumerateArray().Select(map).ToList()
-            : [];
-
-    /// <summary>Texto de una propiedad de cadena o numérica; null cuando falta o es null.</summary>
-    private static string? OptionalText(JsonElement parent, string name)
-    {
-        if (!parent.TryGetProperty(name, out var value))
-        {
-            return null;
-        }
-
-        return value.ValueKind switch
-        {
-            JsonValueKind.Null => null,
-            JsonValueKind.String => value.GetString(),
-            JsonValueKind.Number => value.GetRawText(),
-            _ => throw new InvalidDataException($"'{name}' must be a string or a number"),
-        };
-    }
-
-    private static string RequiredText(JsonElement parent, string name) =>
-        OptionalText(parent, name) ?? throw new InvalidDataException($"'{name}' is required");
-
-    private static int RequiredInt(JsonElement parent, string name) =>
-        int.Parse(RequiredText(parent, name), CultureInfo.InvariantCulture);
-
-    private static decimal RequiredDecimal(JsonElement parent, string name) => DianRounding.Parse(RequiredText(parent, name));
-
-    /// <summary>
-    /// Devuelve el valor solo si PHP lo considera "no vacío"; si no, null. Las plantillas de ApiDian escriben
-    /// el elemento con un @if sobre el valor tal como llegó en la solicitud, y PHP cuenta como falso un valor
-    /// faltante, null, "", "0" y el número 0. En cambio, el texto "0.00" cuenta como verdadero.
-    /// </summary>
-    private static decimal? TruthyDecimal(JsonElement parent, string name)
-    {
-        var text = OptionalText(parent, name);
-        if (string.IsNullOrEmpty(text) || text == "0")
-        {
-            return null;
-        }
-
-        var value = DianRounding.Parse(text);
-        var isJsonNumber = parent.GetProperty(name).ValueKind == JsonValueKind.Number;
-        return isJsonNumber && value == 0m ? null : value;
     }
 }
