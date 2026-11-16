@@ -52,7 +52,7 @@ ImpiFact/
 │  │  │  ├─ Storage/           IBlobStorage: Local, AzureBlob, S3, Gcs
 │  │  │  ├─ Protection/        ICertificateStore, ISecretProtector: KeyVault, AwsSecrets, GcpSecrets, LocalAesGcm
 │  │  │  ├─ Email/             IEmailSender (MailKit, SMTP por empresa)
-│  │  │  ├─ Pdf/               IPdfRenderer + plantillas
+│  │  │  ├─ Pdf/               IPdfRenderer con Gotenberg, plantillas HTML (Handlebars, recursos incrustados) y QR (QRCoder)
 │  │  │  ├─ Platform/Outbox/   cola (toma con SKIP LOCKED) y procesador del Worker; el publicador es Platform/EfOutbox
 │  │  │  └─ Options/           GenericOptionsService<T> y clases de opciones
 │  │  ├─ ImpiFact.Infrastructure.Postgres/ | .SqlServer/ | .MySql/
@@ -76,7 +76,7 @@ Organización del repositorio (15-nov, ADR-28): monorepo con una carpeta por apl
 | Domain | ninguno |
 | Application | `FluentValidation`, `Mapster`, `Scrutor`, `Microsoft.Extensions.*.Abstractions` |
 | Dian | `System.Security.Cryptography.Xml`, `System.IO.Compression` (BCL) |
-| Infrastructure | `Microsoft.EntityFrameworkCore`, `Dapper`, `Serilog`, `MailKit`, `QuestPDF` (candidato; ADR-04 abierto), `Azure.Storage.Blobs`, `AWSSDK.S3`, `Google.Cloud.Storage.V1`, `Azure.Security.KeyVault.*`, `AWSSDK.SecretsManager`, `Google.Cloud.SecretManager.V1`, `Microsoft.Extensions.Http.Resilience`, `Microsoft.AspNetCore.DataProtection` |
+| Infrastructure | `Microsoft.EntityFrameworkCore`, `Dapper`, `Serilog`, `MailKit`, `Handlebars.Net` y `QRCoder` (PDF; el HTML lo convierte Gotenberg, un contenedor aparte: ADR-04), `Azure.Storage.Blobs`, `AWSSDK.S3`, `Google.Cloud.Storage.V1`, `Azure.Security.KeyVault.*`, `AWSSDK.SecretsManager`, `Google.Cloud.SecretManager.V1`, `Microsoft.Extensions.Http.Resilience`, `Microsoft.AspNetCore.DataProtection` |
 | Infrastructure.Postgres | `Npgsql.EntityFrameworkCore.PostgreSQL` |
 | Infrastructure.SqlServer | `Microsoft.EntityFrameworkCore.SqlServer` |
 | Infrastructure.MySql | proveedor definido en ADR-08 (Pomelo u Oracle) |
@@ -198,7 +198,7 @@ public interface IUblBuilder<TDoc> { string Build(TDoc document); }          // 
 public interface ICufeCalculator { string Compute(CufeInput input); }
 public interface IXmlSigner { string Sign(string xml, SigningCertificate cert, SigningProfile profile); }
 
-public interface IPdfRenderer { Task<byte[]> RenderAsync(DocumentPdfModel model, int templateId, CancellationToken ct); }
+public interface IPdfRenderer { Task<byte[]> RenderAsync(DocumentPdfModel model, CancellationToken ct); }   // ADR-04
 public interface IEmailSender { Task SendAsync(MailSettings settings, EmailMessage message, CancellationToken ct); }
 public interface INumberingSql { Task<long> TakeNextAsync(DbConnection c, DbTransaction t, Guid companyId, string scopeKey, CancellationToken ct); }
 public interface ITenantContext { Guid? CompanyId { get; } Guid? UserId { get; } ActorType Actor { get; } }
@@ -400,7 +400,7 @@ Módulos del panel de la fase 5:
                   "BreakDurationSeconds": 30, "TotalSeconds": 120 },               // 2 × TotalSeconds < Outbox:HandlerTimeoutSeconds
   "Cors":       { "Origins": [ "https://app.example.com" ] },
   "RateLimit":  { "PermitPerMinutePerKey": 120, "PermitPerMinutePerIp": 300, "LoginPerMinute": 10 },
-  "Pdf":        { "DefaultTemplate": 2 },
+  "Pdf":        { "GotenbergUrl": "http://127.0.0.1:3000", "TimeoutSeconds": 60 },   // solo el Worker
   "Serilog":    { /* niveles y sinks */ }
 }
 ```
@@ -408,6 +408,7 @@ Módulos del panel de la fase 5:
 - `Resilience` (llamadas a la DIAN): `Retries` reintentos después del primero; `BaseDelaySeconds` espera base del retroceso exponencial con jitter (cerca de 2, 4 y 8 s); `BreakerFailures` fallos dentro de `BreakerSeconds` abren el *circuit breaker*, que queda abierto `BreakDurationSeconds`; `TotalSeconds` es el plazo de una llamada con todos sus intentos y esperas. El Worker exige al arrancar que dos llamadas (un envío y la consulta GetStatus de la regla 90) quepan en el plazo de un handler: `2 × TotalSeconds < Outbox:HandlerTimeoutSeconds` (120 s y 270 s por defecto). Con 60 s por intento, una llamada que se agota alcanza a hacer dos intentos, no cuatro.
 - `Storage:S3` (S3 de AWS o un servicio compatible; MinIO en desarrollo, perfil `s3` de `deploy/docker-compose.yml`): `Bucket` es obligatorio y debe existir (lo crea el despliegue, no la aplicación); `Region` es obligatoria salvo que haya `ServiceUrl` (URL absoluta `http` o `https` de un servicio compatible, sin usuario, contraseña ni consulta), y en ese caso se firma con `us-east-1` si falta; `ForcePathStyle` pone el bucket en la ruta de la URL, como piden MinIO y la mayoría de los compatibles; `ServerSideEncryption` (activo por omisión) guarda cada objeto con SSE-S3 (AES-256 con llaves del servicio; en MinIO exige `MINIO_KMS_SECRET_KEY`); `SignedUrlMaxMinutes` (de 1 a 10080, 7 días) es la vigencia máxima de una URL prefirmada de descarga. Cada archivo de `document_files` guarda en `storage_provider` el proveedor donde quedó.
 - Credenciales de S3: no hay llaves en `appsettings`. El cliente usa la cadena estándar de AWS: variables `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`, perfil de `~/.aws` o el rol de la instancia o de la tarea (lo recomendado en la nube, con permisos `s3:PutObject`, `s3:GetObject` y `s3:DeleteObject` solo sobre el bucket). Con MinIO local se usan esas mismas variables con el usuario de MinIO.
+- `Pdf` (solo el Worker; ADR-04): `GotenbergUrl` es la dirección de Gotenberg (`http://gotenberg:3000` dentro de la red de contenedores) y `TimeoutSeconds` el plazo de una conversión, que debe ser menor que `Outbox:HandlerTimeoutSeconds` (se valida al arrancar). A Gotenberg solo se le manda el HTML del documento, su hoja de estilos y la imagen del QR; nunca secretos.
 - Secretos (cadena de conexión, llave de JWT, llave maestra local, credenciales SMTP por defecto) **nunca** van en `appsettings`; el arranque falla (`ValidateOnStart`) si falta alguno.
 - Llave de JWT: asimétrica (RS256/ES256) con rotación; la pública se expone en `/.well-known/jwks.json` si se necesita.
 - Archivos de ejemplo `appsettings.Development.json` y `.env.example` se versionan sin secretos.
@@ -459,6 +460,7 @@ Las implementaciones de `IBlobStorage` y `ICertificateStore` usan la identidad d
 
 | ID | Decisión | Resolución |
 | --- | --- | --- |
+| ADR-04 | Generación del PDF (representación gráfica), abierto en el PRD (17-nov) | Plantillas HTML con Handlebars.Net (MIT; escapa el HTML por defecto, porque nombres, descripciones y notas son texto del usuario) portadas de la plantilla 1 de ApiDian (factura, nota crédito y nota débito: mismo contenido, sin buscar igualdad de píxeles), convertidas a PDF por Gotenberg (contenedor aparte con Chromium, MIT; `POST /forms/chromium/convert/html`) y QR con QRCoder (MIT). El modelo imprimible (`DocumentPdfModel`) y el puerto `IPdfRenderer` viven en Application y no saben del motor. Se descartó QuestPDF: su licencia gratuita depende de los ingresos de la organización que lo usa y excluye al sector público y a las empresas que cotizan en bolsa, así que no sirve para un producto que instalan otras empresas. Gotenberg se fija a una versión exacta (`8.39.0-chromium`) en el compose y en las pruebas. Ojo: Handlebars.Net 2.4 no escapa el HTML de una parte compartida llamada sola en su línea con sangría (`    {{> parte}}`); las plantillas llaman las partes sin sangría y el cargador rechaza las que la tengan |
 | ADR-09 | SOAP: cliente `WCF (System.ServiceModel) o sobre manual con HttpClient` | Spike en la fase 1b: cliente WCF (System.ServiceModel) frente a sobre SOAP manual; gana el que logre aceptación de la DIAN. Ambos van detrás de IDianClient |
 | ADR-10 | Casos de uso: handlers propios con decoradores (Scrutor) | Aprobado (sin MediatR) |
 | ADR-11 | Minimal API agrupada por módulo frente a controladores | Minimal API |
