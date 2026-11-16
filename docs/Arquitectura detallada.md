@@ -385,8 +385,11 @@ Módulos del panel de la fase 5:
                   "HabilitacionQrUrl": "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=",
                   "ProduccionQrUrl":   "https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=",
                   "TimeoutSeconds": 60 },
-  "Storage":    { "Provider": "Local", "Local": { "Root": "/data" },    // Local | AzureBlob | S3 | Gcs
-                  "AzureBlob": { "Container": "impifact" }, "S3": { "Bucket": "", "Region": "" }, "Gcs": { "Bucket": "" } },
+  "Storage":    { "Provider": "Local", "Local": { "Root": "/data" },    // Local | S3 (fase 4) | AzureBlob | Gcs (fase 6)
+                  "AzureBlob": { "Container": "impifact" },
+                  "S3": { "Bucket": "", "Region": "", "ServiceUrl": "", "ForcePathStyle": false,
+                          "ServerSideEncryption": true, "SignedUrlMaxMinutes": 60 },
+                  "Gcs": { "Bucket": "" } },
   "Secrets":    { "Provider": "LocalAesGcm", "LocalAesGcm": { "CertificateDirectory": "/data/certificates" },  // MasterKeyFile: ruta del secreto montado
                   "KeyVaultUri": "", "AwsRegion": "", "GcpProject": "" },
   "Jwt":        { "Issuer": "impifact", "Audience": "impifact-web", "AccessMinutes": 15, "RefreshDays": 14 },  // SigningKey (PEM) es secreto
@@ -403,6 +406,8 @@ Módulos del panel de la fase 5:
 ```
 
 - `Resilience` (llamadas a la DIAN): `Retries` reintentos después del primero; `BaseDelaySeconds` espera base del retroceso exponencial con jitter (cerca de 2, 4 y 8 s); `BreakerFailures` fallos dentro de `BreakerSeconds` abren el *circuit breaker*, que queda abierto `BreakDurationSeconds`; `TotalSeconds` es el plazo de una llamada con todos sus intentos y esperas. El Worker exige al arrancar que dos llamadas (un envío y la consulta GetStatus de la regla 90) quepan en el plazo de un handler: `2 × TotalSeconds < Outbox:HandlerTimeoutSeconds` (120 s y 270 s por defecto). Con 60 s por intento, una llamada que se agota alcanza a hacer dos intentos, no cuatro.
+- `Storage:S3` (S3 de AWS o un servicio compatible; MinIO en desarrollo, perfil `s3` de `deploy/docker-compose.yml`): `Bucket` es obligatorio y debe existir (lo crea el despliegue, no la aplicación); `Region` es obligatoria salvo que haya `ServiceUrl` (URL absoluta `http` o `https` de un servicio compatible, sin usuario, contraseña ni consulta), y en ese caso se firma con `us-east-1` si falta; `ForcePathStyle` pone el bucket en la ruta de la URL, como piden MinIO y la mayoría de los compatibles; `ServerSideEncryption` (activo por omisión) guarda cada objeto con SSE-S3 (AES-256 con llaves del servicio; en MinIO exige `MINIO_KMS_SECRET_KEY`); `SignedUrlMaxMinutes` (de 1 a 10080, 7 días) es la vigencia máxima de una URL prefirmada de descarga. Cada archivo de `document_files` guarda en `storage_provider` el proveedor donde quedó.
+- Credenciales de S3: no hay llaves en `appsettings`. El cliente usa la cadena estándar de AWS: variables `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`, perfil de `~/.aws` o el rol de la instancia o de la tarea (lo recomendado en la nube, con permisos `s3:PutObject`, `s3:GetObject` y `s3:DeleteObject` solo sobre el bucket). Con MinIO local se usan esas mismas variables con el usuario de MinIO.
 - Secretos (cadena de conexión, llave de JWT, llave maestra local, credenciales SMTP por defecto) **nunca** van en `appsettings`; el arranque falla (`ValidateOnStart`) si falta alguno.
 - Llave de JWT: asimétrica (RS256/ES256) con rotación; la pública se expone en `/.well-known/jwks.json` si se necesita.
 - Archivos de ejemplo `appsettings.Development.json` y `.env.example` se versionan sin secretos.
