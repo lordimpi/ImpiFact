@@ -1,8 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Adaptadores: persistencia, almacenamiento, secretos, correo y PDF. -->
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ImpiFact.Application\ImpiFact.Application.csproj" />
     <ProjectReference Include="..\ImpiFact.Dian\ImpiFact.Dian.csproj" />
     <ProjectReference Include="..\ImpiFact.Domain\ImpiFact.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ImpiFact.Integration.Tests" />
   </ItemGroup>
 </Project>

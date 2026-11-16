@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Proveedor PostgreSQL: conecta Entity Framework Core (EF, el mapeador de objetos a tablas) y las lecturas con
+    Npgsql (el controlador .NET de PostgreSQL). Más adelante guarda aquí sus migraciones.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ImpiFact.Infrastructure\ImpiFact.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
