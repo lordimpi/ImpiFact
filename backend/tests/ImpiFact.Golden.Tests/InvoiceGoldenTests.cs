@@ -66,7 +66,7 @@ public sealed class InvoiceGoldenTests
         return InvoiceUblBuilder.Build(invoice);
     }
 
-    private static byte[] ExpectedBeforeSigning(string caseDir)
+    internal static byte[] ExpectedBeforeSigning(string caseDir)
     {
         var text = Encoding.UTF8.GetString(File.ReadAllBytes(Path.Combine(caseDir, "expected.xml")));
         var first = text.IndexOf(SignatureSlotInFixture, StringComparison.Ordinal);

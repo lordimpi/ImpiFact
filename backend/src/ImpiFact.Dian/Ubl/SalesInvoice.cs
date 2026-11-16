@@ -221,7 +221,7 @@ public sealed record MonetaryTotals
     public required decimal PayableAmount { get; init; }
 }
 
-/// <summary>Una línea de la factura.</summary>
+/// <summary>Una línea de la factura o de una nota crédito o débito.</summary>
 public sealed record InvoiceLine
 {
     public required string UnitCode { get; init; }
@@ -242,6 +242,12 @@ public sealed record InvoiceLine
     public required decimal PriceAmount { get; init; }
 
     public required decimal BaseQuantity { get; init; }
+
+    /// <summary>
+    /// Código del tipo de precio de referencia (01 valor comercial, ...). Solo lo usan las notas, que lo
+    /// escriben en cbc:PriceTypeCode de las líneas gratuitas; la factura no lo escribe.
+    /// </summary>
+    public string? ReferencePriceCode { get; init; }
 
     public IReadOnlyList<AllowanceCharge> AllowanceCharges { get; init; } = [];
 
