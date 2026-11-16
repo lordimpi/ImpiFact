@@ -182,8 +182,8 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
 
     /// <summary>
     /// Resolución del tipo en el ambiente actual (la lectura ya filtró ambos), activa y con el prefijo que traiga la
-    /// solicitud. Como el PHP, el número de resolución solo sirve para elegir entre varias; si aun así quedan varias,
-    /// pide el prefijo. Una resolución de factura sin clave técnica o sin vigencia no sirve para emitir.
+    /// solicitud. Como el PHP, el número de resolución solo sirve para elegir entre varias, y es obligatorio cuando
+    /// quedan varias. Una resolución de factura sin clave técnica o sin vigencia no sirve para emitir.
     /// </summary>
     private Result<IssuerResolution> SelectResolution(IssuerContext issuer, IssueDocumentBody body)
     {
@@ -206,7 +206,7 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
 
         return candidates.Count == 1
             ? candidates[0]
-            : Error.Validation([new FieldError("prefix", IssueMessages.Required("prefix"))]);
+            : Error.Validation([new FieldError("resolution_number", IssueMessages.Required("resolution_number"))]);
     }
 
     private Result<bool> CheckSetup(IssuerContext issuer)
