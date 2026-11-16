@@ -226,6 +226,14 @@ Confirmado el 14-nov en el código de `torresoftware`: los valores entran como t
 - `ICertificateStore.LoadAsync` devuelve el certificado en memoria; nunca se escribe a disco.
 - Certificados con cifrado heredado (el PHP los «moderniza»): al cargar un `.pfx`, si .NET no puede abrirlo, se intenta convertir con una ruta controlada y se informa al usuario; ver riesgo en el PRD.
 
+Estado al 15-nov (fase 1a): `XmlSigner` firma con RSA-SHA256, C14N inclusivo y digests SHA-256; tres referencias (documento con transformación enveloped, `KeyInfo` y `SignedProperties`); política de firma v2 de la DIAN con hash SHA-256 `dMoMvtcG5aIzgYo0tIsSQeVJBDnUnfSOfBpxXrmor0Y=` y la descripción de la sección 10.2 del anexo; `SignerRole` = `supplier`; `SigningTime` con milisegundos y `-05:00`. Diferencias deliberadas con el PHP, a confirmar con la DIAN en la fase 1b **\[verificar\]**:
+
+- `X509SerialNumber` en decimal, como exige XMLDSig; el PHP lo envía en hexadecimal con `0x`.
+- Se incluye `xades:Description` en la política; el PHP no la envía.
+- Solo se incluye el certificado de la empresa; la política sugiere la cadena completa.
+- El nombre del emisor va en orden RFC 2253 (CN primero), como el PHP; el ejemplo del anexo usa el orden inverso.
+- Hash de la política en SHA-256; el anexo muestra SHA-512 para certificados SHA-2.
+
 ### 6.4 SOAP con WS-Security
 
 - `Opción A (por defecto hasta el spike): cliente propio sobre HttpClient; opción B: cliente WCF con CustomBinding y un MessageInspector para la seguridad. E`l sobre SOAP 1.2 se construye a mano con WS-Addressing y un `wsse:Security` que incluye `Timestamp`, `BinarySecurityToken` (el certificado) y una firma `ds:Signature` sobre el `wsa:To` **\[verificar con la DIAN en la fase 1\]**.

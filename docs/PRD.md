@@ -498,6 +498,8 @@ flowchart LR
   F4 --> F5["5. Panel Angular"] --> F6["6. Endurecimiento"] --> F7["7. Paridad y salida"] --> F8["8. Enterprise"]
 ```
 
+**Estado al 15-nov-2026.** Fase 0 cerrada (los pendientes de licencia, consulta regulatoria y reglas de totales no bloquean el desarrollo). Fase 1a cerrada: `ImpiFact.Dian` genera el XML de factura idéntico byte a byte a los 11 golden, calcula los 14 CUFE/CUDE y firma con XAdES-EPES; la firma la validan .NET y `xmlsec1`. Siguen la fase 1b (espera certificado y `testSetId`) y la fase 2.
+
 **Estrategia de pruebas**
 
 1. **Golden tests (la más importante).** Se corre el PHP con un conjunto de JSON de entrada, se guarda el XML y el CUFE, y .NET debe producir los mismos. Cubre cada tipo de documento y los casos límite: descuentos, impuestos, retenciones, moneda extranjera y redondeo.
