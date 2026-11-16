@@ -1,0 +1,55 @@
+# Integración continua del backend .NET (Arquitectura detallada, sección 13).
+# Solo corre cuando cambia algo de backend/ o este mismo archivo (CI filtrado por ruta, ADR-28).
+name: backend
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+  pull_request:
+    branches: [main, develop]
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: backend/global.json
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -warnaserror
+
+      # Unitarias, de arquitectura y golden (XML y CUFE comparados byte a byte con el PHP original).
+      - name: Unit, architecture and golden tests
+        run: dotnet test --no-build --filter "Category!=Integration"
+
+      # Integración contra PostgreSQL real en un contenedor (Testcontainers); el runner ya trae Docker.
+      - name: Integration tests
+        run: dotnet test --no-build --filter "Category=Integration"
+
+      # Falla si algún paquete, directo o transitivo, tiene una vulnerabilidad conocida.
+      - name: Vulnerability scan
+        run: |
+          dotnet list package --vulnerable --include-transitive | tee vulnerable.txt
+          if grep -q -E "^\s+>" vulnerable.txt; then
+            echo "Vulnerable packages found."
+            exit 1
+          fi
