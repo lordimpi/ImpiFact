@@ -2,6 +2,7 @@
   <!-- Casos de uso y puertos. Sin EF, Dapper, ASP.NET ni SDK de nube (Arquitectura, sección 1). -->
   <ItemGroup>
     <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Mapster" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Scrutor" />
   </ItemGroup>
