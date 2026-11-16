@@ -50,7 +50,7 @@ ImpiFact/
 │  │  │  ├─ Persistence/       DbContext, configuraciones, UnitOfWork, interceptores, convenciones
 │  │  │  ├─ Reads/             consultas Dapper por módulo
 │  │  │  ├─ Storage/           IBlobStorage: Local, AzureBlob, S3, Gcs
-│  │  │  ├─ Secrets/           ICertificateStore, ISecretProtector: KeyVault, AwsSecrets, GcpSecrets, LocalAesGcm
+│  │  │  ├─ Protection/        ICertificateStore, ISecretProtector: KeyVault, AwsSecrets, GcpSecrets, LocalAesGcm
 │  │  │  ├─ Email/             IEmailSender (MailKit, SMTP por empresa)
 │  │  │  ├─ Pdf/               IPdfRenderer + plantillas
 │  │  │  ├─ Outbox/            publicador y procesador
@@ -177,8 +177,8 @@ public interface IBlobStorage {
 
 public interface ICertificateStore {
     Task<string> SaveAsync(Guid companyId, byte[] pfx, string password, CancellationToken ct);   // devuelve secret_ref
-    Task<SigningCertificate> LoadAsync(string secretRef, CancellationToken ct);                // X509Certificate2 en memoria
-    Task DeleteAsync(string secretRef, CancellationToken ct);
+    Task<X509Certificate2> LoadAsync(Guid companyId, string secretRef, CancellationToken ct);  // en memoria
+    Task DeleteAsync(Guid companyId, string secretRef, CancellationToken ct);                   // companyId: datos asociados
 }
 
 public interface ISecretProtector { string Protect(string plain); string Unprotect(string cipher); }  // PIN, SMTP, tokens
