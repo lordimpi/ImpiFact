@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using ImpiFact.Application;
 using ImpiFact.Application.Abstractions;
@@ -65,8 +66,8 @@ public sealed class OutboxDatabase
 }
 
 /// <summary>
-/// Los servicios reales de Application e Infrastructure con la cola de la bandeja de salida. <see cref="MessageType"/>
-/// es un tipo de mensaje único por cada host.
+/// Los servicios reales de Application e Infrastructure con el procesador de la bandeja de salida y un handler de
+/// prueba (<see cref="ScriptedHandler"/>) para <see cref="MessageType"/>. <see cref="UnhandledType"/> no tiene handler.
 /// </summary>
 public sealed class OutboxHost : IAsyncDisposable
 {
@@ -91,18 +92,25 @@ public sealed class OutboxHost : IAsyncDisposable
         collection.AddApplication();
         collection.AddOutboxProcessing(configuration);
         collection.AddSingleton<IClock>(Clock);
+        collection.AddSingleton(Script);
+        collection.AddScoped<IOutboxMessageHandler>(provider =>
+            new ScriptedHandler(MessageType, provider.GetRequiredService<ITenantContext>(), provider.GetRequiredService<HandlerScript>()));
         services = collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
     public FixedClock Clock { get; } = new(new DateTimeOffset(2026, 3, 2, 8, 0, 0, TimeSpan.Zero));
 
-    /// <summary>Tipo de mensaje de las pruebas; único por cada host.</summary>
+    /// <summary>Tipo de mensaje que procesa el handler de prueba; único por cada host.</summary>
     public string MessageType { get; } = "Test.Handled." + Guid.NewGuid().ToString("N");
 
     /// <summary>Tipo de mensaje sin handler registrado; único por cada host.</summary>
     public string UnhandledType { get; } = "Test.Unhandled." + Guid.NewGuid().ToString("N");
 
+    public HandlerScript Script { get; } = new();
+
     public IServiceProvider Services => services;
+
+    internal OutboxProcessor Processor => services.GetRequiredService<OutboxProcessor>();
 
     public static OutboxHost Create(IReadOnlyDictionary<string, string?>? settings = null) =>
         new(settings ?? new Dictionary<string, string?>());
@@ -165,4 +173,30 @@ public sealed class OutboxHost : IAsyncDisposable
     }
 
     public ValueTask DisposeAsync() => services.DisposeAsync();
+}
+
+/// <summary>Qué hace el handler de prueba con cada mensaje y qué vio al procesarlo.</summary>
+public sealed class HandlerScript
+{
+    private readonly ConcurrentDictionary<Guid, Func<Exception?>> failures = new();
+
+    /// <summary>Tenant que vio el handler en cada intento, por id de mensaje.</summary>
+    public ConcurrentDictionary<Guid, (Guid? CompanyId, ActorType Actor, int Attempt)> Seen { get; } = new();
+
+    /// <summary>Hace que el mensaje falle en cada intento con la excepción que crea <paramref name="failure"/>.</summary>
+    public void FailWith(Guid messageId, Func<Exception> failure) => failures[messageId] = failure;
+
+    internal Exception? FailureFor(Guid messageId) => failures.TryGetValue(messageId, out var failure) ? failure() : null;
+}
+
+/// <summary>Handler de prueba: anota el tenant que ve y falla cuando el guion lo pide.</summary>
+public sealed class ScriptedHandler(string messageType, ITenantContext tenant, HandlerScript script) : IOutboxMessageHandler
+{
+    public string MessageType => messageType;
+
+    public Task HandleAsync(OutboxMessageContext message, CancellationToken ct)
+    {
+        script.Seen[message.MessageId] = (tenant.CompanyId, tenant.Actor, message.Attempt);
+        return script.FailureFor(message.MessageId) is { } failure ? Task.FromException(failure) : Task.CompletedTask;
+    }
 }

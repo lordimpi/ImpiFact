@@ -16,7 +16,10 @@ public static class OutboxServiceCollectionExtensions
     public static IServiceCollection AddOutboxProcessing(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddValidatedOptions<OutboxOptions>(configuration, OutboxOptions.SectionName);
+        services.TryAddSingleton(OutboxWorkerId.Create());
         services.TryAddScoped<OutboxQueue>();
+        services.TryAddSingleton<OutboxProcessor>();
+        services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<OutboxProcessor>());
         return services;
     }
 }
