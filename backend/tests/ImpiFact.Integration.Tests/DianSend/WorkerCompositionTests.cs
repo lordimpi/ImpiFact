@@ -33,7 +33,7 @@ public sealed class WorkerCompositionTests
         Assert.Multiple(() =>
         {
             Assert.That(handlers.Select(handler => handler.MessageType),
-                Is.EquivalentTo(new[] { OutboxMessageTypes.SendDocumentToDian, OutboxMessageTypes.PollDianStatus }));
+                Is.EquivalentTo(new[] { OutboxMessageTypes.SendDocumentToDian, OutboxMessageTypes.PollDianStatus, OutboxMessageTypes.RenderPdf }));
             Assert.That(handlers.Select(handler => handler.MessageType), Is.Unique);
         });
     }
