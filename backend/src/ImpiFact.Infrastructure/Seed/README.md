@@ -4,5 +4,6 @@ Un archivo JSON por tabla de catálogo DIAN (las listas de códigos del anexo t�
 
 - Los `id` son los mismos de ApiDian, el sistema PHP original. No se renumeran: otras tablas y los clientes de la API los usan como referencia.
 - Los valores se copian tal cual del PHP, incluidos acentos, espacios finales y la diferencia entre `""` y `null`.
+- Única excepción: los errores de datos del PHP que se corrigen a propósito, listados en `CORRECTIONS` del exportador. Hoy es uno: Suecia (`countries` id 218) trae el código de Eslovenia, `SI`; se siembra con su código ISO 3166, `SE`.
 - No se editan a mano. Se regeneran desde la copia local de ApiDian con `python -I tools/catalog-export/export_catalogs.py` (desde `backend/`); ver `backend/tools/catalog-export/README.md`, que explica también qué tablas se incluyen y cómo se nombran las columnas.
 - Un cambio de catálogo posterior (un anexo DIAN nuevo) entra como migración de datos con `valid_from`, no editando una fila existente.

@@ -55,6 +55,13 @@ TABLES: dict[str, tuple[tuple[str, str], ...]] = {
     "unit_measures": BASE,
 }
 
+# Correcciones a errores de datos del PHP: (tabla, id, columna) -> (valor en el PHP, valor correcto).
+# Si el PHP cambia ese valor, el exportador se detiene para que alguien revise la corrección.
+CORRECTIONS: dict[tuple[str, int, str], tuple[str, str]] = {
+    # El PHP repite el código de Eslovenia (SI) en Suecia; el código ISO 3166 de Suecia es SE.
+    ("countries", 218, "code"): ("SI", "SE"),
+}
+
 DEFAULT_OUTPUT = Path(__file__).resolve().parents[2] / "src" / "ImpiFact.Infrastructure" / "Seed"
 
 # Credenciales de la copia local, las mismas de backend/tools/golden-capture/docker-compose.yml.
@@ -85,6 +92,7 @@ def export_table(args: argparse.Namespace, table: str, columns: tuple[tuple[str,
     for line in lines:
         raw = json.loads(line)
         rows.append({key: raw[key] for key, _ in columns})
+    apply_corrections(table, rows)
 
     (count,) = run_query(args, f"SELECT COUNT(*) FROM `{table}`")
     if int(count) != len(rows):
@@ -99,6 +107,17 @@ def export_table(args: argparse.Namespace, table: str, columns: tuple[tuple[str,
             if isinstance(value, str) and any(c in value for c in "\r\n\t"):
                 sys.exit(f"{table} id {row['id']}: column {key} has control characters: {value!r}")
     return rows
+
+
+def apply_corrections(table: str, rows: list[dict]) -> None:
+    for (corrected_table, row_id, column), (php_value, fixed_value) in CORRECTIONS.items():
+        if corrected_table != table:
+            continue
+        row = next((r for r in rows if r["id"] == row_id), None)
+        if row is None or row[column] != php_value:
+            found = None if row is None else row[column]
+            sys.exit(f"{table} id {row_id}: expected {column}={php_value!r} in the PHP data, found {found!r}; review CORRECTIONS")
+        row[column] = fixed_value
 
 
 def render(rows: list[dict]) -> bytes:
