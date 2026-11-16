@@ -6,8 +6,6 @@ using ImpiFact.Application.Abstractions.Results;
 using ImpiFact.Application.Features.Companies.CreateCompany;
 using ImpiFact.Domain.Catalog;
 using ImpiFact.Domain.Companies;
-using ImpiFact.Domain.Identity;
-using ImpiFact.Domain.Masters;
 
 namespace ImpiFact.Application.Tests.Features.Companies;
 
@@ -188,6 +186,15 @@ public static class CompanySamples
     public static FakeTenant CompanyKey(Guid companyId) => new() { Actor = ActorType.ApiKey, CompanyId = companyId };
 
     public static FakeTenant PanelUser(Guid companyId, Guid userId) => new() { Actor = ActorType.User, CompanyId = companyId, UserId = userId };
+}
+
+public sealed class FakeCompanyReads : ICompanyReads
+{
+    public List<(Guid CompanyId, CertificateMetadata Certificate)> Certificates { get; } = [];
+
+    public Task<IReadOnlyList<CertificateMetadata>> ListCertificatesAsync(Guid companyId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<CertificateMetadata>>(
+            Certificates.Where(row => row.CompanyId == companyId).Select(row => row.Certificate).ToList());
 }
 
 public sealed class FakeTenant : ITenantContext

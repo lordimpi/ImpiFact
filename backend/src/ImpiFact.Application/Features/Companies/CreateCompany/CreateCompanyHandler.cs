@@ -26,13 +26,14 @@ internal sealed class CreateCompanyHandler(ICompanyRepository companies, ITenant
     /// <summary>
     /// Cliente por defecto del PHP (<c>ConfigurationController.php</c>, <c>store</c>): «2222222222», «Cliente por
     /// Defecto», con el correo de la empresa. El modelo de datos propone el consumidor final «222222222222»; se sigue al
-    /// PHP por paridad. El tipo de documento, que el PHP no fija, es 13 (cédula de ciudadanía), como dice el modelo.
+    /// PHP por paridad. El tipo de documento, que el PHP no fija, es la cédula de ciudadanía (código DIAN 13, como dice el
+    /// modelo), que en el catálogo <c>type_document_identifications</c> tiene el id 3.
     /// </summary>
     internal const string DefaultCustomerNumber = "2222222222";
 
     internal const string DefaultCustomerName = "Cliente por Defecto";
 
-    internal const int DefaultCustomerDocumentType = 13;
+    internal const int DefaultCustomerDocumentType = 3;
 
     internal const string InitialApiKeyName = "Llave inicial";
 
