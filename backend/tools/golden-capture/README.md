@@ -14,6 +14,16 @@ Genera los casos golden: el XML y el CUFE/CUDE que produce ApiDian (PHP) para ca
 
 La salida es determinista: fecha, hora, consecutivo, clave técnica, software y empresa son fijos.
 
+### AttachedDocument
+
+El AttachedDocument (contenedor electrónico que se entrega al comprador con el documento firmado y el ApplicationResponse, la respuesta de validación de la DIAN) solo lo arma ApiDian después de que la DIAN acepta el documento, así que no se captura por la API. Para cada caso de `tests/golden/attached-document/<caso>/`, `capture.py` ejecuta `attached_document.php` dentro del contenedor con:
+
+- `input.json`: tipo (`invoice`, `credit-note` o `debit-note`), resolución, número, CUFE/CUDE, fecha y hora de generación (`now`, hora de Colombia) y cliente;
+- `signed-document.xml`: el documento que se embebe;
+- `application-response.xml`: una respuesta de la DIAN **inventada**.
+
+Guarda `expected-attached-document.xml`: el AttachedDocument firmado por ApiDian sin `<ds:Signature>`. No se llama `expected.xml` porque las pruebas de facturas y notas toman todo `expected.xml` de `tests/golden` como uno de sus casos.
+
 ## Requisitos
 
 - Docker en marcha, Python 3.10 o superior y `openssl` en el `PATH`.
@@ -27,12 +37,13 @@ Desde la carpeta `backend/`:
 sh tools/golden-capture/start-reference.sh      # levanta y prepara ApiDian (la primera vez tarda unos minutos)
 python tools/golden-capture/capture.py          # captura todos los casos
 python tools/golden-capture/capture.py --type invoice
+python tools/golden-capture/capture.py --type attached-document
 docker compose -f tools/golden-capture/docker-compose.yml down   # apaga ApiDian
 ```
 
 ## Agregar un caso
 
-1. Crea `tests/golden/<tipo>/<caso>/input.json`. Los tipos son `invoice`, `credit-note` y `debit-note`.
+1. Crea `tests/golden/<tipo>/<caso>/input.json`. Los tipos son `invoice`, `credit-note`, `debit-note` y `attached-document` (este último con sus dos XML, ver arriba).
 2. Usa la empresa emisora `900000001-2`, datos ficticios para el cliente, y un número dentro del rango de la resolución (`SETP` 990000000 a 995000000; `NC` y `ND` de 1 a 99999999) que no repita el de otro caso.
 3. Corre la captura y revisa el `expected.xml` antes de hacer commit.
 

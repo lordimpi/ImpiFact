@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:ID>SETP990000777</cbc:ID>
+  <cbc:UUID schemeName="CUFE-SHA384">4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a</cbc:UUID>
+  <cbc:Note><![CDATA[Nota con ]]]]><![CDATA[> dentro & <marcas>]]></cbc:Note>
+  <cbc:Note>Comillas " ' y fin ]]&gt; escapado</cbc:Note>
+</Invoice>

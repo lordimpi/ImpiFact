@@ -19,6 +19,14 @@ Luego guarda:
     expected.cufe  CUFE o CUDE generado por ApiDian
     response.json  respuesta JSON de ApiDian (solo facturas)
 
+Los casos de tests/golden/attached-document/ (AttachedDocument: el contenedor electrónico que se entrega al
+comprador con el documento firmado y el ApplicationResponse, la respuesta de validación de la DIAN) no pasan
+por la API: ApiDian solo lo arma después de que la DIAN acepta el documento. Para ellos se ejecuta
+attached_document.php dentro del contenedor, con el signed-document.xml y el application-response.xml
+(inventado) del caso, y se guarda expected-attached-document.xml (el AttachedDocument firmado sin su
+<ds:Signature>). No se llama expected.xml para que las pruebas de facturas y notas no lo tomen como uno de
+sus casos.
+
 Uso (desde la carpeta backend/, con ApiDian levantado por start-reference.sh):
 
     python tools/golden-capture/capture.py              # configuración + captura de todos los casos
@@ -34,6 +42,7 @@ import argparse
 import base64
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -41,7 +50,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-BACKEND_ROOT = Path(__file__).resolve().parents[2]
+HERE = Path(__file__).resolve().parent
+BACKEND_ROOT = HERE.parents[1]
 REPO_ROOT = BACKEND_ROOT.parent
 
 # Identidad de prueba fija. Todo aquí es ficticio excepto la resolución pública de pruebas de la
@@ -84,6 +94,9 @@ DOCUMENT_TYPES = {
     "credit-note": ("credit-note", "NCS"),
     "debit-note": ("debit-note", "NDS"),
 }
+
+# Carpeta de los casos de AttachedDocument, que se capturan sin la API (ver capture_attached_case).
+ATTACHED_TYPE = "attached-document"
 
 SIGNATURE_RE = re.compile(r"<ds:Signature\b.*?</ds:Signature>", re.DOTALL)
 UUID_RE = re.compile(r"<cbc:UUID\b[^>]*>([0-9a-f]{96})</cbc:UUID>")
@@ -187,6 +200,38 @@ def capture_case(base_url: str, token: str, apidian_dir: Path, doc_type: str, ca
     return uuid
 
 
+def capture_attached_case(apidian_dir: Path, case_dir: Path) -> str:
+    """Genera con ApiDian el AttachedDocument de un caso, sin llamar a la DIAN (ver attached_document.php)."""
+    request = json.loads((case_dir / "input.json").read_text(encoding="utf-8"))
+    request["company_nit"] = COMPANY_NIT
+    request["document_number"] = f"{request['prefix']}{request['number']}"
+
+    staging = apidian_dir / "storage" / "app" / "public" / "golden-attached"
+    shutil.rmtree(staging, ignore_errors=True)
+    staging.mkdir(parents=True)
+    try:
+        (staging / "input.json").write_text(json.dumps(request, ensure_ascii=False), encoding="utf-8")
+        for name in ("signed-document.xml", "application-response.xml"):
+            (staging / name).write_bytes((case_dir / name).read_bytes())
+
+        # El script se pasa por la entrada estándar; el contenedor ve la copia de ApiDian en /var/www/html.
+        result = subprocess.run(
+            ["docker", "compose", "-f", str(HERE / "docker-compose.yml"), "exec", "-T", "php_api", "php"],
+            input=(HERE / "attached_document.php").read_bytes(), capture_output=True)
+        if result.returncode != 0 or not (staging / "output.xml").exists():
+            raise ApiError(f"{case_dir.name}: attached_document.php failed: "
+                           f"{(result.stdout + result.stderr).decode('utf-8', 'replace')[-800:]}")
+        signed = (staging / "output.xml").read_bytes().decode("utf-8")
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
+
+    unsigned, removed = SIGNATURE_RE.subn("", signed)
+    if removed != 1:
+        raise ApiError(f"{case_dir.name}: expected exactly one ds:Signature, found {removed}")
+    (case_dir / "expected-attached-document.xml").write_text(unsigned, encoding="utf-8", newline="")
+    return request["cufe"]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--base-url", default="http://127.0.0.1:8081", help="ApiDian reference URL")
@@ -195,11 +240,11 @@ def main() -> int:
     parser.add_argument("--apidian-dir", default=str(REPO_ROOT.parent / "apidian"),
                         help="ApiDian checkout mounted in the reference stack")
     parser.add_argument("--golden-dir", default=str(BACKEND_ROOT / "tests" / "golden"))
-    parser.add_argument("--type", choices=sorted(DOCUMENT_TYPES), help="capture only this document type")
+    parser.add_argument("--type", choices=sorted([*DOCUMENT_TYPES, ATTACHED_TYPE]), help="capture only this document type")
     args = parser.parse_args()
 
     golden_dir, apidian_dir = Path(args.golden_dir), Path(args.apidian_dir)
-    types = [args.type] if args.type else sorted(DOCUMENT_TYPES)
+    types = [args.type] if args.type else sorted([*DOCUMENT_TYPES, ATTACHED_TYPE])
     cases = [(t, d) for t in types for d in sorted((golden_dir / t).glob("*/")) if (d / "input.json").exists()]
     if not cases:
         print(f"No cases found under {golden_dir}", file=sys.stderr)
@@ -210,7 +255,10 @@ def main() -> int:
         failures = 0
         for doc_type, case_dir in cases:
             try:
-                code = capture_case(args.base_url, token, apidian_dir, doc_type, case_dir)
+                if doc_type == ATTACHED_TYPE:
+                    code = capture_attached_case(apidian_dir, case_dir)
+                else:
+                    code = capture_case(args.base_url, token, apidian_dir, doc_type, case_dir)
                 print(f"OK    {doc_type}/{case_dir.name}  {code[:16]}...")
             except ApiError as error:
                 failures += 1
