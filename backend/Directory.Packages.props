@@ -8,6 +8,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.15" />
     <PackageVersion Include="FluentValidation" Version="12.2.0" />
     <PackageVersion Include="Handlebars.Net" Version="2.4.3" />
+    <PackageVersion Include="MailKit" Version="4.18.2" />
     <PackageVersion Include="Mapster" Version="7.4.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.15" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.15" />

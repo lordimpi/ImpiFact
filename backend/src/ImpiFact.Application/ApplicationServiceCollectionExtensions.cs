@@ -3,6 +3,7 @@ using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Application.Behaviors;
 using ImpiFact.Application.Features.Documents.Delivery;
+using ImpiFact.Application.Features.Documents.Email;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -53,6 +54,9 @@ public static class ApplicationServiceCollectionExtensions
         // Piezas comunes de los handlers que hablan con la DIAN (envío y consulta de estado).
         services.TryAddScoped<DianDelivery>();
         services.TryAddScoped<Features.Documents.Pdf.DocumentPdfModelBuilder>();
+
+        // Elige el servidor de correo de la empresa o el de la plataforma para el correo del documento (SendEmail).
+        services.TryAddScoped<MailServerSelector>();
         return services;
     }
 

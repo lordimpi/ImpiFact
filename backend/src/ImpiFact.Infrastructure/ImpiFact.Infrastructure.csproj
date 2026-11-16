@@ -4,6 +4,7 @@
     <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Handlebars.Net" />
+    <PackageReference Include="MailKit" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />

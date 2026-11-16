@@ -33,7 +33,7 @@ public sealed class WorkerCompositionTests
         Assert.Multiple(() =>
         {
             Assert.That(handlers.Select(handler => handler.MessageType),
-                Is.EquivalentTo(new[] { OutboxMessageTypes.SendDocumentToDian, OutboxMessageTypes.PollDianStatus, OutboxMessageTypes.RenderPdf }));
+                Is.EquivalentTo(new[] { OutboxMessageTypes.SendDocumentToDian, OutboxMessageTypes.PollDianStatus, OutboxMessageTypes.RenderPdf, OutboxMessageTypes.SendEmail }));
             Assert.That(handlers.Select(handler => handler.MessageType), Is.Unique);
         });
     }
@@ -64,6 +64,58 @@ public sealed class WorkerCompositionTests
         var exception = Assert.Throws<OptionsValidationException>(() => _ = services.GetRequiredService<IOptions<ResilienceOptions>>().Value);
 
         Assert.That(exception?.Message, Does.Contain("HandlerTimeoutSeconds"));
+    }
+
+    [Test]
+    public async Task The_worker_does_not_start_without_the_platform_mail_server()
+    {
+        using var protection = new ProtectionScratch();
+        await using var services = Build(protection, new Dictionary<string, string?>());
+
+        var exception = Assert.Throws<OptionsValidationException>(() => _ = services.GetRequiredService<IOptions<EmailOptions>>().Value);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception?.Message, Does.Contain(nameof(EmailOptions.Host)));
+            Assert.That(exception?.Message, Does.Contain(nameof(EmailOptions.FromAddress)));
+        });
+    }
+
+    [Test]
+    public async Task A_platform_mail_user_without_its_password_stops_the_worker()
+    {
+        using var protection = new ProtectionScratch();
+        await using var services = Build(protection, new Dictionary<string, string?>
+        {
+            ["Email:Host"] = "smtp.platform.test",
+            ["Email:FromAddress"] = "no-reply@platform.test",
+            ["Email:Username"] = "mailer",
+        });
+
+        var exception = Assert.Throws<OptionsValidationException>(() => _ = services.GetRequiredService<IOptions<EmailOptions>>().Value);
+
+        Assert.That(exception?.Message, Does.Contain("set both or neither"));
+    }
+
+    [Test]
+    public async Task The_worker_takes_the_platform_mail_server_from_its_settings()
+    {
+        using var protection = new ProtectionScratch();
+        await using var services = Build(protection, new Dictionary<string, string?>
+        {
+            ["Email:Host"] = "smtp.platform.test",
+            ["Email:FromAddress"] = "no-reply@platform.test",
+        });
+
+        var email = services.GetRequiredService<IOptions<EmailOptions>>().Value;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(email.Port, Is.EqualTo(587));
+            Assert.That(email.Encryption, Is.EqualTo(EmailOptions.StartTls));
+            Assert.That(email.FromName, Is.EqualTo("ImpiFact"));
+            Assert.That(email.TimeoutSeconds, Is.EqualTo(60));
+        });
     }
 
     private static ServiceProvider Build(ProtectionScratch protection, Dictionary<string, string?> settings)

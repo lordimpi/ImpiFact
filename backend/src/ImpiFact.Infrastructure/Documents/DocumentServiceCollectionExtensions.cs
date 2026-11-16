@@ -22,6 +22,7 @@ public static class DocumentServiceCollectionExtensions
         services.TryAddScoped<IIdempotencyKeys, EfIdempotencyKeys>();
         services.TryAddScoped<IDocumentDelivery, EfDocumentDelivery>();
         services.TryAddSingleton<IDianQrUrls, DianQrUrls>();
+        services.TryAddScoped<IDocumentFileReads, EfDocumentFileReads>();
         return services;
     }
 }
