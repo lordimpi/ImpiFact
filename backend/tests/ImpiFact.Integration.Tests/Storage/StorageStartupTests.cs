@@ -64,6 +64,35 @@ public sealed class StorageStartupTests
         Assert.That(StartupFailure(settings), Does.Contain("cannot be created or written"));
     }
 
+    // En la raíz de un disco (C:\ o /) ninguna llave cabría «dentro» de la raíz: se rechaza al arrancar.
+    [Test]
+    public void Startup_fails_when_the_local_root_is_a_filesystem_root()
+    {
+        var settings = scratch.LocalSettings();
+        settings["Storage:Local:Root"] = Path.GetPathRoot(scratch.Root);
+
+        Assert.That(StartupFailure(settings), Does.Contain("must not be a filesystem root"));
+    }
+
+    // Los certificados cifrados no pueden quedar al alcance del almacenamiento de documentos, ni al revés.
+    [Test]
+    public void Startup_fails_when_the_certificate_directory_is_inside_the_storage_root()
+    {
+        var settings = scratch.LocalSettings();
+        settings["Secrets:LocalAesGcm:CertificateDirectory"] = Path.Combine(scratch.StorageRoot, "certificates");
+
+        Assert.That(StartupFailure(settings), Does.Contain("must not overlap"));
+    }
+
+    [Test]
+    public void Startup_fails_when_the_storage_root_is_inside_the_certificate_directory()
+    {
+        var settings = scratch.LocalSettings();
+        settings["Secrets:LocalAesGcm:CertificateDirectory"] = scratch.Root;
+
+        Assert.That(StartupFailure(settings), Does.Contain("must not overlap"));
+    }
+
     [TestCase("AzureBlob")]
     [TestCase("S3")]
     [TestCase("Gcs")]

@@ -48,6 +48,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSecrets();
         services.AddCompanies();
         services.AddStorage();
+        // La carpeta de certificados cifrados no puede quedar dentro del almacenamiento de documentos, ni al revés.
+        services.AddSingleton(new ReservedDirectory("Secrets:LocalAesGcm:CertificateDirectory", configuration["Secrets:LocalAesGcm:CertificateDirectory"]));
         services.AddDocuments();
         services.AddPlatform();
         services.AddReads();

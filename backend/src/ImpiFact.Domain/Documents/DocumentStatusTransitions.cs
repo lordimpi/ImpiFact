@@ -25,7 +25,9 @@ public static class DocumentStatusTransitions
     };
 
     /// <summary>Estados a los que se puede pasar desde <paramref name="from"/>; vacío si es un estado final.</summary>
-    public static IReadOnlyList<DocumentStatus> Next(DocumentStatus from) => Allowed.GetValueOrDefault(from, []);
+    // Se entrega una vista de solo lectura: el arreglo interno es compartido por todo el proceso.
+    public static IReadOnlyList<DocumentStatus> Next(DocumentStatus from) =>
+        Allowed.TryGetValue(from, out var next) ? Array.AsReadOnly(next) : Array.AsReadOnly(Array.Empty<DocumentStatus>());
 
     public static bool IsAllowed(DocumentStatus from, DocumentStatus to) => Next(from).Contains(to);
 }

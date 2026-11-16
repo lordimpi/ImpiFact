@@ -84,6 +84,16 @@ public sealed class DocumentStatusTests
         Assert.Throws<ArgumentOutOfRangeException>(() => NewDocument((DocumentStatus)99));
     }
 
+    // La tabla de transiciones es compartida por todo el proceso: quien la consulta no debe poder cambiarla.
+    [Test]
+    public void The_transition_table_cannot_be_changed_by_a_caller()
+    {
+        var next = DocumentStatusTransitions.Next(DocumentStatus.Received);
+
+        Assert.That(next, Is.Not.InstanceOf<DocumentStatus[]>());
+        Assert.That(() => ((IList<DocumentStatus>)next)[0] = DocumentStatus.Accepted, Throws.InstanceOf<NotSupportedException>());
+    }
+
     private static Document NewDocument(DocumentStatus? status = null)
     {
         var snapshot = new CustomerSnapshot { IdentificationNumber = "222222222222", Name = "Consumidor final" };

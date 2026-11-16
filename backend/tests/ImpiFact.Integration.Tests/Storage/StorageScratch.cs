@@ -30,6 +30,7 @@ public sealed class StorageScratch : IDisposable
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
         var services = new ServiceCollection();
         services.AddValidatedOptions<StorageOptions>(configuration, StorageOptions.SectionName);
+        services.AddSingleton(new ReservedDirectory("Secrets:LocalAesGcm:CertificateDirectory", configuration["Secrets:LocalAesGcm:CertificateDirectory"]));
         services.AddStorage();
         return services.BuildServiceProvider();
     }
