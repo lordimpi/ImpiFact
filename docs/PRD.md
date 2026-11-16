@@ -501,6 +501,8 @@ flowchart LR
 
 **Estado al 17-nov-2026.** Fase 2 cerrada: solución por capas (Domain, Application, Dian, Infrastructure, Infrastructure.Postgres, Api, Migrator), modelo completo en PostgreSQL con su migración inicial y los 29 catálogos sincronizados desde los JSON del PHP, Identity (login, renovación con detección de reuso, API keys, usuarios, alcances por rol) y Company (empresa, ambientes, software, certificado cifrado, resoluciones, con los alias del Postman). La puerta de salida se cumple: pruebas de arquitectura (capas, módulos, controlador de PostgreSQL, Dapper con `company_id`) y de aislamiento por empresa en verde, 591 pruebas y CI en verde. Quedan para la fase siguiente: bloqueo de cuenta por intentos fallidos, límite explícito del tamaño del certificado y cierre de sesiones al cambiar clave o rol.
 
+**Estado al 17-nov-2026.** Fase 3 cerrada: emisión de factura nacional, nota crédito y nota débito por las rutas del Postman y `/api/v1` (validación, totales con las reglas del Anexo Técnico v1.9, consecutivo atómico, firma, almacenamiento, idempotencia y envío encolado para el Worker), y consultas (`information`, `total_documents`, `current_number`, listado, detalle y por CUFE). La puerta de salida se cumple: los 14 casos golden pasan por la API real con el XML idéntico al PHP byte a byte y el mismo CUFE/CUDE; 1.053 pruebas y CI en verde. El envío a la DIAN es de la fase 4 (Worker) y la 1b (certificado y `testSetId`).
+
 **Estrategia de pruebas**
 
 1. **Golden tests (la más importante).** Se corre el PHP con un conjunto de JSON de entrada, se guarda el XML y el CUFE, y .NET debe producir los mismos. Cubre cada tipo de documento y los casos límite: descuentos, impuestos, retenciones, moneda extranjera y redondeo.
