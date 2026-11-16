@@ -1,6 +1,9 @@
 namespace ImpiFact.Dian.Tests;
 
-/// <summary>Un caso golden capturado de ApiDian con tools/golden-capture.</summary>
+/// <summary>
+/// Un caso de referencia ("golden"): el XML y el CUFE/CUDE que generó ApiDian (el PHP original) y que
+/// ImpiFact debe reproducir byte a byte. Se capturan con tools/golden-capture.
+/// </summary>
 public sealed record GoldenFixture(string DocumentType, string Name, string ExpectedXml, string ExpectedCode)
 {
     public override string ToString() => $"{DocumentType}/{Name}";

@@ -454,6 +454,7 @@ Convenciones que sigue todo el código del repositorio. Los documentos de `docs/
 **Reglas**
 
 - Idioma (15-nov): comentarios y documentación XML (`///`) en español neutro y profesional; identificadores, nombres de pruebas, mensajes de excepción y registros en inglés, como es convención en .NET.
+- Claridad (15-nov): los comentarios explican qué hace el código y por qué, en palabras simples, para alguien que no conoce las normas de firma XML ni la DIAN. Ninguna sigla ni término técnico sin explicar la primera vez que aparece en cada archivo (por ejemplo, «canonicalización (C14N): escribir el XML de forma estándar para que el mismo contenido dé siempre los mismos bytes»); los nombres oficiales (CUFE, UBL, XAdES) se conservan y se explican.
 - .NET 10, C# con `Nullable` y `TreatWarningsAsErrors`.
 - Clean Architecture: `Domain` sin dependencias, `Application` solo con puertos y `Dian` puro. Las pruebas de arquitectura deben pasar.
 - Sin MediatR ni AutoMapper. Casos de uso con `IHandler<TIn, TOut>` y decoradores; mapeo con Mapster.

@@ -1,6 +1,8 @@
-# Referencia de ApiDian solo local, usada para capturar fixtures golden (XML + CUFE/CUDE).
-# Espera el checkout de ApiDian como carpeta hermana de la carpeta del repositorio: <repo>/../apidian
-# nginx solo escucha en 127.0.0.1. Nunca exponga este stack: ApiDian tiene vulnerabilidades conocidas.
+# Copia local de ApiDian (el sistema PHP original), usada solo para capturar casos de referencia:
+# el XML y el CUFE/CUDE que ImpiFact debe reproducir byte a byte (ver capture.py).
+# Espera el código de ApiDian clonado como carpeta hermana del repositorio: <repo>/../apidian
+# nginx solo escucha en 127.0.0.1. Nunca exponga estos contenedores a la red: ApiDian tiene
+# vulnerabilidades conocidas.
 name: apidian-reference
 
 services:
@@ -20,8 +22,8 @@ services:
 
   # La configuración de nginx (apidian/docker/default.conf) espera que el servicio PHP se llame php_api.
   php_api:
-    # El Dockerfile del repositorio solo agrega poppler-utils (lectura del PDF del RUT) y sus fuentes apt
-    # ya no existen.
+    # El Dockerfile de ApiDian solo agrega poppler-utils (lectura del PDF del RUT) a esta imagen, y los
+    # repositorios de paquetes (apt) que usa para instalarlo ya no existen; por eso se usa la imagen tal cual.
     image: rash07/php-fpm:8.2
     working_dir: /var/www/html
     environment:
@@ -39,7 +41,9 @@ services:
       LOG_CHANNEL: stderr
     volumes:
       - ../../../../apidian:/var/www/html
-      # vendor vive en un volumen de Docker: descomprimir sobre un bind mount de Windows es demasiado lento.
+      # vendor (las dependencias PHP que instala Composer) se guarda en un volumen administrado por
+      # Docker y no en la carpeta de Windows compartida con el contenedor: descomprimir miles de
+      # archivos en esa carpeta compartida es demasiado lento.
       - vendor:/var/www/html/vendor
     depends_on:
       db:

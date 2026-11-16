@@ -5,17 +5,18 @@ using ImpiFact.Dian.Ubl;
 namespace ImpiFact.Golden.Tests;
 
 /// <summary>
-/// Casos golden de ApiDian: input.json mapeado a través del contexto fijo de captura debe producir los
-/// mismos bytes que expected.xml y el mismo CUFE que expected.cufe.
+/// Casos de referencia de ApiDian (XML y CUFE generados por el PHP original): al convertir input.json con
+/// la configuración fija de captura, ImpiFact debe producir los mismos bytes que expected.xml y el mismo
+/// CUFE (código único de la factura) que expected.cufe.
 /// </summary>
 public sealed class InvoiceGoldenTests
 {
     /// <summary>
-    /// expected.xml es el XML firmado con el elemento ds:Signature recortado mediante una expresión
-    /// regular, lo que deja el segundo ext:ExtensionContent como un par explícito de apertura y cierre. El
-    /// XML antes de firmar tiene ese elemento vacío, escrito <c>&lt;ext:ExtensionContent/&gt;</c> como
-    /// cualquier otro elemento vacío. Esta es la única normalización, y se aplica exactamente a ese
-    /// único punto.
+    /// expected.xml es el XML firmado por ApiDian al que se le quitó el elemento ds:Signature con una
+    /// expresión regular. Eso deja el lugar reservado para la firma (el segundo ext:ExtensionContent)
+    /// escrito con etiqueta de apertura y de cierre. El XML que produce ImpiFact antes de firmar tiene ese
+    /// elemento vacío y lo escribe <c>&lt;ext:ExtensionContent/&gt;</c>, como cualquier otro elemento vacío.
+    /// Este es el único ajuste que se hace al comparar, y solo en ese punto.
     /// </summary>
     internal const string SignatureSlotInFixture = "<ext:ExtensionContent></ext:ExtensionContent>";
 
@@ -63,7 +64,8 @@ public sealed class InvoiceGoldenTests
     }
 
     /// <summary>
-    /// Informa la primera línea que difiere con ambos valores, haciendo visibles los espacios en blanco.
+    /// Informa la primera línea que difiere, con el valor esperado y el obtenido, y muestra los caracteres
+    /// invisibles \r y \t como texto.
     /// </summary>
     internal static string DescribeFirstDifference(string expected, string actual)
     {

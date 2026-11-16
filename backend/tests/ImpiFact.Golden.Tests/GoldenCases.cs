@@ -1,6 +1,9 @@
 namespace ImpiFact.Golden.Tests;
 
-/// <summary>Ubica las fixtures golden en tests/golden, capturadas con tools/golden-capture.</summary>
+/// <summary>
+/// Ubica los casos de referencia en tests/golden: XML y CUFE generados por el PHP original (ApiDian), que
+/// ImpiFact debe reproducir byte a byte. Se capturan con tools/golden-capture.
+/// </summary>
 public static class GoldenCases
 {
     /// <summary>Carpetas de casos de tests/golden/invoice que tienen una entrada y un XML esperado.</summary>

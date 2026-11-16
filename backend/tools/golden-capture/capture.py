@@ -1,20 +1,31 @@
-"""Captura fixtures golden (XML + CUFE/CUDE) desde una instancia local de referencia de ApiDian.
+"""Captura casos de referencia (XML + CUFE/CUDE) desde una copia local de ApiDian, el sistema PHP original.
+
+Un caso de referencia ("golden") es el XML y el código CUFE/CUDE que ApiDian genera para
+una entrada; ImpiFact debe reproducirlos byte a byte. El CUFE (facturas) y el CUDE (notas
+crédito y débito) son los códigos únicos que la DIAN exige en cada documento electrónico.
 
 Para cada carpeta de caso en tests/golden/<type>/<case>/ que contenga un input.json,
-este script envía el JSON a la referencia PHP con "query_uuid": true. En ese modo
-ApiDian construye, firma y calcula el CUFE/CUDE, pero responde antes de llamar a la DIAN.
+este script envía ese JSON a la copia local de ApiDian, que construye el XML, lo firma y
+calcula el CUFE/CUDE sin enviar nada a la DIAN:
+
+    facturas  se envían con "query_uuid": true, y ApiDian responde justo después de firmar.
+    notas     no admiten query_uuid: ApiDian intenta enviarlas a la URL del software, que
+              apunta al nginx local en lugar de la DIAN; ese envío falla, pero el XML
+              firmado ya quedó en disco.
+
 Luego guarda:
 
-    expected.xml   XML firmado sin el elemento <ds:Signature> (por lo demás, idéntico byte a byte)
-    expected.cufe  CUFE o CUDE devuelto por ApiDian
-    response.json  respuesta JSON de ApiDian
+    expected.xml   XML firmado sin el elemento <ds:Signature> (el resto, idéntico byte a byte)
+    expected.cufe  CUFE o CUDE generado por ApiDian
+    response.json  respuesta JSON de ApiDian (solo facturas)
 
-Uso (desde la carpeta backend/, con el stack de referencia en ejecución):
+Uso (desde la carpeta backend/, con ApiDian levantado por start-reference.sh):
 
     python tools/golden-capture/capture.py              # configuración + captura de todos los casos
     python tools/golden-capture/capture.py --type invoice
 
-Solo se requieren la biblioteca estándar de Python y la CLI de openssl.
+Solo se requieren la biblioteca estándar de Python y la herramienta de línea de comandos
+openssl (genera el certificado de prueba).
 """
 
 from __future__ import annotations
@@ -34,7 +45,8 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_ROOT.parent
 
 # Identidad de prueba fija. Todo aquí es ficticio excepto la resolución pública de pruebas de la
-# DIAN (18760000001, prefijo SETP, rango 990000000-995000000) y su clave técnica.
+# DIAN (18760000001, prefijo SETP, rango 990000000-995000000) y su clave técnica. NIT es el número
+# de identificación tributaria de la empresa y DV su dígito de verificación.
 COMPANY_NIT = "900000001"
 COMPANY_DV = "2"
 SOFTWARE_ID = "3f9d8c2e-5b1a-4e7f-9c3d-2a6b8e1f0d47"
@@ -65,7 +77,8 @@ RESOLUTIONS = [
     {"type_document_id": 5, "prefix": "ND", "from": 1, "to": 99999999},
 ]
 
-# Carpeta del tipo de documento -> (ruta de la API, prefijo de archivo que usa ApiDian para el XML firmado).
+# Carpeta del tipo de documento -> (ruta de la API de ApiDian, prefijo del nombre de archivo con que
+# ApiDian guarda el XML firmado).
 DOCUMENT_TYPES = {
     "invoice": ("invoice", "FES"),
     "credit-note": ("credit-note", "NCS"),
@@ -136,15 +149,17 @@ def capture_case(base_url: str, token: str, apidian_dir: Path, doc_type: str, ca
 
     response = None
     if doc_type == "invoice":
-        # query_uuid hace que ApiDian responda justo después de firmar, antes de cualquier llamada SOAP.
+        # query_uuid hace que ApiDian responda justo después de firmar, antes de llamar al servicio web
+        # de la DIAN (SOAP).
         request["query_uuid"] = True
         response = call(base_url, "POST", route, request, token)
         if not response.get("success") or not response.get("uuid"):
             raise ApiError(f"{case_dir.name}: ApiDian did not return a CUFE: {json.dumps(response)[:800]}")
     else:
-        # Las notas no tienen query_uuid: ApiDian firma, escribe el XML y luego envía la solicitud
-        # SOAP a la URL del software, que apunta al stub local de nginx. Se espera que esa llamada
-        # falle; para entonces el XML firmado ya está en disco.
+        # Las notas no tienen query_uuid: ApiDian firma, escribe el XML y luego envía la solicitud al
+        # servicio web (SOAP) en la URL del software. Esa URL apunta al nginx local, que responde en
+        # lugar de la DIAN, así que se espera que la llamada falle; para entonces el XML firmado ya
+        # está en disco.
         try:
             call(base_url, "POST", route, request, token)
         except ApiError:

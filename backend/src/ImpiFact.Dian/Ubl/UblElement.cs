@@ -1,10 +1,14 @@
 namespace ImpiFact.Dian.Ubl;
 
 /// <summary>
-/// Árbol mínimo de elementos para documentos UBL. Los nombres se escriben tal como se reciben
-/// (prefijo:local); las declaraciones de espacios de nombres son atributos comunes de la raíz, así que la
-/// salida conserva su orden exacto. Un elemento contiene texto o elementos hijos, nunca ambos.
+/// Elemento XML mínimo en memoria para armar documentos UBL (UBL 2.1: el estándar XML de documentos
+/// comerciales que usa la DIAN). Un elemento contiene texto o elementos hijos, nunca ambos.
 /// </summary>
+/// <remarks>
+/// Los nombres se escriben tal como se reciben, con su prefijo (por ejemplo "cbc:ID"). Las declaraciones
+/// de espacios de nombres (xmlns:cbc="...") se agregan como atributos normales del elemento raíz, así que
+/// la salida las conserva en el orden exacto en que se agregaron.
+/// </remarks>
 public sealed class UblElement
 {
     private readonly List<KeyValuePair<string, string>> _attributes = [];
@@ -20,7 +24,10 @@ public sealed class UblElement
 
     public string Name { get; }
 
-    /// <summary>Contenido de texto; null o vacío significa que el elemento no tiene nodo de texto.</summary>
+    /// <summary>
+    /// Contenido de texto; null o vacío significa que el elemento no tiene texto (sin hijos se escribe
+    /// vacío, como <c>&lt;x/&gt;</c>).
+    /// </summary>
     public string? Text => _text;
 
     public IReadOnlyList<KeyValuePair<string, string>> Attributes => _attributes;

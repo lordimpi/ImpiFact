@@ -4,6 +4,9 @@ namespace ImpiFact.Dian.Tests.Ubl;
 
 public sealed class SoftwareSecurityCodeTests
 {
+    // Código de seguridad del software: huella (hash SHA-384) de ID del software + PIN + número del documento.
+    // El valor esperado es el que escribió ApiDian (el PHP original) en el caso de referencia
+    // invoice/single-line-iva19.
     [Test]
     public void Matches_the_code_of_the_golden_invoice_single_line_iva19()
     {

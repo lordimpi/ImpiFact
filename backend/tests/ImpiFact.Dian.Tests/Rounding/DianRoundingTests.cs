@@ -4,9 +4,11 @@ namespace ImpiFact.Dian.Tests.Rounding;
 
 public class DianRoundingTests
 {
-    // Valores capturados del caso golden de PHP invoice/rounding-raw-decimals: number_format de PHP
-    // redondea la mitad alejándose de cero. 6.965 es 6.96499... como double, así que debe manejarse
-    // como decimal.
+    // Valores tomados del caso de referencia invoice/rounding-raw-decimals (XML generado por el PHP
+    // original, que ImpiFact debe reproducir). La función number_format de PHP redondea los empates
+    // (un 5 justo en el corte) alejándose de cero: 2.185 da 2.19 y -2.185 da -2.19.
+    // Como double, 6.965 queda guardado como 6.96499... y se redondearía a 6.96; por eso los importes se
+    // manejan como decimal, que lo guarda exacto.
     [TestCase("2.185", "2.19")]
     [TestCase("6.965", "6.97")]
     [TestCase("0.34825", "0.35")]

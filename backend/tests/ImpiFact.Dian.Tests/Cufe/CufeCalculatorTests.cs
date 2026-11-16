@@ -6,7 +6,11 @@ namespace ImpiFact.Dian.Tests.Cufe;
 
 public class CufeCalculatorTests
 {
-    // Valores fijos que usó tools/golden-capture cuando se produjeron las fixtures.
+    // CUFE: código único de una factura electrónica; CUDE: el equivalente para notas crédito y débito.
+    // Ambos son una huella (hash) de los datos principales del documento más un secreto: la clave técnica
+    // de la resolución (CUFE) o el PIN del software (CUDE).
+    // Estos son los valores fijos que usó tools/golden-capture al generar los casos de referencia
+    // (XML y CUFE producidos por ApiDian, el PHP original, que ImpiFact debe reproducir exactamente).
     private const string TechnicalKey = "fc8eac422eba16e22ffd8c6f94b3f40a6e38162c";
     private const string SoftwarePin = "12345";
 
@@ -79,7 +83,7 @@ public class CufeCalculatorTests
         string PartyNit(string party) => root.Element(Cac + party)!.Element(Cac + "Party")!
             .Element(Cac + "PartyTaxScheme")!.Element(Cbc + "CompanyID")!.Value;
 
-        // IssueTime lleva el desfase fijo de Colombia, p. ej. "10:00:00-05:00".
+        // IssueTime incluye la diferencia horaria fija de Colombia, p. ej. "10:00:00-05:00"; solo se usa "10:00:00".
         var time = root.Element(Cbc + "IssueTime")!.Value[..8];
 
         return new CufeInput(

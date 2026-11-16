@@ -6,8 +6,9 @@ namespace ImpiFact.Golden.Tests;
 public sealed record CatalogEntry(string Name, string Code, string? DepartmentId = null, string? CodeAgency = null);
 
 /// <summary>
-/// Catálogos de ApiDian (de ID a código y nombre) cargados desde catalogs.json, una fixture extraída de
-/// los CSV semilla de ApiDian. Las pruebas nunca leen el checkout de ApiDian.
+/// Catálogos de ApiDian (tablas que traducen un ID a su código y nombre DIAN) cargados desde catalogs.json.
+/// Ese archivo de datos de prueba se extrajo de los CSV con los que ApiDian llena su base de datos inicial.
+/// Las pruebas nunca leen la copia local del código de ApiDian.
 /// </summary>
 public sealed class ApiDianCatalog
 {

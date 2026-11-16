@@ -9,7 +9,10 @@ public static class TestCertificates
     private static readonly Lazy<X509Certificate2> SharedSigner = new(() =>
         CreateSelfSigned(new X500DistinguishedName("CN=ImpiFact Test Signer, O=ImpiFact Pruebas, C=CO")));
 
-    /// <summary>Un certificado autofirmado RSA 2048 que reutiliza toda la ejecución de pruebas.</summary>
+    /// <summary>
+    /// Un certificado RSA de 2048 bits autofirmado (no lo emite ninguna autoridad) que comparten todas las
+    /// pruebas de la ejecución.
+    /// </summary>
     public static X509Certificate2 Signer => SharedSigner.Value;
 
     public static X509Certificate2 CreateSelfSigned(X500DistinguishedName subject)

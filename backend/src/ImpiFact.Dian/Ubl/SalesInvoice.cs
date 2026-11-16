@@ -4,8 +4,9 @@ namespace ImpiFact.Dian.Ubl;
 
 /// <summary>
 /// Entrada de <see cref="InvoiceUblBuilder"/>: una factura de venta nacional (tipo 01 de la DIAN) con cada
-/// valor de catálogo ya resuelto al código y al nombre que se escriben en el XML (ADR-26). Los valores son
-/// <see cref="decimal"/> sin redondear; el constructor los redondea con DianRounding al escribirlos.
+/// valor de los catálogos (listas de códigos de la DIAN) ya convertido al código y al nombre que se
+/// escriben en el XML (decisión de arquitectura ADR-26). Los valores son <see cref="decimal"/> sin
+/// redondear; <see cref="InvoiceUblBuilder"/> los redondea con DianRounding al escribirlos.
 /// </summary>
 public sealed record SalesInvoice
 {
@@ -46,10 +47,15 @@ public sealed record SalesInvoice
     /// <summary>Descuentos y cargos a nivel de documento.</summary>
     public IReadOnlyList<AllowanceCharge> AllowanceCharges { get; init; } = [];
 
-    /// <summary>Subtotales de impuestos; el constructor los agrupa por esquema tributario en cac:TaxTotal.</summary>
+    /// <summary>
+    /// Subtotales de impuestos; <see cref="InvoiceUblBuilder"/> los agrupa por tipo de impuesto (esquema
+    /// tributario) en cac:TaxTotal.
+    /// </summary>
     public IReadOnlyList<TaxSubtotal> TaxSubtotals { get; init; } = [];
 
-    /// <summary>Subtotales de retenciones; se agrupan por esquema tributario en cac:WithholdingTaxTotal.</summary>
+    /// <summary>
+    /// Subtotales de retenciones; se agrupan por tipo de impuesto (esquema tributario) en cac:WithholdingTaxTotal.
+    /// </summary>
     public IReadOnlyList<TaxSubtotal> WithholdingSubtotals { get; init; } = [];
 
     public required MonetaryTotals Totals { get; init; }
@@ -90,7 +96,10 @@ public sealed record InvoiceParty
 
     public required string IdentificationNumber { get; init; }
 
-    /// <summary>Dígito de verificación; se escribe como un schemeID vacío cuando no existe.</summary>
+    /// <summary>
+    /// Dígito de verificación del NIT (número de identificación tributaria); cuando no existe se escribe
+    /// el atributo schemeID vacío.
+    /// </summary>
     public string? CheckDigit { get; init; }
 
     /// <summary>Código del tipo de identificación (31 NIT, 13 cédula de ciudadanía, ...).</summary>
@@ -98,7 +107,10 @@ public sealed record InvoiceParty
 
     public required string Name { get; init; }
 
-    /// <summary>Cuando es null se omiten la ubicación física y la dirección de registro.</summary>
+    /// <summary>
+    /// Cuando es null se omiten la ubicación física (cac:PhysicalLocation) y la dirección de registro
+    /// (cac:RegistrationAddress).
+    /// </summary>
     public PartyAddress? Address { get; init; }
 
     /// <summary>Código del régimen que se escribe como listName de cbc:TaxLevelCode (48, 49).</summary>
@@ -123,9 +135,9 @@ public sealed record InvoiceParty
 }
 
 /// <summary>
-/// Dirección de una parte. <see cref="CityName"/> se conserva como está guardado en el catálogo: el
-/// constructor lo recorta en todas partes excepto en la ubicación física del proveedor, donde ApiDian lo
-/// escribe sin recortar.
+/// Dirección de una parte. <see cref="CityName"/> se conserva como está guardado en el catálogo:
+/// <see cref="InvoiceUblBuilder"/> le quita los espacios sobrantes en todas partes excepto en la ubicación
+/// física del proveedor, donde ApiDian (la implementación de referencia en PHP) lo escribe tal cual.
 /// </summary>
 public sealed record PartyAddress(
     string MunicipalityCode,
@@ -150,7 +162,10 @@ public sealed record AllowanceCharge
 
     public required string Reason { get; init; }
 
-    /// <summary>Porcentaje; cuando es null el constructor usa Amount / BaseAmount * 100 (0 cuando no hay base).</summary>
+    /// <summary>
+    /// Porcentaje; cuando es null, <see cref="InvoiceUblBuilder"/> usa Amount / BaseAmount * 100 (0 cuando
+    /// no hay base).
+    /// </summary>
     public decimal? MultiplierFactorNumeric { get; init; }
 
     public required decimal Amount { get; init; }

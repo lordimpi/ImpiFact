@@ -3,6 +3,9 @@ using ImpiFact.Dian.Ubl;
 
 namespace ImpiFact.Dian.Tests.Ubl;
 
+// UBL es el formato XML estándar de facturas que usa la DIAN. ApiDian (el PHP original) escribe ese XML con
+// libxml, la biblioteca XML de PHP; estas pruebas fijan el mismo formato (sangría, escapes, finales de
+// línea) para que ImpiFact produzca exactamente los mismos bytes.
 public sealed class UblXmlSerializerTests
 {
     private const string Declaration = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n";

@@ -8,6 +8,9 @@ using ImpiFact.Dian.Signing;
 
 namespace ImpiFact.Dian.Tests.Signing;
 
+// Pruebas de la firma digital XAdES: firma XML estándar más los datos extra que exige la DIAN (hora de
+// firma, certificado, política de firma). La firma va dentro del mismo documento que firma, en el lugar
+// reservado para ella: el segundo ext:ExtensionContent.
 public class XmlSignerTests
 {
     private const string DsNs = "http://www.w3.org/2000/09/xmldsig#";
@@ -17,7 +20,7 @@ public class XmlSignerTests
     private const string SignedSignatureProperties =
         SignaturePath + "/ds:Object/xades:QualifyingProperties/xades:SignedProperties/xades:SignedSignatureProperties";
 
-    // 10:30:45.123 en Colombia.
+    // 15:30:45.123 UTC, es decir, 10:30:45.123 en hora de Colombia (UTC-5).
     private static readonly DateTimeOffset SigningTime = new(2026, 11, 15, 15, 30, 45, 123, TimeSpan.Zero);
 
     public static IEnumerable<TestCaseData> GoldenCases() =>
@@ -74,8 +77,11 @@ public class XmlSignerTests
         Assert.That(CheckSignature(signed, other), Is.False);
     }
 
-    // La C14N inclusiva lleva los atributos xml:* heredados a un subárbol canonicalizado, no solo los
-    // espacios de nombres.
+    // Antes de calcular cada huella (hash), el XML se canonicaliza: se escribe de una forma estándar para
+    // que el mismo contenido produzca siempre los mismos bytes (C14N inclusiva). Algunas partes se firman
+    // por separado (KeyInfo, SignedProperties, SignedInfo), y en esa forma estándar cada parte hereda de sus
+    // elementos padres no solo los espacios de nombres, sino también los atributos xml:* (xml:lang,
+    // xml:space). Estas pruebas ponen uno de esos atributos en la raíz y comprueban que la firma sigue válida.
     [TestCase("xml:lang=\"es\"")]
     [TestCase("xml:space=\"default\"")]
     public void Inherited_xml_attributes_on_the_root_still_verify(string attribute)
@@ -96,6 +102,9 @@ public class XmlSignerTests
         Assert.That(signature.SelectNodes("../../../ext:UBLExtension", ns), Has.Count.EqualTo(2));
     }
 
+    // SignedInfo lista las partes firmadas y la huella SHA-256 de cada una; luego se firma SignedInfo con RSA.
+    // Son tres partes: el documento completo (excluyendo la propia firma, porque va dentro de él), el
+    // certificado (KeyInfo) y los datos XAdES (SignedProperties).
     [Test]
     public void Signed_info_uses_inclusive_c14n_rsa_sha256_and_three_sha256_references()
     {
@@ -176,9 +185,12 @@ public class XmlSignerTests
     [Test]
     public void Issuer_name_follows_rfc_2253_with_escaping_and_hex_for_unnamed_attributes()
     {
-        // El constructor codifica primero el último RDN agregado, así que RFC 2253 (primero el último RDN
-        // codificado) lista primero C; "openssl x509 -nameopt RFC2253" imprime lo mismo, salvo que le pone
-        // nombre al atributo de correo electrónico.
+        // X509IssuerName es el nombre del emisor del certificado en texto, con sus partes (CN=..., O=...,
+        // C=...) en el formato de RFC 2253. El constructor guarda esas partes en orden inverso al que se
+        // agregan, y RFC 2253 las escribe empezando por la última guardada: por eso el texto empieza por C.
+        // Una coma dentro de un valor se escapa con "\", y una parte sin nombre corto conocido (el correo)
+        // se escribe como su identificador numérico (OID) seguido de "=#" y el valor en hexadecimal.
+        // "openssl x509 -nameopt RFC2253" imprime lo mismo, salvo que al correo le pone nombre (emailAddress).
         var builder = new X500DistinguishedNameBuilder();
         builder.AddCountryOrRegion("CO");
         builder.AddOrganizationName("Pruebas, S.A.S.");
@@ -220,6 +232,8 @@ public class XmlSignerTests
             Is.Not.EqualTo(LoadSigned(first).Signature!.GetAttribute("Id")));
     }
 
+    // El lugar reservado para la firma (el segundo ext:ExtensionContent, vacío) puede venir escrito como
+    // <ext:ExtensionContent/> o como <ext:ExtensionContent></ext:ExtensionContent>.
     [Test]
     public void Self_closing_signature_slot_is_accepted()
     {

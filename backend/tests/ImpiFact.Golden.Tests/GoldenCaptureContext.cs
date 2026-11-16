@@ -1,9 +1,12 @@
 namespace ImpiFact.Golden.Tests;
 
 /// <summary>
-/// Configuración fija que tenía ApiDian cuando se capturaron las fixtures golden. Refleja
-/// tools/golden-capture/capture.py (COMPANY, SOFTWARE_ID, SOFTWARE_PIN, TECHNICAL_KEY y la resolución
-/// SETP) más los valores por defecto de ApiDian de los que depende ese script. Mantenga ambos sincronizados.
+/// Configuración fija que tenía ApiDian cuando se capturaron los casos de referencia (XML y CUFE generados
+/// por el PHP original, que ImpiFact debe reproducir byte a byte). Copia los valores de
+/// tools/golden-capture/capture.py (COMPANY, SOFTWARE_ID, SOFTWARE_PIN, TECHNICAL_KEY y la resolución de
+/// numeración de pruebas con prefijo SETP) más los valores por defecto de ApiDian de los que depende ese
+/// script. NIT es el número de identificación tributaria y DV su dígito de verificación.
+/// Mantenga ambos archivos sincronizados.
 /// </summary>
 public static class GoldenCaptureContext
 {
@@ -33,7 +36,10 @@ public static class GoldenCaptureContext
 
     // Valores por defecto de ApiDian que capture.py no sobrescribe.
 
-    /// <summary>type_environment_id 2: pruebas (habilitación).</summary>
+    /// <summary>
+    /// type_environment_id 2: pruebas (habilitación, el ambiente donde la DIAN valida el software antes de
+    /// pasar a producción).
+    /// </summary>
     public const int EnvironmentId = 2;
 
     /// <summary>type_currency_id 35: COP.</summary>

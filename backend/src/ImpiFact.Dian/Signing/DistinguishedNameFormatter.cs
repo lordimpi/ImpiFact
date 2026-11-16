@@ -5,13 +5,20 @@ using System.Text;
 namespace ImpiFact.Dian.Signing;
 
 /// <summary>
-/// Forma de cadena RFC 2253 de un nombre distintivo, como lo pide XMLDSig en ds:X509IssuerName:
-/// RDN del último al primero, sin espacio después de la coma, y los tipos de atributo sin nombre corto
-/// escritos como OID con puntos más el valor BER en hexadecimal.
+/// Convierte el nombre del emisor de un certificado (por ejemplo "CN=..., O=..., C=CO") en el texto que va
+/// en ds:X509IssuerName, con el formato estándar de texto para nombres de certificados (RFC 2253) que pide
+/// el estándar de firmas XML (XMLDSig).
 /// </summary>
+/// <remarks>
+/// Reglas: cada parte del nombre del emisor (CN=..., O=..., C=...) se escribe de la última a la primera,
+/// según el orden en que están guardadas en el certificado, separadas por una coma sin espacio. Un tipo de
+/// parte sin abreviatura conocida se escribe con su identificador numérico (OID, por ejemplo 2.5.4.5),
+/// seguido de "=#" y los bytes del valor en hexadecimal, tal como están codificados en el certificado.
+/// </remarks>
 internal static class DistinguishedNameFormatter
 {
-    // Palabras clave de la sección 2.3 del RFC 2253.
+    // Abreviaturas (CN, O, C...) que RFC 2253, sección 2.3, permite escribir en lugar del identificador
+    // numérico (OID) de cada tipo de parte del nombre.
     private static readonly Dictionary<string, string> ShortNames = new(StringComparer.Ordinal)
     {
         ["2.5.4.3"] = "CN",
@@ -25,6 +32,7 @@ internal static class DistinguishedNameFormatter
         ["0.9.2342.19200300.100.1.1"] = "UID",
     };
 
+    // Tipos de valor que son texto y se pueden escribir como tal; cualquier otro se escribe en hexadecimal.
     private static readonly HashSet<UniversalTagNumber> StringTags =
     [
         UniversalTagNumber.UTF8String,
@@ -38,10 +46,11 @@ internal static class DistinguishedNameFormatter
 
     public static string Format(X500DistinguishedName name)
     {
-        // reversed: true entrega primero el último RDN codificado, que es el orden del RFC 2253.
+        // reversed: true entrega primero la última parte guardada en el certificado, que es el orden que pide RFC 2253.
         return string.Join(",", name.EnumerateRelativeDistinguishedNames(reversed: true).Select(FormatRdn));
     }
 
+    // Una parte del nombre puede tener varios atributos (por ejemplo CN=...+UID=...); se unen con '+'.
     private static string FormatRdn(X500RelativeDistinguishedName rdn)
     {
         var set = new AsnReader(rdn.RawData, AsnEncodingRules.DER).ReadSetOf();
@@ -81,7 +90,8 @@ internal static class DistinguishedNameFormatter
         return false;
     }
 
-    // Sección 2.4 del RFC 2253.
+    // Antepone '\' a los caracteres especiales del formato (RFC 2253, sección 2.4): , + " \ < > ; en
+    // cualquier posición, '#' o espacio al inicio, y espacio al final.
     private static string Escape(string value)
     {
         var builder = new StringBuilder(value.Length);

@@ -3,10 +3,15 @@ using System.Xml;
 namespace ImpiFact.Dian.Signing;
 
 /// <summary>
-/// Posición en el texto de /*/ext:UBLExtensions/ext:UBLExtension[2]/ext:ExtensionContent (Anexo
-/// Técnico 002, sección 13), para que la firma se inserte en el texto original y todos los demás bytes
-/// del documento queden como estaban.
+/// Ubica en el texto del XML el lugar reservado para la firma: el ext:ExtensionContent vacío del segundo
+/// ext:UBLExtension (ruta /*/ext:UBLExtensions/ext:UBLExtension[2]/ext:ExtensionContent, Anexo Técnico
+/// 002, sección 13).
 /// </summary>
+/// <remarks>
+/// ext:UBLExtension es el bloque del XML donde van las extensiones: el primero lleva los datos propios de
+/// la DIAN y el segundo, la firma. La firma se inserta directamente en el texto original, en vez de
+/// modificar el documento con un parser XML, para que todos los demás bytes queden exactamente como estaban.
+/// </remarks>
 internal sealed class SignatureSlot
 {
     private const string ExtNs = "urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2";
@@ -25,6 +30,9 @@ internal sealed class SignatureSlot
         _selfClosing = selfClosing;
     }
 
+    /// <summary>
+    /// Busca el lugar reservado para la firma; falla si no existe o si ya tiene contenido.
+    /// </summary>
     public static SignatureSlot Find(string xml)
     {
         using var reader = XmlReader.Create(new StringReader(xml), XmlSigner.SafeReaderSettings);
@@ -37,6 +45,7 @@ internal sealed class SignatureSlot
                 continue;
             }
 
+            // Profundidad 0 = raíz, 1 = ext:UBLExtensions, 2 = ext:UBLExtension, 3 = ext:ExtensionContent.
             if (reader is { Depth: 2, LocalName: "UBLExtension" })
             {
                 extensionCount++;
@@ -52,7 +61,10 @@ internal sealed class SignatureSlot
         throw new InvalidOperationException($"The document has no {SlotPath} to hold the signature.");
     }
 
-    /// <summary>El documento con <paramref name="signatureXml"/> como único contenido del espacio.</summary>
+    /// <summary>
+    /// Devuelve el documento con <paramref name="signatureXml"/> como único contenido del lugar reservado
+    /// para la firma.
+    /// </summary>
     public string Insert(string signatureXml)
     {
         if (_selfClosing)
@@ -72,7 +84,8 @@ internal sealed class SignatureSlot
             lineStart = xml.IndexOf('\n', lineStart) + 1;
         }
 
-        // Para un elemento, LinePosition apunta al primer carácter de su nombre.
+        // XmlReader informa línea y columna contando desde 1. Para un elemento, la columna (LinePosition)
+        // apunta al primer carácter de su nombre, justo después de '<'.
         var nameStart = lineStart + position - 1;
         if (nameStart < 1 || xml[nameStart - 1] != '<' || string.CompareOrdinal(xml, nameStart, qualifiedName, 0, qualifiedName.Length) != 0)
         {
@@ -83,6 +96,8 @@ internal sealed class SignatureSlot
         return new SignatureSlot(xml, qualifiedName, startTagEnd, xml[startTagEnd - 1] == '/');
     }
 
+    // Devuelve la posición del '>' que cierra la etiqueta de apertura, sin contar los '>' que aparecen
+    // dentro de valores de atributos entre comillas.
     private static int FindStartTagEnd(string xml, int from)
     {
         var quote = '\0';

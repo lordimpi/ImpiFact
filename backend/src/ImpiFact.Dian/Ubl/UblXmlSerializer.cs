@@ -3,13 +3,17 @@ using System.Text;
 namespace ImpiFact.Dian.Ubl;
 
 /// <summary>
-/// Escribe un árbol <see cref="UblElement"/> byte a byte como lo hace DOMDocument::saveXML de PHP con
-/// formatOutput activado (la referencia con la que se capturaron las fixtures golden de la DIAN): la
-/// declaración XML con standalone="no", indentación de dos espacios, finales de línea LF, elementos
-/// vacíos como <c>&lt;x/&gt;</c> sin espacio, caracteres no ASCII como UTF-8 sin escapar y un salto de
-/// línea final. El XmlWriter de .NET difiere en varios de estos puntos (por ejemplo, escribe
-/// <c>&lt;x /&gt;</c>).
+/// Convierte un árbol <see cref="UblElement"/> en texto XML idéntico, byte a byte, al que produce
+/// DOMDocument::saveXML de PHP con formatOutput activado.
 /// </summary>
+/// <remarks>
+/// Ese es el formato con el que se capturaron los casos de referencia (golden): XML de ApiDian contra los
+/// que las pruebas comparan la salida byte a byte. Reglas: declaración XML con standalone="no",
+/// indentación de dos espacios, finales de línea LF (solo \n), elementos vacíos como <c>&lt;x/&gt;</c>
+/// sin espacio, caracteres no ASCII (tildes, ñ) como UTF-8 sin escapar y un salto de línea al final. El
+/// XmlWriter de .NET difiere en varios de estos puntos (por ejemplo, escribe <c>&lt;x /&gt;</c>); por eso
+/// el texto se arma a mano.
+/// </remarks>
 public static class UblXmlSerializer
 {
     public const string Declaration = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>";

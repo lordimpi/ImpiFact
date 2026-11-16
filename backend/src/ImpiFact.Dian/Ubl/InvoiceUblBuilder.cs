@@ -4,16 +4,23 @@ using ImpiFact.Dian.Rounding;
 
 namespace ImpiFact.Dian.Ubl;
 
-/// <summary>Resultado de construir una factura: el XML antes de firmar y su CUFE.</summary>
+/// <summary>
+/// Resultado de construir una factura: el XML antes de firmar y su CUFE (código único de la factura
+/// electrónica: un hash que identifica la factura ante la DIAN).
+/// </summary>
 public sealed record InvoiceUblResult(string Xml, string Cufe);
 
 /// <summary>
-/// Construye el XML UBL 2.1 de una factura electrónica de venta nacional de la DIAN (tipo 01), antes de
-/// firmar. La salida ya lleva lo que llena el paso de firma de la implementación de referencia: cbc:UUID
-/// (el CUFE), sts:SoftwareSecurityCode y sts:QRCode. El segundo ext:ExtensionContent queda vacío para la
-/// firma. El orden de los elementos, los elementos opcionales y el formato siguen byte a byte las
-/// fixtures golden de ApiDian; todo número pasa por <see cref="DianRounding"/>.
+/// Construye el XML UBL 2.1 (el estándar XML de documentos comerciales que usa la DIAN) de una factura
+/// electrónica de venta nacional (tipo 01), todavía sin firmar.
 /// </summary>
+/// <remarks>
+/// La salida ya trae los campos que la implementación de referencia (ApiDian, en PHP) llena en su paso de
+/// firma: cbc:UUID (el CUFE), sts:SoftwareSecurityCode y sts:QRCode. El segundo ext:ExtensionContent queda
+/// vacío: es el lugar reservado para la firma. El orden de los elementos, cuáles elementos opcionales
+/// aparecen y el formato siguen byte a byte los casos de referencia (golden): XML de ApiDian contra los
+/// que las pruebas comparan la salida; todo número pasa por <see cref="DianRounding"/>.
+/// </remarks>
 public static class InvoiceUblBuilder
 {
     private const string DianAgencyId = "195";
@@ -24,8 +31,9 @@ public static class InvoiceUblBuilder
     private const string IcaCode = "03";
     private const string IncCode = "04";
 
-    // Las plantillas de ApiDian dejan su propia indentación dentro de estos nodos de texto; las fixtures
-    // golden de la DIAN la conservan, así que se reproduce literalmente para igualar byte a byte.
+    // Las plantillas de ApiDian dejan saltos de línea y espacios de su propia indentación dentro del texto
+    // de la línea de dirección (cbc:Line) y del precio (cbc:PriceAmount, cbc:BaseQuantity). Las fixtures
+    // golden de la DIAN los conservan, así que se reproducen literalmente para igualar byte a byte.
     private static readonly string PhysicalAddressLinePrefix = "\n" + new string(' ', 60);
     private static readonly string PhysicalAddressLineSuffix = "\n" + new string(' ', 52);
     private static readonly string PriceValuePrefix = "\n" + new string(' ', 16);
@@ -84,8 +92,8 @@ public static class InvoiceUblBuilder
 
         AddTaxTotals(root, invoice.TaxSubtotals, invoice.LocalCurrencyCode);
 
-        // ApiDian escribe las retenciones en la moneda del documento, a diferencia de todos los demás
-        // valores («Reglas del PHP», sección 3.2, ítem 6).
+        // ApiDian escribe las retenciones en la moneda del documento (la extranjera, si la hay), a diferencia
+        // de todos los demás valores, que van en la moneda local («Reglas del PHP», sección 3.2, ítem 6).
         AddWithholdingTotals(root, invoice.WithholdingSubtotals, invoice.ForeignCurrency?.CurrencyCode ?? invoice.LocalCurrencyCode);
         root.Add(LegalMonetaryTotal(invoice.Totals, invoice.LocalCurrencyCode));
         for (var i = 0; i < invoice.Lines.Count; i++)
@@ -114,7 +122,9 @@ public static class InvoiceUblBuilder
     }
 
     /// <summary>
-    /// El valor de cac:TaxTotal de un esquema: suma sin redondear de sus subtotales, redondeada al escribirla.
+    /// Total de un tipo de impuesto (esquema tributario, por ejemplo 01 IVA), como va en su cac:TaxTotal:
+    /// la suma sin redondear de sus subtotales, que se redondea solo al escribirla. Devuelve null si el
+    /// documento no tiene ese impuesto.
     /// </summary>
     private static decimal? TaxTotalOf(IEnumerable<TaxSubtotal> subtotals, string schemeCode)
     {
@@ -188,7 +198,8 @@ public static class InvoiceUblBuilder
         partyElement.Add(new UblElement("cac:PartyName").Add("cbc:Name", party.Name));
         if (party.Address is { } address)
         {
-            // ApiDian recorta el nombre de la ciudad en todas partes excepto en la ubicación física del proveedor.
+            // ApiDian quita los espacios sobrantes del nombre de la ciudad en todas partes excepto en la
+            // ubicación física (cac:PhysicalLocation) del proveedor.
             partyElement.Add(new UblElement("cac:PhysicalLocation")
                 .Add(Address("cac:Address", address, isSupplier ? address.CityName : address.CityName.Trim(),
                     PhysicalAddressLinePrefix + address.AddressLine + PhysicalAddressLineSuffix)));
@@ -317,8 +328,8 @@ public static class InvoiceUblBuilder
     }
 
     /// <summary>
-    /// Un cac:TaxTotal por esquema tributario, ordenado por código de esquema (el mismo orden de los ID
-    /// de impuestos de ApiDian), con sus subtotales en el orden de entrada.
+    /// Escribe un cac:TaxTotal por cada tipo de impuesto (esquema tributario), ordenados por código (el
+    /// mismo orden de los ID de impuestos de ApiDian), cada uno con sus subtotales en el orden de entrada.
     /// </summary>
     private static void AddTaxTotals(UblElement parent, IReadOnlyList<TaxSubtotal> subtotals, string currency)
     {
@@ -348,7 +359,10 @@ public static class InvoiceUblBuilder
         }
     }
 
-    /// <summary>Retenciones: como los impuestos, pero cada valor y porcentaje con 3 decimales.</summary>
+    /// <summary>
+    /// Escribe las retenciones (cac:WithholdingTaxTotal): igual que los impuestos, pero cada valor y
+    /// porcentaje con 3 decimales.
+    /// </summary>
     private static void AddWithholdingTotals(UblElement parent, IReadOnlyList<TaxSubtotal> subtotals, string currency)
     {
         foreach (var group in GroupByScheme(subtotals))

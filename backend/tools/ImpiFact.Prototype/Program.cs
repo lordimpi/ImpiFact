@@ -1,5 +1,6 @@
-// Prototipo de la fase 1: construye una factura nacional de ejemplo, la firma con XAdES-EPES y la empaca
-// en el ZIP que espera la DIAN. La fase 1a llega hasta aquí; el envío a la DIAN llega en la fase 1b.
+// Prototipo de la fase 1: construye una factura nacional de ejemplo, la firma con XAdES-EPES (el formato de
+// firma digital XML que exige la DIAN) y la empaca en el ZIP que espera la DIAN. La fase 1a llega hasta
+// aquí; el envío a la DIAN llega en la fase 1b.
 //
 // Uso (desde la carpeta backend/):
 //   dotnet run --project tools/ImpiFact.Prototype -- [--out <dir>] [--cert <file.p12> --password <pwd>]
@@ -37,7 +38,7 @@ var zipName = DianFileName("z", invoice.Supplier.IdentificationNumber, invoice.I
 
 File.WriteAllText(Path.Combine(outputDirectory, "unsigned.xml"), built.Xml, new UTF8Encoding(false));
 // Solo el certificado público (nunca la clave privada), para que tools/signature-check pueda verificar la
-// salida con xmlsec1.
+// salida con xmlsec1 (una herramienta externa que verifica firmas XML).
 File.WriteAllText(Path.Combine(outputDirectory, "signer.pem"), certificate.ExportCertificatePem());
 File.WriteAllText(Path.Combine(outputDirectory, xmlName), signed, new UTF8Encoding(false));
 using (var zip = ZipFile.Open(Path.Combine(outputDirectory, zipName), ZipArchiveMode.Create))
@@ -74,6 +75,7 @@ static X509Certificate2 CreateThrowawayCertificate()
     return request.CreateSelfSigned(DateTimeOffset.Now.AddMinutes(-5), DateTimeOffset.Now.AddYears(1));
 }
 
+// Control rápido local: verifica la firma con el verificador de firmas XML de .NET (SignedXml).
 static bool VerifySignature(string signedXml)
 {
     var document = new XmlDocument { PreserveWhitespace = true };
@@ -84,8 +86,9 @@ static bool VerifySignature(string signedXml)
     return signature.CheckSignature();
 }
 
-// Nombres de archivo de la DIAN: prefijo + NIT del proveedor (10 dígitos) + código del proveedor tecnológico
-// 000 + año de 2 dígitos + consecutivo de 8 dígitos.
+// Nombres de archivo de la DIAN: prefijo ("fv" para el XML de la factura, "z" para el ZIP) + NIT del
+// proveedor (número de identificación tributaria, 10 dígitos) + código del proveedor tecnológico 000 +
+// año de 2 dígitos + consecutivo de 8 dígitos.
 static string DianFileName(string prefix, string nit, DateOnly issueDate, int sequence) =>
     string.Create(CultureInfo.InvariantCulture,
         $"{prefix}{nit.PadLeft(10, '0')}000{issueDate:yy}{sequence:D8}");

@@ -4,9 +4,10 @@ using ImpiFact.Dian.Signing;
 namespace ImpiFact.Dian.Tests.Signing;
 
 /// <summary>
-/// Escribe firmados todos los documentos golden, más el certificado público, para tools/signature-check
-/// (xmlsec1). Explícito: solo se ejecuta cuando se selecciona por nombre, y solo en un directorio fuera
-/// del repositorio. La clave privada nunca se escribe.
+/// Firma todos los documentos de referencia (tests/golden) y los escribe en disco junto con el certificado
+/// público, para que tools/signature-check los verifique con xmlsec1, una herramienta de verificación de
+/// firmas XML independiente de .NET. La prueba está marcada [Explicit]: NUnit solo la ejecuta cuando se
+/// pide por nombre, y solo escribe en un directorio fuera del repositorio. La clave privada nunca se escribe.
 /// </summary>
 public class SignatureSampleWriter
 {
@@ -31,7 +32,7 @@ public class SignatureSampleWriter
         var signedDirectory = Path.Combine(directory, "signed");
         Directory.CreateDirectory(signedDirectory);
 
-        // Un archivo por caso golden (facturas, notas crédito, nota débito), llamado <type>.<case>.xml.
+        // Un archivo por caso de referencia (facturas, notas crédito, nota débito), llamado <type>.<case>.xml.
         foreach (var fixture in GoldenFixtures.All())
         {
             var signed = XmlSigner.Sign(fixture.ExpectedXml, TestCertificates.Signer, signingTime);
@@ -46,8 +47,8 @@ public class SignatureSampleWriter
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            // La raíz de git (una carpeta .git, o un archivo .git en un worktree), para que ninguna muestra quede
-            // en ninguna parte del repositorio.
+            // Busca la raíz del repositorio git: tiene una carpeta .git, o un archivo .git si es un worktree
+            // (una copia de trabajo adicional del mismo repositorio). Así ninguna muestra queda dentro del repositorio.
             if (Directory.Exists(Path.Combine(dir.FullName, ".git")) || File.Exists(Path.Combine(dir.FullName, ".git")))
             {
                 return dir.FullName;

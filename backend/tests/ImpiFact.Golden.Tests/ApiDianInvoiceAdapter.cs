@@ -7,14 +7,18 @@ using ImpiFact.Dian.Ubl;
 namespace ImpiFact.Golden.Tests;
 
 /// <summary>
-/// Mapea una solicitud de factura de ApiDian (input.json de un caso golden) más el contexto fijo de
-/// captura al modelo <see cref="SalesInvoice"/> de ImpiFact.Dian, resolviendo los ID de catálogo con
-/// <see cref="ApiDianCatalog"/>. Los valores opcionales siguen las condiciones de ApiDian (valor de verdad
-/// en PHP), así que el constructor ve exactamente lo que escribió la referencia.
+/// Convierte una solicitud de factura de ApiDian (el input.json de un caso de referencia, cuyo XML y CUFE
+/// generó el PHP original) más la configuración fija de captura al modelo <see cref="SalesInvoice"/> de
+/// ImpiFact.Dian, traduciendo los ID de catálogo con <see cref="ApiDianCatalog"/>. Un valor opcional solo
+/// se pasa cuando ApiDian lo habría escrito en el XML, según cómo PHP decide si un valor cuenta como vacío
+/// (ver TruthyDecimal). Así el constructor recibe exactamente lo que escribió ApiDian.
 /// </summary>
 public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
 {
-    /// <summary>ID de impuestos de ApiDian cuyo valor es por unidad (app/TaxTotal.php is_fixed_value).</summary>
+    /// <summary>
+    /// ID de impuestos de ApiDian que se cobran como un valor fijo por unidad y no como porcentaje
+    /// (app/TaxTotal.php, is_fixed_value).
+    /// </summary>
     private static readonly int[] FixedValueTaxIds = [2, 10, 19, 20, 21, 23];
 
     public SalesInvoice Map(JsonElement request)
@@ -240,8 +244,9 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
     private static decimal RequiredDecimal(JsonElement parent, string name) => DianRounding.Parse(RequiredText(parent, name));
 
     /// <summary>
-    /// El valor cuando PHP lo trataría como verdadero (el @if de ApiDian sobre el valor sin procesar de la
-    /// solicitud): un valor faltante, "", "0" y el número 0 son falsos, mientras que "0.00" es verdadero.
+    /// Devuelve el valor solo si PHP lo considera "no vacío"; si no, null. Las plantillas de ApiDian escriben
+    /// el elemento con un @if sobre el valor tal como llegó en la solicitud, y PHP cuenta como falso un valor
+    /// faltante, null, "", "0" y el número 0. En cambio, el texto "0.00" cuenta como verdadero.
     /// </summary>
     private static decimal? TruthyDecimal(JsonElement parent, string name)
     {
