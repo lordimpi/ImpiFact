@@ -47,6 +47,27 @@ Raíz: type\_document\_id, establishment\_\*, head\_note, foot\_note, `novelty{n
 | Descargas | /ubl2.1/download/{nit}/{archivo}/BASE64, /invoice/{nit}/{pdf}, /receivedfile/{nit}/{xml}, POST /ubl2.1/xml/document/{hash}, POST /ubl2.1/status/events-document/{hash} |
 | Contingencia | POST /ubl2.1/invoice-contingency-4/send\_pendings |
 
+### A.5.1 Consultas de documentos (ImpiFact, fase 3)
+
+Todas piden una credencial (API key o JWT) con alcance `documents:read`; sin credencial, 401; sin el alcance, 403. El PHP dejaba `information` y `total_documents` públicas («php-rules», sección 5.1).
+
+| Ruta | Alias | Respuesta |
+| --- | --- | --- |
+| GET /api/information/{nit}[/{desde}[/{hasta}]] | /api/v1/information/... | `{success, message: "NIT Encontrado", data: [{type_document_id, name, count, documents}], company}` con los tipos 1, 4, 5 y 15 |
+| GET /api/information/{nit}/page/{page}/page | /api/v1/information/... | igual, sin `type_document_id` ni filtro de fechas; 100 por tipo y página, del más antiguo al más nuevo; `page` menor que 1 es la primera |
+| GET /api/total\_documents/{nit}[/{desde}[/{hasta}]] | /api/v1/total\_documents/... | `{success, message, data: [{name, count}], company}` con los 8 tipos del PHP en su orden: 1, 4, 5, 11, 13, 15, 26, 25 |
+| GET /api/v1/documents | — | `{items: [resumen], next_cursor}` |
+| GET /api/v1/documents/{id} | — | detalle |
+| GET /api/v1/documents/by-cufe/{cufe} | — | detalle |
+
+- **Fechas** (`desde`, `hasta`, `from`, `to`): `yyyy-MM-dd`, días de calendario en hora Colombia, ambos incluidos. Con una sola fecha se consulta ese día; sin fechas, de 1900-01-01 a 2100-01-01, como el PHP. Una fecha inválida responde 422 («desde no es una fecha válida.»), donde el PHP fallaba con un 500. Las dos rutas cuentan el día `hasta` completo (el `total_documents` del PHP comparaba contra la medianoche y lo dejaba por fuera).
+- **Estado**: `information` y `total_documents` solo muestran los documentos validados por la DIAN (`state_document_id = 1`: `Accepted` y `AcceptedWithWarnings`, Modelo de datos, sección 4).
+- **NIT**: debe ser el de la empresa de la credencial. Si no, 403 `company.forbidden` con el mismo cuerpo exista o no el NIT. `company` es la razón social.
+- **Documento heredado** (`documents[]`): `id`, `identification_number` (NIT del emisor), `state_document_id`, `type_document_id`, `prefix`, `number`, `cufe`, `customer` (identificación del adquiriente), `client` (adquiriente con los nombres del objeto `customer` de la emisión), `currency_id`, `date_issue` (`yyyy-MM-dd HH:mm:ss`, hora Colombia), `sale` y `total` (total a pagar), `total_discount`, `total_tax` (con impuestos menos sin impuestos), `subtotal` (base de las líneas), `ambient_id`. No trae los nombres de archivo `xml`/`pdf` del PHP.
+- **Listado** (`/api/v1/documents`): del más reciente al más antiguo. Filtros `document_type_id`, `status` (nombre del estado sin distinguir mayúsculas: `accepted`, `rejected`…), `from`, `to`, `limit` (50 por defecto, de 1 a 200) y `cursor`. `next_cursor` es un texto opaco con la posición `(issued_at, id)` del último documento de la página; se envía tal cual en `?cursor=` y es nulo en la última página. No usa OFFSET, así no repite ni salta documentos aunque entren nuevos.
+- **Resumen**: `id`, `document_type_id`, `type_environment_id`, `prefix`, `number`, `full_number`, `status` (nombre), `cufe`, `issue_date`, `issue_time` (hora Colombia), `issued_at` (UTC), `currency_id`, `customer` (copia del adquiriente al emitir), `totals` (`line_extension_amount`, `tax_exclusive_amount`, `tax_inclusive_amount`, `allowance_total_amount`, `charge_total_amount`, `pre_paid_amount`, `payable_amount`).
+- **Detalle**: el resumen más `uuid_algorithm`, `resolution_id`, `reference_document_id`, `type_operation_id`, `exchange_rate`, `discrepancy_code`, `discrepancy_description`, `notes`, `head_note`, `foot_note`, `track_id`, `dian_status_code`, `dian_status_description`, `sent_at`, `accepted_at`, `taxes` (`tax_id`, `percent`, `taxable_amount`, `tax_amount`, `per_unit_amount`, `unit_measure_id`) y `lines` (`line_number`, `code`, `description`, `notes`, `type_item_identification_id`, `unit_measure_id`, `invoiced_quantity`, `base_quantity`, `price_amount`, `line_extension_amount`, `free_of_charge_indicator`, `reference_price_id`, `tax_totals`). Un documento de otra empresa responde 404 `document.not_found`, igual que uno que no existe.
+
 ## A.6 RIPS (servicio separado, Enterprise)
 
 POST /PaquetesFevRips/CargarFevRips, CargarCapitaInicial, CargarCapitaPeriodo, CargarCapitaFinal. Cuerpo: `rips{numDocumentoIdObligado, numFactura, tipoNota, numNota, usuarios[{consecutivo, tipoDocumentoIdentificacion, numDocumentoIdentificacion, fechaNacimiento, codSexo, tipoUsuario, codPaisResidencia, codPaisOrigen, codMunicipioResidencia, codZonaTerritorialResidencia, incapacidad, servicios{consultas[{consecutivo, codPrestador, … codConsulta, codServicio, vrServicio, valorPagoModerador, conceptoRecaudo, finalidadTecnologiaSalud, grupoServicios, modalidadGrupoServicioTecSal, causaMotivoAtencion, tipoDiagnosticoPrincipal, codDiagnosticoPrincipal, codDiagnosticoRelacionado1..3, numAutorizacion}], …}}]}` + `xmlFevFile:s` (XML de la factura). Fuera del alcance de la fase Community.
