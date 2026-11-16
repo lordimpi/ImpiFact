@@ -39,6 +39,21 @@ public sealed class SecretsStartupTests
         Assert.That(failure, Does.Contain("MasterKeyFile"));
     }
 
+    // Una carpeta que no se puede crear (aquí, porque ya hay un archivo con ese nombre) debe fallar al arrancar, no en
+    // la primera carga de un certificado.
+    [Test]
+    public void Startup_fails_when_the_certificate_directory_cannot_be_created()
+    {
+        var blocked = Path.Combine(scratch.Root, "not-a-directory");
+        File.WriteAllText(blocked, "a file, not a folder");
+        var secrets = scratch.LocalAesGcmSettings();
+        secrets["Secrets:LocalAesGcm:CertificateDirectory"] = Path.Combine(blocked, "certificates");
+
+        var failure = StartupFailure(secrets);
+
+        Assert.That(failure, Does.Contain("CertificateDirectory"));
+    }
+
     [Test]
     public void Startup_fails_when_the_master_key_file_does_not_exist()
     {

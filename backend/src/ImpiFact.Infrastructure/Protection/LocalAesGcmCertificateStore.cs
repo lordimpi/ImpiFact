@@ -41,7 +41,7 @@ internal sealed class LocalAesGcmCertificateStore(LocalMasterKey masterKey, IOpt
         var blobId = Guid.CreateVersion7();
         var envelope = Seal(companyId, blobId, pfx, password);
         var path = FilePath(companyId, blobId);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        CreatePrivateDirectory(Path.GetDirectoryName(path)!);
 
         // Se escribe a un archivo temporal y luego se renombra: nadie ve nunca un archivo a medio escribir.
         var temporary = path + ".tmp";
@@ -51,13 +51,39 @@ internal sealed class LocalAesGcmCertificateStore(LocalMasterKey masterKey, IOpt
             fileOptions.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         }
 
-        await using (var stream = new FileStream(temporary, fileOptions))
+        try
         {
-            await stream.WriteAsync(envelope, ct);
+            await using (var stream = new FileStream(temporary, fileOptions))
+            {
+                await stream.WriteAsync(envelope, ct);
+
+                // Fuerza los bytes al disco antes de renombrar: tras un corte de luz no queda un archivo vacío.
+                stream.Flush(flushToDisk: true);
+            }
+
+            File.Move(temporary, path);
+        }
+        catch
+        {
+            File.Delete(temporary);
+            throw;
+        }
+        return $"{Scheme}{companyId:D}/{blobId:D}";
+    }
+
+    /// <summary>
+    /// Crea la carpeta y sus padres. En Linux y macOS solo el dueño puede entrar (permisos 0700), así otros usuarios
+    /// del servidor no pueden ni listar qué empresas tienen certificado.
+    /// </summary>
+    internal static void CreatePrivateDirectory(string directory)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Directory.CreateDirectory(directory);
+            return;
         }
 
-        File.Move(temporary, path);
-        return $"{Scheme}{companyId:D}/{blobId:D}";
+        Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 
     public async Task<X509Certificate2> LoadAsync(Guid companyId, string secretRef, CancellationToken ct)

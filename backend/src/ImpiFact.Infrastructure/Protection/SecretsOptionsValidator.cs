@@ -40,7 +40,29 @@ internal sealed class SecretsOptionsValidator : IValidateOptions<SecretsOptions>
         {
             failures.Add("Secrets:LocalAesGcm:CertificateDirectory is required when Secrets:Provider is LocalAesGcm.");
         }
+        else if (!CanWrite(local.CertificateDirectory))
+        {
+            failures.Add($"Secrets:LocalAesGcm:CertificateDirectory '{local.CertificateDirectory}' cannot be created or written.");
+        }
 
         return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
+    }
+
+    // Crea la carpeta (con permisos solo para el dueño en Linux) y escribe y borra un archivo de prueba: así una
+    // carpeta mal montada o de solo lectura falla al arrancar y no en la primera carga de un certificado.
+    private static bool CanWrite(string directory)
+    {
+        try
+        {
+            LocalAesGcmCertificateStore.CreatePrivateDirectory(directory);
+            var probe = Path.Combine(directory, ".write-check-" + Guid.NewGuid().ToString("N"));
+            File.WriteAllBytes(probe, []);
+            File.Delete(probe);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 }

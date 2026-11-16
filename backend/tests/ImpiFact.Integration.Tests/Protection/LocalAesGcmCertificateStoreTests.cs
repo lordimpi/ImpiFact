@@ -37,6 +37,34 @@ public sealed class LocalAesGcmCertificateStoreTests
         scratch.Dispose();
     }
 
+    // En Linux las carpetas de certificados solo las abre el dueño (0700) y los archivos solo los lee él (0600).
+    [Test]
+    public async Task On_unix_only_the_owner_can_open_the_certificate_folders_and_files()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix permissions do not apply on Windows.");
+            return;
+        }
+
+        const UnixFileMode OwnerOnlyFolder = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+
+        var secretRef = await store.SaveAsync(CompanyA, TestPfx.Rsa(), TestPfx.Password, CancellationToken.None);
+        var file = StoredFile(secretRef);
+
+        // Se leen fuera de la lambda: el analizador de plataforma no ve la guarda de Windows dentro de ella.
+        var rootMode = File.GetUnixFileMode(scratch.CertificateDirectory);
+        var companyMode = File.GetUnixFileMode(Path.GetDirectoryName(file)!);
+        var fileMode = File.GetUnixFileMode(file);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rootMode, Is.EqualTo(OwnerOnlyFolder));
+            Assert.That(companyMode, Is.EqualTo(OwnerOnlyFolder));
+            Assert.That(fileMode, Is.EqualTo(UnixFileMode.UserRead | UnixFileMode.UserWrite));
+        });
+    }
+
     [Test]
     public async Task A_saved_certificate_loads_back_in_memory_with_its_rsa_private_key()
     {
