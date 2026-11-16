@@ -14,4 +14,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="ImpiFact.Integration.Tests" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Semillas de catálogos: viajan dentro del ensamblado con un nombre fijo, «Seed/<tabla>.json». -->
+    <EmbeddedResource Include="Seed\*.json" LogicalName="Seed/%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>
