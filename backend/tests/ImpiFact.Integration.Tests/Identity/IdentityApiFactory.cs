@@ -65,7 +65,7 @@ internal sealed class IdentityApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(_environment);
-        builder.UseSetting("Database:ConnectionString", "Host=localhost;Database=impifact");
+        builder.UseSetting("Database:ConnectionString", UnreachableDatabase.ConnectionString);
         builder.UseSetting("Secrets:LocalAesGcm:MasterKeyFile", Protection.MasterKeyFile);
         builder.UseSetting("Secrets:LocalAesGcm:CertificateDirectory", Protection.CertificateDirectory);
         builder.UseSetting("Logging:LogLevel:Default", "Trace");

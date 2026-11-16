@@ -17,7 +17,7 @@ public static class ProtectionServices
         var settings = new Dictionary<string, string?>
         {
             ["Database:Provider"] = "Postgres",
-            ["Database:ConnectionString"] = connectionString ?? "Host=localhost;Database=impifact",
+            ["Database:ConnectionString"] = connectionString ?? UnreachableDatabase.ConnectionString,
             ["Dian:HabilitacionUrl"] = "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc",
             ["Dian:ProduccionUrl"] = "https://vpfe.dian.gov.co/WcfDianCustomerServices.svc",
             ["Dian:HabilitacionQrUrl"] = "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=",

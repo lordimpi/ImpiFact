@@ -41,7 +41,7 @@ public sealed class ApiStartupTests
     public async Task With_a_connection_string_the_api_starts_with_the_appsettings_defaults()
     {
         using var factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder => WithMasterKey(builder).UseSetting("Database:ConnectionString", "Host=localhost;Database=impifact"));
+            .WithWebHostBuilder(builder => WithMasterKey(builder).UseSetting("Database:ConnectionString", UnreachableDatabase.ConnectionString));
 
         using var client = factory.CreateClient();
         using var response = await client.GetAsync("/health/live");
