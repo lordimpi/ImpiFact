@@ -25,45 +25,50 @@ Reglas verificadas por pruebas de arquitectura (NetArchTest):
 ## 2. Solución y paquetes
 
 ```
-impifact/
-├─ src/
-│  ├─ ImpiFact.Domain/
-│  │  ├─ Common/            Entity, AggregateRoot, ValueObject, DomainException, IDomainEvent
-│  │  ├─ Catalog/           enums y constantes de códigos DIAN usados por reglas
-│  │  ├─ Companies/         Company, Resolution, Certificate (metadatos), CompanyEnvironment
-│  │  ├─ Documents/         Document (agregado), DocumentLine, DocumentTax, estado y transiciones
-│  │  └─ Billing/           Plan, CompanyPlan, cuotas
-│  ├─ ImpiFact.Application/
-│  │  ├─ Abstractions/      IHandler, Result, Error, puertos de infraestructura (sección 5)
-│  │  ├─ Behaviors/         decoradores: logging, validación, tenant, transacción
-│  │  └─ Features/<Módulo>/<CasoDeUso>/   Command|Query, Handler, Validator, Mapping, Dto
-│  ├─ ImpiFact.Dian/
-│  │  ├─ Ubl/               generadores de XML por tipo de documento
-│  │  ├─ Cufe/              CUFE, CUDE, CUNE, QR
-│  │  ├─ Signing/           XAdES-EPES
-│  │  ├─ Soap/              cliente SOAP con WS-Security
-│  │  ├─ Zip/               empaquetado y AttachedDocument
-│  │  └─ Rounding/          DianRounding (redondeo del anexo técnico)
-│  ├─ ImpiFact.Infrastructure/
-│  │  ├─ Persistence/       DbContext, configuraciones, UnitOfWork, interceptores, convenciones
-│  │  ├─ Reads/             consultas Dapper por módulo
-│  │  ├─ Storage/           IBlobStorage: Local, AzureBlob, S3, Gcs
-│  │  ├─ Secrets/           ICertificateStore, ISecretProtector: KeyVault, AwsSecrets, GcpSecrets, LocalAesGcm
-│  │  ├─ Email/             IEmailSender (MailKit, SMTP por empresa)
-│  │  ├─ Pdf/               IPdfRenderer + plantillas
-│  │  ├─ Outbox/            publicador y procesador
-│  │  └─ Options/           GenericOptionsService<T> y clases de opciones
-│  ├─ ImpiFact.Infrastructure.Postgres/ | .SqlServer/ | .MySql/
-│  ├─ ImpiFact.Api/          Program.cs, endpoints, middleware, auth, OpenAPI
-│  ├─ ImpiFact.Worker/       BackgroundServices
-│  └─ ImpiFact.Migrator/     aplica migraciones y semillas
-├─ tests/
-│  ├─ ImpiFact.Domain.Tests/  ImpiFact.Application.Tests/  ImpiFact.Dian.Tests/
-│  ├─ ImpiFact.Architecture.Tests/  ImpiFact.Integration.Tests/  ImpiFact.Golden.Tests/  ImpiFact.Contract.Tests/
-├─ web/impifact-web/          Angular
-├─ docs/                     PRD, arquitectura, modelo de datos, ADRs y reglas del PHP
-└─ deploy/                  Dockerfiles, compose, IaC por nube
+ImpiFact/
+├─ backend/                   solución .NET: ImpiFact.slnx, Directory.Build.props, Directory.Packages.props, global.json
+│  ├─ src/
+│  │  ├─ ImpiFact.Domain/
+│  │  │  ├─ Common/            Entity, AggregateRoot, ValueObject, DomainException, IDomainEvent
+│  │  │  ├─ Catalog/           enums y constantes de códigos DIAN usados por reglas
+│  │  │  ├─ Companies/         Company, Resolution, Certificate (metadatos), CompanyEnvironment
+│  │  │  ├─ Documents/         Document (agregado), DocumentLine, DocumentTax, estado y transiciones
+│  │  │  └─ Billing/           Plan, CompanyPlan, cuotas
+│  │  ├─ ImpiFact.Application/
+│  │  │  ├─ Abstractions/      IHandler, Result, Error, puertos de infraestructura (sección 5)
+│  │  │  ├─ Behaviors/         decoradores: logging, validación, tenant, transacción
+│  │  │  └─ Features/<Módulo>/<CasoDeUso>/   Command|Query, Handler, Validator, Mapping, Dto
+│  │  ├─ ImpiFact.Dian/
+│  │  │  ├─ Ubl/               generadores de XML por tipo de documento
+│  │  │  ├─ Cufe/              CUFE, CUDE, CUNE, QR
+│  │  │  ├─ Signing/           XAdES-EPES
+│  │  │  ├─ Soap/              cliente SOAP con WS-Security
+│  │  │  ├─ Zip/               empaquetado y AttachedDocument
+│  │  │  └─ Rounding/          DianRounding (redondeo del anexo técnico)
+│  │  ├─ ImpiFact.Infrastructure/
+│  │  │  ├─ Persistence/       DbContext, configuraciones, UnitOfWork, interceptores, convenciones
+│  │  │  ├─ Reads/             consultas Dapper por módulo
+│  │  │  ├─ Storage/           IBlobStorage: Local, AzureBlob, S3, Gcs
+│  │  │  ├─ Secrets/           ICertificateStore, ISecretProtector: KeyVault, AwsSecrets, GcpSecrets, LocalAesGcm
+│  │  │  ├─ Email/             IEmailSender (MailKit, SMTP por empresa)
+│  │  │  ├─ Pdf/               IPdfRenderer + plantillas
+│  │  │  ├─ Outbox/            publicador y procesador
+│  │  │  └─ Options/           GenericOptionsService<T> y clases de opciones
+│  │  ├─ ImpiFact.Infrastructure.Postgres/ | .SqlServer/ | .MySql/
+│  │  ├─ ImpiFact.Api/          Program.cs, endpoints, middleware, auth, OpenAPI
+│  │  ├─ ImpiFact.Worker/       BackgroundServices
+│  │  └─ ImpiFact.Migrator/     aplica migraciones y semillas
+│  ├─ tests/
+│  │  ├─ ImpiFact.Domain.Tests/  ImpiFact.Application.Tests/  ImpiFact.Dian.Tests/
+│  │  ├─ ImpiFact.Architecture.Tests/  ImpiFact.Integration.Tests/  ImpiFact.Golden.Tests/  ImpiFact.Contract.Tests/
+│  └─ tools/                  golden-capture, signature-check, ImpiFact.Prototype (temporal)
+├─ web/                       panel Angular (fase 5; workspace de Angular CLI)
+├─ mobile/                    app móvil (Enterprise, fase 8; se crea cuando llegue)
+├─ docs/                      PRD, arquitectura, modelo de datos, ADRs y reglas del PHP
+└─ deploy/                    Dockerfiles, compose, IaC por nube
 ```
+
+Organización del repositorio (15-nov, ADR-28): monorepo con una carpeta por aplicación (`backend/`, `web/`, `mobile/`), cada una con sus propias herramientas y su CI filtrado por ruta. Los comandos de .NET se ejecutan desde `backend/`. Si la app móvil se hace con Ionic y Capacitor (Angular), vive dentro del workspace de `web/` como otro proyecto y `mobile/` no se crea.
 
 | Proyecto | Paquetes principales |
 | --- | --- |
@@ -337,7 +342,7 @@ El PHP respondía muchos errores con 200 y `success: false`. Los errores de vali
 - Las rutas de descarga legadas (`download/{nit}/{archivo}`, `invoice/{nit}/{pdf}`, `receivedfile/...`) exigen autenticación y propiedad del NIT, o aceptan un token de URL firmada con vencimiento. Ya no existen rutas públicas adivinables.
 - `config/certificate` (GET) **no se implementa**; se reemplaza por consulta de metadatos (`certificates-listing`).
 
-## 10. Panel Angular (`web/impifact-web`)
+## 10. Panel Angular (`web/`)
 
 - Angular (última versión estable), componentes *standalone*, `signals`, control flow nativo (`@if`, `@for`), `provideRouter` con rutas perezosas por `feature`.
 - Cliente HTTP **generado** desde el OpenAPI del Api (`ng-openapi-gen` u OpenAPI Generator `typescript-angular`, con servicios sobre `HttpClient`); no se escriben interfaces de API a mano.
@@ -403,13 +408,13 @@ Módulos del panel de la fase 5:
 | `Domain.Tests` | Reglas del agregado `Document`, transiciones, `Resolution.TakeNumber`, `DianRounding` | Rápidas, sin I/O |
 | `Application.Tests` | Handlers con puertos simulados (Moq) | Caminos felices y de error |
 | `Dian.Tests` | CUFE, firma, UBL contra fixtures | Sin red |
-| `Golden.Tests` | JSON de entrada → XML y CUFE idénticos al PHP | Comparación byte a byte (ADR-27); fixtures en `tests/golden/<tipo>/<caso>/{input.json,expected.xml,expected.cufe}` |
+| `Golden.Tests` | JSON de entrada → XML y CUFE idénticos al PHP | Comparación byte a byte (ADR-27); fixtures en `backend/tests/golden/<tipo>/<caso>/{input.json,expected.xml,expected.cufe}` |
 | `Integration.Tests` | EF + Dapper + cola con Testcontainers en PostgreSQL (fase 2) y en los 3 motores desde la fase 6 | Matriz de proveedor en CI desde la fase 6 |
 | `Contract.Tests` | Colección Postman (Newman) contra el Api levantado | Tokens propios; falla ante cambios de contrato |
 | `Architecture.Tests` | Reglas de la sección 1, aislamiento de módulos, consultas Dapper con `company_id`, ausencia de secretos en logs | NetArchTest |
 | Seguridad | Aislamiento entre empresas por entidad, API keys revocadas, propiedad por NIT | En `Integration.Tests` |
 
-Procedimiento para generar fixtures golden: `tools/golden-capture` levanta el PHP en Docker (solo en `127.0.0.1`) y le envía cada JSON de entrada con `"query_uuid": true`. En ese modo el PHP arma, firma y calcula el CUFE/CUDE, pero responde antes de llamar a la DIAN; no sale tráfico hacia la DIAN. Guarda el XML firmado sin el elemento `ds:Signature`, el CUFE y la respuesta, y se versionan en el repo. Fecha, hora, consecutivo, clave técnica, software y empresa son fijos, así que el resultado es determinista (comprobado el 15-nov: dos corridas dan los mismos bytes). Instrucciones en `tools/golden-capture/README.md`.
+Procedimiento para generar fixtures golden: `backend/tools/golden-capture` levanta el PHP en Docker (solo en `127.0.0.1`) y le envía cada JSON de entrada con `"query_uuid": true`. En ese modo el PHP arma, firma y calcula el CUFE/CUDE, pero responde antes de llamar a la DIAN; no sale tráfico hacia la DIAN. Guarda el XML firmado sin el elemento `ds:Signature`, el CUFE y la respuesta, y se versionan en el repo. Fecha, hora, consecutivo, clave técnica, software y empresa son fijos, así que el resultado es determinista (comprobado el 15-nov: dos corridas dan los mismos bytes). Instrucciones en `backend/tools/golden-capture/README.md`.
 
 Cobertura mínima exigida en CI: `Domain` y `Dian` 90 %, `Application` 80 %; los golden tests no se pueden desactivar.
 
@@ -475,14 +480,14 @@ Cada tarea es un PR con pruebas. Entre paréntesis, la puerta de salida de la fa
 - Resolver los [verificar] que no dependan de la DIAN: hecho el 14-nov en `docs/php-rules.md` (razón social, `state_document_id` y validación de `number`).
 - Extraer las semillas de catálogos a `Seed/*.json`.
 - Extraer del anexo técnico de la DIAN las reglas de validación de totales y sus tolerancias (base de `DianTotalsValidator`), con un caso de prueba por regla.
-- Capturar con el PHP casos golden de nota crédito y débito, y 10 de factura (venta, descuentos, impuestos, moneda extranjera, redondeo). Hecho el 15-nov: 14 casos en `tests/golden`.
+- Capturar con el PHP casos golden de nota crédito y débito, y 10 de factura (venta, descuentos, impuestos, moneda extranjera, redondeo). Hecho el 15-nov: 14 casos en `backend/tests/golden`.
 
 **Fase 1 — Prototipo DIAN** *(1a sin DIAN: tareas 1, 2 y 4 con un certificado de prueba propio. 1b con certificado y `testSetId` reales: tarea 3 y aceptación de la DIAN)*
 
 1. `ImpiFact.Dian`: `InvoiceUblBuilder` + `CufeCalculator` + `DianRounding` con 10 casos golden en verde (no requiere DIAN).
 2. `XmlSigner` XAdES-EPES con un certificado de prueba propio; validar la firma con una librería independiente.
 3. `SoapClient` WS-Security con `SendTestSetAsync`/`GetStatus` contra habilitación (requiere credenciales).
-4. Consola de prueba `ImpiFact.Prototype` (proyecto temporal en `tools/`, fuera de la solución final) que emite una factura de ejemplo extremo a extremo.
+4. Consola de prueba `ImpiFact.Prototype` (proyecto temporal en `backend/tools/`, fuera de la solución final) que emite una factura de ejemplo extremo a extremo.
 
 **Fase 2 — Base** *(pruebas de arquitectura y aislamiento en verde)*
 
@@ -572,4 +577,5 @@ Cada tarea es un PR con pruebas. Entre paréntesis, la puerta de salida de la fa
 | ADR-24 | Transacciones de emisión | Transacción 1 corta (consecutivo, documento, CUFE y mensaje `BuildDocumentXml`) y transacción 2 (XML, firma, estado `Queued` y mensaje `SendDocumentToDian`) |
 | ADR-25 | Llaves de Data Protection | Persistidas en BD y protegidas por el proveedor de secretos |
 | ADR-26 | Entrada de los generadores UBL (15-nov) | `ImpiFact.Dian` define su propio modelo de entrada con los códigos de catálogo ya resueltos y no referencia a `Domain`; `Application` hace el mapeo. Así el núcleo DIAN se prueba solo, sin base de datos ni dominio |
+| ADR-28 | Organización del repositorio (15-nov) | Monorepo con una carpeta por aplicación: `backend/` (.NET), `web/` (Angular) y `mobile/` (fase 8). Se descartaron `apps/` + `libs/` estilo Nx (el backend y el panel no comparten código) y los repos separados (más trabajo para una persona y el cliente del API se genera desde el OpenAPI del backend) |
 | ADR-27 | Librerías de pruebas (15-nov) | Aserciones de NUnit, sin FluentAssertions: desde la versión 8 tiene licencia comercial de pago. Los golden se comparan byte a byte con un mensaje que muestra la primera línea distinta, sin Verify |

@@ -2,4 +2,4 @@
 * text=auto eol=lf
 
 # Golden fixtures are compared byte by byte: never convert their line endings.
-tests/golden/** -text
+backend/tests/golden/** -text

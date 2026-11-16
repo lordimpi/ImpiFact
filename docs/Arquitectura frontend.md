@@ -1,6 +1,6 @@
 # Arquitectura del frontend (Angular)
 
-Especificación de implementación del panel `web/impifact-web`. Complementa la sección 10 de la pestaña «Arquitectura detallada», que queda como resumen; ante cualquier diferencia manda este documento. Las versiones exactas de Angular y de las librerías se fijan al crear el proyecto con la última versión estable y se registran en `package.json`.
+Especificación de implementación del panel `web/`. Complementa la sección 10 de la pestaña «Arquitectura detallada», que queda como resumen; ante cualquier diferencia manda este documento. Las versiones exactas de Angular y de las librerías se fijan al crear el proyecto con la última versión estable y se registran en `package.json`.
 
 ## 1. ¿Microfrontends? No
 
@@ -20,7 +20,7 @@ Qué se hace en su lugar, para poder separar después sin reescribir: cada *feat
 Angular CLI con librerías (sin Nx por ahora; migrar a Nx si el número de librerías lo justifica).
 
 ```
-web/impifact-web/
+web/
 ├─ projects/
 │  ├─ app/                       aplicación: bootstrap, rutas raíz, shell (layout, menú)
 │  ├─ core/                      lib: auth, sesión, empresa activa, interceptores, guards, config, errores

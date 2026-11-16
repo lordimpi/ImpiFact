@@ -261,6 +261,6 @@ Mapeo propuesto de `state_document_id` a `DocumentStatus` para las respuestas le
 
 **Pendiente:**
 
-1. Hecho el 14-nov: fórmulas del CUFE, CUDE y `SoftwareSecurityCode` confirmadas en el código de `torresoftware` (sección 2.1). El 15-nov, el CUFE del primer caso golden (`tests/golden/invoice/two-lines-discounts-iva19`) se recalculó desde el XML con esta fórmula y coincide.
+1. Hecho el 14-nov: fórmulas del CUFE, CUDE y `SoftwareSecurityCode` confirmadas en el código de `torresoftware` (sección 2.1). El 15-nov, el CUFE del primer caso golden (`backend/tests/golden/invoice/two-lines-discounts-iva19`) se recalculó desde el XML con esta fórmula y coincide.
 2. Validar contra el XSD de UBL 2.1 el orden de `AdditionalDocumentReference` y `BillingReference` en las notas.
 3. Inventario de las variantes de la fase 7 (exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes y RADIAN).

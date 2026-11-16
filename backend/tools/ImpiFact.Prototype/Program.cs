@@ -1,7 +1,7 @@
 // Phase 1 prototype: builds a sample national invoice, signs it with XAdES-EPES and packs it
 // into the ZIP the DIAN expects. Phase 1a stops here; sending to the DIAN arrives in phase 1b.
 //
-// Usage:
+// Usage (from the backend/ folder):
 //   dotnet run --project tools/ImpiFact.Prototype -- [--out <dir>] [--cert <file.p12> --password <pwd>]
 //
 // Without --cert a throwaway self-signed certificate is created in memory. It is enough to check the

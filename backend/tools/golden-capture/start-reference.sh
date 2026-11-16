@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
 # Start the local ApiDian reference and prepare it for golden capture.
-# Usage: sh tools/golden-capture/start-reference.sh   (from the repository root)
+# Usage: sh tools/golden-capture/start-reference.sh   (from the backend/ folder)
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-APIDIAN="$HERE/../../../apidian"
+APIDIAN="$HERE/../../../../apidian"
 
 if [ ! -f "$APIDIAN/composer.json" ]; then
   echo "ApiDian checkout not found at $APIDIAN" >&2

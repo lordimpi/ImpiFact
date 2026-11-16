@@ -1,5 +1,5 @@
 # Local-only ApiDian reference used to capture golden fixtures (XML + CUFE/CUDE).
-# Expects the ApiDian checkout as a sibling of this repository: ../apidian
+# Expects the ApiDian checkout as a sibling of the repository folder: <repo>/../apidian
 # nginx binds to 127.0.0.1 only. Never expose this stack: ApiDian has known vulnerabilities.
 name: apidian-reference
 
@@ -37,7 +37,7 @@ services:
       DB_PASSWORD: password_api
       LOG_CHANNEL: stderr
     volumes:
-      - ../../../apidian:/var/www/html
+      - ../../../../apidian:/var/www/html
       # vendor lives in a Docker volume: unzipping onto a Windows bind mount is too slow.
       - vendor:/var/www/html/vendor
     depends_on:
@@ -50,8 +50,8 @@ services:
     ports:
       - "127.0.0.1:8081:80"
     volumes:
-      - ../../../apidian:/var/www/html
-      - ../../../apidian/docker/default.conf:/etc/nginx/sites-available/default
+      - ../../../../apidian:/var/www/html
+      - ../../../../apidian/docker/default.conf:/etc/nginx/sites-available/default
     depends_on:
       - php_api
 

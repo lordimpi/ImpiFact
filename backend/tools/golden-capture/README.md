@@ -21,7 +21,7 @@ La salida es determinista: fecha, hora, consecutivo, clave técnica, software y 
 
 ## Uso
 
-Desde la raíz del repositorio:
+Desde la carpeta `backend/`:
 
 ```sh
 sh tools/golden-capture/start-reference.sh      # levanta y prepara ApiDian (la primera vez tarda unos minutos)

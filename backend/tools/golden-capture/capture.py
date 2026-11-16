@@ -9,7 +9,7 @@ It then stores:
     expected.cufe  CUFE or CUDE returned by ApiDian
     response.json  ApiDian JSON response
 
-Usage (from the repository root, with the reference stack running):
+Usage (from the backend/ folder, with the reference stack running):
 
     python tools/golden-capture/capture.py              # setup + capture every case
     python tools/golden-capture/capture.py --type invoice
@@ -30,7 +30,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = BACKEND_ROOT.parent
 
 # Fixed test identity. Everything here is fictitious except the DIAN public test
 # resolution (18760000001, prefix SETP, range 990000000-995000000) and its technical key.
@@ -178,7 +179,7 @@ def main() -> int:
                         help="URL ApiDian pings before signing; points to the local nginx so no DIAN traffic is sent")
     parser.add_argument("--apidian-dir", default=str(REPO_ROOT.parent / "apidian"),
                         help="ApiDian checkout mounted in the reference stack")
-    parser.add_argument("--golden-dir", default=str(REPO_ROOT / "tests" / "golden"))
+    parser.add_argument("--golden-dir", default=str(BACKEND_ROOT / "tests" / "golden"))
     parser.add_argument("--type", choices=sorted(DOCUMENT_TYPES), help="capture only this document type")
     args = parser.parse_args()
 

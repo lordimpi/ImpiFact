@@ -9,6 +9,8 @@ Comprueba con `xmlsec1` (libxmlsec1 sobre OpenSSL) que la firma XAdES-EPES de `I
 
 ## Uso
 
+Los comandos se ejecutan desde la carpeta `backend/`.
+
 1. Genere las muestras en un directorio **fuera del repositorio**. La prueba se niega a escribir dentro del repositorio.
 
    ```bash

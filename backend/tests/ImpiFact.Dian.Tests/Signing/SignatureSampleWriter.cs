@@ -46,7 +46,8 @@ public class SignatureSampleWriter
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            if (Directory.Exists(Path.Combine(dir.FullName, "tests", "golden")))
+            // The git root (a .git folder, or a .git file in a worktree), so no sample lands anywhere in the repository.
+            if (Directory.Exists(Path.Combine(dir.FullName, ".git")) || File.Exists(Path.Combine(dir.FullName, ".git")))
             {
                 return dir.FullName;
             }
