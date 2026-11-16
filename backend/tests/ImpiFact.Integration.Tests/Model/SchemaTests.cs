@@ -30,7 +30,8 @@ public sealed class SchemaTests
     ];
 
     /// <summary>Tablas que mapea otro módulo en el mismo contexto (Data Protection) y que esta prueba no describe.</summary>
-    private static readonly string[] OtherModuleTables = ["data_protection_keys"];
+    // data_protection_keys es de Protection; __EFMigrationsHistory es la tabla donde EF anota las migraciones aplicadas.
+    private static readonly string[] OtherModuleTables = ["data_protection_keys", "__EFMigrationsHistory"];
 
     private static readonly Dictionary<string, string> Columns = new(StringComparer.Ordinal)
     {
@@ -315,6 +316,9 @@ public sealed class SchemaTests
             "select conname from pg_constraint c join pg_namespace n on n.oid = c.connamespace where n.nspname = 'public' and c.contype <> 'n' " +
             "union all select i.relname from pg_index ix join pg_class i on i.oid = ix.indexrelid join pg_namespace n on " +
             "n.oid = i.relnamespace where n.nspname = 'public' and not exists (select 1 from pg_constraint c where c.conindid = ix.indexrelid)");
+
+        // La llave primaria de la tabla de historial de EF la nombra EF, no la convención de ImpiFact.
+        names = names.Where(name => name != "PK___EFMigrationsHistory").ToList();
 
         Assert.Multiple(() =>
         {

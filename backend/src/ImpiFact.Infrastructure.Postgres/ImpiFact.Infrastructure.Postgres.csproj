@@ -1,9 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     Proveedor PostgreSQL: conecta Entity Framework Core (EF, el mapeador de objetos a tablas) y las lecturas con
-    Npgsql (el controlador .NET de PostgreSQL). Más adelante guarda aquí sus migraciones.
+    Npgsql (el controlador .NET de PostgreSQL). Guarda aquí sus migraciones (carpeta Migrations), generadas con
+    dotnet ef migrations add <Nombre> -p src/ImpiFact.Infrastructure.Postgres -s src/ImpiFact.Infrastructure.Postgres
   -->
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
   <ItemGroup>

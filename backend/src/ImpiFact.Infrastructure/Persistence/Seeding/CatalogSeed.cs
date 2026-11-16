@@ -6,8 +6,9 @@ namespace ImpiFact.Infrastructure.Persistence.Seeding;
 
 /// <summary>
 /// Lee la semilla de un catálogo DIAN desde los JSON de <c>Seed/</c>, que viajan embebidos en el ensamblado
-/// (Modelo de datos detallado, sección 9). La configuración de cada catálogo pasa estas filas a
-/// <c>HasData</c>, así las semillas quedan dentro de las migraciones y no hay filas copiadas a mano en el código.
+/// (Modelo de datos detallado, sección 9). <see cref="CatalogSynchronizer"/> las lleva a la base después de las
+/// migraciones; no se usan con <c>HasData</c> porque EF copiaría las ~3.000 filas en la instantánea del modelo y en
+/// cada migración nueva.
 /// </summary>
 /// <remarks>
 /// Una columna del JSON que la entidad no conoce hace fallar la carga (<see cref="JsonUnmappedMemberHandling.Disallow"/>),

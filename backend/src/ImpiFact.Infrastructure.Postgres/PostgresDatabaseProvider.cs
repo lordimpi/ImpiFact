@@ -28,6 +28,15 @@ public sealed class PostgresDatabaseProvider : IDatabaseProvider
     }
 
     public void ConfigureDbContext(IServiceProvider services, DbContextOptionsBuilder options) =>
-        options.UseNpgsql(services.GetRequiredService<NpgsqlDataSource>())
-            .ReplaceService<IModelCustomizer, PostgresModelCustomizer>();
+        Configure(options.UseNpgsql(services.GetRequiredService<NpgsqlDataSource>(), UseThisAssemblyForMigrations));
+
+    /// <summary>
+    /// Ajustes comunes a la aplicación y a las herramientas de EF (ver <see cref="DesignTimeDbContextFactory"/>): las
+    /// migraciones viven en este proyecto y los tipos propios de PostgreSQL (como jsonb) los fija el personalizador.
+    /// </summary>
+    internal static DbContextOptionsBuilder Configure(DbContextOptionsBuilder options) =>
+        options.ReplaceService<IModelCustomizer, PostgresModelCustomizer>();
+
+    internal static void UseThisAssemblyForMigrations(Npgsql.EntityFrameworkCore.PostgreSQL.Infrastructure.NpgsqlDbContextOptionsBuilder npgsql) =>
+        npgsql.MigrationsAssembly(typeof(PostgresDatabaseProvider).Assembly.GetName().Name);
 }

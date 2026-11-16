@@ -1,5 +1,4 @@
 using ImpiFact.Domain.Catalog;
-using ImpiFact.Infrastructure.Persistence.Seeding;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -21,7 +20,7 @@ internal enum CodeIndex
 /// <summary>
 /// Forma base de un catálogo DIAN (Modelo de datos detallado, sección 3.1): <c>id int</c> explícito (sin
 /// generación), <c>code varchar(20)</c>, <c>name varchar(255)</c>, <c>is_active</c> con valor por defecto
-/// <c>true</c>, vigencia opcional e índice sobre <c>code</c>. Siembra las filas del JSON de su tabla.
+/// <c>true</c>, vigencia opcional e índice sobre <c>code</c>. Las filas las carga <see cref="Seeding.CatalogSynchronizer"/>.
 /// </summary>
 internal abstract class CatalogConfiguration<T>(string table, CodeIndex codeIndex = CodeIndex.Unique, int codeLength = 20)
     : IEntityTypeConfiguration<T>
@@ -47,7 +46,6 @@ internal abstract class CatalogConfiguration<T>(string table, CodeIndex codeInde
         }
 
         ConfigureExtras(builder);
-        builder.HasData(CatalogSeed.Load<T>(table));
     }
 
     /// <summary>Columnas, índices y referencias propias del catálogo.</summary>

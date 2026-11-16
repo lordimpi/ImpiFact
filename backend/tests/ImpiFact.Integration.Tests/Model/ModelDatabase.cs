@@ -1,9 +1,11 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Persistence;
+using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
@@ -12,7 +14,7 @@ namespace ImpiFact.Integration.Tests.Model;
 
 /// <summary>
 /// Levanta un PostgreSQL desechable en Docker para las pruebas del modelo real y crea su esquema con
-/// <c>EnsureCreated</c> (tablas, índices, restricciones y semillas a partir del modelo, sin migraciones).
+/// las migraciones reales del proyecto ImpiFact.Infrastructure.Postgres y el sincronizador de catálogos, como en un despliegue.
 /// </summary>
 /// <remarks>
 /// Es un contenedor aparte del de <c>Persistence</c> porque un <c>SetUpFixture</c> de NUnit solo cubre su propio
@@ -50,7 +52,9 @@ public sealed class ModelDatabase
         services = collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 
         await using var session = Open(companyId: null);
-        await session.Db.Database.EnsureCreatedAsync();
+        // El esquema sale de las migraciones reales y los catálogos del sincronizador, igual que en un despliegue.
+        await session.Db.Database.MigrateAsync();
+        await new CatalogSynchronizer(session.Db).SynchronizeAsync(CancellationToken.None);
     }
 
     [OneTimeTearDown]
