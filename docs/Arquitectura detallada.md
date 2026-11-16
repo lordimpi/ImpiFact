@@ -75,7 +75,7 @@ impifact/
 | Infrastructure.SqlServer | `Microsoft.EntityFrameworkCore.SqlServer` |
 | Infrastructure.MySql | proveedor definido en ADR-08 (Pomelo u Oracle) |
 | Api | `Scalar.AspNetCore`, `Microsoft.AspNetCore.OpenApi`, `Asp.Versioning.Http`, `Microsoft.AspNetCore.Authentication.JwtBearer`, `Serilog.AspNetCore`, `OpenTelemetry.*` |
-| Tests | `NUnit`, `Moq`, `FluentAssertions`, `Testcontainers.*`, `NetArchTest.Rules`, `Verify.NUnit` (golden) |
+| Tests | `NUnit`, `Moq`, `Testcontainers.*`, `NetArchTest.Rules` (sin FluentAssertions ni Verify: ADR-27) |
 
 Versiones de paquetes centralizadas en `Directory.Packages.props`; `Directory.Build.props` fija `Nullable=enable`, `ImplicitUsings=enable`, `TreatWarningsAsErrors=true` y `LangVersion=latest`.
 
@@ -207,7 +207,7 @@ public interface IOutbox { Task EnqueueAsync<T>(T message, DateTimeOffset? notBe
 
 - Un generador por tipo: `InvoiceUblBuilder` (venta, exportación, contingencia, AIU, mandato, transporte como variantes por `type_document_id`/`type_operation_id`), `CreditNoteUblBuilder`, `DebitNoteUblBuilder`, `SupportDocumentUblBuilder`, `SupportCreditNoteUblBuilder`, `ApplicationResponseBuilder` (eventos RADIAN), `AttachedDocumentBuilder`.
 - Se construye con `XmlWriter`/`XDocument` y espacios de nombres fijos; las plantillas **no** son cadenas con interpolación.
-- Entrada: un modelo de dominio ya validado y con importes `decimal` redondeados; salida: `string` XML.
+- Entrada: un modelo propio de `ImpiFact.Dian` (ADR-26), con los códigos de catálogo ya resueltos e importes `decimal`; `Application` traduce el dominio a ese modelo. Salida: `string` XML.
 - Hora de Colombia solo aquí (`TimeZoneInfo` `America/Bogota`, UTC-5 sin horario de verano).
 - Cada builder tiene casos golden: JSON de entrada → XML esperado capturado del PHP.
 
@@ -395,7 +395,7 @@ Módulos del panel de la fase 5:
 | `Domain.Tests` | Reglas del agregado `Document`, transiciones, `Resolution.TakeNumber`, `DianRounding` | Rápidas, sin I/O |
 | `Application.Tests` | Handlers con puertos simulados (Moq) | Caminos felices y de error |
 | `Dian.Tests` | CUFE, firma, UBL contra fixtures | Sin red |
-| `Golden.Tests` | JSON de entrada → XML y CUFE idénticos al PHP | `Verify`; fixtures en `tests/golden/<tipo>/<caso>/{input.json,expected.xml,expected.cufe}` |
+| `Golden.Tests` | JSON de entrada → XML y CUFE idénticos al PHP | Comparación byte a byte (ADR-27); fixtures en `tests/golden/<tipo>/<caso>/{input.json,expected.xml,expected.cufe}` |
 | `Integration.Tests` | EF + Dapper + cola con Testcontainers en PostgreSQL (fase 2) y en los 3 motores desde la fase 6 | Matriz de proveedor en CI desde la fase 6 |
 | `Contract.Tests` | Colección Postman (Newman) contra el Api levantado | Tokens propios; falla ante cambios de contrato |
 | `Architecture.Tests` | Reglas de la sección 1, aislamiento de módulos, consultas Dapper con `company_id`, ausencia de secretos en logs | NetArchTest |
@@ -563,3 +563,5 @@ Cada tarea es un PR con pruebas. Entre paréntesis, la puerta de salida de la fa
 | ADR-23 | Puertos de la DIAN | Definidos e implementados en `ImpiFact.Dian`; `Application` los consume |
 | ADR-24 | Transacciones de emisión | Transacción 1 corta (consecutivo, documento, CUFE y mensaje `BuildDocumentXml`) y transacción 2 (XML, firma, estado `Queued` y mensaje `SendDocumentToDian`) |
 | ADR-25 | Llaves de Data Protection | Persistidas en BD y protegidas por el proveedor de secretos |
+| ADR-26 | Entrada de los generadores UBL (15-nov) | `ImpiFact.Dian` define su propio modelo de entrada con los códigos de catálogo ya resueltos y no referencia a `Domain`; `Application` hace el mapeo. Así el núcleo DIAN se prueba solo, sin base de datos ni dominio |
+| ADR-27 | Librerías de pruebas (15-nov) | Aserciones de NUnit, sin FluentAssertions: desde la versión 8 tiene licencia comercial de pago. Los golden se comparan byte a byte con un mensaje que muestra la primera línea distinta, sin Verify |

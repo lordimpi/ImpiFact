@@ -549,7 +549,7 @@ flowchart LR
 | ADR-07 | Migración de datos existentes | Empezar limpio o importar desde MySQL | Resuelto: empezar limpio, sin migración de datos |
 | ADR-08 | Proveedor de MySQL | Pomelo u Oracle | Por verificar para .NET 10 |
 
-**Índice de ADR.** 01 a 08 y 22 están en este documento; 09 a 14 y 22 a 25, en «Arquitectura detallada» (sección 15 y sección 19.6); 15 a 21, en «Arquitectura frontend» (sección 15). Siguen abiertos: ADR-04 (PDF), ADR-08 (MySQL), ADR-09 (SOAP, spike), ADR-17 (Optimus UI, spike) y ADR-18 (i18n).
+**Índice de ADR.** 01 a 08 y 22 están en este documento; 09 a 14 y 22 a 27, en «Arquitectura detallada» (sección 15 y sección 19.6); 15 a 21, en «Arquitectura frontend» (sección 15). Siguen abiertos: ADR-04 (PDF), ADR-08 (MySQL), ADR-09 (SOAP, spike), ADR-17 (Optimus UI, spike) y ADR-18 (i18n).
 
 **Preguntas (respondidas el 13-nov-2026; ver «Decisiones confirmadas»)**
 
