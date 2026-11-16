@@ -1,0 +1,83 @@
+using System.Globalization;
+
+namespace ImpiFact.Dian.Soap;
+
+/// <summary>Tipo de documento electrónico, para el prefijo del nombre de su archivo XML.</summary>
+public enum DianFileKind
+{
+    /// <summary>Factura electrónica de venta (prefijo <c>fv</c>).</summary>
+    Invoice,
+
+    /// <summary>Nota crédito (prefijo <c>nc</c>).</summary>
+    CreditNote,
+
+    /// <summary>Nota débito (prefijo <c>nd</c>).</summary>
+    DebitNote,
+}
+
+/// <summary>
+/// Nombres de archivo que exige la DIAN (la autoridad tributaria de Colombia) para los documentos que se le
+/// envían: el XML firmado, el ZIP (archivo comprimido) que lo contiene y el nombre que va en el parámetro
+/// <c>fileName</c> de la operación SOAP (protocolo de mensajes XML del servicio web).
+/// </summary>
+/// <remarks>
+/// El nombre del XML y del ZIP es: prefijo, NIT (número de identificación tributaria del emisor, sin dígito
+/// de verificación) con ceros a la izquierda hasta 10 dígitos, el código fijo <c>000</c>, los dos últimos
+/// dígitos del año y un consecutivo de archivos con ceros a la izquierda hasta 8 dígitos. Por ejemplo
+/// <c>fv09018462800002500000166.xml</c>: NIT 901846280, año 2025, consecutivo 166. ApiDian (la implementación
+/// de referencia en PHP) agrega al ZIP un sufijo aleatorio; aquí no, para que el nombre sea predecible.
+/// </remarks>
+public static class DianFileNames
+{
+    private const int NitLength = 10;
+    private const long MaxCounter = 99_999_999;
+
+    /// <summary>
+    /// Nombre del XML firmado dentro del ZIP, por ejemplo <c>fv09018462800002500000166.xml</c>.
+    /// </summary>
+    /// <param name="kind">Tipo de documento: define el prefijo <c>fv</c>, <c>nc</c> o <c>nd</c>.</param>
+    /// <param name="nit">NIT del emisor, solo dígitos y sin dígito de verificación (hasta 10 dígitos).</param>
+    /// <param name="year">Año del envío; se escriben sus dos últimos dígitos.</param>
+    /// <param name="counter">Consecutivo de archivos del emisor (0 a 99.999.999).</param>
+    public static string XmlEntry(DianFileKind kind, string nit, int year, long counter) =>
+        Compose(Prefix(kind), nit, year, counter) + ".xml";
+
+    /// <summary>
+    /// Nombre del ZIP que contiene el XML: la misma regla con el prefijo <c>z</c>, por ejemplo
+    /// <c>z09018462800002500000166.zip</c>.
+    /// </summary>
+    public static string Zip(string nit, int year, long counter) => Compose("z", nit, year, counter) + ".zip";
+
+    /// <summary>
+    /// Nombre que va en el parámetro <c>fileName</c> de la operación SOAP: el prefijo de la resolución de
+    /// numeración y el número del documento, por ejemplo <c>SETP990000001.xml</c>, como lo envía ApiDian.
+    /// </summary>
+    /// <param name="documentPrefix">Prefijo de la resolución; puede ser vacío o nulo.</param>
+    /// <param name="number">Número del documento.</param>
+    public static string SoapFileName(string? documentPrefix, long number) =>
+        (documentPrefix ?? string.Empty) + number.ToString(CultureInfo.InvariantCulture) + ".xml";
+
+    private static string Prefix(DianFileKind kind) => kind switch
+    {
+        DianFileKind.Invoice => "fv",
+        DianFileKind.CreditNote => "nc",
+        DianFileKind.DebitNote => "nd",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown DIAN file kind."),
+    };
+
+    private static string Compose(string prefix, string nit, int year, long counter)
+    {
+        ArgumentNullException.ThrowIfNull(nit);
+        if (nit.Length is 0 or > NitLength || !nit.All(char.IsAsciiDigit))
+        {
+            throw new ArgumentException("The NIT must have between 1 and 10 digits, without check digit.", nameof(nit));
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegative(year);
+        ArgumentOutOfRangeException.ThrowIfNegative(counter);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(counter, MaxCounter);
+
+        return string.Create(CultureInfo.InvariantCulture,
+            $"{prefix}{nit.PadLeft(NitLength, '0')}000{year % 100:D2}{counter:D8}");
+    }
+}
