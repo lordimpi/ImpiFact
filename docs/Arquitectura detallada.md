@@ -401,6 +401,7 @@ Módulos del panel de la fase 5:
   "Cors":       { "Origins": [ "https://app.example.com" ] },
   "RateLimit":  { "PermitPerMinutePerKey": 120, "PermitPerMinutePerIp": 300, "LoginPerMinute": 10 },
   "Pdf":        { "GotenbergUrl": "http://127.0.0.1:3000", "TimeoutSeconds": 60 },   // solo el Worker
+  "Email":      { "Host": "", "Port": 587, "Encryption": "starttls", "FromAddress": "", "FromName": "ImpiFact", "TimeoutSeconds": 60 },   // solo el Worker; Username y Password por variables de entorno o el proveedor de secretos
   "Serilog":    { /* niveles y sinks */ }
 }
 ```

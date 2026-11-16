@@ -548,13 +548,13 @@ flowchart LR
 | ADR-01 | Monolito modular | Sí o microservicios | Sí, monolito modular (acordado) |
 | ADR-02 | Envío a la DIAN | Sincrónico o asíncrono con Worker | Resuelto: asíncrono con `?wait=true` opcional (ADR-13) |
 | ADR-03 | Cola de trabajos | Outbox propio o Hangfire | Resuelto: outbox propio sobre la BD; sin Redis ni broker en la v1 (ADR-22) |
-| ADR-04 | Generación de PDF | QuestPDF, DinkToPdf, plantillas HTML | Probar QuestPDF con la plantilla actual; revisar su licencia |
+| ADR-04 | Generación de PDF | QuestPDF, DinkToPdf, plantillas HTML | Cerrado (17-nov): plantillas HTML (Handlebars.Net) convertidas por Gotenberg; QuestPDF se descarta por su licencia según ingresos de quien la usa («Arquitectura detallada», ADR-04) |
 | ADR-05 | Almacenamiento de certificados | Key Vault y equivalentes o llave maestra local | Ambas detrás de `ICertificateStore` |
 | ADR-06 | Rutas públicas del PHP | Mantenerlas públicas o exigir API key | Resuelto: exigir API key |
 | ADR-07 | Migración de datos existentes | Empezar limpio o importar desde MySQL | Resuelto: empezar limpio, sin migración de datos |
 | ADR-08 | Proveedor de MySQL | Pomelo u Oracle | Por verificar para .NET 10 |
 
-**Índice de ADR.** 01 a 08 y 22 están en este documento; 09 a 14 y 22 a 28, en «Arquitectura detallada» (sección 15 y sección 19.6); 15 a 21, en «Arquitectura frontend» (sección 15). Siguen abiertos: ADR-04 (PDF), ADR-08 (MySQL), ADR-09 (SOAP, spike), ADR-17 (Optimus UI, spike) y ADR-18 (i18n).
+**Índice de ADR.** 01 a 08 y 22 están en este documento; 09 a 14 y 22 a 28, en «Arquitectura detallada» (sección 15 y sección 19.6); 15 a 21, en «Arquitectura frontend» (sección 15). Siguen abiertos: ADR-08 (MySQL), ADR-09 (SOAP, spike), ADR-17 (Optimus UI, spike) y ADR-18 (i18n).
 
 **Preguntas (respondidas el 13-nov-2026; ver «Decisiones confirmadas»)**
 
@@ -607,7 +607,7 @@ Revisión de todo el documento (PRD, anexo, modelo de datos, arquitectura y fron
 | 10 | **Nombre del producto: ImpiFact.** Para un producto propio y revendible conviene nombre, namespaces y marca propios antes de crear el repo (renombrar después es costoso) y sin usar la marca FacturaLatam. | Media | Corregido (14-nov). Nombre elegido: ImpiFact. Namespaces `ImpiFact.*` y repo impifact. Pendiente: verificar dominio y marca en la SIC. |
 | 11 | **Faltaban requisitos operativos:** llaves de Data Protection compartidas entre instancias, copias de seguridad y recuperación, retención de XML y protección de datos personales. | Media | Corregido en la pestaña de arquitectura, sección 19. |
 | 12 | **Alcance grande para una persona.** Tres motores, panel, Worker y multi-empresa. | Media | Mitigado: PostgreSQL primero, fase 1 dividida en 1a (sin DIAN) y 1b (con certificado), Enterprise fuera. Si hay que recortar, el panel Angular es lo primero que se simplifica. |
-| 13 | **Decisiones que siguen abiertas:** ADR-04 (PDF y licencia de QuestPDF), ADR-08 (proveedor MySQL), ADR-09 (SOAP, spike), ADR-17 (Optimus UI, spike), ADR-18 (i18n). | Baja | Abierto, cada una con su punto de resolución. |
+| 13 | **Decisiones que siguen abiertas:** ADR-08 (proveedor MySQL), ADR-09 (SOAP, spike), ADR-17 (Optimus UI, spike), ADR-18 (i18n). | Baja | Abierto, cada una con su punto de resolución. |
 | 14 | **Licencia del origen ambigua.** `LICENSE` dice MIT y `composer.json` declara LGPL-3.0; la licencia de `torresoftware` no se ha revisado. Importa para revender. | Alta | Abierto. `torresoftware` es LGPL-3.0 (confirmado el 14-nov): ImpiFact implementa las fórmulas y la firma desde el anexo técnico de la DIAN y usa la librería solo como referencia de comportamiento, sin traducir su código. Falta confirmar la licencia de ApiDian (MIT o LGPL-3.0). |
 | 15 | **Correcciones sin propagar.** Varias correcciones marcadas como hechas seguían contradichas en otras secciones: reglas de dependencia, consecutivo, estados, índice único, motores por fase, numeración de fases, versionado de rutas, estado de los ADR y referencias entre archivos. Se recuperaron los dos diagramas perdidos al exportar. | Media | Corregido (14-nov, segunda pasada) en los cinco documentos. |
 | 16 | **Alcance de la primera entrega.** La decisión del 13-nov recorta la «fase 1» a factura, notas, resoluciones, certificado, ambiente y consultas, pero las fases 3 y 4 incluyen exportación, contingencia, documento soporte, eventos RADIAN y lotes. | Alta | Resuelto (14-nov): entrega corta. Fases 3 y 4 con factura, notas, resoluciones, certificado, ambiente y consultas; el resto de Community, en la fase 7. |
