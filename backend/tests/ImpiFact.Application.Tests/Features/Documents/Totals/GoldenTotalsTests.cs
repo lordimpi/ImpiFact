@@ -11,8 +11,13 @@ namespace ImpiFact.Application.Tests.Features.Documents.Totals;
 /// </summary>
 public sealed class GoldenTotalsTests
 {
+    // Solo facturas y notas: los casos de attached-document (el contenedor que se entrega al comprador) no traen
+    // totales que validar.
+    private static readonly string[] DocumentTypes = ["invoice", "credit-note", "debit-note"];
+
     private static IEnumerable<TestCaseData> GoldenInputs() =>
-        Directory.EnumerateFiles(FindGoldenRoot(), "input.json", SearchOption.AllDirectories)
+        DocumentTypes
+            .SelectMany(type => Directory.EnumerateFiles(Path.Combine(FindGoldenRoot(), type), "input.json", SearchOption.AllDirectories))
             .Order(StringComparer.Ordinal)
             .Select(path => new TestCaseData(path).SetArgDisplayNames(
                 Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(path)))
