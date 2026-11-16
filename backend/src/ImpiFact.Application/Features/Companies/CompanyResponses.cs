@@ -117,10 +117,10 @@ public sealed record ResolutionResponse
     public string? Prefix { get; init; }
 
     [JsonPropertyName("resolution")]
-    public string Resolution { get; init; } = "";
+    public string? Resolution { get; init; }
 
     [JsonPropertyName("resolution_date")]
-    public DateOnly ResolutionDate { get; init; }
+    public DateOnly? ResolutionDate { get; init; }
 
     [JsonPropertyName("technical_key")]
     public string? TechnicalKey { get; init; }

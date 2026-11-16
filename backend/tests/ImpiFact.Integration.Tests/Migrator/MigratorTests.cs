@@ -22,7 +22,7 @@ public sealed class MigratorTests
         var (exitCode, output, _) = await RunAsync(connectionString, "migrate");
 
         Assert.That(exitCode, Is.Zero);
-        Assert.That(output, Does.Contain("Migrations applied: 20261116080902_InitialSchema"));
+        Assert.That(output, Does.Match(@"Migrations applied: \d{14}_InitialSchema"));
         Assert.That(output, Does.Match(@"Catalogs synchronized: \d+ inserted, 0 updated"));
         await using var connection = new NpgsqlConnection(connectionString);
         Assert.That(await connection.ExecuteScalarAsync<int>("select count(*) from municipalities"), Is.EqualTo(1122));

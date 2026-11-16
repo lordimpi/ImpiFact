@@ -109,13 +109,13 @@ public sealed class UploadCertificateTests
     }
 
     [Test]
-    public async Task Api_key_without_a_user_cannot_upload_until_the_model_allows_it()
+    public async Task Api_key_uploads_without_an_uploading_user()
     {
         var result = await new UploadCertificateHandler(_companies, CompanySamples.CompanyKey(_own.Id), _inspector, _store)
             .HandleAsync(Upload(), CancellationToken.None);
 
-        Assert.That(result.Error, Is.EqualTo(CompanyErrors.CertificateUploaderRequired));
-        Assert.That(_store.Saved, Is.Empty, "Nothing is stored before failing.");
+        Assert.That(result.IsSuccess, Is.True);
+        Assert.That(_companies.Added.OfType<Certificate>().Single().UploadedBy, Is.Null);
     }
 
     [Test]

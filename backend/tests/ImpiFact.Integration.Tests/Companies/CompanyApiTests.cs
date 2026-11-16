@@ -304,29 +304,17 @@ public sealed class CompanyApiTests
     }
 
     [Test]
-    public async Task Api_key_cannot_upload_a_valid_certificate_while_uploaded_by_requires_a_user()
+    public async Task Api_key_uploads_a_valid_certificate_without_an_uploading_user()
     {
         var (company, nit) = await CreateCompanyAsync();
 
         using var response = await company.PutAsJsonAsync("/api/ubl2.1/config/certificate",
             new { certificate = Convert.ToBase64String(TestPfx.Rsa()), password = TestPfx.Password });
 
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
-        Assert.That(await Code(response), Is.EqualTo("certificate.user_required"));
-        await using var scope = Api.OpenScope(null, null, ActorType.System);
-        Assert.That(await Rows<Certificate>(scope.Db, await CompanyIdAsync(scope.Db, nit)).AnyAsync(), Is.False);
-    }
-
-    [Test]
-    [Ignore("Model gap reported in T9b: certificates.uploaded_by is NOT NULL and points to users, so an API key cannot upload yet.")]
-    public async Task Api_key_uploads_a_valid_certificate()
-    {
-        var (company, _) = await CreateCompanyAsync();
-
-        using var response = await company.PutAsJsonAsync("/api/ubl2.1/config/certificate",
-            new { certificate = Convert.ToBase64String(TestPfx.Rsa()), password = TestPfx.Password });
-
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        await using var scope = Api.OpenScope(null, null, ActorType.System);
+        var row = await Rows<Certificate>(scope.Db, await CompanyIdAsync(scope.Db, nit)).SingleAsync();
+        Assert.That(row.UploadedBy, Is.Null);
     }
 
     [Test]

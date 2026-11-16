@@ -42,13 +42,4 @@ public static class CompanyErrors
         "certificate.not_found",
         "La empresa no tiene un certificado activo.",
         ErrorType.NotFound);
-
-    /// <summary>
-    /// <c>certificates.uploaded_by</c> es obligatorio en el modelo y apunta a <c>users</c>: una API key no tiene usuario.
-    /// Brecha del modelo informada en la tarea T9b; mientras se resuelve, solo un usuario del panel sube certificados.
-    /// </summary>
-    public static readonly Error CertificateUploaderRequired = new(
-        "certificate.user_required",
-        "Para subir el certificado se necesita un usuario del panel; con una API key todavía no es posible.",
-        ErrorType.Forbidden);
 }

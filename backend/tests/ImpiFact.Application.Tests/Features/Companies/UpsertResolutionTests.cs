@@ -10,7 +10,6 @@ public sealed class UpsertResolutionTests
 {
     private FakeCompanyRepository _companies = null!;
     private Company _own = null!;
-    private readonly FakeClock _clock = new(new DateTimeOffset(2026, 11, 16, 3, 0, 0, TimeSpan.Zero));
 
     [SetUp]
     public void SetUp()
@@ -90,8 +89,8 @@ public sealed class UpsertResolutionTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True);
-            Assert.That(row.ResolutionNumber, Is.EqualTo(""));
-            Assert.That(row.ResolutionDate, Is.EqualTo(new DateOnly(2026, 11, 15)), "Without a date, today in Colombia (model gap).");
+            Assert.That(row.ResolutionNumber, Is.Null);
+            Assert.That(row.ResolutionDate, Is.Null, "Like the PHP, a credit note resolution has no number or date.");
             Assert.That(row.TypeEnvironmentId, Is.EqualTo(2));
         });
     }
@@ -182,5 +181,5 @@ public sealed class UpsertResolutionTests
         result.Errors.GroupBy(error => error.PropertyName).ToDictionary(group => group.Key, group => group.First().ErrorMessage);
 
     private Task<Result<ResolutionSavedResponse>> Handle(UpsertResolutionCommand command) =>
-        new UpsertResolutionHandler(_companies, CompanySamples.CompanyKey(_own.Id), _clock).HandleAsync(command, CancellationToken.None);
+        new UpsertResolutionHandler(_companies, CompanySamples.CompanyKey(_own.Id)).HandleAsync(command, CancellationToken.None);
 }

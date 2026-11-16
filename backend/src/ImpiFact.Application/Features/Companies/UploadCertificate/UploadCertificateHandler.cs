@@ -38,12 +38,6 @@ internal sealed class UploadCertificateHandler(
             return inspection.Error;
         }
 
-        // Brecha del modelo: certificates.uploaded_by es obligatorio y apunta a users (ver CompanyErrors).
-        if (tenant.UserId is not { } uploadedBy)
-        {
-            return CompanyErrors.CertificateUploaderRequired;
-        }
-
         if (await companies.GetActiveCertificateAsync(company.Id, ct) is { } previous)
         {
             previous.IsActive = false;
@@ -62,7 +56,7 @@ internal sealed class UploadCertificateHandler(
             NotBefore = details.NotBefore,
             NotAfter = details.NotAfter,
             IsActive = true,
-            UploadedBy = uploadedBy,
+            UploadedBy = tenant.UserId,
         };
         companies.Add(certificate);
 

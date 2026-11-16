@@ -17,7 +17,7 @@ namespace ImpiFact.Application.Features.Companies.UpsertResolution;
 /// los deja vacíos en las resoluciones que no son de factura (por ejemplo las de notas crédito). Mientras el modelo
 /// no los haga opcionales se guardan un número vacío y la fecha de hoy en Colombia.
 /// </remarks>
-internal sealed class UpsertResolutionHandler(ICompanyRepository companies, ITenantContext tenant, IClock clock)
+internal sealed class UpsertResolutionHandler(ICompanyRepository companies, ITenantContext tenant)
     : IHandler<UpsertResolutionCommand, ResolutionSavedResponse>
 {
     public async Task<Result<ResolutionSavedResponse>> HandleAsync(UpsertResolutionCommand request, CancellationToken ct)
@@ -32,7 +32,7 @@ internal sealed class UpsertResolutionHandler(ICompanyRepository companies, ITen
         var documentTypeId = request.TypeDocumentId!.Value;
         var environments = await companies.GetEnvironmentsAsync(companyId, ct);
         var typeEnvironmentId = Environments.CurrentFor(environments, Environments.KindOf(documentTypeId));
-        var number = request.Resolution ?? "";
+        var number = string.IsNullOrEmpty(request.Resolution) ? null : request.Resolution;
         var prefix = string.IsNullOrEmpty(request.Prefix) ? null : request.Prefix;
 
         var existing = await companies.GetResolutionsAsync(companyId, documentTypeId, typeEnvironmentId, ct);
@@ -58,7 +58,7 @@ internal sealed class UpsertResolutionHandler(ICompanyRepository companies, ITen
             }
         }
 
-        resolution.ResolutionDate = UpsertResolutionValidator.ParseDate(request.ResolutionDate) ?? CertificateDays.ColombiaDate(clock.UtcNow);
+        resolution.ResolutionDate = UpsertResolutionValidator.ParseDate(request.ResolutionDate);
         resolution.TechnicalKey = request.TechnicalKey;
         resolution.RangeFrom = request.From!.Value;
         resolution.RangeTo = request.To!.Value;

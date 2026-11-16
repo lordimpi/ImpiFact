@@ -5,6 +5,7 @@ using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Features.Companies;
 using ImpiFact.Domain.Identity;
 using ImpiFact.Infrastructure.Persistence;
+using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Identity;
 using ImpiFact.Integration.Tests.Persistence;
@@ -22,7 +23,7 @@ namespace ImpiFact.Integration.Tests.Companies;
 /// <summary>
 /// Levanta un PostgreSQL desechable en Docker y la API real encima, una sola vez para las pruebas de este espacio de
 /// nombres (un <c>SetUpFixture</c> de NUnit solo cubre su propio espacio de nombres). El esquema sale del modelo con
-/// <c>EnsureCreated</c>. Las API keys se leen de la tabla <c>api_keys</c> con un almacén de prueba, porque el adaptador
+/// las migraciones reales y el sincronizador de catálogos. Las API keys se leen de la tabla <c>api_keys</c> con un almacén de prueba, porque el adaptador
 /// real lo hace otra tarea; así la llave que devuelve el alta de una empresa sirve en las solicitudes siguientes.
 /// </summary>
 [SetUpFixture]
@@ -45,7 +46,9 @@ public sealed class CompaniesHost
         factory = new CompanyApiFactory(container.GetConnectionString());
 
         await using var scope = factory.OpenScope(companyId: null, userId: null, ActorType.System);
-        await scope.Db.Database.EnsureCreatedAsync();
+        // El esquema sale de las migraciones reales y los catálogos del sincronizador, como en un despliegue.
+        await scope.Db.Database.MigrateAsync();
+        await new CatalogSynchronizer(scope.Db).SynchronizeAsync(CancellationToken.None);
     }
 
     [OneTimeTearDown]

@@ -123,7 +123,8 @@ public sealed class Certificate : TenantEntity
 
     public bool IsActive { get; set; }
 
-    public Guid UploadedBy { get; init; }
+    /// <summary>Usuario del panel que lo subió; nulo si lo subió una integración con su API key.</summary>
+    public Guid? UploadedBy { get; init; }
 }
 
 /// <summary>Resolución de numeración de la DIAN (<c>resolutions</c>), con el ambiente obligatorio.</summary>
@@ -135,9 +136,10 @@ public sealed class Resolution : TenantEntity
 
     public string? Prefix { get; set; }
 
-    public required string ResolutionNumber { get; set; }
+    /// <summary>Número y fecha de la resolución DIAN; el PHP los deja vacíos en las resoluciones que no son de factura (notas).</summary>
+    public string? ResolutionNumber { get; set; }
 
-    public DateOnly ResolutionDate { get; set; }
+    public DateOnly? ResolutionDate { get; set; }
 
     /// <summary>Clave técnica de la resolución (entra en el cálculo del CUFE).</summary>
     public string? TechnicalKey { get; set; }

@@ -58,9 +58,9 @@ public sealed class SchemaTests
         ["company_software"] = "id uuid|company_id uuid|document_kind smallint|type_environment_id int|software_identifier varchar(64)|" +
             "pin_cipher varchar(512)|dian_url varchar(255)|test_set_id varchar(64) null|" + Common,
         ["certificates"] = "id uuid|company_id uuid|name varchar(255)|secret_ref varchar(512)|thumbprint varchar(64)|" +
-            "subject varchar(500)|issuer varchar(500)|not_before ts|not_after ts|is_active bool|uploaded_by uuid|" + Common,
+            "subject varchar(500)|issuer varchar(500)|not_before ts|not_after ts|is_active bool|uploaded_by uuid null|" + Common,
         ["resolutions"] = "id uuid|company_id uuid|document_type_id int|type_environment_id int|prefix varchar(10) null|" +
-            "resolution_number varchar(50)|resolution_date date|technical_key varchar(128) null|range_from bigint|range_to bigint|" +
+            "resolution_number varchar(50) null|resolution_date date null|technical_key varchar(128) null|range_from bigint|range_to bigint|" +
             "valid_from date null|valid_to date null|is_active bool|" + Common,
         ["company_mail_settings"] = "company_id uuid|use_platform_default bool|host varchar(255) null|port int null|" +
             "username varchar(255) null|password_cipher varchar(512) null|encryption varchar(10) null|" +

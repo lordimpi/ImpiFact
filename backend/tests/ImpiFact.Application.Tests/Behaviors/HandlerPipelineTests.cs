@@ -40,7 +40,9 @@ public class HandlerPipelineTests
         services.AddScoped<IHandler<GetThing, string>, RecordingHandler<GetThing>>();
         services.AddScoped<IHandler<SignIn, string>, RecordingHandler<SignIn>>();
         services.AddApplication();
-        _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
+        // Sin ValidateOnBuild: AddApplication registra también los handlers reales, cuyos puertos (repositorios,
+        // almacenes) no existen en esta prueba; aquí solo se prueba la cadena de decoradores con handlers de prueba.
+        _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
     [TearDown]

@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ImpiFact.Infrastructure.Postgres.Migrations
 {
     [DbContext(typeof(ImpiFactDbContext))]
-    [Migration("20261116080902_InitialSchema")]
+    [Migration("20261116145207_InitialSchema")]
     partial class InitialSchema
     {
         /// <inheritdoc />
@@ -1469,7 +1469,7 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<Guid>("UploadedBy")
+                    b.Property<Guid?>("UploadedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("uploaded_by");
 
@@ -1940,12 +1940,11 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("range_to");
 
-                    b.Property<DateOnly>("ResolutionDate")
+                    b.Property<DateOnly?>("ResolutionDate")
                         .HasColumnType("date")
                         .HasColumnName("resolution_date");
 
                     b.Property<string>("ResolutionNumber")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("resolution_number");
@@ -4206,7 +4205,6 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                         .WithMany()
                         .HasForeignKey("UploadedBy")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
                         .HasConstraintName("fk_certificates_users");
                 });
 
