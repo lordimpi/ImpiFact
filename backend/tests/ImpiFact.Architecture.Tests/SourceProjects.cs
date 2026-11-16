@@ -13,7 +13,7 @@ public static class SourceProjects
     /// <summary>Todos los proyectos de <c>backend/src</c>, ordenados por nombre.</summary>
     public static IReadOnlyList<SourceProject> All()
     {
-        var src = Path.Combine(FindBackendRoot(), "src");
+        var src = Path.Combine(BackendRoot(), "src");
         return Directory.EnumerateFiles(src, "*.csproj", SearchOption.AllDirectories)
             .Where(path => !IsBuildOutput(path))
             .Select(Read)
@@ -44,7 +44,7 @@ public static class SourceProjects
         path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(part => part is "bin" or "obj");
 
     // Sube desde la carpeta de salida de las pruebas hasta encontrar la carpeta backend (la que tiene ImpiFact.slnx).
-    private static string FindBackendRoot()
+    internal static string BackendRoot()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
