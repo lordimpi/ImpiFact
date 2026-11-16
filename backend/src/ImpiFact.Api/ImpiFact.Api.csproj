@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- API HTTP: endpoints sin lógica que delegan en los casos de uso de Application. -->
+  <ItemGroup>
+    <ProjectReference Include="..\ImpiFact.Application\ImpiFact.Application.csproj" />
+    <ProjectReference Include="..\ImpiFact.Infrastructure\ImpiFact.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

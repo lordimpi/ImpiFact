@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Adaptadores: persistencia, almacenamiento, secretos, correo y PDF. -->
+  <ItemGroup>
+    <ProjectReference Include="..\ImpiFact.Application\ImpiFact.Application.csproj" />
+    <ProjectReference Include="..\ImpiFact.Dian\ImpiFact.Dian.csproj" />
+    <ProjectReference Include="..\ImpiFact.Domain\ImpiFact.Domain.csproj" />
+  </ItemGroup>
+</Project>

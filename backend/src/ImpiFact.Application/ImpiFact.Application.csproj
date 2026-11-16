@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Casos de uso y puertos. Sin EF, Dapper, ASP.NET ni SDK de nube (Arquitectura, sección 1). -->
+  <ItemGroup>
+    <ProjectReference Include="..\ImpiFact.Domain\ImpiFact.Domain.csproj" />
+    <ProjectReference Include="..\ImpiFact.Dian\ImpiFact.Dian.csproj" />
+  </ItemGroup>
+</Project>
