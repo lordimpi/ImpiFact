@@ -29,11 +29,12 @@ namespace ImpiFact.Dian.Signing;
 /// </para>
 /// <para>
 /// La firma se inserta como texto en el ext:ExtensionContent vacío del segundo ext:UBLExtension (el lugar
-/// reservado para la firma), así que ningún otro byte del documento cambia, incluido el CUFE (código único
-/// de la factura electrónica: un hash que identifica la factura ante la DIAN). Los Id de la firma se
-/// derivan de un hash del documento, la hora de firma y el certificado, y la firma RSA que se usa (relleno
-/// PKCS#1 v1.5) no tiene componente aleatorio: el mismo documento, el mismo certificado y la misma hora
-/// siempre producen exactamente la misma salida.
+/// reservado para la firma; en un documento con un solo ext:UBLExtension, como el AttachedDocument o
+/// contenedor electrónico, el de esa extensión), así que ningún otro byte del documento cambia, incluido el
+/// CUFE (código único de la factura electrónica: un hash que identifica la factura ante la DIAN). Los Id
+/// de la firma se derivan de un hash del documento, la hora de firma y el certificado, y la firma RSA que
+/// se usa (relleno PKCS#1 v1.5) no tiene componente aleatorio: el mismo documento, el mismo certificado y
+/// la misma hora siempre producen exactamente la misma salida.
 /// </para>
 /// </remarks>
 public static class XmlSigner
