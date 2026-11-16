@@ -62,7 +62,7 @@ public sealed class SendDocumentToDianTests
             Assert.That(files.Select(file => (file.Kind, file.Revision)), Is.EquivalentTo(new[]
             {
                 (DocumentFileKind.SignedXml, 1), (DocumentFileKind.DianResponse, 1), (DocumentFileKind.SentZip, 1),
-                (DocumentFileKind.ApplicationResponse, 1),
+                (DocumentFileKind.ApplicationResponse, 1), (DocumentFileKind.AttachedDocument, 1),
             }));
             Assert.That(submission.RequestFileId, Is.EqualTo(files.Single(file => file.Kind == DocumentFileKind.SentZip).Id));
             Assert.That(submission.ResponseFileId, Is.EqualTo(files.Single(file => file.Kind == DocumentFileKind.DianResponse).Id));

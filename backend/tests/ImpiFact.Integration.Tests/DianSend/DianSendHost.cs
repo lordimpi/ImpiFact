@@ -27,6 +27,7 @@ using ImpiFact.Integration.Tests.Protection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.DianSend;
@@ -90,12 +91,12 @@ public sealed class DianSendHost : IAsyncDisposable
     private readonly ProtectionScratch protection = new();
     private readonly ServiceProvider services;
 
-    private DianSendHost(IReadOnlyDictionary<string, string?> settings)
+    private DianSendHost(IReadOnlyDictionary<string, string?> settings, string connectionString)
     {
         var values = new Dictionary<string, string?>(protection.LocalAesGcmSettings())
         {
             ["Database:Provider"] = "Postgres",
-            ["Database:ConnectionString"] = DianSendDatabase.ConnectionString,
+            ["Database:ConnectionString"] = connectionString,
             ["Storage:Provider"] = "Local",
             ["Storage:Local:Root"] = Path.Combine(protection.Root, "storage"),
             ["Dian:HabilitacionUrl"] = HabilitationUrl,
@@ -104,6 +105,10 @@ public sealed class DianSendHost : IAsyncDisposable
             ["Dian:ProduccionQrUrl"] = "https://catalogo-vpfe.dian.test/document/searchqr?documentkey=",
             ["Dian:TimeoutSeconds"] = "60",
             ["Resilience:BaseDelaySeconds"] = "0.01",
+            ["Email:Host"] = "localhost",
+            ["Email:Port"] = "25",
+            ["Email:Encryption"] = "none",
+            ["Email:FromAddress"] = "no-reply@impifact.test",
         };
         foreach (var (key, value) in settings)
         {
@@ -112,7 +117,7 @@ public sealed class DianSendHost : IAsyncDisposable
 
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var collection = new ServiceCollection();
-        collection.AddLogging();
+        collection.AddLogging(logging => logging.AddProvider(Logs).SetMinimumLevel(LogLevel.Trace));
         collection.AddWorkerServices(configuration, new PostgresDatabaseProvider());
         collection.AddSingleton<IClock>(Clock);
         collection.AddSingleton<IBlobStorage>(provider =>
@@ -131,6 +136,9 @@ public sealed class DianSendHost : IAsyncDisposable
 
     public FakeDian Dian { get; } = new();
 
+    /// <summary>Todo lo que registraron los servicios del host.</summary>
+    public CapturedLogs Logs { get; } = new();
+
     /// <summary>El almacenamiento de archivos real (local) con un interruptor para simular que deja de funcionar.</summary>
     public SwitchableBlobStorage Storage { get; } = new();
 
@@ -138,16 +146,17 @@ public sealed class DianSendHost : IAsyncDisposable
 
     public IServiceProvider Services => services;
 
-    public static DianSendHost Create(IReadOnlyDictionary<string, string?>? settings = null) =>
-        new(settings ?? new Dictionary<string, string?>());
+    /// <param name="connectionString">Base de las pruebas; por defecto la de <see cref="DianSendDatabase"/>.</param>
+    public static DianSendHost Create(IReadOnlyDictionary<string, string?>? settings = null, string? connectionString = null) =>
+        new(settings ?? new Dictionary<string, string?>(), connectionString ?? DianSendDatabase.ConnectionString);
 
     /// <summary>
     /// Un host nuevo sin mensajes pendientes de otras pruebas: los que quedaron (por ejemplo, consultas programadas) se
     /// marcan hechos, para que el procesador de esta prueba solo tome los suyos.
     /// </summary>
-    public static async Task<DianSendHost> StartAsync(IReadOnlyDictionary<string, string?>? settings = null)
+    public static async Task<DianSendHost> StartAsync(IReadOnlyDictionary<string, string?>? settings = null, string? connectionString = null)
     {
-        var host = Create(settings);
+        var host = Create(settings, connectionString);
         await using var scope = host.OpenScope();
         await scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>().Set<OutboxMessage>()
             .Where(message => message.Status == OutboxStatus.Pending || message.Status == OutboxStatus.Processing)
@@ -221,7 +230,8 @@ public sealed class DianSendHost : IAsyncDisposable
         string? testSetId = null,
         DocumentStatus status = DocumentStatus.Queued,
         DateTimeOffset? sentAt = null,
-        string? trackId = null)
+        string? trackId = null,
+        CustomerSnapshot? customer = null)
     {
         var number = Interlocked.Increment(ref documentNumber);
         var prefix = documentTypeId switch { 4 => "NC", 5 => "ND", _ => "SETP" };
@@ -240,7 +250,7 @@ public sealed class DianSendHost : IAsyncDisposable
             IssueDate = new DateOnly(2026, 3, 2),
             IssueTime = new TimeOnly(8, 0),
             IssuedAt = Clock.UtcNow,
-            CustomerSnapshot = new CustomerSnapshot { IdentificationNumber = "222222222222", Name = "Consumidor final" },
+            CustomerSnapshot = customer ?? new CustomerSnapshot { IdentificationNumber = "222222222222", Name = "Consumidor final" },
             CurrencyId = PesoColombiano,
             LineExtensionAmount = 100m,
             TaxExclusiveAmount = 100m,
@@ -357,8 +367,13 @@ public sealed class DianSendHost : IAsyncDisposable
         protection.Dispose();
     }
 
-    private static string SignedXml(Document document) =>
-        $"<Invoice xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:Invoice-2\"><ID>{document.FullNumber}</ID></Invoice>";
+    /// <summary>
+    /// XML «firmado» de prueba: sin firma real, pero con el emisor y el comprador en cac:PartyTaxScheme, de donde sale
+    /// el AttachedDocument (contenedor electrónico) al aceptar.
+    /// </summary>
+    public static string SignedXml(Document document) => $"""
+        <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"><cbc:ID>{document.FullNumber}</cbc:ID><cac:AccountingSupplierParty><cbc:AdditionalAccountID>1</cbc:AdditionalAccountID><cac:Party><cac:PartyTaxScheme><cbc:RegistrationName>EMPRESA DE PRUEBA SAS</cbc:RegistrationName><cbc:CompanyID schemeAgencyID="195" schemeID="1" schemeName="31">900000001</cbc:CompanyID><cbc:TaxLevelCode listName="48">O-23</cbc:TaxLevelCode><cac:TaxScheme><cbc:ID>01</cbc:ID><cbc:Name>IVA</cbc:Name></cac:TaxScheme></cac:PartyTaxScheme></cac:Party></cac:AccountingSupplierParty><cac:AccountingCustomerParty><cbc:AdditionalAccountID>2</cbc:AdditionalAccountID><cac:Party><cac:PartyTaxScheme><cbc:RegistrationName>{document.CustomerSnapshot.Name}</cbc:RegistrationName><cbc:CompanyID schemeAgencyID="195" schemeName="13">{document.CustomerSnapshot.IdentificationNumber}</cbc:CompanyID><cbc:TaxLevelCode listName="49">R-99-PN</cbc:TaxLevelCode><cac:TaxScheme><cbc:ID>ZZ</cbc:ID><cbc:Name>No aplica</cbc:Name></cac:TaxScheme></cac:PartyTaxScheme></cac:Party></cac:AccountingCustomerParty></Invoice>
+        """;
 
     private static ImpiFactDbContext Db(AsyncServiceScope scope) => scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>();
 }

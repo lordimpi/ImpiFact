@@ -8,7 +8,10 @@ namespace ImpiFact.Integration.Tests.DianSend;
 /// </summary>
 public static class DianReplies
 {
-    public const string ApplicationResponseXml = "<ApplicationResponse xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:ApplicationResponse-2\"/>";
+    public const string ApplicationResponseXml =
+        "<ApplicationResponse xmlns=\"urn:oasis:names:specification:ubl:schema:xsd:ApplicationResponse-2\" " +
+        "xmlns:cbc=\"urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2\">" +
+        "<cbc:IssueDate>2026-03-02</cbc:IssueDate><cbc:IssueTime>08:00:01-05:00</cbc:IssueTime></ApplicationResponse>";
 
     public const string Notification = "Regla: FAK55, Notificación: Correo electrónico no informado";
     public const string Rejection = "Regla: FAD06, Rechazo: Valor del CUFE no está calculado correctamente.";
@@ -29,6 +32,10 @@ public static class DianReplies
 
     public static string GetStatus(bool isValid, string statusCode, params string[] errors) =>
         Envelope("GetStatus", Result("GetStatusResult", isValid, statusCode, errors, withApplicationResponse: statusCode != "98"));
+
+    /// <summary>Una respuesta de GetStatus que decide pero no trae el ApplicationResponse (XmlBase64Bytes nulo).</summary>
+    public static string GetStatusWithoutApplicationResponse(bool isValid, string statusCode) =>
+        Envelope("GetStatus", Result("GetStatusResult", isValid, statusCode, [], withApplicationResponse: false));
 
     public static string GetStatusZip(bool isValid, string statusCode, params string[] errors) =>
         Envelope("GetStatusZip", $"""

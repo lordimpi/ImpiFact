@@ -1,11 +1,14 @@
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using System.Xml;
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Dian;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Application.Abstractions.Notifications;
 using ImpiFact.Application.Abstractions.Persistence;
+using ImpiFact.Application.Features.Documents.Email;
 using ImpiFact.Dian.Soap;
 using ImpiFact.Domain.Documents;
 using Microsoft.Extensions.Logging;
@@ -62,6 +65,7 @@ internal sealed class DianDelivery(
     IDianWebService dian,
     IDocumentDelivery documents,
     IDocumentFiles files,
+    IDocumentStore store,
     IOutbox outbox,
     ICompanyNotifications notifications,
     IUnitOfWork unitOfWork,
@@ -150,16 +154,18 @@ internal sealed class DianDelivery(
 
     /// <summary>
     /// Aplica la decisión de la DIAN a un documento enviado (<c>Sent</c> o <c>Unconfirmed</c>): estado final, código y
-    /// descripción de la DIAN y, si quedó aceptado, la hora de aceptación.
+    /// descripción de la DIAN y, si quedó aceptado, la hora de aceptación y lo que sigue a la aceptación (ver
+    /// <see cref="ScheduleAfterAcceptanceAsync"/>), todo para el mismo guardado.
     /// </summary>
-    public void Decide(Document document, DianAnswer.Decided decided)
+    /// <param name="endpoint">Servicio y certificado de la llamada; con ese certificado se firma el AttachedDocument.</param>
+    public async Task DecideAsync(Document document, DianAnswer.Decided decided, DianEndpoint endpoint, CancellationToken ct)
     {
         document.MoveTo(decided.Status);
         Stamp(document, decided.Result);
         if (decided.Status is DocumentStatus.Accepted or DocumentStatus.AcceptedWithWarnings)
         {
             document.AcceptedAt = clock.UtcNow;
-            ScheduleAfterAcceptance(document);
+            await ScheduleAfterAcceptanceAsync(document, decided.Result, endpoint.Certificate, ct);
         }
     }
 
@@ -218,12 +224,60 @@ internal sealed class DianDelivery(
     }
 
     /// <summary>
-    /// Punto de continuación después de la aceptación (Arquitectura detallada, sección 7, paso 9): generar el
-    /// AttachedDocument (el contenedor XML que se entrega al adquiriente), el PDF, encolar el correo
-    /// (<c>SendEmail</c>), consumir la cuota del plan y publicar <c>DocumentAccepted</c>. Esas piezas llegan en tareas
-    /// posteriores de la fase 4 y se encolarán aquí, en la misma transacción que la aceptación. Por ahora no hace nada.
+    /// Lo que sigue a la aceptación (Arquitectura detallada, sección 7, paso 9; supuesto C6), en el mismo guardado que
+    /// la aceptación: genera y guarda el AttachedDocument (el contenedor XML que se entrega al comprador) firmado con el
+    /// certificado de la llamada y encola <c>RenderPdf</c>; el handler del PDF encola después <c>SendEmail</c>. El
+    /// consumo de la cuota del plan y <c>DocumentAccepted</c> llegan en tareas posteriores de la fase 4.
     /// </summary>
-    private static void ScheduleAfterAcceptance(Document document) => _ = document;
+    /// <remarks>
+    /// La aceptación nunca falla por el AttachedDocument: si la respuesta no trae el ApplicationResponse (por ejemplo,
+    /// una respuesta de GetStatus sin XmlBase64Bytes) o el contenedor no se puede armar, queda un aviso en los logs, el
+    /// documento queda aceptado sin contenedor y <c>RenderPdf</c> se encola igual. El correo, que necesita el
+    /// contenedor, se reintenta y termina fallido (<c>email_status</c>) si sigue sin él; el contenedor se puede
+    /// regenerar después (<c>regenerate-attached-document</c>). Una falla al guardar el archivo sí se propaga, como la
+    /// de los demás archivos de la respuesta: el mensaje se reintenta.
+    /// </remarks>
+    private async Task ScheduleAfterAcceptanceAsync(Document document, DianResult result, X509Certificate2 certificate, CancellationToken ct)
+    {
+        if (await BuildAttachedDocumentAsync(document, result, certificate, ct) is { } attachedDocument)
+        {
+            await files.AddAsync(
+                new NewDocumentFile(document.CompanyId, document.Id, DocumentFileKind.AttachedDocument, Utf8.GetBytes(attachedDocument),
+                    "application/xml"), ct);
+        }
+
+        await outbox.EnqueueAsync(OutboxMessageTypes.RenderPdf, new RenderPdfPayload(document.Id), document.CompanyId, notBefore: null, ct);
+    }
+
+    /// <summary>El AttachedDocument firmado; nulo (con un aviso en los logs) si no se puede armar.</summary>
+    private async Task<string?> BuildAttachedDocumentAsync(Document document, DianResult result, X509Certificate2 certificate, CancellationToken ct)
+    {
+        if (result.XmlBase64Bytes is not { Length: > 0 })
+        {
+            logger.LogWarning(
+                "The DIAN accepted document {DocumentId} without returning its ApplicationResponse; the attached document is not generated.",
+                document.Id);
+            return null;
+        }
+
+        if (await store.ReadFileAsync(document.CompanyId, document.Id, DocumentFileKind.SignedXml, ct) is not { } signedXml)
+        {
+            logger.LogWarning("Accepted document {DocumentId} has no signed XML; the attached document is not generated.", document.Id);
+            return null;
+        }
+
+        try
+        {
+            return AttachedDocumentFactory.BuildSigned(document, Utf8.GetString(signedXml), result, certificate, clock.UtcNow);
+        }
+        catch (Exception exception) when (exception is ArgumentException or XmlException or CryptographicException)
+        {
+            logger.LogWarning(
+                "The attached document of accepted document {DocumentId} could not be built ({Error}); it is not generated.",
+                document.Id, exception.GetType().Name + ": " + exception.Message);
+            return null;
+        }
+    }
 
     private async Task RecordAsync(DianSubmission submission, DianCall call, CancellationToken ct)
     {

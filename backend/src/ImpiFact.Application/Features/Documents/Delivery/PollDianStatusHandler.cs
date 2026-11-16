@@ -84,7 +84,7 @@ internal sealed class PollDianStatusHandler(
 
         if (answer is DianAnswer.Decided decided)
         {
-            delivery.Decide(document, decided);
+            await delivery.DecideAsync(document, decided, endpoint, ct);
         }
         else
         {

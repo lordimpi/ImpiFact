@@ -124,7 +124,7 @@ internal sealed class SendDocumentToDianHandler(
             throw new DianNotDeliveredException($"The DIAN did not receive document {document.Id}: {notDelivered.Reason}");
         }
 
-        await ApplyAsync(document, answer, startedAt, ct);
+        await ApplyAsync(document, answer, startedAt, endpoint, ct);
         await unitOfWork.SaveChangesAsync(ct);
     }
 
@@ -166,7 +166,7 @@ internal sealed class SendDocumentToDianHandler(
         logger.LogWarning("Document {DocumentId} could not be sent to the DIAN after every attempt; it is marked Failed.", document.Id);
     }
 
-    private async Task ApplyAsync(Document document, DianAnswer answer, DateTimeOffset startedAt, CancellationToken ct)
+    private async Task ApplyAsync(Document document, DianAnswer answer, DateTimeOffset startedAt, DianEndpoint endpoint, CancellationToken ct)
     {
         if (answer is DianAnswer.Refused refused)
         {
@@ -179,7 +179,7 @@ internal sealed class SendDocumentToDianHandler(
         switch (answer)
         {
             case DianAnswer.Decided decided:
-                delivery.Decide(document, decided);
+                await delivery.DecideAsync(document, decided, endpoint, ct);
                 break;
             case DianAnswer.ZipReceived received:
                 document.TrackId = received.ZipKey;
