@@ -16,7 +16,11 @@ public interface IRefreshTokenStore
     /// si alguien presenta otra vez el token viejo, se sabe que fue robado y se puede revocar toda la cadena.
     /// Se guarda al confirmar la transacción del caso de uso.
     /// </summary>
-    Task RevokeAsync(Guid tokenId, DateTimeOffset revokedAt, Guid? replacedBy, CancellationToken ct);
+    /// <returns>
+    /// <see langword="false"/> si el token ya estaba revocado o no existe: otra solicitud lo usó primero, y quien
+    /// llama debe tratarlo como reuso.
+    /// </returns>
+    Task<bool> RevokeAsync(Guid tokenId, DateTimeOffset revokedAt, Guid? replacedBy, CancellationToken ct);
 
     /// <summary>
     /// Revoca todos los tokens vigentes del usuario y lo guarda de inmediato, en una unidad de trabajo propia,

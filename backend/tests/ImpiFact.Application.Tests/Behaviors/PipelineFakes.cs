@@ -18,6 +18,9 @@ public sealed record SignIn(string Name) : ICommand, ICompanyOptional;
 public sealed class Journal
 {
     public List<string> Entries { get; } = [];
+
+    /// <summary>Si es verdadero, guardar simula un choque con otra solicitud simultánea.</summary>
+    public bool ConflictOnSave { get; set; }
 }
 
 /// <summary>Qué hace el handler de prueba: salir bien, fallar o lanzar una excepción.</summary>
@@ -56,6 +59,8 @@ public sealed class FakeTenant : ITenantContext
     public Guid? UserId { get; set; }
 
     public ActorType Actor { get; set; } = ActorType.ApiKey;
+
+    public IReadOnlySet<string> Scopes { get; set; } = new HashSet<string>();
 }
 
 public sealed class FakeUnitOfWork(Journal journal) : IUnitOfWork
@@ -63,7 +68,9 @@ public sealed class FakeUnitOfWork(Journal journal) : IUnitOfWork
     public Task<int> SaveChangesAsync(CancellationToken ct)
     {
         journal.Entries.Add("save");
-        return Task.FromResult(1);
+        return journal.ConflictOnSave
+            ? throw new PersistenceConflictException("conflict", new InvalidOperationException("stale row"))
+            : Task.FromResult(1);
     }
 
     public Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken ct)

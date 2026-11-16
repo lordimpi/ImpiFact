@@ -17,4 +17,7 @@ public interface IDatabaseProvider
 
     /// <summary>Conecta el contexto de EF Core (Entity Framework) con el motor.</summary>
     void ConfigureDbContext(IServiceProvider services, DbContextOptionsBuilder options);
+
+    /// <summary>Si el error de guardado es la violación de un índice único (cada motor la informa con su propio código).</summary>
+    bool IsUniqueViolation(DbUpdateException exception);
 }

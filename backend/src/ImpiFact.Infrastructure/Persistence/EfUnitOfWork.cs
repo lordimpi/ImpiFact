@@ -8,9 +8,25 @@ namespace ImpiFact.Infrastructure.Persistence;
 /// Unidad de trabajo sobre el contexto de EF Core (Entity Framework, el mapeador de objetos a tablas) de la
 /// solicitud. La usa el decorador de transacción de Application para guardar y confirmar al final del comando.
 /// </summary>
-internal sealed class EfUnitOfWork(DbContext db) : IUnitOfWork
+internal sealed class EfUnitOfWork(DbContext db, IDatabaseProvider provider) : IUnitOfWork
 {
-    public Task<int> SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
+    // Los choques entre solicitudes simultáneas salen como PersistenceConflictException, que Application entiende sin
+    // conocer EF ni el motor de base de datos.
+    public async Task<int> SaveChangesAsync(CancellationToken ct)
+    {
+        try
+        {
+            return await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new PersistenceConflictException("Another request changed the same rows.", exception);
+        }
+        catch (DbUpdateException exception) when (provider.IsUniqueViolation(exception))
+        {
+            throw new PersistenceConflictException("Another request stored the same unique value.", exception);
+        }
+    }
 
     public async Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken ct) =>
         new EfUnitOfWorkTransaction(db, await db.Database.BeginTransactionAsync(ct));

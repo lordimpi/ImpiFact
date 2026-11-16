@@ -15,10 +15,13 @@ public sealed class TenantContext : ITenantContext
 
     public ActorType Actor { get; private set; } = ActorType.Anonymous;
 
-    public void Set(Guid? companyId, Guid? userId, ActorType actor)
+    public IReadOnlySet<string> Scopes { get; private set; } = new HashSet<string>();
+
+    public void Set(Guid? companyId, Guid? userId, ActorType actor, IReadOnlySet<string>? scopes = null)
     {
         CompanyId = companyId;
         UserId = userId;
         Actor = actor;
+        Scopes = scopes ?? new HashSet<string>();
     }
 }

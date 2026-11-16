@@ -56,10 +56,7 @@ internal sealed class RefreshTokenHandler(
         var now = clock.UtcNow;
         if (presented.RevokedAt is not null)
         {
-            await refreshStore.RevokeAllActiveForUserAsync(presented.UserId, now, ct);
-            logger.LogWarning(
-                "A revoked refresh token was presented again; revoked every active refresh token of user {UserId}.", presented.UserId);
-            return IdentityErrors.InvalidRefreshToken;
+            return await RevokeChainAsync(presented.UserId, now, ct);
         }
 
         if (presented.ExpiresAt <= now)
@@ -73,6 +70,20 @@ internal sealed class RefreshTokenHandler(
             return IdentityErrors.InvalidRefreshToken;
         }
 
-        return await _sessions.IssueAsync(user.Id, request.CompanyId, request.ClientIp, request.UserAgent, presented.Id, now, ct);
+        var issued = await _sessions.IssueAsync(user.Id, request.CompanyId, request.ClientIp, request.UserAgent, presented.Id, now, ct);
+        if (!issued.IsSuccess && issued.Error == SessionIssuer.AlreadyUsed)
+        {
+            // Otra solicitud usó este mismo token un instante antes: se trata igual que un token robado y reusado.
+            return await RevokeChainAsync(presented.UserId, now, ct);
+        }
+
+        return issued;
+    }
+
+    private async Task<Result<SessionTokens>> RevokeChainAsync(Guid userId, DateTimeOffset now, CancellationToken ct)
+    {
+        await refreshStore.RevokeAllActiveForUserAsync(userId, now, ct);
+        logger.LogWarning("A revoked refresh token was presented again; revoked every active refresh token of user {UserId}.", userId);
+        return IdentityErrors.InvalidRefreshToken;
     }
 }

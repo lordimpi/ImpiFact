@@ -80,6 +80,18 @@ public class HandlerPipelineTests
     }
 
     [Test]
+    public async Task A_save_that_collides_with_another_request_is_rolled_back_as_a_conflict()
+    {
+        _journal.ConflictOnSave = true;
+
+        var result = await Handle(new CreateThing("factura"));
+
+        Assert.That(result.Error.Type, Is.EqualTo(ErrorType.Conflict));
+        Assert.That(result.Error.Code, Is.EqualTo("persistence.conflict"));
+        Assert.That(_journal.Entries, Is.EqualTo(new[] { "begin", "handle", "save", "rollback", "dispose" }));
+    }
+
+    [Test]
     public async Task A_query_runs_without_a_transaction()
     {
         var result = await Handle(new GetThing("factura"));

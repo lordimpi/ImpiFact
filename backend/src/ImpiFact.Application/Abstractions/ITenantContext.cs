@@ -14,6 +14,12 @@ public interface ITenantContext
     Guid? UserId { get; }
 
     ActorType Actor { get; }
+
+    /// <summary>
+    /// Alcances (scopes) de la credencial: los de la API key o los que el JWT trae según el rol. Vacío si no hay
+    /// credencial. Sirven, por ejemplo, para que una credencial no entregue alcances que ella misma no tiene.
+    /// </summary>
+    IReadOnlySet<string> Scopes { get; }
 }
 
 /// <summary>Tipo de quien hace la solicitud.</summary>

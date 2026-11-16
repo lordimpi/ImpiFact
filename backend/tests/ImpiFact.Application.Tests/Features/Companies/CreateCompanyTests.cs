@@ -206,6 +206,17 @@ public sealed class CreateCompanyTests
         Assert.That(result.IsSuccess, Is.True);
     }
 
+    // Un usuario del panel con rol platform_admin trae platform:* en su JWT y no tiene empresa activa.
+    [Test]
+    public async Task A_platform_admin_user_creates_companies()
+    {
+        var admin = new FakeTenant { Actor = ActorType.User, UserId = Guid.CreateVersion7(), Scopes = new HashSet<string> { ApiScopes.Platform } };
+
+        var result = await Handle(CompanySamples.Create(), admin);
+
+        Assert.That(result.IsSuccess, Is.True);
+    }
+
     [TestCase(ActorType.ApiKey)]
     [TestCase(ActorType.User)]
     [TestCase(ActorType.Anonymous)]

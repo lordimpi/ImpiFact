@@ -34,6 +34,10 @@ public sealed class PostgresDatabaseProvider : IDatabaseProvider
     /// Ajustes comunes a la aplicación y a las herramientas de EF (ver <see cref="DesignTimeDbContextFactory"/>): las
     /// migraciones viven en este proyecto y los tipos propios de PostgreSQL (como jsonb) los fija el personalizador.
     /// </summary>
+    // 23505 es el código de PostgreSQL para «unique_violation».
+    public bool IsUniqueViolation(DbUpdateException exception) =>
+        exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+
     internal static DbContextOptionsBuilder Configure(DbContextOptionsBuilder options) =>
         options.ReplaceService<IModelCustomizer, PostgresModelCustomizer>();
 

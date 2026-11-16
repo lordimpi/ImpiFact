@@ -317,6 +317,26 @@ public sealed class CompanyApiTests
         Assert.That(row.UploadedBy, Is.Null);
     }
 
+    // Varias altas del mismo NIT a la vez: una crea la empresa y las demás la actualizan o reciben 409; nunca 500.
+    [Test]
+    public async Task Parallel_creates_of_the_same_nit_never_answer_500()
+    {
+        var (nit, dv) = CompaniesHost.NewNit();
+        using var platform = await PlatformClientAsync();
+
+        var responses = await Task.WhenAll(Enumerable.Range(0, 4)
+            .Select(_ => platform.PostAsJsonAsync($"/api/ubl2.1/config/{nit}/{dv}", CompanyBody(nit))));
+        await using var scope = Api.OpenScope(null, null, ActorType.System);
+        var rows = await scope.Db.Set<Company>().IgnoreQueryFilters().CountAsync(company => company.IdentificationNumber == nit);
+
+        Assert.That(responses.Select(response => response.StatusCode), Is.All.AnyOf(HttpStatusCode.OK, HttpStatusCode.Conflict));
+        Assert.That(rows, Is.EqualTo(1));
+        foreach (var response in responses)
+        {
+            response.Dispose();
+        }
+    }
+
     [Test]
     public async Task Logs_never_carry_the_api_key_pin_or_certificate_password()
     {

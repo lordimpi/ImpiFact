@@ -16,6 +16,12 @@ internal sealed class SessionIssuer(
     /// roles del token son los de plataforma más los de la empresa activa.
     /// </summary>
     /// <param name="replaces">Token de renovación que el nuevo reemplaza (rotación); nulo al iniciar sesión.</param>
+    /// <summary>
+    /// El token a rotar ya lo usó otra solicitud. No llega al cliente: <see cref="RefreshTokenHandler"/> lo trata como
+    /// reuso y responde <see cref="IdentityErrors.InvalidRefreshToken"/>.
+    /// </summary>
+    internal static readonly Error AlreadyUsed = new("identity.refresh_already_used", "El token de renovación ya se usó.", ErrorType.Unauthorized);
+
     public async Task<Result<SessionTokens>> IssueAsync(
         Guid userId, Guid? requestedCompany, string? clientIp, string? userAgent, Guid? replaces, DateTimeOffset now, CancellationToken ct)
     {
@@ -39,15 +45,17 @@ internal sealed class SessionIssuer(
             ? [.. roles.PlatformRoles.Concat(roles.RolesIn(active)).Distinct(StringComparer.Ordinal)]
             : roles.PlatformRoles;
 
+        // En una rotación, primero se reclama el token viejo: si otra solicitud ya lo usó, no se emite nada.
+        var refreshId = Guid.CreateVersion7();
+        if (replaces is { } oldId && !await refreshStore.RevokeAsync(oldId, now, refreshId, ct))
+        {
+            return AlreadyUsed;
+        }
+
         var access = accessTokens.Issue(userId, tokenRoles, companyId);
         var refresh = refreshTokens.Create();
-        var refreshId = Guid.CreateVersion7();
         await refreshStore.AddAsync(
             new RefreshTokenRecord(refreshId, userId, refresh.Hash, refresh.ExpiresAt, null, null, clientIp, userAgent), ct);
-        if (replaces is { } oldId)
-        {
-            await refreshStore.RevokeAsync(oldId, now, refreshId, ct);
-        }
 
         return new SessionTokens(access.Value, access.ExpiresAt, refresh.Value, refresh.ExpiresAt, companyId, tokenRoles, roles.CompanyIds);
     }

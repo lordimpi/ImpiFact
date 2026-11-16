@@ -48,15 +48,20 @@ internal sealed class EfRefreshTokenStore(ImpiFactDbContext db, IServiceScopeFac
     /// Carga la fila con su <c>row_version</c>: si dos solicitudes rotan el mismo token a la vez, la segunda en
     /// guardar falla por concurrencia y no se crean dos cadenas.
     /// </summary>
-    public Task RevokeAsync(Guid tokenId, DateTimeOffset revokedAt, Guid? replacedBy, CancellationToken ct) =>
+    // Se lee la fila con seguimiento: si otra solicitud la revocó y confirmó antes, aquí se ve y se devuelve false. Si
+    // las dos la leen a la vez, row_version hace fallar el segundo guardado (conflicto de concurrencia).
+    public Task<bool> RevokeAsync(Guid tokenId, DateTimeOffset revokedAt, Guid? replacedBy, CancellationToken ct) =>
         CredentialStoreGuard.RunAsync(async () =>
         {
             var token = await db.Set<RefreshToken>().FirstOrDefaultAsync(candidate => candidate.Id == tokenId, ct);
-            if (token is not null && token.RevokedAt is null)
+            if (token is null || token.RevokedAt is not null)
             {
-                token.RevokedAt = revokedAt;
-                token.ReplacedBy = replacedBy;
+                return false;
             }
+
+            token.RevokedAt = revokedAt;
+            token.ReplacedBy = replacedBy;
+            return true;
         });
 
     /// <summary>

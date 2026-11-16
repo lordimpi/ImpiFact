@@ -224,4 +224,6 @@ public sealed class FakeTenant : ITenantContext
     public Guid? UserId { get; set; }
 
     public ActorType Actor { get; set; }
+
+    public IReadOnlySet<string> Scopes { get; set; } = new HashSet<string>();
 }

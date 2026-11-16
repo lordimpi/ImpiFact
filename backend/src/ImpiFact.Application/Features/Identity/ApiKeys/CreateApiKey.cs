@@ -55,7 +55,8 @@ internal sealed class CreateApiKeyValidator : AbstractValidator<CreateApiKeyComm
 }
 
 /// <summary>
-/// Una llave de empresa nunca lleva <c>platform:*</c> y una de plataforma solo lleva <c>platform:*</c>. Si la pide
+/// Una llave de empresa nunca lleva <c>platform:*</c> ni alcances que la credencial que la pide no tenga; una de
+/// plataforma solo lleva <c>platform:*</c>. Si la pide
 /// un usuario del panel para su empresa, se confirma en la base que sea <c>owner</c> de ella.
 /// </summary>
 internal sealed class CreateApiKeyHandler(
@@ -72,7 +73,8 @@ internal sealed class CreateApiKeyHandler(
                 return IdentityErrors.Forbidden;
             }
 
-            if (scopes.Contains(ApiScopes.Platform))
+            // Una credencial solo entrega alcances que ella misma tiene, y nunca platform:*.
+            if (scopes.Contains(ApiScopes.Platform) || scopes.Any(scope => !tenant.Scopes.Contains(scope)))
             {
                 return IdentityErrors.ApiKeyScopeNotAllowed;
             }

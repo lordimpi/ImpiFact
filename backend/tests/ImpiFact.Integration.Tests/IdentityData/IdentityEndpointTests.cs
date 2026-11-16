@@ -245,6 +245,36 @@ public sealed class IdentityEndpointTests
         });
     }
 
+    // Dos solicitudes con el mismo token de renovación al mismo tiempo: a lo sumo una gana y nunca quedan dos sesiones
+    // vivas; la perdedora recibe 401 (token ya usado) o 409 (conflicto de concurrencia), nunca 500.
+    [Test]
+    public async Task Concurrent_refreshes_with_the_same_token_never_leave_two_live_sessions()
+    {
+        var statuses = new List<HttpStatusCode>();
+        for (var attempt = 0; attempt < 20; attempt++)
+        {
+            var (userId, email) = await AddUserAsync(company: null);
+            var original = (await ReadAsync(await Login(email, Password))).GetProperty("refresh_token").GetString()!;
+
+            var first = Refresh(original);
+            await Task.Delay(attempt % 10);
+            var second = Refresh(original);
+            var responses = await Task.WhenAll(first, second);
+            var active = await QuerySingleAsync<long>(
+                "select count(*) from refresh_tokens where user_id = @userId and revoked_at is null", new { userId });
+
+            statuses.AddRange(responses.Select(response => response.StatusCode));
+            Assert.That(responses.Count(response => response.StatusCode == HttpStatusCode.OK), Is.LessThanOrEqualTo(1), $"attempt {attempt}");
+            Assert.That(active, Is.LessThanOrEqualTo(1), $"attempt {attempt}");
+            foreach (var response in responses)
+            {
+                response.Dispose();
+            }
+        }
+
+        Assert.That(statuses, Is.All.AnyOf(HttpStatusCode.OK, HttpStatusCode.Unauthorized, HttpStatusCode.Conflict));
+    }
+
     private async Task<HttpResponseMessage> Login(string email, string password) =>
         await _factory.CreateClient().PostAsJsonAsync("/api/v1/auth/login", new { email, password });
 

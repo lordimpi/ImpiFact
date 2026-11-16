@@ -33,7 +33,7 @@ public sealed class CredentialHandlerTests
     public async Task A_company_credential_creates_a_company_key_and_gets_the_plain_text_once()
     {
         var companyId = Guid.CreateVersion7();
-        var tenant = new FakeTenant { CompanyId = companyId, Actor = ActorType.ApiKey };
+        var tenant = new FakeTenant { CompanyId = companyId, Actor = ActorType.ApiKey, Scopes = CompanyScopes };
 
         var result = await CreateKey(tenant, [ApiScopes.DocumentsWrite, ApiScopes.DocumentsWrite, ApiScopes.DocumentsRead]);
 
@@ -50,6 +50,24 @@ public sealed class CredentialHandlerTests
             Assert.That(stored.KeyHash, Is.EqualTo("hash-of-key"));
             Assert.That(stored.CompanyId, Is.EqualTo(companyId));
             Assert.That(stored.ToString(), Does.Not.Contain("apk_plain-text-key"));
+        });
+    }
+
+    // Una credencial solo entrega alcances que ella misma tiene: una llave con config:write no fabrica documents:write.
+    [Test]
+    public async Task A_company_credential_cannot_mint_scopes_it_does_not_hold()
+    {
+        var tenant = new FakeTenant
+        {
+            CompanyId = Guid.CreateVersion7(), Actor = ActorType.ApiKey, Scopes = new HashSet<string> { ApiScopes.ConfigWrite },
+        };
+
+        var result = await CreateKey(tenant, [ApiScopes.DocumentsWrite]);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Error, Is.EqualTo(IdentityErrors.ApiKeyScopeNotAllowed));
+            Assert.That(_keys.Added, Is.Empty);
         });
     }
 
@@ -76,8 +94,8 @@ public sealed class CredentialHandlerTests
         var seller = _users.AddUser("seller@example.com");
         _users.Join(seller.Id, companyId, "seller");
 
-        var byOwner = await CreateKey(new FakeTenant { CompanyId = companyId, UserId = owner.Id, Actor = ActorType.User }, [ApiScopes.DocumentsWrite]);
-        var bySeller = await CreateKey(new FakeTenant { CompanyId = companyId, UserId = seller.Id, Actor = ActorType.User }, [ApiScopes.DocumentsWrite]);
+        var byOwner = await CreateKey(new FakeTenant { CompanyId = companyId, UserId = owner.Id, Actor = ActorType.User, Scopes = CompanyScopes }, [ApiScopes.DocumentsWrite]);
+        var bySeller = await CreateKey(new FakeTenant { CompanyId = companyId, UserId = seller.Id, Actor = ActorType.User, Scopes = CompanyScopes }, [ApiScopes.DocumentsWrite]);
 
         Assert.Multiple(() =>
         {
@@ -261,6 +279,8 @@ public sealed class CredentialHandlerTests
         _keys.Keys.Add(key);
         return key;
     }
+
+    private static readonly HashSet<string> CompanyScopes = [ApiScopes.DocumentsWrite, ApiScopes.DocumentsRead, ApiScopes.ConfigWrite];
 
     private Task<Result<CreatedApiKey>> CreateKey(ITenantContext tenant, string[] scopes) =>
         new CreateApiKeyHandler(tenant, _users, new FakeApiKeyGenerator(), _keys)

@@ -91,11 +91,16 @@ public sealed class FakeRefreshTokenStore : IRefreshTokenStore
     public Task<RefreshTokenRecord?> FindByHashAsync(string tokenHash, CancellationToken ct) =>
         Task.FromResult(Tokens.FirstOrDefault(token => token.TokenHash == tokenHash));
 
-    public Task RevokeAsync(Guid tokenId, DateTimeOffset revokedAt, Guid? replacedBy, CancellationToken ct)
+    public Task<bool> RevokeAsync(Guid tokenId, DateTimeOffset revokedAt, Guid? replacedBy, CancellationToken ct)
     {
         var index = Tokens.FindIndex(token => token.Id == tokenId);
+        if (index < 0 || Tokens[index].RevokedAt is not null)
+        {
+            return Task.FromResult(false);
+        }
+
         Tokens[index] = Tokens[index] with { RevokedAt = revokedAt, ReplacedBy = replacedBy };
-        return Task.CompletedTask;
+        return Task.FromResult(true);
     }
 
     public Task RevokeAllActiveForUserAsync(Guid userId, DateTimeOffset revokedAt, CancellationToken ct)

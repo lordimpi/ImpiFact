@@ -79,5 +79,7 @@ public sealed class KeysOnlyDbContext(DbContextOptions<KeysOnlyDbContext> option
         public Guid? UserId => null;
 
         public ActorType Actor => ActorType.System;
+
+        public IReadOnlySet<string> Scopes { get; } = new HashSet<string>();
     }
 }

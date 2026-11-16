@@ -56,7 +56,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddDbContext<TContext>((serviceProvider, options) =>
             serviceProvider.GetRequiredService<IDatabaseProvider>().ConfigureDbContext(serviceProvider, options));
         services.Replace(ServiceDescriptor.Scoped<IUnitOfWork>(serviceProvider =>
-            new EfUnitOfWork(serviceProvider.GetRequiredService<TContext>())));
+            new EfUnitOfWork(serviceProvider.GetRequiredService<TContext>(), serviceProvider.GetRequiredService<IDatabaseProvider>())));
         return services;
     }
 

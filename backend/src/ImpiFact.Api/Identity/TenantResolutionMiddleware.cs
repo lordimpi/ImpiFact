@@ -24,16 +24,17 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
         if (user.Identity is { IsAuthenticated: true } identity)
         {
             var companyId = ReadGuid(user, IdentityClaimTypes.CompanyId);
+            var scopes = user.FindAll(IdentityClaimTypes.Scope).Select(claim => claim.Value).ToHashSet(StringComparer.Ordinal);
             switch (identity.AuthenticationType)
             {
                 case AuthenticationSchemes.ApiKey:
                     var actor = companyId is null && user.HasClaim(IdentityClaimTypes.Scope, ApiScopes.Platform)
                         ? ActorType.Platform
                         : ActorType.ApiKey;
-                    tenant.Set(companyId, null, actor);
+                    tenant.Set(companyId, null, actor, scopes);
                     break;
                 case AuthenticationSchemes.Jwt when ReadGuid(user, IdentityClaimTypes.Subject) is { } userId:
-                    tenant.Set(companyId, userId, ActorType.User);
+                    tenant.Set(companyId, userId, ActorType.User, scopes);
                     break;
             }
         }

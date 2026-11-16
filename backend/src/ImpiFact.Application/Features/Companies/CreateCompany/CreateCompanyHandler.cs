@@ -37,11 +37,17 @@ internal sealed class CreateCompanyHandler(
 
     internal const string InitialApiKeyName = "Llave inicial";
 
+    // La plataforma es una API key de plataforma, un proceso interno o un usuario platform_admin del panel: este último
+    // trae platform:* en su JWT firmado y ninguna empresa activa (Arquitectura detallada, sección 9.2).
+    private static bool IsPlatform(ITenantContext tenant) =>
+        tenant.Actor is ActorType.Platform or ActorType.System
+        || (tenant.Actor == ActorType.User && tenant.CompanyId is null && tenant.Scopes.Contains(ApiScopes.Platform));
+
     internal static readonly string[] InitialApiKeyScopes = [ApiScopes.DocumentsWrite, ApiScopes.DocumentsRead, ApiScopes.ConfigWrite];
 
     public async Task<Result<CompanySavedResponse>> HandleAsync(CreateCompanyCommand request, CancellationToken ct)
     {
-        if (tenant.Actor is not (ActorType.Platform or ActorType.System))
+        if (!IsPlatform(tenant))
         {
             return CompanyErrors.PlatformOnly;
         }
