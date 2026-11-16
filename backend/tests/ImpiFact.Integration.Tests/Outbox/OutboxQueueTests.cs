@@ -110,4 +110,30 @@ public sealed class OutboxQueueTests
             .ClaimAsync(workerId, [host.MessageType], batchSize: 7, CancellationToken.None);
         return claimed.Select(message => message.Id).ToList();
     }
+
+    // La misma instancia vuelve a tomar su propio mensaje después de que venció el bloqueo: la ejecución vieja ya no
+    // puede cerrarlo, porque el cierre exige también el número de intento de la toma.
+    [Test]
+    public async Task A_stale_run_of_the_same_instance_cannot_close_the_newer_claim()
+    {
+        await using var host = OutboxHost.Create();
+        var companyId = await host.CreateCompanyAsync();
+        var id = await host.EnqueueAsync(companyId);
+        await using var scope = host.OpenScope();
+        var queue = scope.ServiceProvider.GetRequiredService<OutboxQueue>();
+        var first = (await queue.ClaimAsync("worker-a", [host.MessageType], 10, CancellationToken.None)).Single();
+        host.Clock.Advance(TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(1));
+        var second = (await queue.ClaimAsync("worker-a", [host.MessageType], 10, CancellationToken.None)).Single();
+
+        var staleClosed = await queue.CompleteAsync("worker-a", first, CancellationToken.None);
+        var currentClosed = await queue.CompleteAsync("worker-a", second, CancellationToken.None);
+
+        var status = (await host.FindAsync(id)).Status;
+        Assert.Multiple(() =>
+        {
+            Assert.That(staleClosed, Is.False);
+            Assert.That(currentClosed, Is.True);
+            Assert.That(status, Is.EqualTo(OutboxStatus.Done));
+        });
+    }
 }

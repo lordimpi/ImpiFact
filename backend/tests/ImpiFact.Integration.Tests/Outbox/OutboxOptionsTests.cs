@@ -25,6 +25,7 @@ public sealed class OutboxOptionsTests
             Assert.That(options.LockMinutes, Is.EqualTo(5));
             Assert.That(options.MaxAttempts, Is.EqualTo(5));
             Assert.That(options.BatchSize, Is.EqualTo(20));
+            Assert.That(options.HandlerTimeoutSeconds, Is.EqualTo(270));
         });
     }
 
@@ -33,6 +34,8 @@ public sealed class OutboxOptionsTests
     [TestCase(nameof(OutboxOptions.MaxAttempts), "0")]
     [TestCase(nameof(OutboxOptions.BatchSize), "0")]
     [TestCase(nameof(OutboxOptions.BatchSize), "1000")]
+    [TestCase(nameof(OutboxOptions.HandlerTimeoutSeconds), "0")]
+    [TestCase(nameof(OutboxOptions.HandlerTimeoutSeconds), "300")]
     public async Task An_out_of_range_value_is_rejected(string property, string value)
     {
         await using var host = OutboxHost.Create(new Dictionary<string, string?> { [$"Outbox:{property}"] = value });

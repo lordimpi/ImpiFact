@@ -53,7 +53,7 @@ ImpiFact/
 │  │  │  ├─ Protection/        ICertificateStore, ISecretProtector: KeyVault, AwsSecrets, GcpSecrets, LocalAesGcm
 │  │  │  ├─ Email/             IEmailSender (MailKit, SMTP por empresa)
 │  │  │  ├─ Pdf/               IPdfRenderer + plantillas
-│  │  │  ├─ Outbox/            publicador y procesador
+│  │  │  ├─ Platform/Outbox/   cola (toma con SKIP LOCKED) y procesador del Worker; el publicador es Platform/EfOutbox
 │  │  │  └─ Options/           GenericOptionsService<T> y clases de opciones
 │  │  ├─ ImpiFact.Infrastructure.Postgres/ | .SqlServer/ | .MySql/
 │  │  ├─ ImpiFact.Api/          Program.cs, endpoints, middleware, auth, OpenAPI
@@ -288,7 +288,7 @@ Proceso aparte (`ImpiFact.Worker`) con la misma imagen base que el Api y otro pu
 
 | Servicio | Intervalo | Qué hace |
 | --- | --- | --- |
-| `OutboxProcessor` | continuo (sondeo 1–5 s con espera adaptativa) | Toma mensajes `status = 0` con `next_attempt_at <= now` usando `SKIP LOCKED`/`READPAST`, los marca en proceso (`locked_until = now + 5 min`) y despacha al handler por `type`. Reintentos con retroceso: 10 s, 1 min, 5 min, 30 min, 2 h; al quinto fallo queda `Failed` y genera notificación. |
+| `OutboxProcessor` | continuo (sondeo 1–5 s con espera adaptativa) | Toma mensajes `status = 0` con `next_attempt_at <= now` usando `SKIP LOCKED`/`READPAST`, los marca en proceso (`locked_until = now + 5 min`) y despacha al handler por `type`. Reintentos con retroceso: 10 s, 1 min, 5 min y 30 min (el escalón de 2 h solo se usa si `MaxAttempts` sube de 5); al quinto fallo queda `Failed` y genera notificación. Cada handler tiene un plazo (`HandlerTimeoutSeconds`, 270 s) menor que el bloqueo, para que otra instancia no lo tome mientras sigue corriendo; un mensaje que se volvió a tomar más veces que `MaxAttempts` sin registrar resultado queda `Failed` sin ejecutarse. |
 | `DianStatusPoller` | 1 min | Reconsulta documentos `Unconfirmed` (sección 7). |
 | `ContingencySender` | 5 min | Encola `send_pendings` de documentos `ContingencyPending` cuando la DIAN vuelve a responder. |
 | `CertificateExpiryWatcher` | diario | Crea notificaciones y correo a 30, 15 y 5 días del vencimiento. |
@@ -387,7 +387,7 @@ Módulos del panel de la fase 5:
   "Jwt":        { "Issuer": "impifact", "Audience": "impifact-web", "AccessMinutes": 15, "RefreshDays": 14 },  // SigningKey (PEM) es secreto
   "ForwardedHeaders": { "KnownProxies": [], "KnownNetworks": [] },          // vacío = solo loopback
   "ApiKey":     { "Prefix": "apk_" },
-  "Outbox":     { "PollSeconds": 2, "LockMinutes": 5, "MaxAttempts": 5 },
+  "Outbox":     { "PollSeconds": 2, "LockMinutes": 5, "MaxAttempts": 5, "BatchSize": 20, "HandlerTimeoutSeconds": 270 },
   "Resilience": { "Retries": 3, "BreakerFailures": 5, "BreakerSeconds": 30 },
   "Cors":       { "Origins": [ "https://app.example.com" ] },
   "RateLimit":  { "PermitPerMinutePerKey": 120, "PermitPerMinutePerIp": 300, "LoginPerMinute": 10 },

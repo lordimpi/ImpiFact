@@ -187,6 +187,12 @@ public sealed class HandlerScript
     public void FailWith(Guid messageId, Func<Exception> failure) => failures[messageId] = failure;
 
     internal Exception? FailureFor(Guid messageId) => failures.TryGetValue(messageId, out var failure) ? failure() : null;
+
+    /// <summary>Mensajes cuyo handler no termina hasta que lo cancelan.</summary>
+    public ConcurrentDictionary<Guid, bool> Hanging { get; } = new();
+
+    /// <summary>Se ejecuta cuando el handler termina bien; sirve para simular que el Worker se apaga justo después.</summary>
+    public Action? AfterSuccess { get; set; }
 }
 
 /// <summary>Handler de prueba: anota el tenant que ve y falla cuando el guion lo pide.</summary>
@@ -194,9 +200,19 @@ public sealed class ScriptedHandler(string messageType, ITenantContext tenant, H
 {
     public string MessageType => messageType;
 
-    public Task HandleAsync(OutboxMessageContext message, CancellationToken ct)
+    public async Task HandleAsync(OutboxMessageContext message, CancellationToken ct)
     {
         script.Seen[message.MessageId] = (tenant.CompanyId, tenant.Actor, message.Attempt);
-        return script.FailureFor(message.MessageId) is { } failure ? Task.FromException(failure) : Task.CompletedTask;
+        if (script.Hanging.ContainsKey(message.MessageId))
+        {
+            await Task.Delay(Timeout.Infinite, ct);
+        }
+
+        if (script.FailureFor(message.MessageId) is { } failure)
+        {
+            throw failure;
+        }
+
+        script.AfterSuccess?.Invoke();
     }
 }

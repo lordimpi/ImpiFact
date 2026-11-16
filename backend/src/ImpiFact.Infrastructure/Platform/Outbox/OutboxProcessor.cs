@@ -101,32 +101,47 @@ internal sealed class OutboxProcessor(
     private async Task ProcessAsync(ClaimedOutboxMessage message, CancellationToken ct)
     {
         Exception? failure = null;
-        try
+        if (message.Attempts > options.Value.MaxAttempts)
         {
-            await using var scope = OpenScope(message.CompanyId);
-            var handler = scope.ServiceProvider.GetServices<IOutboxMessageHandler>()
-                .First(candidate => string.Equals(candidate.MessageType, message.Type, StringComparison.Ordinal));
-            var context = new OutboxMessageContext(
-                message.Id, message.CompanyId, message.Type, message.Payload, message.Attempts, JsonColumn.SerializerOptions);
-            await handler.HandleAsync(context, ct);
+            // Solo pasa si las tomas anteriores no alcanzaron a registrar su resultado (por ejemplo, el mensaje
+            // tumba el proceso): no se vuelve a ejecutar y queda fallido.
+            failure = new PermanentOutboxFailureException(
+                $"The message was taken {message.Attempts} times without recording an outcome; the worker probably stopped while processing it.");
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        else
         {
-            // El Worker se apaga: el mensaje queda en proceso y otra vuelta lo toma cuando venza su bloqueo.
-            throw;
-        }
-        catch (Exception exception)
-        {
-            failure = exception;
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(options.Value.HandlerTimeoutSeconds));
+            try
+            {
+                await using var scope = OpenScope(message.CompanyId);
+                var handler = scope.ServiceProvider.GetServices<IOutboxMessageHandler>()
+                    .First(candidate => string.Equals(candidate.MessageType, message.Type, StringComparison.Ordinal));
+                var context = new OutboxMessageContext(
+                    message.Id, message.CompanyId, message.Type, message.Payload, message.Attempts, JsonColumn.SerializerOptions);
+                await handler.HandleAsync(context, timeout.Token);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // El Worker se apaga: el mensaje queda en proceso y otra vuelta lo toma cuando venza su bloqueo.
+                throw;
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+            {
+                failure = new TimeoutException(
+                    $"The handler did not finish within {options.Value.HandlerTimeoutSeconds} seconds.");
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
         }
 
         try
         {
-            await RecordAsync(message, failure, ct);
-        }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
+            // Sin el token de apagado: si el handler ya terminó, su resultado se guarda aunque el Worker se esté
+            // deteniendo; de lo contrario el mensaje se ejecutaría otra vez al vencer su bloqueo.
+            await RecordAsync(message, failure, CancellationToken.None);
         }
         catch (Exception exception)
         {

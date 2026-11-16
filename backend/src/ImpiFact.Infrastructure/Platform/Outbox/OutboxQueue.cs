@@ -117,8 +117,13 @@ internal sealed class OutboxQueue(ImpiFactDbContext db, IOutboxQueueSql sql, ICl
         return OutboxFailureOutcome.Failed;
     }
 
+    // El número de intento identifica la toma: si la misma instancia volvió a tomar el mensaje después de que venció
+    // su bloqueo, la ejecución anterior ya no puede cerrarlo.
     private IQueryable<OutboxMessage> Owned(string workerId, ClaimedOutboxMessage message) =>
-        db.Set<OutboxMessage>().Where(row => row.Id == message.Id && row.Status == OutboxStatus.Processing && row.LockedBy == workerId);
+        db.Set<OutboxMessage>().Where(row => row.Id == message.Id
+            && row.Status == OutboxStatus.Processing
+            && row.LockedBy == workerId
+            && row.Attempts == message.Attempts);
 
     private static string Truncate(string text) => text.Length <= LastErrorMaxLength ? text : text[..LastErrorMaxLength];
 }
@@ -148,7 +153,7 @@ internal static class OutboxNotifications
     {
         CompanyId = companyId,
         Type = FailedType,
-        Title = "A background task failed",
-        Body = $"The background task '{message.Type}' (message {message.Id}) failed after {message.Attempts} attempt(s) and will not be retried automatically.",
+        Title = "Una tarea en segundo plano falló",
+        Body = $"La tarea «{message.Type}» (mensaje {message.Id}) falló después de {message.Attempts} intento(s) y no se reintentará automáticamente.",
     };
 }

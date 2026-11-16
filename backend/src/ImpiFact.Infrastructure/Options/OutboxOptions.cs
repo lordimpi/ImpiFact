@@ -7,7 +7,7 @@ namespace ImpiFact.Infrastructure.Options;
 /// trabajo pendiente; Arquitectura detallada, secciones 8 y 11). Los valores por defecto son los del documento, así
 /// el Worker arranca aunque la sección no exista.
 /// </summary>
-public sealed class OutboxOptions
+public sealed class OutboxOptions : IValidatableObject
 {
     public const string SectionName = "Outbox";
 
@@ -29,4 +29,22 @@ public sealed class OutboxOptions
     /// <summary>Mensajes que se toman en cada consulta; se procesan a la vez, cada uno en su propio ámbito.</summary>
     [Range(1, 200)]
     public int BatchSize { get; set; } = 20;
+
+    /// <summary>
+    /// Segundos que puede tardar un handler antes de que se le cancele y el mensaje se reintente. Debe ser menor
+    /// que <see cref="LockMinutes"/>: si el handler siguiera corriendo cuando vence el bloqueo, otra instancia
+    /// tomaría el mismo mensaje y lo procesaría dos veces a la vez.
+    /// </summary>
+    [Range(1, 7200)]
+    public int HandlerTimeoutSeconds { get; set; } = 270;
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (HandlerTimeoutSeconds >= LockMinutes * 60)
+        {
+            yield return new ValidationResult(
+                $"{nameof(HandlerTimeoutSeconds)} must be shorter than {nameof(LockMinutes)}.",
+                [nameof(HandlerTimeoutSeconds), nameof(LockMinutes)]);
+        }
+    }
 }

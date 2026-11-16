@@ -267,4 +267,89 @@ public sealed class OutboxProcessorTests
             Assert.That(host.Script.Seen[id].Attempt, Is.EqualTo(2));
         });
     }
+
+    // Un mensaje que tumba el proceso nunca llega a registrar su falla: cada toma suma un intento. Al pasar del
+    // máximo queda fallido sin volver a ejecutar el handler.
+    [Test]
+    public async Task A_message_reclaimed_beyond_the_maximum_attempts_fails_without_running_the_handler()
+    {
+        await using var host = OutboxHost.Create();
+        var companyId = await host.CreateCompanyAsync();
+        var id = await host.EnqueueAsync(companyId);
+        for (var crash = 0; crash < 5; crash++)
+        {
+            await using var scope = host.OpenScope();
+            await scope.ServiceProvider.GetRequiredService<OutboxQueue>()
+                .ClaimAsync("crashing-worker", [host.MessageType], batchSize: 10, CancellationToken.None);
+            host.Clock.Advance(TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(1));
+        }
+
+        await host.Processor.ProcessBatchAsync(CancellationToken.None);
+
+        var message = await host.FindAsync(id);
+        var notifications = await host.CountNotificationsAboutAsync(id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(message.Status, Is.EqualTo(OutboxStatus.Failed));
+            Assert.That(message.Attempts, Is.EqualTo(6));
+            Assert.That(host.Script.Seen.ContainsKey(id), Is.False, "The handler must not run again.");
+            Assert.That(notifications, Is.EqualTo(1));
+        });
+    }
+
+    // Un handler que tarda más que su plazo se cancela y el mensaje se reintenta, antes de que venza el bloqueo y
+    // otra instancia lo tome mientras este sigue corriendo.
+    [Test]
+    public async Task A_handler_that_exceeds_its_timeout_is_cancelled_and_retried()
+    {
+        await using var host = OutboxHost.Create(new Dictionary<string, string?> { ["Outbox:HandlerTimeoutSeconds"] = "1" });
+        var companyId = await host.CreateCompanyAsync();
+        var id = await host.EnqueueAsync(companyId);
+        host.Script.Hanging[id] = true;
+
+        await host.Processor.ProcessBatchAsync(CancellationToken.None);
+
+        var message = await host.FindAsync(id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(message.Status, Is.EqualTo(OutboxStatus.Pending));
+            Assert.That(message.LastError, Does.StartWith(nameof(TimeoutException)));
+            Assert.That(message.NextAttemptAt, Is.EqualTo(host.Clock.UtcNow.AddSeconds(10)));
+        });
+    }
+
+    // Si el Worker se apaga justo después de que el handler terminó bien, el resultado igual se guarda: si no, el
+    // mensaje se volvería a ejecutar al vencer su bloqueo.
+    [Test]
+    public async Task The_outcome_is_recorded_even_when_shutdown_starts_after_the_handler_succeeded()
+    {
+        await using var host = OutboxHost.Create();
+        var companyId = await host.CreateCompanyAsync();
+        var id = await host.EnqueueAsync(companyId);
+        using var shutdown = new CancellationTokenSource();
+        host.Script.AfterSuccess = shutdown.Cancel;
+
+        await host.Processor.ProcessBatchAsync(shutdown.Token);
+
+        Assert.That((await host.FindAsync(id)).Status, Is.EqualTo(OutboxStatus.Done));
+    }
+
+    [Test]
+    public async Task The_failure_notification_is_written_in_spanish()
+    {
+        await using var host = OutboxHost.Create();
+        var companyId = await host.CreateCompanyAsync();
+        var id = await host.EnqueueAsync(companyId);
+        host.Script.FailWith(id, () => new PermanentOutboxFailureException("Rejected."));
+
+        await host.Processor.ProcessBatchAsync(CancellationToken.None);
+
+        var notification = (await host.NotificationsAsync(companyId)).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(notification.Title, Is.EqualTo("Una tarea en segundo plano falló"));
+            Assert.That(notification.Body, Is.EqualTo(
+                $"La tarea «{host.MessageType}» (mensaje {id}) falló después de 1 intento(s) y no se reintentará automáticamente."));
+        });
+    }
 }
