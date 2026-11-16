@@ -76,6 +76,19 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
         order by t.tax_id, t.percent
         """;
 
+    private const string NextNumberSql = """
+        select ns.next_number
+        from numbering_sequences ns
+        where ns.company_id = @company_id and ns.scope_key = @scope_key
+        """;
+
+    public async Task<long?> PeekNextNumberAsync(Guid companyId, string scopeKey, CancellationToken ct)
+    {
+        await using var connection = await connections.OpenAsync(ct);
+        return await connection.QuerySingleOrDefaultAsync<long?>(
+            new CommandDefinition(NextNumberSql, new { company_id = companyId, scope_key = scopeKey }, cancellationToken: ct));
+    }
+
     public async Task<DocumentCompany?> FindCompanyAsync(Guid companyId, CancellationToken ct)
     {
         await using var connection = await connections.OpenAsync(ct);

@@ -335,6 +335,49 @@ public sealed class DocumentIssueApiTests
         return content;
     }
 
+    // Contrato del PHP: GET invoice/current_number/{type}/{prefix?}/{ignore_state_document_id?} → {number, success, prefix}.
+    // En ImpiFact el número sale del consecutivo, que nunca reutiliza números; por eso el tercer parámetro no cambia nada.
+    [Test]
+    public async Task Current_number_reports_the_next_consecutive_number_of_the_resolution()
+    {
+        using var issuer = await NewIssuerAsync();
+
+        using var before = await issuer.Client.GetAsync("/api/ubl2.1/invoice/current_number/1");
+        (await PostAsync(issuer.Client, "invoice", Edited(Invoice, json => json.Remove("number")))).Dispose();
+        using var after = await issuer.Client.GetAsync("/api/ubl2.1/invoice/current_number/1/SETP/true");
+        using var credit = await issuer.Client.GetAsync("/api/ubl2.1/invoice/current_number/4/null");
+        using var canonical = await issuer.Client.GetAsync("/api/v1/documents/current-number/1?prefix=SETP");
+        using var beforeJson = await Json(before);
+        using var afterJson = await Json(after);
+        using var creditJson = await Json(credit);
+        using var canonicalJson = await Json(canonical);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(before.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(beforeJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(990000000));
+            Assert.That(beforeJson.RootElement.GetProperty("success").GetBoolean(), Is.True);
+            Assert.That(beforeJson.RootElement.GetProperty("prefix").GetString(), Is.EqualTo("SETP"));
+            Assert.That(afterJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(990000001));
+            Assert.That(creditJson.RootElement.GetProperty("prefix").GetString(), Is.EqualTo("NC"));
+            Assert.That(creditJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(1));
+            Assert.That(canonicalJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(990000001));
+            Assert.That(afterJson.RootElement.GetProperty("range_exceeded").GetBoolean(), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task Current_number_of_a_prefix_without_resolution_answers_404_with_the_php_message()
+    {
+        using var issuer = await NewIssuerAsync();
+
+        using var response = await issuer.Client.GetAsync("/api/ubl2.1/invoice/current_number/1/OTRO");
+        using var json = await Json(response);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        Assert.That(json.RootElement.GetProperty("message").GetString(), Is.EqualTo("La resolución no está configurada."));
+    }
+
     private static string Dir(string kind, string name) => Path.Combine(GoldenIssueTests.GoldenRoot(), kind, name);
 
     // Datos mal formados nunca deben terminar en un error interno (500): son errores del cliente (422).

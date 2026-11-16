@@ -35,6 +35,9 @@ public interface IDocumentReads
 
     /// <summary>Documento completo por su CUFE (código único de factura electrónica); nulo si no existe en la empresa.</summary>
     Task<DocumentDetail?> FindByCufeAsync(Guid companyId, string cufe, CancellationToken ct);
+
+    /// <summary>Próximo número de un consecutivo sin tomarlo; nulo si el consecutivo no existe en la empresa.</summary>
+    Task<long?> PeekNextNumberAsync(Guid companyId, string scopeKey, CancellationToken ct);
 }
 
 /// <summary>Empresa dueña de los documentos.</summary>

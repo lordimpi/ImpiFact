@@ -218,7 +218,7 @@ Los dos controladores son copias casi idénticas. Se listan solo las diferencias
 ### 5.4 Consultas
 
 1. `status/document/{trackId}` y `status/zip/{trackId}`: consultan a la DIAN; si es válido, arman el AttachedDocument, pasan el documento a estado 1 y pueden enviar el correo (`StateController.php:37-436, 442-844`).
-2. `information/{nit}/{desde}/{hasta}` y `total_documents`: públicas; devuelven los documentos en estado 1 de los tipos 1, 4, 5 y 15, de 100 en 100, o solo los conteos (`ResumeController.php:24-232`).
+2. `information/{nit}/{desde}/{hasta}` y `total_documents`: públicas; `information` devuelve los documentos en estado 1 de los tipos 1, 4, 5 y 15 (la variante paginada, de 100 en 100); `total_documents` solo cuenta, y cuenta 8 tipos: 1, 4, 5, 11, 13, 15, 26 y 25 (`ResumeController.php:24-232`).
 3. `next-consecutive` y `current_number`: misma regla que la sección 3.4.
 
 ## 6. Respuestas a los [verificar] del modelo de datos

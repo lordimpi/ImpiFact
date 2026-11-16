@@ -51,6 +51,12 @@ public sealed class FakeDocumentReads : IDocumentReads
 
     public Task<DocumentDetail?> FindByCufeAsync(Guid companyId, string cufe, CancellationToken ct) =>
         Task.FromResult(Details.SingleOrDefault(detail => detail.Header.Cufe == cufe));
+
+    /// <summary>Próximos números por consecutivo (llave «R:{id}»).</summary>
+    public Dictionary<string, long> NextNumbers { get; } = [];
+
+    public Task<long?> PeekNextNumberAsync(Guid companyId, string scopeKey, CancellationToken ct) =>
+        Task.FromResult(NextNumbers.TryGetValue(scopeKey, out var next) ? next : (long?)null);
 }
 
 public sealed class FakeDocumentTenant(Guid? companyId) : ITenantContext

@@ -2,6 +2,7 @@ using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Identity;
+using ImpiFact.Application.Features.Documents.Queries.CurrentNumber;
 using ImpiFact.Application.Features.Documents.Queries;
 using ImpiFact.Application.Features.Documents.Queries.GetDocument;
 using ImpiFact.Application.Features.Documents.Queries.Information;
@@ -35,11 +36,23 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
             group.MapGet("/total_documents/{nit}/{desde}/{hasta}", TotalDocuments);
         }
 
+        // Contrato del PHP: invoice/current_number/{type}/{prefix?}/{ignore_state_document_id?}.
+        var legacyInvoice = endpoints.MapGroup("/api/ubl2.1/invoice").WithTags(Tag).RequireAuthorization(ApiScopes.DocumentsRead);
+        legacyInvoice.MapGet("/current_number/{type:int}", CurrentNumber);
+        legacyInvoice.MapGet("/current_number/{type:int}/{prefix}", CurrentNumber);
+        legacyInvoice.MapGet("/current_number/{type:int}/{prefix}/{ignore}", CurrentNumber);
+
         var documents = endpoints.MapGroup("/api/v1/documents").WithTags(Tag).RequireAuthorization(ApiScopes.DocumentsRead);
+        documents.MapGet("/current-number/{type:int}", (int type, [FromQuery(Name = "prefix")] string? prefix,
+            IHandler<GetCurrentNumberQuery, CurrentNumberResponse> handler, CancellationToken ct) => CurrentNumber(type, prefix, handler, ct));
         documents.MapGet("/", List);
         documents.MapGet("/{id:guid}", Detail);
         documents.MapGet("/by-cufe/{cufe}", DetailByCufe);
     }
+
+    private static async Task<IResult> CurrentNumber(
+        int type, string? prefix, IHandler<GetCurrentNumberQuery, CurrentNumberResponse> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(new GetCurrentNumberQuery(type, prefix), ct)).ToHttpResult();
 
     private static async Task<IResult> Information(
         string nit, string? desde, string? hasta, IHandler<GetInformationQuery, InformationResponse> handler, CancellationToken ct) =>

@@ -278,7 +278,7 @@ Reglas:
 - Los pasos 7 a 10 son idempotentes: reintentar un mensaje no duplica archivos (`UQ document_id, kind, revision`) ni intentos (`UQ document_id, attempt`).
 - El reconsultado de `Unconfirmed` se hace cada 1 minuto durante \~10 minutos y luego cada 15 minutos hasta 24 h; pasado ese plazo pasa a `Failed` con alerta.
 - El JSON de respuesta mantiene los campos legados (`success`, `message`, `ResponseDian`, `cufe`, `urlinvoicexml`, `urlinvoicepdf`, …); el conjunto exacto se fija con los contract tests de la colección Postman.
-- Notas crédito/débito: mismo flujo con `reference_document_id` obligatorio y validación de que el documento original esté `Accepted*` y pertenezca a la empresa.
+- Notas crédito/débito: mismo flujo. La factura de referencia es opcional, como en el PHP (operaciones sin referencia 22/8 y 5); si `billing_reference.uuid` corresponde a un documento de la empresa se enlaza `reference_document_id` (17-nov). Exigir que el original esté `Accepted*` llega con el envío a la DIAN (fase 4).
 - Vista previa (`preeliminar-view`): valida (paso 2), arma el documento en memoria en estado `Draft` y genera UBL y PDF sin tomar consecutivo ni persistir nada; devuelve el PDF.
 - Contingencia: `invoice-contingency` emite sin enviar (`ContingencyPending`); `send_pendings` los encola.
 
