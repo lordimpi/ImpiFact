@@ -457,6 +457,7 @@ Convenciones que sigue todo el código del repositorio. Los documentos de `docs/
 
 - Idioma (15-nov): comentarios y documentación XML (`///`) en español neutro y profesional; identificadores, nombres de pruebas, mensajes de excepción y registros en inglés, como es convención en .NET.
 - Claridad (15-nov): los comentarios explican qué hace el código y por qué, en palabras simples, para alguien que no conoce las normas de firma XML ni la DIAN. Ninguna sigla ni término técnico sin explicar la primera vez que aparece en cada archivo (por ejemplo, «canonicalización (C14N): escribir el XML de forma estándar para que el mismo contenido dé siempre los mismos bytes»); los nombres oficiales (CUFE, UBL, XAdES) se conservan y se explican.
+- Ramas (16-nov): `develop` es la rama de integración y `main` solo recibe versiones. Cada cambio sale de `develop` en una rama con prefijo de Conventional Commits (`feat/`, `fix/`, `docs/`, `test/`, `refactor/`, `chore/`) y vuelve a `develop`; `main` se actualiza desde `develop` al cerrar una fase, con una etiqueta de versión.
 - .NET 10, C# con `Nullable` y `TreatWarningsAsErrors`.
 - Clean Architecture: `Domain` sin dependencias, `Application` solo con puertos y `Dian` puro. Las pruebas de arquitectura deben pasar.
 - Sin MediatR ni AutoMapper. Casos de uso con `IHandler<TIn, TOut>` y decoradores; mapeo con Mapster.
