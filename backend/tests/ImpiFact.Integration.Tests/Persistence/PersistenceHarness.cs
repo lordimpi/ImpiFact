@@ -38,11 +38,13 @@ public sealed class PersistenceHarness : IDisposable
     public FixedClock Clock { get; } = new(new DateTimeOffset(2026, 1, 15, 10, 0, 0, TimeSpan.Zero));
 
     /// <summary>Abre un ámbito (una «solicitud») que actúa sobre la empresa indicada.</summary>
-    public Session Open(Guid? companyId)
+    public Session Open(Guid? companyId) => Open(companyId, companyId is null ? ActorType.System : ActorType.ApiKey);
+
+    /// <summary>Abre un ámbito con un tipo de actor concreto, por ejemplo una API key de plataforma.</summary>
+    public Session Open(Guid? companyId, ActorType actor)
     {
         var scope = services.CreateAsyncScope();
-        scope.ServiceProvider.GetRequiredService<TenantContext>()
-            .Set(companyId, userId: null, companyId is null ? ActorType.System : ActorType.ApiKey);
+        scope.ServiceProvider.GetRequiredService<TenantContext>().Set(companyId, userId: null, actor);
         return new Session(scope);
     }
 

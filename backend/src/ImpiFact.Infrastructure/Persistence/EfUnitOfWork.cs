@@ -13,18 +13,37 @@ internal sealed class EfUnitOfWork(DbContext db) : IUnitOfWork
     public Task<int> SaveChangesAsync(CancellationToken ct) => db.SaveChangesAsync(ct);
 
     public async Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken ct) =>
-        new EfUnitOfWorkTransaction(await db.Database.BeginTransactionAsync(ct));
+        new EfUnitOfWorkTransaction(db, await db.Database.BeginTransactionAsync(ct));
 }
 
 /// <summary>
 /// Transacción de base de datos. Si se libera sin <see cref="CommitAsync"/>, EF la revierte: nada de lo
-/// guardado dentro de ella queda en la base.
+/// guardado dentro de ella queda en la base. Si se revierte, o se libera sin confirmar, también descarta los
+/// cambios que el contexto tenía en memoria: si no, un guardado posterior en la misma solicitud escribiría lo
+/// que se quiso deshacer.
 /// </summary>
-internal sealed class EfUnitOfWorkTransaction(IDbContextTransaction transaction) : IUnitOfWorkTransaction
+internal sealed class EfUnitOfWorkTransaction(DbContext db, IDbContextTransaction transaction) : IUnitOfWorkTransaction
 {
-    public Task CommitAsync(CancellationToken ct) => transaction.CommitAsync(ct);
+    private bool committed;
 
-    public Task RollbackAsync(CancellationToken ct) => transaction.RollbackAsync(ct);
+    public async Task CommitAsync(CancellationToken ct)
+    {
+        await transaction.CommitAsync(ct);
+        committed = true;
+    }
 
-    public ValueTask DisposeAsync() => transaction.DisposeAsync();
+    public async Task RollbackAsync(CancellationToken ct)
+    {
+        await transaction.RollbackAsync(ct);
+        db.ChangeTracker.Clear();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await transaction.DisposeAsync();
+        if (!committed)
+        {
+            db.ChangeTracker.Clear();
+        }
+    }
 }

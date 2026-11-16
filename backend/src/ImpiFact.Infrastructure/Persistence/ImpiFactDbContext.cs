@@ -59,7 +59,7 @@ public class ImpiFactDbContext : DbContext, IDataProtectionKeyContext
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected sealed override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
-        optionsBuilder.AddInterceptors(new AuditInterceptor(clock));
+        optionsBuilder.AddInterceptors(new AuditInterceptor(clock), new TenantWriteGuardInterceptor(tenant));
 
     protected sealed override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
@@ -93,6 +93,9 @@ public class ImpiFactDbContext : DbContext, IDataProtectionKeyContext
 
             if (typeof(ITenantOwned).IsAssignableFrom(clrType))
             {
+                // company_id también es token de concurrencia: el UPDATE y el DELETE exigen la empresa leída, así una
+                // fila de otra empresa con el mismo id nunca se toca (ver TenantWriteGuardInterceptor).
+                modelBuilder.Entity(clrType).Property(nameof(ITenantOwned.CompanyId)).IsConcurrencyToken();
                 ApplyTenantFilterMethod.MakeGenericMethod(clrType).Invoke(this, [modelBuilder]);
             }
 
