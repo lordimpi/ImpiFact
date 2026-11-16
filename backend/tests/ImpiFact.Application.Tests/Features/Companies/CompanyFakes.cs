@@ -1,5 +1,6 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Companies;
+using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Abstractions.Protection;
 using ImpiFact.Application.Abstractions.Results;
@@ -215,6 +216,24 @@ public sealed class FakeCompanyReads : ICompanyReads
     public Task<IReadOnlyList<CertificateMetadata>> ListCertificatesAsync(Guid companyId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<CertificateMetadata>>(
             Certificates.Where(row => row.CompanyId == companyId).Select(row => row.Certificate).ToList());
+}
+
+/// <summary>Consecutivos en memoria: <see cref="Opened"/> guarda cada consecutivo que el caso de uso pidió dejar listo.</summary>
+public sealed class FakeNumberingSequences : INumberingSequences
+{
+    public List<(Guid CompanyId, Guid ResolutionId, long FirstNumber)> Opened { get; } = [];
+
+    public Task OpenForResolutionAsync(Guid companyId, Guid resolutionId, long firstNumber, CancellationToken ct)
+    {
+        Opened.Add((companyId, resolutionId, firstNumber));
+        return Task.CompletedTask;
+    }
+
+    public Task<long?> TakeNextAsync(Guid companyId, string scopeKey, CancellationToken ct) =>
+        throw new NotSupportedException("Company use cases do not take numbers.");
+
+    public Task<NumberReservation> ReserveAsync(Guid companyId, string scopeKey, DocumentNumberKey number, CancellationToken ct) =>
+        throw new NotSupportedException("Company use cases do not reserve numbers.");
 }
 
 public sealed class FakeTenant : ITenantContext

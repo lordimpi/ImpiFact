@@ -75,7 +75,7 @@ public sealed class ValidatedOptionsTests
         var failedOptions = exception?.InnerExceptions.OfType<OptionsValidationException>().Select(failure => failure.OptionsType);
 
         // ApiKeyOptions no falla: su prefijo tiene valor por defecto («apk_») para que la API y el Migrator coincidan.
-        Assert.That(failedOptions, Is.EquivalentTo(new[] { typeof(DianOptions), typeof(JwtOptions), typeof(SecretsOptions) }));
+        Assert.That(failedOptions, Is.EquivalentTo(new[] { typeof(DianOptions), typeof(JwtOptions), typeof(SecretsOptions), typeof(StorageOptions) }));
     }
 
     [Test]

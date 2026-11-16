@@ -9,12 +9,14 @@ namespace ImpiFact.Application.Tests.Features.Companies;
 public sealed class UpsertResolutionTests
 {
     private FakeCompanyRepository _companies = null!;
+    private FakeNumberingSequences _numbering = null!;
     private Company _own = null!;
 
     [SetUp]
     public void SetUp()
     {
         _companies = new FakeCompanyRepository();
+        _numbering = new FakeNumberingSequences();
         _own = CompanySamples.Company();
         _companies.Stored.Add(_own);
         _companies.Stored.Add(new CompanyEnvironment { CompanyId = _own.Id, DocumentKind = DocumentKind.Invoice, TypeEnvironmentId = 2 });
@@ -63,6 +65,42 @@ public sealed class UpsertResolutionTests
             Assert.That(existing.TechnicalKey, Is.EqualTo("fc8eac422eba16e22ffd8c6f94b3f40a6e38162c"));
             Assert.That(existing.IsActive, Is.True);
         });
+    }
+
+    [Test]
+    public async Task A_new_resolution_opens_its_numbering_sequence_at_the_start_of_its_range()
+    {
+        await Handle(Invoice());
+
+        var row = _companies.AddedOf<Resolution>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(row.Id, Is.Not.EqualTo(Guid.Empty), "The sequence key needs the resolution id before saving.");
+            Assert.That(_numbering.Opened, Is.EqualTo(new[] { (_own.Id, row.Id, 990000000L) }));
+        });
+    }
+
+    [Test]
+    public async Task An_updated_resolution_moves_its_numbering_sequence_to_the_new_start_of_its_range()
+    {
+        var existing = new Resolution
+        {
+            Id = Guid.CreateVersion7(), CompanyId = _own.Id, DocumentTypeId = 1, TypeEnvironmentId = 2, Prefix = "SETP",
+            ResolutionNumber = "18760000001", RangeFrom = 1, RangeTo = 10, IsActive = true,
+        };
+        _companies.Stored.Add(existing);
+
+        await Handle(Invoice());
+
+        Assert.That(_numbering.Opened, Is.EqualTo(new[] { (_own.Id, existing.Id, 990000000L) }));
+    }
+
+    [Test]
+    public async Task A_rejected_request_opens_no_numbering_sequence()
+    {
+        await Handle(Invoice() with { Nit = "800111222" });
+
+        Assert.That(_numbering.Opened, Is.Empty);
     }
 
     [Test]
@@ -181,5 +219,5 @@ public sealed class UpsertResolutionTests
         result.Errors.GroupBy(error => error.PropertyName).ToDictionary(group => group.Key, group => group.First().ErrorMessage);
 
     private Task<Result<ResolutionSavedResponse>> Handle(UpsertResolutionCommand command) =>
-        new UpsertResolutionHandler(_companies, CompanySamples.CompanyKey(_own.Id)).HandleAsync(command, CancellationToken.None);
+        new UpsertResolutionHandler(_companies, _numbering, CompanySamples.CompanyKey(_own.Id)).HandleAsync(command, CancellationToken.None);
 }

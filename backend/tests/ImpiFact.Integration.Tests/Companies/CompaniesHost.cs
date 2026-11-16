@@ -127,6 +127,7 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
         builder.UseSetting("Database:ConnectionString", connectionString);
         builder.UseSetting("Secrets:LocalAesGcm:MasterKeyFile", _protection.MasterKeyFile);
         builder.UseSetting("Secrets:LocalAesGcm:CertificateDirectory", _protection.CertificateDirectory);
+        builder.UseSetting("Storage:Local:Root", Path.Combine(_protection.Root, "storage"));
         builder.UseSetting("Jwt:SigningKey", _signingKey.ExportPkcs8PrivateKeyPem());
         builder.UseSetting("RateLimit:PermitPerMinutePerKey", "10000");
         builder.UseSetting("RateLimit:PermitPerMinutePerIp", "10000");

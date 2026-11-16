@@ -77,6 +77,7 @@ internal sealed class IdentityApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Database:ConnectionString", UnreachableDatabase.ConnectionString);
         builder.UseSetting("Secrets:LocalAesGcm:MasterKeyFile", Protection.MasterKeyFile);
         builder.UseSetting("Secrets:LocalAesGcm:CertificateDirectory", Protection.CertificateDirectory);
+        builder.UseSetting("Storage:Local:Root", Path.Combine(Protection.Root, "storage"));
         builder.UseSetting("Logging:LogLevel:Default", "Trace");
         builder.UseSetting("Logging:LogLevel:Microsoft.AspNetCore", "Trace");
         if (_withSigningKey)
