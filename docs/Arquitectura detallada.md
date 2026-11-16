@@ -243,6 +243,8 @@ Estado al 15-nov (fase 1a): `XmlSigner` firma con RSA-SHA256, C14N inclusivo y d
 
 - `Opción A (por defecto hasta el spike): cliente propio sobre HttpClient; opción B: cliente WCF con CustomBinding y un MessageInspector para la seguridad. E`l sobre SOAP 1.2 se construye a mano con WS-Addressing y un `wsse:Security` que incluye `Timestamp`, `BinarySecurityToken` (el certificado) y una firma `ds:Signature` sobre el `wsa:To` **\[verificar con la DIAN en la fase 1\]**.
 - URLs por ambiente en `DianOptions`: habilitación `https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc`, producción `https://vpfe.dian.gov.co/WcfDianCustomerServices.svc`.
+- URLs de consulta del QR por ambiente, también en `DianOptions`: habilitación `https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=`, producción `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=`. Hoy están fijas en `InvoiceUblBuilder` (fase 1a, antes de que exista la configuración). En la fase 2 Application las pasa a `ImpiFact.Dian` en su modelo de entrada; el núcleo no depende de `IOptions` (ADR-26).
+- Lo que no va en configuración: espacios de nombres, algoritmos, política de firma, NIT de la DIAN y códigos de catálogo. Son reglas del anexo técnico: si la DIAN las cambia, se cambia el código con sus pruebas golden.
 - Operaciones: `SendBillSync`, `SendTestSetAsync`, `SendBillAsync`, `GetStatus`, `GetStatusZip`, `SendEventUpdateStatus`, `GetNumberingRange`, `GetXmlByDocumentKey`.
 - Los archivos se envían como ZIP en base64 con el nombre de archivo que exige la DIAN por tipo de documento.
 - Resiliencia (`Microsoft.Extensions.Http.Resilience`): tiempo de espera 60 s por intento, 3 reintentos con retroceso exponencial y jitter solo ante errores transitorios (timeout, 5xx, red); rechazo de negocio no se reintenta; *circuit breaker* tras 5 fallos en 30 s. Valores en `ResilienceOptions`.
@@ -455,6 +457,7 @@ Convenciones que sigue todo el código del repositorio. Los documentos de `docs/
 
 - Idioma (15-nov): comentarios y documentación XML (`///`) en español neutro y profesional; identificadores, nombres de pruebas, mensajes de excepción y registros en inglés, como es convención en .NET.
 - Claridad (15-nov): los comentarios explican qué hace el código y por qué, en palabras simples, para alguien que no conoce las normas de firma XML ni la DIAN. Ninguna sigla ni término técnico sin explicar la primera vez que aparece en cada archivo (por ejemplo, «canonicalización (C14N): escribir el XML de forma estándar para que el mismo contenido dé siempre los mismos bytes»); los nombres oficiales (CUFE, UBL, XAdES) se conservan y se explican.
+- Ramas (16-nov): `develop` es la rama de integración y `main` solo recibe versiones. Cada cambio sale de `develop` en una rama con prefijo de Conventional Commits (`feat/`, `fix/`, `docs/`, `test/`, `refactor/`, `chore/`) y vuelve a `develop`; `main` se actualiza desde `develop` al cerrar una fase, con una etiqueta de versión.
 - .NET 10, C# con `Nullable` y `TreatWarningsAsErrors`.
 - Clean Architecture: `Domain` sin dependencias, `Application` solo con puertos y `Dian` puro. Las pruebas de arquitectura deben pasar.
 - Sin MediatR ni AutoMapper. Casos de uso con `IHandler<TIn, TOut>` y decoradores; mapeo con Mapster.
@@ -499,7 +502,8 @@ Cada tarea es un PR con pruebas. Entre paréntesis, la puerta de salida de la fa
 4. Migración inicial en PostgreSQL con el modelo completo; semillas.
 5. `Identity`: usuarios, roles, JWT, API keys, middleware de tenant.
 6. `Company`: crear empresa, ambientes, software, resoluciones, certificado (`LocalAesGcm`).
-7. Pruebas de arquitectura y de aislamiento multi-tenant.
+7. `DianOptions` validado al arrancar (sección 4.3), con las URLs del servicio y del QR por ambiente (sección 6.4); las URLs del QR salen de `InvoiceUblBuilder` y entran por el modelo de entrada de `ImpiFact.Dian`.
+8. Pruebas de arquitectura y de aislamiento multi-tenant.
 
 **Fase 3 — Documentos** *(golden: XML y CUFE idénticos al PHP)*
 
