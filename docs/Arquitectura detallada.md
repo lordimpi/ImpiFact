@@ -181,7 +181,7 @@ public interface ICertificateStore {
     Task DeleteAsync(Guid companyId, string secretRef, CancellationToken ct);                   // companyId: datos asociados
 }
 
-public interface ISecretProtector { string Protect(string plain); string Unprotect(string cipher); }  // PIN, SMTP, tokens
+public interface ISecretProtector { string Protect(string purpose, string plain); string Unprotect(string purpose, string cipher); }  // PIN, SMTP, tokens; el propósito separa las llaves por uso
 
 // --- Definidos e implementados en ImpiFact.Dian (ADR-23) ---
 public interface IDianClient {
