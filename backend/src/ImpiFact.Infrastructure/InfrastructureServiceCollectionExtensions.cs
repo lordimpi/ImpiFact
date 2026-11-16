@@ -1,6 +1,7 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Infrastructure.Companies;
+using ImpiFact.Infrastructure.Dian;
 using ImpiFact.Infrastructure.Documents;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
@@ -52,6 +53,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddSingleton(new ReservedDirectory("Secrets:LocalAesGcm:CertificateDirectory", configuration["Secrets:LocalAesGcm:CertificateDirectory"]));
         services.AddDocuments();
         services.AddPlatform();
+        services.AddDianWebService(configuration);
         services.AddReads();
         return services;
     }
