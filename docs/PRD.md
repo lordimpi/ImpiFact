@@ -92,7 +92,7 @@ La migración se considera exitosa cuando .NET emite los mismos documentos que e
 | XML y CUFE idénticos al PHP (pruebas golden) | 100% de los casos de prueba |
 | Documentos aceptados por la DIAN en habilitación | 100% de los tipos soportados |
 | Colección Postman oficial en verde contra .NET | 100% de las rutas migradas |
-| Cobertura de pruebas en Domain y Application | ≥ 80% |
+| Cobertura de pruebas | Domain y Dian ≥ 90 %, Application ≥ 80 % |
 | Mismo despliegue en Azure, AWS y GCP | Docker + variables de entorno, sin cambios de código |
 
 ## 3. Usuarios, roles y casos de uso
@@ -174,7 +174,7 @@ Las metas numéricas son propuestas iniciales y quedan para validar en la secci�
 | RNF-08 | Observabilidad | Logs estructurados (Serilog), trazas y métricas (OpenTelemetry), health checks | Correlation id en cada solicitud |
 | RNF-09 | Auditoría | Registro de quién cambió certificados, resoluciones y configuración | Toda operación sensible queda registrada |
 | RNF-10 | Mantenibilidad | Clean Architecture, reglas de dependencia verificadas con pruebas de arquitectura | Domain sin referencias externas |
-| RNF-11 | Calidad | Pruebas unitarias, de integración con Testcontainers y golden tests contra el PHP | Cobertura ≥ 80% en Domain y Application |
+| RNF-11 | Calidad | Pruebas unitarias, de integración con Testcontainers y golden tests contra el PHP | Cobertura: Domain y Dian ≥ 90 %, Application ≥ 80 % |
 | RNF-12 | Compatibilidad | Mismas rutas y formato JSON del API actual en `/api/ubl2.1/...` | Colección Postman oficial en verde |
 
 Referencias del PHP actual ([rendimiento](https://manual.facturalatam.com/apidian/rendimiento/)): el grupo `api` admite 60 peticiones por minuto, el correo se envía dentro de la petición, la subida a S3 también, y no hay colas ni envío asíncrono. De ahí salen el diseño asíncrono (RNF-05) y el límite de tasa configurable por API key.
@@ -202,7 +202,6 @@ flowchart TB
   Infra --> Domain
   App --> Dian
   App --> Domain
-  Dian --> Domain
   Infra -.->|persiste| DB
   Dian -.->|envía| WS
 ```
@@ -214,10 +213,10 @@ flowchart TB
 **Reglas de dependencia**
 
 - `Domain` no referencia a nadie.
-- `Dian` referencia solo a `Domain`. Es puro (UBL, CUFE, firma, SOAP) y define e implementa sus propios puertos (ADR-23).
+- `Dian` no referencia a nadie, ni siquiera a `Domain`: recibe su propio modelo de entrada (ADR-26). Es puro (UBL, CUFE, firma, SOAP) y define e implementa sus propios puertos (ADR-23).
 - `Application` referencia a `Domain` y a `Dian`.
 - `Infrastructure` referencia a `Application`, `Dian` y `Domain`.
-- `Api` y `Worker` referencian a `Application` e `Infrastructure`, y solo hacen la composición.
+- `Api`, `Worker` y `Migrator` referencian a `Application`, `Infrastructure` y a los proyectos de proveedor de base de datos, porque son quienes eligen cuál usar; solo hacen la composición.
 - Hay un proyecto de migraciones por proveedor de base de datos (`Infrastructure.Postgres`, `.SqlServer`, `.MySql`).
 - Una prueba de arquitectura falla el build si se rompe cualquiera de estas reglas.
 
@@ -506,7 +505,7 @@ flowchart LR
 2. **Habilitación de la DIAN.** Pruebas con el `testSetId` real para cada tipo de documento.
 3. **Contrato.** La colección Postman oficial se ejecuta contra .NET en cada fase.
 4. **Unitarias.** Dominio y casos de uso con NUnit y Moq.
-5. **Integración.** Testcontainers con PostgreSQL, SQL Server y MySQL en CI.
+5. **Integración.** Testcontainers con PostgreSQL en CI desde la fase 2; SQL Server y MySQL se suman en la fase 6.
 6. **Arquitectura.** Pruebas que fallan si una capa depende de otra que no debe.
 7. **Seguridad.** Pruebas de aislamiento entre empresas y análisis de dependencias.
 

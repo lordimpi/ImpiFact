@@ -7,11 +7,12 @@ Especificación de implementación. Complementa la sección 6 del PRD (visión y
 ```
 ImpiFact.Domain          ← no depende de nada (ni de EF, ni de JSON, ni de DI)
 ImpiFact.Application     ← Domain, Dian
-ImpiFact.Dian            ← Domain (puro: UBL, CUFE, firma, SOAP; sin acceso a BD)
+ImpiFact.Dian            ← nada (puro: UBL, CUFE, firma, SOAP; sin acceso a BD; ADR-26)
 ImpiFact.Infrastructure  ← Application, Dian, Domain  (EF, Dapper, blobs, correo, PDF, secretos)
 ImpiFact.Infrastructure.<Proveedor> ← Infrastructure (migraciones y SQL no portable)
-ImpiFact.Api             ← Application, Infrastructure (composición)
-ImpiFact.Worker          ← Application, Infrastructure (composición)
+ImpiFact.Api             ← Application, Infrastructure, Infrastructure.<Proveedor> (composición)
+ImpiFact.Worker          ← Application, Infrastructure, Infrastructure.<Proveedor> (composición)
+ImpiFact.Migrator        ← Application, Infrastructure, Infrastructure.<Proveedor> (aplica migraciones y semillas)
 ```
 
 Reglas verificadas por pruebas de arquitectura (NetArchTest):
