@@ -20,6 +20,13 @@ public static class AuthenticationSchemes
     public const string Jwt = "Jwt";
 }
 
+/// <summary>Políticas de autorización que no son un solo alcance.</summary>
+public static class IdentityPolicies
+{
+    /// <summary>Crear y revocar API keys y crear usuarios: <c>config:write</c> con empresa, o <c>platform:*</c> sin empresa.</summary>
+    public const string ManageCredentials = "identity:manage-credentials";
+}
+
 internal static class BearerAuthenticationExtensions
 {
     /// <summary>Tolerancia de reloj entre servidores al validar el vencimiento de un JWT.</summary>
@@ -106,6 +113,18 @@ internal static class BearerAuthenticationExtensions
             .RequireAuthenticatedUser()
             .RequireClaim(IdentityClaimTypes.Scope, ApiScopes.Platform)
             .RequireAssertion(context => !context.User.HasClaim(claim => claim.Type == IdentityClaimTypes.CompanyId)));
+
+        // Administrar credenciales (API keys y usuarios): config:write sobre la empresa de la credencial, o platform:*
+        // sin empresa. El caso de uso confirma después en la base el rol del usuario.
+        builder.AddPolicy(IdentityPolicies.ManageCredentials, policy => policy
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context =>
+            {
+                var hasCompany = context.User.HasClaim(claim => claim.Type == IdentityClaimTypes.CompanyId);
+                return hasCompany
+                    ? context.User.HasClaim(IdentityClaimTypes.Scope, ApiScopes.ConfigWrite)
+                    : context.User.HasClaim(IdentityClaimTypes.Scope, ApiScopes.Platform);
+            }));
         return services;
     }
 

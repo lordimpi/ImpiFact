@@ -26,6 +26,8 @@ internal static class ApiComposition
         // cadena de conexión, que llega por la variable de entorno Database__ConnectionString), la API no arranca.
         services.AddInfrastructure(configuration, new PostgresDatabaseProvider());
         services.AddIdentityInfrastructure();
+        // Casos de uso de Application con sus decoradores; se llama una sola vez, después de registrar los adaptadores.
+        services.AddApplication();
         services.AddValidatedOptions<RateLimitOptions>(configuration, RateLimitOptions.SectionName);
         services.AddValidatedOptions<CorsOriginsOptions>(configuration, CorsOriginsOptions.SectionName);
 
