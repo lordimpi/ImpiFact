@@ -1,10 +1,10 @@
 namespace ImpiFact.Dian.Signing;
 
 /// <summary>
-/// DIAN signature policy v2 (Anexo Técnico 002, "Política de Firma de los Documentos XML de
-/// Facturación Electrónica - Versión 2", section 10.2). The hash is the SHA-256 of the policy PDF
-/// published at <see cref="Identifier"/>; it was recomputed from the downloaded PDF on 2026-11-15
-/// and matches the value ApiDian sends.
+/// Política de firma v2 de la DIAN (Anexo Técnico 002, "Política de Firma de los Documentos XML de
+/// Facturación Electrónica - Versión 2", sección 10.2). El hash es el SHA-256 del PDF de la política
+/// publicado en <see cref="Identifier"/>; se recalculó a partir del PDF descargado el 2026-11-15
+/// y coincide con el valor que envía ApiDian.
 /// </summary>
 public static class DianSignaturePolicy
 {
@@ -16,6 +16,6 @@ public static class DianSignaturePolicy
 
     public const string Hash = "dMoMvtcG5aIzgYo0tIsSQeVJBDnUnfSOfBpxXrmor0Y=";
 
-    /// <summary>Section 12: "supplier" when the issuer itself signs.</summary>
+    /// <summary>Sección 12: "supplier" cuando firma el propio emisor.</summary>
     public const string SupplierRole = "supplier";
 }

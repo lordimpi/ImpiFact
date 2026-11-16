@@ -7,14 +7,14 @@ using ImpiFact.Dian.Ubl;
 namespace ImpiFact.Golden.Tests;
 
 /// <summary>
-/// Maps an ApiDian invoice request (input.json of a golden case) plus the fixed capture context to
-/// the <see cref="SalesInvoice"/> model of ImpiFact.Dian, resolving catalog IDs with
-/// <see cref="ApiDianCatalog"/>. Optional values follow ApiDian's conditions (PHP truthiness), so
-/// the builder sees exactly what the reference wrote.
+/// Mapea una solicitud de factura de ApiDian (input.json de un caso golden) más el contexto fijo de
+/// captura al modelo <see cref="SalesInvoice"/> de ImpiFact.Dian, resolviendo los ID de catálogo con
+/// <see cref="ApiDianCatalog"/>. Los valores opcionales siguen las condiciones de ApiDian (valor de verdad
+/// en PHP), así que el constructor ve exactamente lo que escribió la referencia.
 /// </summary>
 public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
 {
-    /// <summary>ApiDian tax IDs whose value is per unit (app/TaxTotal.php is_fixed_value).</summary>
+    /// <summary>ID de impuestos de ApiDian cuyo valor es por unidad (app/TaxTotal.php is_fixed_value).</summary>
     private static readonly int[] FixedValueTaxIds = [2, 10, 19, 20, 21, 23];
 
     public SalesInvoice Map(JsonElement request)
@@ -95,7 +95,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             IdentificationTypeCode = catalog.Get("identificationTypes", RequiredInt(customer, "type_document_identification_id")).Code,
             Name = RequiredText(customer, "name"),
 
-            // ApiDian writes the customer address blocks only when address and municipality exist.
+            // ApiDian solo escribe los bloques de dirección del cliente cuando existen la dirección y el municipio.
             Address = string.IsNullOrEmpty(address) || municipalityId is null ? null : MapAddress(municipalityId, address),
             RegimeCode = catalog.Get("regimes", RequiredInt(customer, "type_regime_id")).Code,
             LiabilityCode = catalog.Get("liabilities", RequiredInt(customer, "type_liability_id")).Code,
@@ -139,7 +139,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         {
             IsCharge = isCharge,
 
-            // ApiDian writes the discount reason code only for allowances.
+            // ApiDian solo escribe el código de motivo de descuento para los descuentos.
             ReasonCode = isCharge || discountId is null ? null : catalog.Get("discounts", discountId).Code,
             Reason = RequiredText(item, "allowance_charge_reason"),
             MultiplierFactorNumeric = multiplier is null ? null : DianRounding.Parse(multiplier),
@@ -189,7 +189,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         var itemType = catalog.Get("itemIdentificationTypes", RequiredInt(line, "type_item_identification_id"));
         if (OptionalText(line, "reference_price_id") is { } referencePriceId)
         {
-            // Validated only: ApiDian does not write the reference price type in the line.
+            // Solo se valida: ApiDian no escribe el tipo de precio de referencia en la línea.
             catalog.Get("referencePrices", referencePriceId);
         }
 
@@ -214,7 +214,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             ? array.EnumerateArray().Select(map).ToList()
             : [];
 
-    /// <summary>Text of a string or number property; null when missing or null.</summary>
+    /// <summary>Texto de una propiedad de cadena o numérica; null cuando falta o es null.</summary>
     private static string? OptionalText(JsonElement parent, string name)
     {
         if (!parent.TryGetProperty(name, out var value))
@@ -240,8 +240,8 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
     private static decimal RequiredDecimal(JsonElement parent, string name) => DianRounding.Parse(RequiredText(parent, name));
 
     /// <summary>
-    /// The value when PHP would treat it as true (ApiDian's @if on the raw request value): a
-    /// missing value, "", "0" and the number 0 are false, while "0.00" is true.
+    /// El valor cuando PHP lo trataría como verdadero (el @if de ApiDian sobre el valor sin procesar de la
+    /// solicitud): un valor faltante, "", "0" y el número 0 son falsos, mientras que "0.00" es verdadero.
     /// </summary>
     private static decimal? TruthyDecimal(JsonElement parent, string name)
     {

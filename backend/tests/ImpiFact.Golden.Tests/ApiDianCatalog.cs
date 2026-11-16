@@ -2,12 +2,12 @@ using System.Text.Json;
 
 namespace ImpiFact.Golden.Tests;
 
-/// <summary>One row of an ApiDian catalog, reduced to the columns the XML uses.</summary>
+/// <summary>Una fila de un catálogo de ApiDian, reducida a las columnas que usa el XML.</summary>
 public sealed record CatalogEntry(string Name, string Code, string? DepartmentId = null, string? CodeAgency = null);
 
 /// <summary>
-/// ApiDian catalogs (ID to code and name) loaded from catalogs.json, a fixture extracted from the
-/// ApiDian seed CSVs. The tests never read the ApiDian checkout.
+/// Catálogos de ApiDian (de ID a código y nombre) cargados desde catalogs.json, una fixture extraída de
+/// los CSV semilla de ApiDian. Las pruebas nunca leen el checkout de ApiDian.
 /// </summary>
 public sealed class ApiDianCatalog
 {
@@ -35,7 +35,7 @@ public sealed class ApiDianCatalog
         return new ApiDianCatalog(catalogs);
     }
 
-    /// <summary>Returns the entry or fails with the catalog and ID, so a missing row is obvious.</summary>
+    /// <summary>Devuelve la entrada o falla con el catálogo y el ID, para que una fila faltante sea evidente.</summary>
     public CatalogEntry Get(string catalog, string id)
     {
         if (!_catalogs.TryGetValue(catalog, out var entries))

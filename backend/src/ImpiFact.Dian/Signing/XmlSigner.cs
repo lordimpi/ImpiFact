@@ -10,15 +10,15 @@ using ImpiFact.Dian.Cufe;
 namespace ImpiFact.Dian.Signing;
 
 /// <summary>
-/// Signs a DIAN UBL 2.1 document (invoice, credit note, debit note) with XAdES-EPES as described
-/// in Anexo Técnico 002 (signature policy v2): enveloped XMLDSig, inclusive C14N 1.0, RSA-SHA256,
-/// SHA-256 digests, and references to the document, to ds:KeyInfo and to xades:SignedProperties.
+/// Firma un documento UBL 2.1 de la DIAN (factura, nota crédito, nota débito) con XAdES-EPES como se
+/// describe en el Anexo Técnico 002 (política de firma v2): XMLDSig enveloped, C14N 1.0 inclusiva,
+/// RSA-SHA256, digests SHA-256 y referencias al documento, a ds:KeyInfo y a xades:SignedProperties.
 /// </summary>
 /// <remarks>
-/// The signature is spliced into the text of the empty ext:UBLExtension[2]/ext:ExtensionContent,
-/// so every byte outside the signature (CUFE included) stays as it was. Ids are derived from a hash
-/// of the input, the signing time and the certificate, and RSA PKCS#1 v1.5 is deterministic: the
-/// same input, certificate and time always produce the same output.
+/// La firma se inserta en el texto del ext:UBLExtension[2]/ext:ExtensionContent vacío, así que todos
+/// los bytes fuera de la firma (CUFE incluido) quedan como estaban. Los Id se derivan de un hash de la
+/// entrada, la hora de firma y el certificado, y RSA PKCS#1 v1.5 es determinista: la misma entrada,
+/// el mismo certificado y la misma hora siempre producen la misma salida.
 /// </remarks>
 public static class XmlSigner
 {
@@ -50,7 +50,7 @@ public static class XmlSigner
         var slot = SignatureSlot.Find(unsignedXml);
         var template = new SignatureTemplate(unsignedXml, certificate, FormatSigningTime(signingTime));
 
-        // The enveloped transform removes the signature, which leaves exactly the unsigned document.
+        // La transformación enveloped quita la firma, lo que deja exactamente el documento sin firmar.
         var documentDigest = Digest(Canonicalize(Load(unsignedXml)));
 
         var draft = Load(slot.Insert(template.Render(Digests.Empty, signatureValue: string.Empty)));
@@ -67,7 +67,9 @@ public static class XmlSigner
         return slot.Insert(template.Render(digests, Convert.ToBase64String(signatureValue)));
     }
 
-    /// <summary>xsd:dateTime in Colombian time with milliseconds, as ApiDian and the annex example write it.</summary>
+    /// <summary>
+    /// xsd:dateTime en hora de Colombia con milisegundos, como lo escriben ApiDian y el ejemplo del anexo.
+    /// </summary>
     private static string FormatSigningTime(DateTimeOffset signingTime) =>
         signingTime.ToOffset(ColombiaUtcOffset).ToString("yyyy-MM-dd'T'HH:mm:ss.fff", CultureInfo.InvariantCulture)
         + CufeCalculator.ColombiaOffset;
@@ -97,10 +99,10 @@ public static class XmlSigner
     }
 
     /// <summary>
-    /// Inclusive C14N of an element as a document subset: the apex element carries every namespace
-    /// in scope and every inherited xml:* attribute (xml:lang, xml:space...), so both are copied from
-    /// its ancestors onto it before canonicalizing it on its own. Ancestors are walked from the
-    /// nearest outwards, so the nearest declaration wins.
+    /// C14N inclusiva de un elemento como subconjunto del documento: el elemento ápice lleva todos los
+    /// espacios de nombres en alcance y todos los atributos xml:* heredados (xml:lang, xml:space...),
+    /// así que ambos se copian de sus ancestros a él antes de canonicalizarlo por separado. Los ancestros
+    /// se recorren del más cercano hacia afuera, así que gana la declaración más cercana.
     /// </summary>
     private static byte[] CanonicalizeSubtree(XmlElement element)
     {
@@ -141,8 +143,8 @@ public static class XmlSigner
             _certificateDigest = Convert.ToBase64String(SHA256.HashData(certificate.RawData));
             _issuerName = DistinguishedNameFormatter.Format(certificate.IssuerName);
 
-            // XMLDSig types X509SerialNumber as xsd:integer, and the annex example writes it in decimal.
-            // ApiDian sends "0x" hex and the DIAN accepts it today. [verificar] in phase 1b against the DIAN.
+            // XMLDSig tipa X509SerialNumber como xsd:integer, y el ejemplo del anexo lo escribe en decimal.
+            // ApiDian envía hexadecimal con "0x" y la DIAN hoy lo acepta. [verificar] en la fase 1b contra la DIAN.
             _serialNumber = new BigInteger(certificate.SerialNumberBytes.Span, isUnsigned: true, isBigEndian: true)
                 .ToString(CultureInfo.InvariantCulture);
             _signingTime = signingTime;
@@ -221,7 +223,7 @@ public static class XmlSigner
 
         private void WriteQualifyingProperties(XmlWriter w)
         {
-            // Declared here, as in the annex example, so the signature does not depend on the root declaring xades.
+            // Se declara aquí, como en el ejemplo del anexo, para que la firma no dependa de que la raíz declare xades.
             w.WriteStartElement("xades", "QualifyingProperties", XadesNs);
             w.WriteAttributeString("xmlns", "xades", null, XadesNs);
             w.WriteAttributeString("Target", "#" + SignatureId);

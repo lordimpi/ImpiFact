@@ -3,13 +3,13 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace ImpiFact.Dian.Tests.Signing;
 
-/// <summary>Throwaway signing certificates generated in memory; nothing is written to disk.</summary>
+/// <summary>Certificados de firma desechables generados en memoria; nada se escribe en disco.</summary>
 public static class TestCertificates
 {
     private static readonly Lazy<X509Certificate2> SharedSigner = new(() =>
         CreateSelfSigned(new X500DistinguishedName("CN=ImpiFact Test Signer, O=ImpiFact Pruebas, C=CO")));
 
-    /// <summary>One RSA 2048 self-signed certificate reused by the whole test run.</summary>
+    /// <summary>Un certificado autofirmado RSA 2048 que reutiliza toda la ejecución de pruebas.</summary>
     public static X509Certificate2 Signer => SharedSigner.Value;
 
     public static X509Certificate2 CreateSelfSigned(X500DistinguishedName subject)

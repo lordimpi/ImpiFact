@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Verifies XAdES-EPES signatures produced by ImpiFact.Dian with xmlsec1 (libxmlsec1 + OpenSSL),
-# an implementation independent from .NET.
-# Usage: verify.sh <directory with signer.pem and signed/*.xml>
+# Verifica las firmas XAdES-EPES producidas por ImpiFact.Dian con xmlsec1 (libxmlsec1 + OpenSSL),
+# una implementación independiente de .NET.
+# Uso: verify.sh <directorio con signer.pem y signed/*.xml>
 set -euo pipefail
 
 IMAGE="alpine:3.20"
@@ -13,13 +13,13 @@ fi
 
 sample_dir="$(cd "$1" && (pwd -W 2>/dev/null || pwd))"
 
-# MSYS_NO_PATHCONV keeps Git Bash on Windows from rewriting the container paths.
+# MSYS_NO_PATHCONV evita que Git Bash en Windows reescriba las rutas del contenedor.
 MSYS_NO_PATHCONV=1 docker run --rm -v "${sample_dir}:/work:ro" "$IMAGE" sh -euc '
   apk add --no-cache xmlsec >/dev/null
   xmlsec1 --version
 
   verify() {
-    # xades:SignedProperties carries a plain "Id" attribute that xmlsec1 must be told about.
+    # xades:SignedProperties lleva un atributo "Id" simple que hay que indicarle a xmlsec1.
     xmlsec1 --verify --trusted-pem /work/signer.pem \
       --id-attr:Id "http://uri.etsi.org/01903/v1.3.2#:SignedProperties" "$1"
   }
@@ -30,7 +30,7 @@ MSYS_NO_PATHCONV=1 docker run --rm -v "${sample_dir}:/work:ro" "$IMAGE" sh -euc 
     echo "== $name"
     verify "$file"
 
-    # A copy with an altered cbc:PayableAmount must be rejected.
+    # Una copia con cbc:PayableAmount alterado debe ser rechazada.
     sed -E "s#(<cbc:PayableAmount[^>]*>)#\11#" "$file" > /tmp/tampered.xml
     if cmp -s "$file" /tmp/tampered.xml; then
       echo "No se pudo alterar cbc:PayableAmount en $name" >&2

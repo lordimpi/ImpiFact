@@ -3,9 +3,9 @@ using System.Xml;
 namespace ImpiFact.Dian.Signing;
 
 /// <summary>
-/// Text position of /*/ext:UBLExtensions/ext:UBLExtension[2]/ext:ExtensionContent (Anexo Técnico
-/// 002, section 13), so the signature is spliced into the original text and every other byte of
-/// the document stays as it was.
+/// Posición en el texto de /*/ext:UBLExtensions/ext:UBLExtension[2]/ext:ExtensionContent (Anexo
+/// Técnico 002, sección 13), para que la firma se inserte en el texto original y todos los demás bytes
+/// del documento queden como estaban.
 /// </summary>
 internal sealed class SignatureSlot
 {
@@ -52,12 +52,12 @@ internal sealed class SignatureSlot
         throw new InvalidOperationException($"The document has no {SlotPath} to hold the signature.");
     }
 
-    /// <summary>The document with <paramref name="signatureXml"/> as the only content of the slot.</summary>
+    /// <summary>El documento con <paramref name="signatureXml"/> como único contenido del espacio.</summary>
     public string Insert(string signatureXml)
     {
         if (_selfClosing)
         {
-            // "<ext:ExtensionContent/>" becomes "<ext:ExtensionContent>signature</ext:ExtensionContent>".
+            // "<ext:ExtensionContent/>" se convierte en "<ext:ExtensionContent>firma</ext:ExtensionContent>".
             return _xml[..(_startTagEnd - 1)] + ">" + signatureXml + "</" + _qualifiedName + ">" + _xml[(_startTagEnd + 1)..];
         }
 
@@ -72,7 +72,7 @@ internal sealed class SignatureSlot
             lineStart = xml.IndexOf('\n', lineStart) + 1;
         }
 
-        // For an element, LinePosition points at the first character of its name.
+        // Para un elemento, LinePosition apunta al primer carácter de su nombre.
         var nameStart = lineStart + position - 1;
         if (nameStart < 1 || xml[nameStart - 1] != '<' || string.CompareOrdinal(xml, nameStart, qualifiedName, 0, qualifiedName.Length) != 0)
         {

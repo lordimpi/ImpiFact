@@ -1,20 +1,20 @@
-"""Capture golden fixtures (XML + CUFE/CUDE) from a local ApiDian reference instance.
+"""Captura fixtures golden (XML + CUFE/CUDE) desde una instancia local de referencia de ApiDian.
 
-For every case folder under tests/golden/<type>/<case>/ that contains an input.json,
-this script sends the JSON to the PHP reference with "query_uuid": true. In that mode
-ApiDian builds, signs and computes the CUFE/CUDE but returns before calling the DIAN.
-It then stores:
+Para cada carpeta de caso en tests/golden/<type>/<case>/ que contenga un input.json,
+este script envía el JSON a la referencia PHP con "query_uuid": true. En ese modo
+ApiDian construye, firma y calcula el CUFE/CUDE, pero responde antes de llamar a la DIAN.
+Luego guarda:
 
-    expected.xml   signed XML with the <ds:Signature> element removed (byte-exact otherwise)
-    expected.cufe  CUFE or CUDE returned by ApiDian
-    response.json  ApiDian JSON response
+    expected.xml   XML firmado sin el elemento <ds:Signature> (por lo demás, idéntico byte a byte)
+    expected.cufe  CUFE o CUDE devuelto por ApiDian
+    response.json  respuesta JSON de ApiDian
 
-Usage (from the backend/ folder, with the reference stack running):
+Uso (desde la carpeta backend/, con el stack de referencia en ejecución):
 
-    python tools/golden-capture/capture.py              # setup + capture every case
+    python tools/golden-capture/capture.py              # configuración + captura de todos los casos
     python tools/golden-capture/capture.py --type invoice
 
-Only Python's standard library and the openssl CLI are required.
+Solo se requieren la biblioteca estándar de Python y la CLI de openssl.
 """
 
 from __future__ import annotations
@@ -33,8 +33,8 @@ from pathlib import Path
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_ROOT.parent
 
-# Fixed test identity. Everything here is fictitious except the DIAN public test
-# resolution (18760000001, prefix SETP, range 990000000-995000000) and its technical key.
+# Identidad de prueba fija. Todo aquí es ficticio excepto la resolución pública de pruebas de la
+# DIAN (18760000001, prefijo SETP, rango 990000000-995000000) y su clave técnica.
 COMPANY_NIT = "900000001"
 COMPANY_DV = "2"
 SOFTWARE_ID = "3f9d8c2e-5b1a-4e7f-9c3d-2a6b8e1f0d47"
@@ -65,7 +65,7 @@ RESOLUTIONS = [
     {"type_document_id": 5, "prefix": "ND", "from": 1, "to": 99999999},
 ]
 
-# Document type folder -> (API route, file prefix used by ApiDian for the signed XML).
+# Carpeta del tipo de documento -> (ruta de la API, prefijo de archivo que usa ApiDian para el XML firmado).
 DOCUMENT_TYPES = {
     "invoice": ("invoice", "FES"),
     "credit-note": ("credit-note", "NCS"),
@@ -99,7 +99,7 @@ def call(base_url: str, method: str, path: str, body: dict, token: str | None = 
 
 
 def make_test_certificate(workdir: Path) -> str:
-    """Create a throwaway self-signed PKCS#12 certificate and return it as base64."""
+    """Crea un certificado PKCS#12 autofirmado desechable y lo devuelve en base64."""
     key, cert, p12 = workdir / "key.pem", workdir / "cert.pem", workdir / "cert.p12"
     subject = f"/C=CO/O=EMPRESA DE PRUEBA GOLDEN SAS/CN={COMPANY_NIT}"
     subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "3650",
@@ -112,7 +112,7 @@ def make_test_certificate(workdir: Path) -> str:
 
 
 def setup(base_url: str, software_url: str) -> str:
-    """Create or update the test company in ApiDian and return its API token."""
+    """Crea o actualiza la empresa de prueba en ApiDian y devuelve su token de API."""
     company = call(base_url, "POST", f"config/{COMPANY_NIT}/{COMPANY_DV}", COMPANY)
     token = company.get("token")
     if not token:
@@ -136,15 +136,15 @@ def capture_case(base_url: str, token: str, apidian_dir: Path, doc_type: str, ca
 
     response = None
     if doc_type == "invoice":
-        # query_uuid makes ApiDian return right after signing, before any SOAP call.
+        # query_uuid hace que ApiDian responda justo después de firmar, antes de cualquier llamada SOAP.
         request["query_uuid"] = True
         response = call(base_url, "POST", route, request, token)
         if not response.get("success") or not response.get("uuid"):
             raise ApiError(f"{case_dir.name}: ApiDian did not return a CUFE: {json.dumps(response)[:800]}")
     else:
-        # Notes have no query_uuid: ApiDian signs, writes the XML and then posts the SOAP
-        # request to the software URL, which points to the local nginx stub. That call is
-        # expected to fail; the signed XML is already on disk by then.
+        # Las notas no tienen query_uuid: ApiDian firma, escribe el XML y luego envía la solicitud
+        # SOAP a la URL del software, que apunta al stub local de nginx. Se espera que esa llamada
+        # falle; para entonces el XML firmado ya está en disco.
         try:
             call(base_url, "POST", route, request, token)
         except ApiError:
@@ -163,7 +163,7 @@ def capture_case(base_url: str, token: str, apidian_dir: Path, doc_type: str, ca
     if removed != 1:
         raise ApiError(f"{case_dir.name}: expected exactly one ds:Signature, found {removed}")
 
-    # newline="" keeps the bytes exactly as ApiDian produced them on every OS.
+    # newline="" conserva los bytes exactamente como los produjo ApiDian en cualquier sistema operativo.
     (case_dir / "expected.xml").write_text(unsigned, encoding="utf-8", newline="")
     (case_dir / "expected.cufe").write_text(uuid + "\n", encoding="utf-8", newline="")
     if response is not None:

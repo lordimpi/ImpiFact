@@ -1,6 +1,6 @@
 namespace ImpiFact.Dian.Tests;
 
-/// <summary>A golden case captured from ApiDian by tools/golden-capture.</summary>
+/// <summary>Un caso golden capturado de ApiDian con tools/golden-capture.</summary>
 public sealed record GoldenFixture(string DocumentType, string Name, string ExpectedXml, string ExpectedCode)
 {
     public override string ToString() => $"{DocumentType}/{Name}";

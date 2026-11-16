@@ -5,13 +5,13 @@ using System.Text;
 namespace ImpiFact.Dian.Signing;
 
 /// <summary>
-/// RFC 2253 string form of a distinguished name, as XMLDSig asks for in ds:X509IssuerName:
-/// RDNs from last to first, no space after the comma, attribute types without a short name
-/// written as dotted OID plus the hex BER value.
+/// Forma de cadena RFC 2253 de un nombre distintivo, como lo pide XMLDSig en ds:X509IssuerName:
+/// RDN del último al primero, sin espacio después de la coma, y los tipos de atributo sin nombre corto
+/// escritos como OID con puntos más el valor BER en hexadecimal.
 /// </summary>
 internal static class DistinguishedNameFormatter
 {
-    // RFC 2253 section 2.3 keywords.
+    // Palabras clave de la sección 2.3 del RFC 2253.
     private static readonly Dictionary<string, string> ShortNames = new(StringComparer.Ordinal)
     {
         ["2.5.4.3"] = "CN",
@@ -38,7 +38,7 @@ internal static class DistinguishedNameFormatter
 
     public static string Format(X500DistinguishedName name)
     {
-        // reversed: true yields the last encoded RDN first, which is the RFC 2253 order.
+        // reversed: true entrega primero el último RDN codificado, que es el orden del RFC 2253.
         return string.Join(",", name.EnumerateRelativeDistinguishedNames(reversed: true).Select(FormatRdn));
     }
 
@@ -81,7 +81,7 @@ internal static class DistinguishedNameFormatter
         return false;
     }
 
-    // RFC 2253 section 2.4.
+    // Sección 2.4 del RFC 2253.
     private static string Escape(string value)
     {
         var builder = new StringBuilder(value.Length);

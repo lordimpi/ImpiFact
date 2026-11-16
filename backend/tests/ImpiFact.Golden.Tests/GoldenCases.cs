@@ -1,9 +1,9 @@
 namespace ImpiFact.Golden.Tests;
 
-/// <summary>Locates the golden fixtures under tests/golden, captured by tools/golden-capture.</summary>
+/// <summary>Ubica las fixtures golden en tests/golden, capturadas con tools/golden-capture.</summary>
 public static class GoldenCases
 {
-    /// <summary>Case folders of tests/golden/invoice that have an input and an expected XML.</summary>
+    /// <summary>Carpetas de casos de tests/golden/invoice que tienen una entrada y un XML esperado.</summary>
     public static IReadOnlyList<string> Invoices()
     {
         var invoiceRoot = Path.Combine(FindGoldenRoot(), "invoice");

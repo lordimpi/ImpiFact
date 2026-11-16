@@ -1,6 +1,6 @@
-# Local-only ApiDian reference used to capture golden fixtures (XML + CUFE/CUDE).
-# Expects the ApiDian checkout as a sibling of the repository folder: <repo>/../apidian
-# nginx binds to 127.0.0.1 only. Never expose this stack: ApiDian has known vulnerabilities.
+# Referencia de ApiDian solo local, usada para capturar fixtures golden (XML + CUFE/CUDE).
+# Espera el checkout de ApiDian como carpeta hermana de la carpeta del repositorio: <repo>/../apidian
+# nginx solo escucha en 127.0.0.1. Nunca exponga este stack: ApiDian tiene vulnerabilidades conocidas.
 name: apidian-reference
 
 services:
@@ -18,15 +18,16 @@ services:
       interval: 5s
       retries: 30
 
-  # nginx's config (apidian/docker/default.conf) expects the PHP service to be called php_api.
+  # La configuración de nginx (apidian/docker/default.conf) espera que el servicio PHP se llame php_api.
   php_api:
-    # The repo Dockerfile only adds poppler-utils (RUT PDF parsing) and its apt sources are gone.
+    # El Dockerfile del repositorio solo agrega poppler-utils (lectura del PDF del RUT) y sus fuentes apt
+    # ya no existen.
     image: rash07/php-fpm:8.2
     working_dir: /var/www/html
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
-      # Fixed, non-secret key: this instance only runs locally to produce fixtures.
+      # Clave fija, no secreta: esta instancia solo corre localmente para producir fixtures.
       APP_KEY: "base64:Z29sZGVuLWNhcHR1cmUtbG9jYWwtb25seS1rZXkhIQ=="
       APP_URL: http://localhost:8081
       DB_CONNECTION: mysql
@@ -38,7 +39,7 @@ services:
       LOG_CHANNEL: stderr
     volumes:
       - ../../../../apidian:/var/www/html
-      # vendor lives in a Docker volume: unzipping onto a Windows bind mount is too slow.
+      # vendor vive en un volumen de Docker: descomprimir sobre un bind mount de Windows es demasiado lento.
       - vendor:/var/www/html/vendor
     depends_on:
       db:

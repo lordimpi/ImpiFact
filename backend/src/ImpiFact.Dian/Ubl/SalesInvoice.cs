@@ -3,36 +3,38 @@ using ImpiFact.Dian.Cufe;
 namespace ImpiFact.Dian.Ubl;
 
 /// <summary>
-/// Input of <see cref="InvoiceUblBuilder"/>: a national sales invoice (DIAN type 01) with every
-/// catalog value already resolved to the code and name written in the XML (ADR-26). Amounts are
-/// raw <see cref="decimal"/> values; the builder rounds them with DianRounding when writing.
+/// Entrada de <see cref="InvoiceUblBuilder"/>: una factura de venta nacional (tipo 01 de la DIAN) con cada
+/// valor de catálogo ya resuelto al código y al nombre que se escriben en el XML (ADR-26). Los valores son
+/// <see cref="decimal"/> sin redondear; el constructor los redondea con DianRounding al escribirlos.
 /// </summary>
 public sealed record SalesInvoice
 {
     public required DianEnvironment Environment { get; init; }
 
-    /// <summary>Operation type code written in cbc:CustomizationID (10 = standard).</summary>
+    /// <summary>Código del tipo de operación que se escribe en cbc:CustomizationID (10 = estándar).</summary>
     public required string OperationTypeCode { get; init; }
 
-    /// <summary>Document type code written in cbc:InvoiceTypeCode (01 = national sales invoice).</summary>
+    /// <summary>
+    /// Código del tipo de documento que se escribe en cbc:InvoiceTypeCode (01 = factura de venta nacional).
+    /// </summary>
     public required string InvoiceTypeCode { get; init; }
 
     public required NumberingResolution Resolution { get; init; }
 
-    /// <summary>Consecutive number; the document ID is the resolution prefix followed by it.</summary>
+    /// <summary>Número consecutivo; el ID del documento es el prefijo de la resolución seguido de él.</summary>
     public required long Number { get; init; }
 
     public required DateOnly IssueDate { get; init; }
 
-    /// <summary>Local Colombian time; the XML always carries the -05:00 offset.</summary>
+    /// <summary>Hora local de Colombia; el XML siempre lleva el desfase -05:00.</summary>
     public required TimeOnly IssueTime { get; init; }
 
     public required SoftwareCredentials Software { get; init; }
 
-    /// <summary>Currency of the issuing company (COP). Lines, taxes and totals use it.</summary>
+    /// <summary>Moneda de la empresa emisora (COP). La usan las líneas, los impuestos y los totales.</summary>
     public required string LocalCurrencyCode { get; init; }
 
-    /// <summary>Set when the invoice is issued in another currency.</summary>
+    /// <summary>Se asigna cuando la factura se emite en otra moneda.</summary>
     public ForeignCurrency? ForeignCurrency { get; init; }
 
     public required InvoiceParty Supplier { get; init; }
@@ -41,24 +43,24 @@ public sealed record SalesInvoice
 
     public required PaymentTerms Payment { get; init; }
 
-    /// <summary>Document-level allowances and charges.</summary>
+    /// <summary>Descuentos y cargos a nivel de documento.</summary>
     public IReadOnlyList<AllowanceCharge> AllowanceCharges { get; init; } = [];
 
-    /// <summary>Tax subtotals; the builder groups them by tax scheme into cac:TaxTotal.</summary>
+    /// <summary>Subtotales de impuestos; el constructor los agrupa por esquema tributario en cac:TaxTotal.</summary>
     public IReadOnlyList<TaxSubtotal> TaxSubtotals { get; init; } = [];
 
-    /// <summary>Withholding subtotals; grouped by tax scheme into cac:WithholdingTaxTotal.</summary>
+    /// <summary>Subtotales de retenciones; se agrupan por esquema tributario en cac:WithholdingTaxTotal.</summary>
     public IReadOnlyList<TaxSubtotal> WithholdingSubtotals { get; init; } = [];
 
     public required MonetaryTotals Totals { get; init; }
 
     public required IReadOnlyList<InvoiceLine> Lines { get; init; }
 
-    /// <summary>Document number as written in cbc:ID.</summary>
+    /// <summary>Número del documento tal como se escribe en cbc:ID.</summary>
     public string DocumentNumber => Resolution.Prefix + Number.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
 
-/// <summary>DIAN numbering resolution that authorizes the invoice number.</summary>
+/// <summary>Resolución de numeración de la DIAN que autoriza el número de la factura.</summary>
 public sealed record NumberingResolution(
     string AuthorizationNumber,
     DateOnly StartDate,
@@ -68,58 +70,62 @@ public sealed record NumberingResolution(
     long To,
     string TechnicalKey);
 
-/// <summary>Software registered with the DIAN; enters sts:SoftwareID and sts:SoftwareSecurityCode.</summary>
+/// <summary>Software registrado ante la DIAN; entra en sts:SoftwareID y sts:SoftwareSecurityCode.</summary>
 public sealed record SoftwareCredentials(string SoftwareId, string Pin);
 
 /// <summary>
-/// Foreign document currency. cac:PaymentExchangeRate is written only when both the rate and its
-/// date are known.
+/// Moneda extranjera del documento. cac:PaymentExchangeRate solo se escribe cuando se conocen tanto la
+/// tasa como su fecha.
 /// </summary>
 public sealed record ForeignCurrency(string CurrencyCode, decimal? CalculationRate, DateOnly? CalculationRateDate);
 
-/// <summary>Supplier or customer.</summary>
+/// <summary>Proveedor o cliente.</summary>
 public sealed record InvoiceParty
 {
-    /// <summary>Organization type code written in cbc:AdditionalAccountID (1 legal entity, 2 natural person).</summary>
+    /// <summary>
+    /// Código del tipo de organización que se escribe en cbc:AdditionalAccountID (1 persona jurídica,
+    /// 2 persona natural).
+    /// </summary>
     public required string OrganizationTypeCode { get; init; }
 
     public required string IdentificationNumber { get; init; }
 
-    /// <summary>Verification digit; written as an empty schemeID when absent.</summary>
+    /// <summary>Dígito de verificación; se escribe como un schemeID vacío cuando no existe.</summary>
     public string? CheckDigit { get; init; }
 
-    /// <summary>Identification type code (31 NIT, 13 citizenship card, ...).</summary>
+    /// <summary>Código del tipo de identificación (31 NIT, 13 cédula de ciudadanía, ...).</summary>
     public required string IdentificationTypeCode { get; init; }
 
     public required string Name { get; init; }
 
-    /// <summary>When null the physical location and the registration address are omitted.</summary>
+    /// <summary>Cuando es null se omiten la ubicación física y la dirección de registro.</summary>
     public PartyAddress? Address { get; init; }
 
-    /// <summary>Regime code written as the listName of cbc:TaxLevelCode (48, 49).</summary>
+    /// <summary>Código del régimen que se escribe como listName de cbc:TaxLevelCode (48, 49).</summary>
     public required string RegimeCode { get; init; }
 
-    /// <summary>Fiscal liability code written in cbc:TaxLevelCode (O-23, R-99-PN, ...).</summary>
+    /// <summary>Código de responsabilidad fiscal que se escribe en cbc:TaxLevelCode (O-23, R-99-PN, ...).</summary>
     public required string LiabilityCode { get; init; }
 
     public required string TaxSchemeCode { get; init; }
 
     public required string TaxSchemeName { get; init; }
 
-    /// <summary>Merchant registration number; may be empty.</summary>
+    /// <summary>Número de matrícula mercantil; puede estar vacío.</summary>
     public string MerchantRegistration { get; init; } = "";
 
     public string? Telephone { get; init; }
 
     public string? Email { get; init; }
 
-    /// <summary>The DIAN final consumer (222222222222) carries no contact data.</summary>
+    /// <summary>El consumidor final de la DIAN (222222222222) no lleva datos de contacto.</summary>
     public bool IsFinalConsumer => IdentificationNumber == "222222222222";
 }
 
 /// <summary>
-/// Address of a party. <see cref="CityName"/> is kept as stored in the catalog: the builder trims it
-/// everywhere except in the supplier's physical location, where ApiDian writes it untrimmed.
+/// Dirección de una parte. <see cref="CityName"/> se conserva como está guardado en el catálogo: el
+/// constructor lo recorta en todas partes excepto en la ubicación física del proveedor, donde ApiDian lo
+/// escribe sin recortar.
 /// </summary>
 public sealed record PartyAddress(
     string MunicipalityCode,
@@ -131,32 +137,32 @@ public sealed record PartyAddress(
     string CountryName,
     string LanguageCode);
 
-/// <summary>Payment form (cash/credit) and method.</summary>
+/// <summary>Forma de pago (contado/crédito) y medio de pago.</summary>
 public sealed record PaymentTerms(string FormCode, string MethodCode, DateOnly? DueDate, int? DurationDays);
 
-/// <summary>A discount (allowance) or a charge, at document or line level.</summary>
+/// <summary>Un descuento (allowance) o un cargo, a nivel de documento o de línea.</summary>
 public sealed record AllowanceCharge
 {
     public required bool IsCharge { get; init; }
 
-    /// <summary>DIAN discount reason code; written only for allowances.</summary>
+    /// <summary>Código de motivo de descuento de la DIAN; solo se escribe para descuentos.</summary>
     public string? ReasonCode { get; init; }
 
     public required string Reason { get; init; }
 
-    /// <summary>Percentage; when null the builder uses Amount / BaseAmount * 100 (0 when there is no base).</summary>
+    /// <summary>Porcentaje; cuando es null el constructor usa Amount / BaseAmount * 100 (0 cuando no hay base).</summary>
     public decimal? MultiplierFactorNumeric { get; init; }
 
     public required decimal Amount { get; init; }
 
-    /// <summary>Written only when present.</summary>
+    /// <summary>Solo se escribe cuando está presente.</summary>
     public decimal? BaseAmount { get; init; }
 }
 
-/// <summary>One tax or withholding subtotal.</summary>
+/// <summary>Un subtotal de impuesto o de retención.</summary>
 public sealed record TaxSubtotal
 {
-    /// <summary>DIAN tax scheme code (01 IVA, 04 INC, 22 INC bags, 05 ReteIVA, ...).</summary>
+    /// <summary>Código del esquema tributario de la DIAN (01 IVA, 04 INC, 22 INC bolsas, 05 ReteIVA, ...).</summary>
     public required string SchemeCode { get; init; }
 
     public required string SchemeName { get; init; }
@@ -165,17 +171,17 @@ public sealed record TaxSubtotal
 
     public required decimal TaxAmount { get; init; }
 
-    /// <summary>Written only when present.</summary>
+    /// <summary>Solo se escribe cuando está presente.</summary>
     public decimal? Percent { get; init; }
 
-    /// <summary>Set for fixed-value taxes (per unit), such as the plastic bag tax.</summary>
+    /// <summary>Se asigna para impuestos de valor fijo (por unidad), como el impuesto a las bolsas plásticas.</summary>
     public FixedValueTax? FixedValue { get; init; }
 }
 
-/// <summary>Per-unit data of a fixed-value tax.</summary>
+/// <summary>Datos por unidad de un impuesto de valor fijo.</summary>
 public sealed record FixedValueTax(string UnitCode, decimal BaseUnitMeasure, decimal PerUnitAmount);
 
-/// <summary>Values of cac:LegalMonetaryTotal. Optional totals are written only when present.</summary>
+/// <summary>Valores de cac:LegalMonetaryTotal. Los totales opcionales solo se escriben cuando están presentes.</summary>
 public sealed record MonetaryTotals
 {
     public required decimal LineExtensionAmount { get; init; }
@@ -193,7 +199,7 @@ public sealed record MonetaryTotals
     public required decimal PayableAmount { get; init; }
 }
 
-/// <summary>An invoice line.</summary>
+/// <summary>Una línea de la factura.</summary>
 public sealed record InvoiceLine
 {
     public required string UnitCode { get; init; }
@@ -202,7 +208,7 @@ public sealed record InvoiceLine
 
     public required decimal LineExtensionAmount { get; init; }
 
-    /// <summary>A free line also carries its reference price in cac:PricingReference.</summary>
+    /// <summary>Una línea gratuita también lleva su precio de referencia en cac:PricingReference.</summary>
     public required bool IsFreeOfCharge { get; init; }
 
     public required string Description { get; init; }
@@ -220,5 +226,5 @@ public sealed record InvoiceLine
     public IReadOnlyList<TaxSubtotal> TaxSubtotals { get; init; } = [];
 }
 
-/// <summary>Standard item identification scheme (999 = taxpayer's own standard).</summary>
+/// <summary>Esquema de identificación estándar del artículo (999 = estándar propio del contribuyente).</summary>
 public sealed record ItemIdentificationScheme(string Code, string Name, string AgencyId);

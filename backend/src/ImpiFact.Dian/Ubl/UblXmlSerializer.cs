@@ -3,11 +3,12 @@ using System.Text;
 namespace ImpiFact.Dian.Ubl;
 
 /// <summary>
-/// Writes a <see cref="UblElement"/> tree byte for byte as PHP's DOMDocument::saveXML does with
-/// formatOutput on (the reference the DIAN golden fixtures were captured with): the XML
-/// declaration with standalone="no", two-space indentation, LF line ends, empty elements as
-/// <c>&lt;x/&gt;</c> without a space, non-ASCII characters as raw UTF-8 and a final newline.
-/// .NET's XmlWriter differs on several of these points (for example it writes <c>&lt;x /&gt;</c>).
+/// Escribe un árbol <see cref="UblElement"/> byte a byte como lo hace DOMDocument::saveXML de PHP con
+/// formatOutput activado (la referencia con la que se capturaron las fixtures golden de la DIAN): la
+/// declaración XML con standalone="no", indentación de dos espacios, finales de línea LF, elementos
+/// vacíos como <c>&lt;x/&gt;</c> sin espacio, caracteres no ASCII como UTF-8 sin escapar y un salto de
+/// línea final. El XmlWriter de .NET difiere en varios de estos puntos (por ejemplo, escribe
+/// <c>&lt;x /&gt;</c>).
 /// </summary>
 public static class UblXmlSerializer
 {
@@ -24,7 +25,7 @@ public static class UblXmlSerializer
         return builder.ToString();
     }
 
-    /// <summary>Serializes to UTF-8 bytes without a byte order mark.</summary>
+    /// <summary>Serializa a bytes UTF-8 sin marca de orden de bytes (BOM).</summary>
     public static byte[] SerializeToUtf8(UblElement root) => new UTF8Encoding(false).GetBytes(Serialize(root));
 
     private static void Write(StringBuilder builder, UblElement element, int depth)

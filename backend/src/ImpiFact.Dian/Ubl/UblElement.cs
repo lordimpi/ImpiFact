@@ -1,9 +1,9 @@
 namespace ImpiFact.Dian.Ubl;
 
 /// <summary>
-/// Minimal element tree for UBL documents. Names are written as given (prefix:local); namespace
-/// declarations are ordinary attributes of the root, so the output keeps their exact order.
-/// An element holds either text or child elements, never both.
+/// Árbol mínimo de elementos para documentos UBL. Los nombres se escriben tal como se reciben
+/// (prefijo:local); las declaraciones de espacios de nombres son atributos comunes de la raíz, así que la
+/// salida conserva su orden exacto. Un elemento contiene texto o elementos hijos, nunca ambos.
 /// </summary>
 public sealed class UblElement
 {
@@ -20,14 +20,14 @@ public sealed class UblElement
 
     public string Name { get; }
 
-    /// <summary>Text content; null or empty means the element has no text node.</summary>
+    /// <summary>Contenido de texto; null o vacío significa que el elemento no tiene nodo de texto.</summary>
     public string? Text => _text;
 
     public IReadOnlyList<KeyValuePair<string, string>> Attributes => _attributes;
 
     public IReadOnlyList<UblElement> Children => _children;
 
-    /// <summary>Adds an attribute; attributes are written in the order they are added.</summary>
+    /// <summary>Agrega un atributo; los atributos se escriben en el orden en que se agregan.</summary>
     public UblElement Attr(string name, string value)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
@@ -36,7 +36,7 @@ public sealed class UblElement
         return this;
     }
 
-    /// <summary>Appends a child element and returns this element.</summary>
+    /// <summary>Agrega un elemento hijo y devuelve este elemento.</summary>
     public UblElement Add(UblElement child)
     {
         ArgumentNullException.ThrowIfNull(child);
@@ -49,10 +49,10 @@ public sealed class UblElement
         return this;
     }
 
-    /// <summary>Appends a child element with text content and returns this element.</summary>
+    /// <summary>Agrega un elemento hijo con contenido de texto y devuelve este elemento.</summary>
     public UblElement Add(string name, string text) => Add(new UblElement(name, text));
 
-    /// <summary>Appends a new child element and returns the child, to keep building inside it.</summary>
+    /// <summary>Agrega un nuevo elemento hijo y devuelve el hijo, para seguir construyendo dentro de él.</summary>
     public UblElement AddChild(string name)
     {
         var child = new UblElement(name);
@@ -60,7 +60,7 @@ public sealed class UblElement
         return child;
     }
 
-    /// <summary>Sets the text content; the element must have no children.</summary>
+    /// <summary>Asigna el contenido de texto; el elemento no debe tener hijos.</summary>
     public UblElement SetText(string text)
     {
         ArgumentNullException.ThrowIfNull(text);

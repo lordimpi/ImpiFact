@@ -17,7 +17,7 @@ public class XmlSignerTests
     private const string SignedSignatureProperties =
         SignaturePath + "/ds:Object/xades:QualifyingProperties/xades:SignedProperties/xades:SignedSignatureProperties";
 
-    // 10:30:45.123 in Colombia.
+    // 10:30:45.123 en Colombia.
     private static readonly DateTimeOffset SigningTime = new(2026, 11, 15, 15, 30, 45, 123, TimeSpan.Zero);
 
     public static IEnumerable<TestCaseData> GoldenCases() =>
@@ -74,7 +74,8 @@ public class XmlSignerTests
         Assert.That(CheckSignature(signed, other), Is.False);
     }
 
-    // Inclusive C14N carries inherited xml:* attributes onto a canonicalized subtree, not only namespaces.
+    // La C14N inclusiva lleva los atributos xml:* heredados a un subárbol canonicalizado, no solo los
+    // espacios de nombres.
     [TestCase("xml:lang=\"es\"")]
     [TestCase("xml:space=\"default\"")]
     public void Inherited_xml_attributes_on_the_root_still_verify(string attribute)
@@ -175,8 +176,9 @@ public class XmlSignerTests
     [Test]
     public void Issuer_name_follows_rfc_2253_with_escaping_and_hex_for_unnamed_attributes()
     {
-        // The builder encodes the last added RDN first, so RFC 2253 (last encoded RDN first) lists C first;
-        // "openssl x509 -nameopt RFC2253" prints the same, except that it names the e-mail attribute.
+        // El constructor codifica primero el último RDN agregado, así que RFC 2253 (primero el último RDN
+        // codificado) lista primero C; "openssl x509 -nameopt RFC2253" imprime lo mismo, salvo que le pone
+        // nombre al atributo de correo electrónico.
         var builder = new X500DistinguishedNameBuilder();
         builder.AddCountryOrRegion("CO");
         builder.AddOrganizationName("Pruebas, S.A.S.");

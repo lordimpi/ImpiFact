@@ -4,9 +4,9 @@ using ImpiFact.Dian.Signing;
 namespace ImpiFact.Dian.Tests.Signing;
 
 /// <summary>
-/// Writes every golden document signed, plus the public certificate, for tools/signature-check (xmlsec1).
-/// Explicit: it only runs when selected by name, and only into a directory outside the repository.
-/// The private key is never written.
+/// Escribe firmados todos los documentos golden, más el certificado público, para tools/signature-check
+/// (xmlsec1). Explícito: solo se ejecuta cuando se selecciona por nombre, y solo en un directorio fuera
+/// del repositorio. La clave privada nunca se escribe.
 /// </summary>
 public class SignatureSampleWriter
 {
@@ -31,7 +31,7 @@ public class SignatureSampleWriter
         var signedDirectory = Path.Combine(directory, "signed");
         Directory.CreateDirectory(signedDirectory);
 
-        // One file per golden case (invoices, credit notes, debit note), named <type>.<case>.xml.
+        // Un archivo por caso golden (facturas, notas crédito, nota débito), llamado <type>.<case>.xml.
         foreach (var fixture in GoldenFixtures.All())
         {
             var signed = XmlSigner.Sign(fixture.ExpectedXml, TestCertificates.Signer, signingTime);
@@ -46,7 +46,8 @@ public class SignatureSampleWriter
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
-            // The git root (a .git folder, or a .git file in a worktree), so no sample lands anywhere in the repository.
+            // La raíz de git (una carpeta .git, o un archivo .git en un worktree), para que ninguna muestra quede
+            // en ninguna parte del repositorio.
             if (Directory.Exists(Path.Combine(dir.FullName, ".git")) || File.Exists(Path.Combine(dir.FullName, ".git")))
             {
                 return dir.FullName;

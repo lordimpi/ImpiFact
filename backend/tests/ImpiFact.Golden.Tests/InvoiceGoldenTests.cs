@@ -5,17 +5,17 @@ using ImpiFact.Dian.Ubl;
 namespace ImpiFact.Golden.Tests;
 
 /// <summary>
-/// ApiDian golden cases: input.json mapped through the fixed capture context must produce the
-/// same bytes as expected.xml and the same CUFE as expected.cufe.
+/// Casos golden de ApiDian: input.json mapeado a través del contexto fijo de captura debe producir los
+/// mismos bytes que expected.xml y el mismo CUFE que expected.cufe.
 /// </summary>
 public sealed class InvoiceGoldenTests
 {
     /// <summary>
-    /// expected.xml is the signed XML with the ds:Signature element cut out by a regular
-    /// expression, which leaves the second ext:ExtensionContent as an explicit start/end pair. The
-    /// XML before signing has that element empty, written <c>&lt;ext:ExtensionContent/&gt;</c> like
-    /// every other empty element. This is the only normalization, and it is applied to exactly
-    /// that one spot.
+    /// expected.xml es el XML firmado con el elemento ds:Signature recortado mediante una expresión
+    /// regular, lo que deja el segundo ext:ExtensionContent como un par explícito de apertura y cierre. El
+    /// XML antes de firmar tiene ese elemento vacío, escrito <c>&lt;ext:ExtensionContent/&gt;</c> como
+    /// cualquier otro elemento vacío. Esta es la única normalización, y se aplica exactamente a ese
+    /// único punto.
     /// </summary>
     internal const string SignatureSlotInFixture = "<ext:ExtensionContent></ext:ExtensionContent>";
 
@@ -62,7 +62,9 @@ public sealed class InvoiceGoldenTests
         return new UTF8Encoding(false).GetBytes(normalized);
     }
 
-    /// <summary>Reports the first differing line with both values, making whitespace visible.</summary>
+    /// <summary>
+    /// Informa la primera línea que difiere con ambos valores, haciendo visibles los espacios en blanco.
+    /// </summary>
     internal static string DescribeFirstDifference(string expected, string actual)
     {
         var expectedLines = expected.Split('\n');

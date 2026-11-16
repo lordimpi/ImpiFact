@@ -453,6 +453,7 @@ Convenciones que sigue todo el código del repositorio. Los documentos de `docs/
 
 **Reglas**
 
+- Idioma (15-nov): comentarios y documentación XML (`///`) en español neutro y profesional; identificadores, nombres de pruebas, mensajes de excepción y registros en inglés, como es convención en .NET.
 - .NET 10, C# con `Nullable` y `TreatWarningsAsErrors`.
 - Clean Architecture: `Domain` sin dependencias, `Application` solo con puertos y `Dian` puro. Las pruebas de arquitectura deben pasar.
 - Sin MediatR ni AutoMapper. Casos de uso con `IHandler<TIn, TOut>` y decoradores; mapeo con Mapster.

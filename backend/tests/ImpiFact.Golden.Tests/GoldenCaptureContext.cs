@@ -1,9 +1,9 @@
 namespace ImpiFact.Golden.Tests;
 
 /// <summary>
-/// Fixed configuration ApiDian had when the golden fixtures were captured. Mirrors
-/// tools/golden-capture/capture.py (COMPANY, SOFTWARE_ID, SOFTWARE_PIN, TECHNICAL_KEY and the SETP
-/// resolution) plus the ApiDian defaults that script relies on. Keep both in sync.
+/// Configuración fija que tenía ApiDian cuando se capturaron las fixtures golden. Refleja
+/// tools/golden-capture/capture.py (COMPANY, SOFTWARE_ID, SOFTWARE_PIN, TECHNICAL_KEY y la resolución
+/// SETP) más los valores por defecto de ApiDian de los que depende ese script. Mantenga ambos sincronizados.
 /// </summary>
 public static class GoldenCaptureContext
 {
@@ -31,23 +31,23 @@ public static class GoldenCaptureContext
     public const long ResolutionFrom = 990000000;
     public const long ResolutionTo = 995000000;
 
-    // ApiDian defaults that capture.py does not override.
+    // Valores por defecto de ApiDian que capture.py no sobrescribe.
 
-    /// <summary>type_environment_id 2: testing (habilitación).</summary>
+    /// <summary>type_environment_id 2: pruebas (habilitación).</summary>
     public const int EnvironmentId = 2;
 
     /// <summary>type_currency_id 35: COP.</summary>
     public const int CompanyCurrencyId = 35;
 
-    /// <summary>country_id 46: Colombia, for the company and the customers.</summary>
+    /// <summary>country_id 46: Colombia, para la empresa y los clientes.</summary>
     public const int CountryId = 46;
 
     /// <summary>language_id 79: es.</summary>
     public const int LanguageId = 79;
 
-    /// <summary>tax_id 1: IVA, the tax scheme of the company and the customers.</summary>
+    /// <summary>tax_id 1: IVA, el esquema tributario de la empresa y de los clientes.</summary>
     public const int PartyTaxId = 1;
 
-    /// <summary>type_operation_id 10: standard operation.</summary>
+    /// <summary>type_operation_id 10: operación estándar.</summary>
     public const int OperationTypeId = 10;
 }

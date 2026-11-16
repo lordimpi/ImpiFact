@@ -1,11 +1,11 @@
-// Phase 1 prototype: builds a sample national invoice, signs it with XAdES-EPES and packs it
-// into the ZIP the DIAN expects. Phase 1a stops here; sending to the DIAN arrives in phase 1b.
+// Prototipo de la fase 1: construye una factura nacional de ejemplo, la firma con XAdES-EPES y la empaca
+// en el ZIP que espera la DIAN. La fase 1a llega hasta aquí; el envío a la DIAN llega en la fase 1b.
 //
-// Usage (from the backend/ folder):
+// Uso (desde la carpeta backend/):
 //   dotnet run --project tools/ImpiFact.Prototype -- [--out <dir>] [--cert <file.p12> --password <pwd>]
 //
-// Without --cert a throwaway self-signed certificate is created in memory. It is enough to check the
-// signature locally, but the DIAN will not accept it.
+// Sin --cert se crea en memoria un certificado autofirmado desechable. Basta para verificar la firma
+// localmente, pero la DIAN no lo aceptará.
 
 using System.Globalization;
 using System.IO.Compression;
@@ -36,7 +36,8 @@ var xmlName = DianFileName("fv", invoice.Supplier.IdentificationNumber, invoice.
 var zipName = DianFileName("z", invoice.Supplier.IdentificationNumber, invoice.IssueDate, sequence: 1) + ".zip";
 
 File.WriteAllText(Path.Combine(outputDirectory, "unsigned.xml"), built.Xml, new UTF8Encoding(false));
-// Public certificate only (never the private key), so tools/signature-check can verify the output with xmlsec1.
+// Solo el certificado público (nunca la clave privada), para que tools/signature-check pueda verificar la
+// salida con xmlsec1.
 File.WriteAllText(Path.Combine(outputDirectory, "signer.pem"), certificate.ExportCertificatePem());
 File.WriteAllText(Path.Combine(outputDirectory, xmlName), signed, new UTF8Encoding(false));
 using (var zip = ZipFile.Open(Path.Combine(outputDirectory, zipName), ZipArchiveMode.Create))
@@ -83,7 +84,8 @@ static bool VerifySignature(string signedXml)
     return signature.CheckSignature();
 }
 
-// DIAN file names: prefix + supplier NIT (10 digits) + provider code 000 + 2-digit year + 8-digit sequence.
+// Nombres de archivo de la DIAN: prefijo + NIT del proveedor (10 dígitos) + código del proveedor tecnológico
+// 000 + año de 2 dígitos + consecutivo de 8 dígitos.
 static string DianFileName(string prefix, string nit, DateOnly issueDate, int sequence) =>
     string.Create(CultureInfo.InvariantCulture,
         $"{prefix}{nit.PadLeft(10, '0')}000{issueDate:yy}{sequence:D8}");

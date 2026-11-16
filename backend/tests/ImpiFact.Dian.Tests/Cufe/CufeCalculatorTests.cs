@@ -6,7 +6,7 @@ namespace ImpiFact.Dian.Tests.Cufe;
 
 public class CufeCalculatorTests
 {
-    // Fixed values used by tools/golden-capture when the fixtures were produced.
+    // Valores fijos que usó tools/golden-capture cuando se produjeron las fixtures.
     private const string TechnicalKey = "fc8eac422eba16e22ffd8c6f94b3f40a6e38162c";
     private const string SoftwarePin = "12345";
 
@@ -79,7 +79,7 @@ public class CufeCalculatorTests
         string PartyNit(string party) => root.Element(Cac + party)!.Element(Cac + "Party")!
             .Element(Cac + "PartyTaxScheme")!.Element(Cbc + "CompanyID")!.Value;
 
-        // IssueTime carries the fixed Colombian offset, e.g. "10:00:00-05:00".
+        // IssueTime lleva el desfase fijo de Colombia, p. ej. "10:00:00-05:00".
         var time = root.Element(Cbc + "IssueTime")!.Value[..8];
 
         return new CufeInput(

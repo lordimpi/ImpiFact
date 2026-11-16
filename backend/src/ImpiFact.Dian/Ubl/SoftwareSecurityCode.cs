@@ -4,8 +4,8 @@ using System.Text;
 namespace ImpiFact.Dian.Ubl;
 
 /// <summary>
-/// sts:SoftwareSecurityCode: SHA-384, lowercase hex, of software ID + software PIN + document
-/// number (cbc:ID), without separators («Reglas del PHP», section 2.1).
+/// sts:SoftwareSecurityCode: SHA-384, hexadecimal en minúsculas, de ID del software + PIN del software +
+/// número del documento (cbc:ID), sin separadores («Reglas del PHP», sección 2.1).
 /// </summary>
 public static class SoftwareSecurityCode
 {

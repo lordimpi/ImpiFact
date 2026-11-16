@@ -5,14 +5,14 @@ using ImpiFact.Dian.Rounding;
 
 namespace ImpiFact.Dian.Cufe;
 
-/// <summary>DIAN environment, as written in cbc:ProfileExecutionID.</summary>
+/// <summary>Ambiente DIAN, tal como se escribe en cbc:ProfileExecutionID.</summary>
 public enum DianEnvironment
 {
     Production = 1,
     Testing = 2,
 }
 
-/// <summary>Values that enter the CUFE/CUDE, taken from the document totals.</summary>
+/// <summary>Valores que entran en el CUFE/CUDE, tomados de los totales del documento.</summary>
 public sealed record CufeInput(
     string Number,
     DateOnly IssueDate,
@@ -27,13 +27,13 @@ public sealed record CufeInput(
     DianEnvironment Environment);
 
 /// <summary>
-/// CUFE (invoices) and CUDE (notes): SHA-384, lowercase hex, over the concatenation of the
-/// values exactly as they are written in the XML (DIAN technical annex; confirmed against the
-/// ApiDian golden fixtures).
+/// CUFE (facturas) y CUDE (notas): SHA-384, hexadecimal en minúsculas, sobre la concatenación de los
+/// valores exactamente como se escriben en el XML (anexo técnico de la DIAN; confirmado contra las
+/// fixtures golden de ApiDian).
 /// </summary>
 public static class CufeCalculator
 {
-    /// <summary>Colombia has no daylight saving time: the XML always carries -05:00.</summary>
+    /// <summary>Colombia no tiene horario de verano: el XML siempre lleva -05:00.</summary>
     public const string ColombiaOffset = "-05:00";
 
     private const string IvaCode = "01";
