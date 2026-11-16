@@ -1,6 +1,8 @@
+using ImpiFact.Api.Companies;
 using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
 using ImpiFact.Api.Identity;
+using ImpiFact.Application;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Infrastructure.Options;
@@ -48,7 +50,9 @@ internal static class ApiComposition
         services.AddScopeAuthorization();
         services.AddOpenApi();
 
+        services.AddApplication();
         services.AddSingleton<IEndpointModule, IdentityEndpoints>();
+        services.AddSingleton<IEndpointModule, CompanyEndpoints>();
         return builder;
     }
 

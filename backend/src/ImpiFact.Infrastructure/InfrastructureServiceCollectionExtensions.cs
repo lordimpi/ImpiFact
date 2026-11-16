@@ -1,5 +1,6 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Persistence;
+using ImpiFact.Infrastructure.Companies;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Protection;
@@ -40,6 +41,7 @@ public static class InfrastructureServiceCollectionExtensions
         provider.AddServices(services);
         services.AddImpiFactDbContext<ImpiFactDbContext>();
         services.AddSecrets();
+        services.AddCompanies();
         return services;
     }
 
