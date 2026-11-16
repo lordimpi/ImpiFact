@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Dapper;
 using ImpiFact.Migrator;
 using Microsoft.Extensions.Configuration;
@@ -42,6 +44,40 @@ public sealed class MigratorTests
         Assert.That(output, Does.Contain("Catalogs synchronized: 0 inserted, 0 updated"));
     }
 
+    // La primera API key de plataforma de una instalación nueva (supuesto A5): se muestra una sola vez y solo su
+    // resumen SHA-256 queda en la base.
+    [Test]
+    public async Task Create_platform_key_prints_the_key_once_and_stores_only_its_hash()
+    {
+        var connectionString = MigratorDatabase.NewDatabase();
+        await RunAsync(connectionString, "migrate");
+
+        var (exitCode, output, _) = await RunAsync(connectionString, "create-platform-key", "Instalación inicial");
+
+        Assert.That(exitCode, Is.Zero);
+        var plain = output.Split('\n', StringSplitOptions.TrimEntries).Single(line => line.StartsWith("apk_", StringComparison.Ordinal));
+        await using var connection = new NpgsqlConnection(connectionString);
+        var row = await connection.QuerySingleAsync<(Guid? CompanyId, string Name, string Scopes, string KeyHash)>(
+            "select company_id, name, scopes, key_hash from api_keys");
+        Assert.Multiple(() =>
+        {
+            Assert.That(row.CompanyId, Is.Null);
+            Assert.That(row.Name, Is.EqualTo("Instalación inicial"));
+            Assert.That(row.Scopes, Is.EqualTo("platform:*"));
+            Assert.That(row.KeyHash, Is.EqualTo(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(plain)))));
+            Assert.That(row.KeyHash, Does.Not.Contain(plain));
+        });
+    }
+
+    [Test]
+    public async Task Create_platform_key_without_a_name_prints_the_usage()
+    {
+        var (exitCode, _, error) = await RunAsync(MigratorDatabase.NewDatabase(), "create-platform-key");
+
+        Assert.That(exitCode, Is.EqualTo(2));
+        Assert.That(error, Does.Contain("create-platform-key <name>"));
+    }
+
     [Test]
     public async Task An_unknown_command_prints_the_usage_and_exits_with_2()
     {
@@ -49,6 +85,7 @@ public sealed class MigratorTests
 
         Assert.That(exitCode, Is.EqualTo(2));
         Assert.That(error, Does.Contain("Usage: ImpiFact.Migrator migrate"));
+        Assert.That(error, Does.Contain("create-platform-key <name>"));
     }
 
     [Test]

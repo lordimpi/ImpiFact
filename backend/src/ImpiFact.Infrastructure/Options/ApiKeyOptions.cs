@@ -13,5 +13,6 @@ public sealed class ApiKeyOptions
     /// <summary>Prefijo de toda API key: letras minúsculas terminadas en guion bajo, por ejemplo «apk_».</summary>
     [Required]
     [RegularExpression("^[a-z]+_$")]
-    public string Prefix { get; set; } = "";
+    // Valor por defecto aquí y no solo en appsettings: la API y el Migrator deben reconocer las mismas llaves.
+    public string Prefix { get; set; } = "apk_";
 }

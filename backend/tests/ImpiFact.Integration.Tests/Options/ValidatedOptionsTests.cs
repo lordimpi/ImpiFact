@@ -74,7 +74,19 @@ public sealed class ValidatedOptionsTests
         var exception = Assert.Throws<AggregateException>(() => services.GetRequiredService<IStartupValidator>().Validate());
         var failedOptions = exception?.InnerExceptions.OfType<OptionsValidationException>().Select(failure => failure.OptionsType);
 
-        Assert.That(failedOptions, Is.EquivalentTo(new[] { typeof(DianOptions), typeof(JwtOptions), typeof(ApiKeyOptions), typeof(SecretsOptions) }));
+        // ApiKeyOptions no falla: su prefijo tiene valor por defecto («apk_») para que la API y el Migrator coincidan.
+        Assert.That(failedOptions, Is.EquivalentTo(new[] { typeof(DianOptions), typeof(JwtOptions), typeof(SecretsOptions) }));
+    }
+
+    [Test]
+    public void An_api_key_prefix_that_is_not_lowercase_letters_and_underscore_stops_startup()
+    {
+        var services = Build(new() { ["ApiKey:Prefix"] = "APK" },
+            (collection, configuration) => collection.AddValidatedOptions<ApiKeyOptions>(configuration, ApiKeyOptions.SectionName));
+
+        var exception = Assert.Throws<OptionsValidationException>(() => services.GetRequiredService<IStartupValidator>().Validate());
+
+        Assert.That(exception?.Message, Does.Contain("Prefix"));
     }
 
     [Test]

@@ -28,7 +28,6 @@ public static class IdentityServiceCollectionExtensions
         services.TryAddSingleton<IRefreshTokenFactory, RefreshTokenFactory>();
 
         services.TryAddSingleton<ApiKeyFormat>();
-        services.TryAddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
         services.TryAddSingleton<ApiKeyCache>();
         services.TryAddSingleton<IApiKeyCacheInvalidator>(serviceProvider => serviceProvider.GetRequiredService<ApiKeyCache>());
         services.TryAddSingleton<ApiKeyUsageRecorder>();
@@ -51,6 +50,7 @@ public static class IdentityServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddIdentityPersistence(this IServiceCollection services)
     {
+        services.TryAddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
         services.TryAddScoped<IApiKeyStore, EfApiKeyStore>();
         services.TryAddScoped<IRefreshTokenStore, EfRefreshTokenStore>();
         services.TryAddScoped<IUserStore, EfUserStore>();
