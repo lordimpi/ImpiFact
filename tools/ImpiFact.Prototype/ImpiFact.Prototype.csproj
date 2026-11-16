@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Temporary phase 1 prototype: not part of the solution and never shipped. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ImpiFact.Dian\ImpiFact.Dian.csproj" />
+  </ItemGroup>
+</Project>
