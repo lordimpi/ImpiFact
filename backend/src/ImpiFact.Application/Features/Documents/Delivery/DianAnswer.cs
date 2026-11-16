@@ -10,7 +10,8 @@ namespace ImpiFact.Application.Features.Documents.Delivery;
 /// (Arquitectura detallada, sección 7, pasos 8 y 10; supuesto C4 de la fase 4). Es pura: no guarda ni llama a nada.
 /// </summary>
 /// <remarks>
-/// Reglas, en orden: código <c>98</c> («en proceso») sigue en proceso; <c>IsValid</c> verdadero es aceptado, con
+/// Reglas, en orden: código <c>98</c> («en proceso») sigue en proceso; código <c>66</c> (GetStatus de un CUFE que la
+/// DIAN todavía no registra) no es una decisión, aunque traiga mensajes; <c>IsValid</c> verdadero es aceptado, con
 /// advertencias si trae notificaciones; <c>IsValid</c> falso con la regla 90 («documento procesado anteriormente») es
 /// un documento ya procesado que hay que reconciliar con GetStatus; <c>IsValid</c> falso con reglas de rechazo o con
 /// código <c>99</c> es rechazado. Cualquier otro resultado (por ejemplo, GetStatus de un documento que la DIAN todavía
@@ -21,6 +22,7 @@ namespace ImpiFact.Application.Features.Documents.Delivery;
 internal abstract partial record DianAnswer
 {
     private const string InProcessCode = "98";
+    private const string UnknownDocumentCode = "66";
     private const string RejectedCode = "99";
 
     private DianAnswer()
@@ -48,7 +50,7 @@ internal abstract partial record DianAnswer
     public static DianAnswer Classify(DianResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        if (result.StatusCode == InProcessCode)
+        if (result.StatusCode is InProcessCode or UnknownDocumentCode)
         {
             return new InProcess(result);
         }
@@ -111,7 +113,7 @@ internal abstract partial record DianAnswer
     /// <summary>La DIAN decidió: <see cref="Status"/> es Accepted, AcceptedWithWarnings o Rejected.</summary>
     public sealed record Decided(DocumentStatus Status, DianResult Result) : DianAnswer;
 
-    /// <summary>La DIAN todavía no tiene una decisión (código 98 o un resultado que no decide).</summary>
+    /// <summary>La DIAN todavía no tiene una decisión (código 98, código 66 o un resultado que no decide).</summary>
     public sealed record InProcess(DianResult? Result) : DianAnswer;
 
     /// <summary>Regla 90: la DIAN ya procesó un documento con ese CUFE; su estado se consulta con GetStatus.</summary>

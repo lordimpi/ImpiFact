@@ -206,6 +206,25 @@ public sealed class PollDianStatusTests
     }
 
     [Test]
+    public async Task A_cufe_the_dian_does_not_know_yet_is_not_a_rejection_and_is_polled_again()
+    {
+        await using var host = await DianSendHost.StartAsync();
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer, status: DocumentStatus.Unconfirmed, sentAt: host.Clock.UtcNow.AddMinutes(-2));
+        await host.EnqueuePollAsync(document, DianStatusQuery.GetStatus);
+        host.Dian.Reply(DianReplies.GetStatus(false, "66", "TrackId no existe en los registros de la DIAN."));
+
+        await host.RunOutboxAsync();
+
+        var polls = await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.PollDianStatus);
+        Assert.Multiple(async () =>
+        {
+            Assert.That((await host.DocumentAsync(document.Id)).Status, Is.EqualTo(DocumentStatus.Unconfirmed));
+            Assert.That(polls.Select(poll => poll.Status), Is.EqualTo(new[] { OutboxStatus.Done, OutboxStatus.Pending }));
+        });
+    }
+
+    [Test]
     public async Task A_poll_for_a_document_already_decided_does_nothing()
     {
         await using var host = await DianSendHost.StartAsync();

@@ -83,6 +83,14 @@ public sealed class DianAnswerTests
     }
 
     [Test]
+    public void Status_66_of_a_document_the_dian_does_not_know_yet_is_not_a_decision_even_with_messages()
+    {
+        var answer = DianAnswer.From(Answered("GetStatus", Result(false, "66", "TrackId no existe en los registros de la DIAN.")));
+
+        Assert.That(answer, Is.InstanceOf<DianAnswer.InProcess>());
+    }
+
+    [Test]
     public void An_empty_status_list_is_still_in_process()
     {
         var answer = DianAnswer.From(Call(DianCallOutcome.Answered, new DianResultResponse("GetStatusZip", [])));
