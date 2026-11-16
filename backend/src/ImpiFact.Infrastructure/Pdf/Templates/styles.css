@@ -1,0 +1,142 @@
+/* Estilos de la representación gráfica (PDF). Basados en la plantilla 1 de ApiDian, sin buscar igualdad de píxeles. */
+@page {
+    size: letter;
+    margin: 10mm 10mm 12mm 10mm;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    color: #000;
+    font-family: "Roboto", "Helvetica Neue", Arial, sans-serif;
+    font-size: 8px;
+}
+
+p {
+    margin: 0 0 2px 0;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+.full {
+    width: 100%;
+}
+
+.top {
+    vertical-align: top;
+}
+
+.center {
+    text-align: center;
+}
+
+.right {
+    text-align: right;
+}
+
+.title {
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.badge {
+    display: inline-block;
+    margin: 3px 0;
+    padding: 3px 6px;
+    border: 1px solid #000;
+    border-radius: 6px;
+    font-weight: 700;
+}
+
+.issuer-name {
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.labels td {
+    padding: 1px 4px 1px 0;
+    vertical-align: top;
+}
+
+.labels td:first-child {
+    white-space: nowrap;
+}
+
+.qr {
+    width: 90px;
+    height: 90px;
+}
+
+.grid {
+    width: 100%;
+    margin-top: 6px;
+}
+
+.grid th,
+.grid td {
+    padding: 2px 3px;
+    border: 1px solid #999;
+}
+
+.grid th {
+    background: #eee;
+    text-align: center;
+}
+
+.grid .num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.line-notes {
+    font-size: 7px;
+    font-style: italic;
+    font-weight: 700;
+}
+
+.summary {
+    width: 100%;
+    margin-top: 6px;
+}
+
+.summary > tbody > tr > td {
+    padding: 0 2px;
+    vertical-align: top;
+}
+
+.words {
+    margin-top: 6px;
+    font-size: 9px;
+    text-align: right;
+}
+
+.box {
+    margin-top: 6px;
+    padding: 3px;
+    border: 1px solid #999;
+}
+
+.reference {
+    margin-top: 6px;
+    padding: 4px;
+    border: 1px solid #999;
+    font-weight: 700;
+    text-align: center;
+}
+
+footer {
+    margin-top: 10px;
+    padding-top: 3px;
+    border-top: 1px solid #000;
+    font-size: 7px;
+}
+
+.uuid {
+    font-weight: 700;
+    word-break: break-all;
+}

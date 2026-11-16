@@ -1,0 +1,62 @@
+{{!-- Impuestos, retenciones y totales, en tres columnas; después el total en letras y las notas. --}}
+<table class="summary">
+    <tbody>
+        <tr>
+            <td style="width: 38%;">
+                <table class="grid">
+                    <thead>
+                        <tr><th colspan="4">Impuestos</th></tr>
+                        <tr><th>Tipo</th><th>Base</th><th>Porcentaje</th><th>Valor</th></tr>
+                    </thead>
+                    <tbody>
+                        {{#each Document.Taxes}}
+                        <tr><td>{{Name}}</td><td class="num">{{TaxableAmount}}</td><td class="num">{{Rate}}</td><td class="num">{{Amount}}</td></tr>
+                        {{/each}}
+                    </tbody>
+                </table>
+            </td>
+            <td style="width: 32%;">
+                <table class="grid">
+                    <thead>
+                        <tr><th colspan="4">Retenciones</th></tr>
+                        <tr><th>Tipo</th><th>Base</th><th>Porcentaje</th><th>Valor</th></tr>
+                    </thead>
+                    <tbody>
+                        {{#each Document.Withholdings}}
+                        <tr><td>{{Name}}</td><td class="num">{{TaxableAmount}}</td><td class="num">{{Rate}}</td><td class="num">{{Amount}}</td></tr>
+                        {{/each}}
+                    </tbody>
+                </table>
+            </td>
+            <td style="width: 30%;">
+                <table class="grid">
+                    <thead>
+                        <tr><th colspan="2">Totales</th></tr>
+                        <tr><th>Concepto</th><th>Valor</th></tr>
+                    </thead>
+                    <tbody>
+                        {{#with Document.Totals}}
+                        <tr><td>Nro Lineas:</td><td class="num">{{LineCount}}</td></tr>
+                        <tr><td>Base:</td><td class="num">{{LineExtension}}</td></tr>
+                        <tr><td>Impuestos:</td><td class="num">{{Taxes}}</td></tr>
+                        <tr><td>Retenciones:</td><td class="num">{{Withholdings}}</td></tr>
+                        <tr><td>Descuentos:</td><td class="num">{{Discounts}}</td></tr>
+                        {{/with}}
+                        {{#if Labels.ShowCharges}}
+                        {{#each Document.Charges}}
+                        <tr><td>{{Reason}}</td><td class="num">{{Amount}}</td></tr>
+                        {{/each}}
+                        {{/if}}
+                        {{#each Labels.TotalLabels}}
+                        <tr><td>{{this}}</td><td class="num"><strong>{{@root.Document.Totals.Payable}}</strong></td></tr>
+                        {{/each}}
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </tbody>
+</table>
+<p class="words"><strong>SON</strong>: {{Document.AmountInWords}} M/CTE*********.</p>
+{{#if Document.Notes}}
+<div class="box"><p><strong>NOTAS:</strong> {{Document.Notes}}</p></div>
+{{/if}}

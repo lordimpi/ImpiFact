@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>FACTURA ELECTRONICA Nro: {{Document.Prefix}} - {{Document.Number}}</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+{{> _header}}
+    <table class="full">
+        <tr>
+            <td class="top" style="width: 30%;">
+                <table class="labels">
+                    <tr><td>CC o NIT:</td><td>{{Document.Customer.Identification}}</td></tr>
+                    <tr><td>Cliente:</td><td>{{Document.Customer.Name}}</td></tr>
+                    <tr><td>Régimen:</td><td>{{Document.Customer.Regime}}</td></tr>
+                    {{#if Document.Payments}}
+                    <tr><td>Medio de Pago:</td><td>{{#each Document.Payments}}{{Method}}<br>{{/each}}</td></tr>
+                    {{/if}}
+                </table>
+            </td>
+            <td class="top" style="width: 28%;">
+                <table class="labels">
+                    <tr><td>Obligación:</td><td>{{Document.Customer.Liability}}</td></tr>
+                    <tr><td>Dirección:</td><td>{{Document.Customer.Address}}</td></tr>
+                    <tr><td>Ciudad:</td><td>{{Document.Customer.City}}</td></tr>
+                    {{#each Document.Payments}}{{#if @first}}
+                    <tr><td>Plazo Para Pagar:</td><td>{{DurationDays}} Días</td></tr>
+                    {{/if}}{{/each}}
+                </table>
+            </td>
+            <td class="top" style="width: 28%;">
+                <table class="labels">
+                    <tr><td>Teléfono:</td><td>{{Document.Customer.Phone}}</td></tr>
+                    <tr><td>Email:</td><td>{{Document.Customer.Email}}</td></tr>
+                    {{#each Document.Payments}}{{#if @first}}
+                    <tr><td>Forma de Pago:</td><td>{{Form}}</td></tr>
+                    <tr><td>Fecha Vencimiento:</td><td>{{DueDate}}</td></tr>
+                    {{/if}}{{/each}}
+                </table>
+            </td>
+            <td class="top right" style="width: 14%;">
+                <img class="qr" src="{{QrImage}}" alt="Código QR">
+            </td>
+        </tr>
+    </table>
+{{> _lines}}
+{{> _summary}}
+    {{#if Document.HeadNote}}<p class="center"><strong>{{Document.HeadNote}}</strong></p>{{/if}}
+{{> _footer}}
+</body>
+</html>

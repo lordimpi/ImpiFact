@@ -86,6 +86,19 @@ services:
         mc mb --ignore-existing "local/$$MINIO_BUCKET"
     restart: "no"
 
+  # Conversor de HTML a PDF del Worker (ADR-04): Chromium detrás de una API HTTP, sin estado ni secretos.
+  # La variante «-chromium» no trae LibreOffice, que el PDF no usa. Las pruebas de integración usan la misma imagen.
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0-chromium
+    ports:
+      # El Worker usa Pdf:GotenbergUrl = http://127.0.0.1:3000 (o http://gotenberg:3000 dentro de esta red).
+      - "127.0.0.1:${GOTENBERG_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres-data:
   minio-data:

@@ -1,5 +1,6 @@
 using ImpiFact.Application;
 using ImpiFact.Infrastructure.Options;
+using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.Persistence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,7 @@ public static class OutboxServiceCollectionExtensions
         services.AddApplication();
         services.AddOutboxHandlers();
         services.AddOutboxProcessing(configuration);
+        services.AddPdf(configuration);
         services.AddOptions<ResilienceOptions>()
             .Validate<IOptions<OutboxOptions>>(
                 (resilience, outbox) => 2 * resilience.TotalSeconds < outbox.Value.HandlerTimeoutSeconds,

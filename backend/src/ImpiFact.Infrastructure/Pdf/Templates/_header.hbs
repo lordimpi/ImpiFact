@@ -1,0 +1,26 @@
+{{!-- Encabezado: número, fechas y datos de la empresa emisora. Todo valor se escapa ({{ }}), nunca {{{ }}}. --}}
+<table class="full">
+    <tr>
+        <td class="center top" style="width: 22%;">
+            <p class="title">{{Labels.Title}}</p>
+            <span class="badge">{{Document.Prefix}} - {{Document.Number}}</span><br>
+            <span class="badge">Fecha Emisión: {{Document.IssueDate}}</span>
+            <p>Fecha Validación DIAN: {{Document.ValidationDate}} Hora Validación DIAN: {{Document.ValidationTime}}</p>
+        </td>
+        <td class="center top" style="width: 78%; padding: 0 8px;">
+            {{#with Document.Issuer}}
+            <p class="issuer-name">{{Name}}</p>
+            <p>NIT: {{Nit}} - {{Regime}} - Obligación: {{Liability}}</p>
+            {{/with}}
+            {{#with Document.Resolution}}
+            <p>Resolución de Facturación Electrónica No. {{Number}} de {{Date}}, Prefijo: {{Prefix}}, Rango {{From}} Al {{To}} - Vigencia Desde: {{ValidFrom}} Hasta: {{ValidTo}}</p>
+            {{/with}}
+            <p>{{Labels.Representation}}</p>
+            {{#with Document.Issuer}}
+            <p>{{Address}} - {{Location}} Teléfono - {{Phone}}</p>
+            <p>E-mail: {{Email}}</p>
+            {{/with}}
+        </td>
+    </tr>
+</table>
+<hr>

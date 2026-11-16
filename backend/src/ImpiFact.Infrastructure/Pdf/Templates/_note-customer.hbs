@@ -1,0 +1,33 @@
+{{!-- Adquiriente, QR y factura de referencia de las notas crédito y débito. --}}
+<table class="full">
+    <tr>
+        <td class="top" style="width: 50%;">
+            <table class="labels">
+                <tr><td>CC o NIT:</td><td>{{Document.Customer.Identification}}</td></tr>
+                <tr><td>Cliente:</td><td>{{Document.Customer.Name}}</td></tr>
+                <tr><td>Regimen:</td><td>{{Document.Customer.Regime}}</td></tr>
+                <tr><td>Obligación:</td><td>{{Document.Customer.Liability}}</td></tr>
+                <tr><td>Dirección:</td><td>{{Document.Customer.Address}}</td></tr>
+                <tr><td>Ciudad:</td><td>{{Document.Customer.City}}</td></tr>
+                <tr><td>Telefono:</td><td>{{Document.Customer.Phone}}</td></tr>
+                <tr><td>Email:</td><td>{{Document.Customer.Email}}</td></tr>
+            </table>
+        </td>
+        <td class="top" style="width: 30%;">
+            {{#if Document.Period}}
+            <table class="labels">
+                <tr><td>Periodo Facturado:</td><td>{{Document.Period}}</td></tr>
+            </table>
+            {{/if}}
+        </td>
+        <td class="top right" style="width: 20%;">
+            <img class="qr" src="{{QrImage}}" alt="Código QR">
+        </td>
+    </tr>
+</table>
+{{#with Document.Reference}}
+<div class="reference">
+    <p>Referencia: {{Number}} - Fecha: {{IssueDate}}</p>
+    <p>CUFE: <span class="uuid">{{Uuid}}</span></p>
+</div>
+{{/with}}
