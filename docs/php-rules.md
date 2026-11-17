@@ -217,9 +217,14 @@ Los dos controladores son copias casi idénticas. Se listan solo las diferencias
 
 ### 5.4 Consultas
 
-1. `status/document/{trackId}` y `status/zip/{trackId}`: consultan a la DIAN; si es válido, arman el AttachedDocument, pasan el documento a estado 1 y pueden enviar el correo (`StateController.php:37-436, 442-844`).
+1. `status/document/{trackId}` y `status/zip/{trackId}`: consultan a la DIAN; si es válido, arman el AttachedDocument, pasan el documento a estado 1 y pueden enviar el correo (`StateController.php:37-436, 442-844`). **ImpiFact:** la API no llama a la DIAN; responde con la última respuesta que guardó el Worker (que ya arma el AttachedDocument y encola el correo al aceptar). `reqzip` siempre es nulo porque no se guardan los sobres enviados; el segmento `GuardarEn` (carpeta del servidor) se ignora.
 2. `information/{nit}/{desde}/{hasta}` y `total_documents`: públicas; `information` devuelve los documentos en estado 1 de los tipos 1, 4, 5 y 15 (la variante paginada, de 100 en 100); `total_documents` solo cuenta, y cuenta 8 tipos: 1, 4, 5, 11, 13, 15, 26 y 25 (`ResumeController.php:24-232`).
 3. `next-consecutive` y `current_number`: misma regla que la sección 3.4.
+4. `xml/document/{trackId}`: el PHP pide el XML a la DIAN con GetXmlByDocumentKey (`XmlDocumentController.php`). **ImpiFact:** devuelve el XML firmado guardado con la misma forma (`Code` 100, `XmlBytesBase64`), solo de documentos aceptados.
+5. `download/{nit}/{archivo}/{type_response?}`: pública en el PHP, con `BASE64`, `INLINE` o descarga; `Attachment-` y `ZipAttachm-` se traducen al nombre del AttachedDocument (`DownloadController.php:154`, `Utils.php:12`). **ImpiFact:** exige `documents:read` y el NIT de la credencial; un archivo que no existe responde 404 con el mismo texto («No se encontro el archivo: …»).
+6. `regeneratepdf`: el PHP consulta GetStatus a la DIAN para validar el CUFE y regenera el PDF en la solicitud, con el cuerpo de una factura en la variante sin ruta (`RegeneratePDFController.php`). **ImpiFact:** no consulta a la DIAN (el estado guardado ya dice si fue aceptado), encola `RegeneratePdf` con los datos guardados del documento y del cuerpo solo lee `cufe`, `prefix` y `number`; responde sin `filebase64` (el PDF se descarga después).
+7. `send-email`: el PHP envía en la solicitud a `alternate_email` o al cliente, con `email_cc_list` (`SendEmailController.php:34-125`). **ImpiFact:** encola `SendEmail` con los destinatarios de la solicitud original; `alternate_email`, `email_cc_list`, `only_send_to_cc_list` y `base64graphicrepresentation` se aceptan y se ignoran, y una solicitud emitida sin `sendmail` responde 422.
+8. `numbering-range`: GetNumberingRange con el NIT de la empresa como `accountCode` y `accountCodeT` y el `IDSoftware` del cuerpo (`NumberingRangeController.php`). **ImpiFact:** igual, más los rangos leídos del sobre (`numbering_ranges`).
 
 ## 6. Respuestas a los [verificar] del modelo de datos
 

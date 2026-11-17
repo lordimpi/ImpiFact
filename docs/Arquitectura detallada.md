@@ -159,7 +159,7 @@ Clases de opciones: `DatabaseOptions`, `DianOptions`, `StorageOptions`, `Secrets
 ### 4.5 Eventos
 
 - **De dominio, en proceso:** `DocumentAccepted`, `DocumentRejected`, `CertificateExpiring`. Se despachan después de confirmar la transacción; los handlers suscritos (consumo de cuota, notificaciones, correo) no pueden hacer fallar la emisión.
-- **Entre procesos, por outbox:** `BuildDocumentXml`, `SendDocumentToDian`, `PollDianStatus`, `SendEmail`, `RenderPdf`. Se escriben en `outbox_messages` en la misma transacción que el cambio de estado y los procesa el Worker.
+- **Entre procesos, por outbox:** `BuildDocumentXml`, `SendDocumentToDian`, `PollDianStatus`, `SendEmail`, `RenderPdf`, `RegeneratePdf` y `RegenerateAttachedDocument` (estos dos los encolan las rutas `regeneratepdf` y `regenerate-attached-document`; guardan una revisión nueva del archivo y no envían correo). Se escriben en `outbox_messages` en la misma transacción que el cambio de estado y los procesa el Worker.
 
 ## 5. Puertos
 
@@ -353,6 +353,25 @@ El PHP respondía muchos errores con 200 y `success: false`. Los errores de vali
 ### 9.5 Archivos y descargas
 
 - Las rutas de descarga legadas (`download/{nit}/{archivo}`, `invoice/{nit}/{pdf}`, `receivedfile/...`) exigen autenticación y propiedad del NIT, o aceptan un token de URL firmada con vencimiento. Ya no existen rutas públicas adivinables.
+- `download/{nit}/{archivo}/{type_response?}` (también bajo `/api/download`) reconoce los nombres del PHP: `FES-`, `NCS-` o `NDS-{prefijo}{número}.xml` (XML firmado) y `.pdf`, `Attachment-{prefijo}{número}.xml` (AttachedDocument) y `ZipAttachm-{prefijo}{número}.zip` (el ZIP del correo, armado al vuelo). Entrega la revisión más reciente; `BASE64` responde `{success, message, filebase64}`, `INLINE` el archivo sin nombre de descarga. Alias canónico: `GET /api/v1/documents/{id}/files/{xml|pdf|attached-document|zip}`. Con `documents:read`.
+
+### 9.6 Rutas utilitarias de la primera entrega
+
+Ninguna espera a la DIAN (decisión C5 de la fase 4). Solo `numbering-range` la llama en vivo desde la API; las demás responden con lo que guardó el Worker o encolan el trabajo.
+
+| Ruta heredada (`/api/ubl2.1`) | Alias canónico | Alcance | Qué hace |
+| --- | --- | --- | --- |
+| `POST status/document/{trackId}[/{GuardarEn}]` | `GET /api/v1/documents/by-cufe/{cufe}/dian-status` | `documents:read` | Última respuesta guardada de SendBillSync, GetStatus o GetStatusZip del documento: `{success, message, ResponseDian, reqzip: null, rptazip, document}` |
+| `POST status/zip/{trackId}[/{GuardarEn}]` | `GET /api/v1/documents/zip/{zipKey}/dian-status` | `documents:read` | Última respuesta guardada de GetStatusZip para esa ZipKey |
+| `POST xml/document/{trackId}[/{GuardarEn}]` | `GET /api/v1/documents/by-cufe/{cufe}/xml` | `documents:read` | XML firmado guardado con la forma de GetXmlByDocumentKey; solo documentos aceptados |
+| `POST regeneratepdf[/{prefix}/{number}/{cufe}]` | `POST /api/v1/documents/{id}/pdf/regenerate` | `documents:write` | Encola `RegeneratePdf` |
+| `POST regenerate-attached-document` | `POST /api/v1/documents/{id}/attached-document/regenerate` | `documents:write` | Encola `RegenerateAttachedDocument`; exige ApplicationResponse guardado y certificado activo |
+| `POST send-email` | `POST /api/v1/documents/{id}/email` | `documents:write` | Deja `email_status` sin enviar y encola `SendEmail` con los destinatarios de la solicitud original |
+| `POST numbering-range` | `GET /api/v1/companies/{nit}/numbering-ranges?software_id=` | `config:write` | GetNumberingRange en vivo con el NIT de la empresa como emisor y proveedor: `{success, message, ResponseDian, certificate_days_left, operation_code, operation_description, numbering_ranges}`; SOAP Fault 422, sin respuesta 503 |
+
+- `ResponseDian` es el sobre SOAP completo convertido con las reglas del PHP (`DianLegacyJson`): hijos por nombre sin prefijo, atributos en `_attributes`, texto solo como valor y repetidos como lista.
+- Las regeneraciones y el correo solo valen para documentos `Accepted` o `AcceptedWithWarnings` (si no, 409 `document.not_accepted`); un documento de otra empresa responde 404. El documento se busca por `cufe` o por `prefix` y `number`, en ese orden, como el PHP.
+- `config/environment` y `certificate-end-date` ya estaban en el módulo Company (fase 2).
 - `config/certificate` (GET) **no se implementa**; se reemplaza por consulta de metadatos (`certificates-listing`).
 
 ## 10. Panel Angular (`web/`)
