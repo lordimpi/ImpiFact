@@ -138,6 +138,7 @@ Campos en este orden (IC:763-783): `success`, `message`, `send_email_success`, `
 - `send_email_success` y `send_email_date_time` usan `?? ` sobre un booleano y no reflejan si el correo salió (IC:766-767). **Bug del PHP.**
 - Si la DIAN responde HTML, `responseStore` recibe 12 argumentos de 13 y falla con `ArgumentCountError` (IC:525, 612). **Bug del PHP.**
 - `set de pruebas`: sin `success`, con `urlinvoiceattached = "Attachment-…"` (IC:1087-1102).
+- **ImpiFact:** `urlinvoicexml` y `urlinvoicepdf` con el nombre del PHP (`FES-`, `NCS-` o `NDS-` más el número completo) y `urlinvoiceattached` siempre como `Attachment-{número}.xml`, porque la respuesta es inmediata (decisión C5 de la fase 4) y el nombre DIAN del AttachedDocument se decide al enviarlo; la ruta `download` entiende los tres. Sin `send_email_success`, `send_email_date_time`, `reqfe`, `rptafe` ni `attacheddocument` (el envío, el correo y el AttachedDocument ocurren después, en el Worker) ni `whatsapp_response` (Enterprise).
 
 ### 3.9 Efectos secundarios
 

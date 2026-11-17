@@ -264,6 +264,14 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         return issuer.Software is null ? IssueErrors.SoftwareMissing : true;
     }
 
+    /// <summary>Prefijo de los nombres de archivo del PHP por tipo de documento (inventario de reglas 3.8).</summary>
+    private static string LegacyFileTag(IssueKind kind) => kind switch
+    {
+        IssueKind.CreditNote => "NCS",
+        IssueKind.DebitNote => "NDS",
+        _ => "FES",
+    };
+
     private int CertificateDaysLeft(IssuerCertificate certificate) =>
         ColombiaTime.DaysLeft(ColombiaTime.Today(certificate.NotAfter), ports.Clock.UtcNow);
 
@@ -377,6 +385,9 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         {
             Success = spec.IsNote ? null : true,
             Message = $"{typeName} #{document.FullNumber} generada con éxito",
+            UrlInvoiceXml = $"{LegacyFileTag(spec.Kind)}-{document.FullNumber}.xml",
+            UrlInvoicePdf = $"{LegacyFileTag(spec.Kind)}-{document.FullNumber}.pdf",
+            UrlInvoiceAttached = $"Attachment-{document.FullNumber}.xml",
             Cufe = spec.IsNote ? null : uuid,
             Cude = spec.IsNote ? uuid : null,
             QrStr = ports.QrUrls.ForEnvironment(document.TypeEnvironmentId) + uuid,

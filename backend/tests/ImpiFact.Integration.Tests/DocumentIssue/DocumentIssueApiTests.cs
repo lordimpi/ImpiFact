@@ -323,6 +323,40 @@ public sealed class DocumentIssueApiTests
     }
 
     /// <summary>
+    /// La respuesta lleva los nombres de archivo del PHP (<c>urlinvoicexml</c>, <c>urlinvoicepdf</c> y
+    /// <c>urlinvoiceattached</c>, inventario de reglas 3.8), los mismos que entiende la ruta <c>download</c>. El XML
+    /// firmado ya se puede descargar con su nombre; el PDF y el AttachedDocument existen cuando el Worker los genera.
+    /// </summary>
+    [TestCase("invoice", "invoice", "single-line-iva19", "FES")]
+    [TestCase("credit-note", "credit-note", "partial-return-with-reference", "NCS")]
+    [TestCase("debit-note", "debit-note", "price-adjustment-with-reference", "NDS")]
+    public async Task The_response_names_the_php_files_of_the_document(string route, string kind, string name, string tag)
+    {
+        using var issuer = await NewIssuerAsync();
+
+        using var response = await PostAsync(issuer.Client, route, Edited(Dir(kind, name), json => json.Remove("number")));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
+        string fullNumber;
+        string xmlName;
+        using (var json = await Json(response))
+        {
+            var root = json.RootElement;
+            fullNumber = root.GetProperty("document").GetProperty("full_number").GetString()!;
+            xmlName = root.GetProperty("urlinvoicexml").GetString()!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(xmlName, Is.EqualTo($"{tag}-{fullNumber}.xml"));
+                Assert.That(root.GetProperty("urlinvoicepdf").GetString(), Is.EqualTo($"{tag}-{fullNumber}.pdf"));
+                Assert.That(root.GetProperty("urlinvoiceattached").GetString(), Is.EqualTo($"Attachment-{fullNumber}.xml"));
+            });
+        }
+
+        using var download = await issuer.Client.GetAsync($"/api/ubl2.1/download/{issuer.Nit}/{xmlName}");
+        Assert.That(download.StatusCode, Is.EqualTo(HttpStatusCode.OK), await download.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>
     /// La DIAN da el <c>testSetId</c> como un GUID. Otra palabra en su lugar no es un set de pruebas: por ejemplo
     /// <c>invoice/preeliminar-view</c>, la vista previa del PHP (colección Postman, carpeta 02), no debe emitir ni
     /// mandar nada a la DIAN.

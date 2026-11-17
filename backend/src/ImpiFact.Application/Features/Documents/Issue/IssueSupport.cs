@@ -139,6 +139,24 @@ public sealed record IssueDocumentResponse
     [JsonPropertyName("message")]
     public required string Message { get; init; }
 
+    /// <summary>
+    /// Nombre del XML firmado como lo da el PHP (<c>FES-</c>, <c>NCS-</c> o <c>NDS-</c> más el número completo), el que
+    /// entiende la ruta <c>download</c>.
+    /// </summary>
+    [JsonPropertyName("urlinvoicexml")]
+    public required string UrlInvoiceXml { get; init; }
+
+    /// <summary>Nombre del PDF como lo da el PHP; se puede descargar cuando el Worker lo genera.</summary>
+    [JsonPropertyName("urlinvoicepdf")]
+    public required string UrlInvoicePdf { get; init; }
+
+    /// <summary>
+    /// Nombre del AttachedDocument (contenedor que se entrega al comprador) con el prefijo <c>Attachment-</c> que
+    /// entiende la ruta <c>download</c>; existe cuando la DIAN acepta el documento.
+    /// </summary>
+    [JsonPropertyName("urlinvoiceattached")]
+    public required string UrlInvoiceAttached { get; init; }
+
     [JsonPropertyName("cufe")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Cufe { get; init; }
