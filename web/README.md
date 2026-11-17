@@ -83,7 +83,7 @@ La URL base sale de `ApiConfiguration.rootUrl` (vacía por defecto: rutas relati
 - Fronteras entre librerías (sección 2 de la arquitectura), verificadas por `npm run lint` con `eslint-plugin-boundaries`: `app` importa todo; un `feature-*` importa `core`, `ui` y `api`, nunca otro `feature-*`; `core` solo importa `api`; `ui` y `api` no importan nada del workspace.
 - Componentes _standalone_ con `OnPush`, _signals_ y control flow nativo; sin NgModules ni NgRx clásico. El estado compartido va en NgRx SignalStore (`@ngrx/signals`), uno por _feature_ y los de `core`. La aplicación no usa Zone.js (_zoneless_, el valor por defecto de Angular 22).
 - Todo texto visible sale de Transloco (`es-CO`); no se escriben textos fijos en las plantillas.
-- Presupuestos de _bundle_ en `angular.json`: inicial ≤ 500 kB y cualquier archivo de script ≤ 250 kB; el _build_ falla al superarlos.
+- Presupuestos de _bundle_ en `angular.json` (sección 11 de la arquitectura): inicial ≤ 500 kB y cada _feature_ perezoso ≤ 250 kB con un presupuesto `bundle` por nombre (`feature-auth`, …); el _build_ falla al superarlos. `anyScript` (250 kB) queda solo como aviso: también cae sobre `main`, que ya cuenta en el inicial.
 
 ## Librería `core`
 
@@ -143,11 +143,25 @@ Componentes de presentación sobre [Optimus UI](https://optimus.openng.org/) (fo
 - **Tema:** `provideUiTheme()` en `app.config.ts` registra el preset de Optimus UI. Los valores de diseño están solo en `projects/ui/src/styles/tokens.css`. El tema sigue al sistema; `data-theme="light"` o `"dark"` en `<html>` lo fuerza y `data-density="compact"` reduce la densidad.
 - **Vitrina:** con `npm start`, `http://localhost:4200/dev/ui` muestra cada componente en cada estado. La ruta solo existe en desarrollo (`ngDevMode`); el build de producción la elimina. `e2e/ui-showcase.spec.ts` la recorre con axe en modo claro y oscuro.
 
+## Librería `feature-auth`
+
+Inicio de sesión, recuperación de contraseña, selección de empresa y diálogo de inactividad (tarea 5 del backlog). La aplicación monta `authRoutes` en `app.routes.ts` y el shell carga el diálogo con `loadInactivityWarning()` la primera vez que `InactivityMonitor` avisa.
+
+| Ruta                    | Página                 | Qué hace                                                                                                                                                                                                                           |
+| ----------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/login`                | `LoginPage`            | Correo y contraseña con Signal Forms; errores por campo del `AppError`; vuelve a `returnUrl` (solo rutas internas), o pasa por la selección de empresa si hay empresas y ninguna activa, o va al inicio. Con sesión, va al inicio. |
+| `/recuperar`            | `PasswordRecoveryPage` | Explica que la recuperación aún no está disponible (el Api no tiene endpoint) y vuelve al login.                                                                                                                                   |
+| `/empresas/seleccionar` | `CompanySelectionPage` | Lista las empresas de la sesión y renueva con `company_id`. El Api solo da los identificadores, así que se numeran y se muestra el identificador.                                                                                  |
+
+El diálogo de inactividad («Su sesión se cerrará por inactividad») se abre a los 25 minutos; «Seguir conectado», Escape o cerrarlo cuentan como actividad y «Cerrar sesión» la cierra. A los 30 minutos el monitor cierra la sesión y el login lo explica.
+
 ## Crear un feature nuevo
 
 1. `npx ng generate library feature-<nombre> --prefix=feat`. Después:
    - borrar el bloque `compilerOptions.paths` que la CLI agrega en `tsconfig.json` (apunta a `dist/` y tapa los alias de `tsconfig.base.json`);
    - en los `tsconfig.*.json` del feature, extender `../../tsconfig.base.json`;
    - cambiar el nombre en su `package.json` a `@impifact/feature-<nombre>` y borrar el `README.md` generado.
-2. Exportar sus rutas desde `src/public-api.ts` y registrarlas en `projects/app/src/app/app.routes.ts` con `loadChildren`.
-3. El alias `@impifact/feature-*` y las reglas de fronteras ya lo cubren; no hay que tocar ESLint.
+2. Poner todo lo perezoso del feature detrás de un solo archivo de entrada, `src/lib/feature-<nombre>.ts`, cargado con `import('./feature-<nombre>')` desde sus rutas (ver `feature-auth/src/lib/auth.routes.ts`). El chunk toma el nombre del archivo, así su presupuesto se declara por nombre en `angular.json` (`"type": "bundle", "name": "feature-<nombre>"`). `src/public-api.ts` exporta solo las rutas y cargadores: lo que exporte de forma estática entra en el bundle inicial.
+3. Registrar las rutas en `projects/app/src/app/app.routes.ts`.
+4. Textos: en `src/i18n/es-CO.json` del feature, como _scope_ de Transloco (`provideTranslocoScope('<nombre>')` en sus componentes y claves con el prefijo `<nombre>.`), publicados por la aplicación con una entrada de `assets` en `angular.json` (`"output": "i18n/<nombre>"`). Un _resolver_ los carga antes de abrir la página.
+5. El alias `@impifact/feature-*` y las reglas de fronteras ya lo cubren; no hay que tocar ESLint. Agregar `ng build feature-<nombre>` a `build:libs`.

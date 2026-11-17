@@ -28,6 +28,11 @@
               {
                 "glob": "**/*",
                 "input": "projects/app/public"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/feature-auth/src/i18n",
+                "output": "i18n/auth"
               }
             ],
             "styles": ["projects/ui/src/styles/tokens.css", "projects/app/src/styles.scss"]
@@ -41,9 +46,14 @@
                   "maximumError": "500kB"
                 },
                 {
-                  "type": "anyScript",
+                  "type": "bundle",
+                  "name": "feature-auth",
                   "maximumWarning": "200kB",
                   "maximumError": "250kB"
+                },
+                {
+                  "type": "anyScript",
+                  "maximumWarning": "250kB"
                 },
                 {
                   "type": "anyComponentStyle",

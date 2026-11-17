@@ -11,11 +11,16 @@
       >{{ 'nav.home' | transloco }}</a
     >
   </nav>
+  <app-user-menu />
 </header>
 
 <main id="main-content" class="shell-main" tabindex="-1">
   <router-outlet />
 </main>
+
+@if (inactivityWarning(); as warning) {
+  <ng-container *ngComponentOutlet="warning" />
+}
 
 <ui-toast-region
   [toasts]="toasts()"

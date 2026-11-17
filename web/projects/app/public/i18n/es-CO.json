@@ -8,6 +8,11 @@
   "nav": {
     "home": "Inicio"
   },
+  "userMenu": {
+    "account": "Mi cuenta",
+    "switchCompany": "Cambiar de empresa",
+    "logout": "Cerrar sesión"
+  },
   "home": {
     "title": "Panel de ImpiFact",
     "description": "Facturación electrónica para la DIAN. El panel se está construyendo."

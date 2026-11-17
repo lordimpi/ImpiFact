@@ -160,7 +160,7 @@ Paginación y orden en el servidor (por clave `issued_at, id`), filtros por fech
 ## 11. Rendimiento
 
 - Rutas perezosas por feature; `@defer` para visor de PDF y gráficos; precarga de rutas frecuentes (`withPreloading`).
-- Presupuestos de *bundle* en `angular.json`: inicial ≤ 500 kB y falla el *build* al superarlos; cualquier feature perezoso ≤ 250 kB.
+- Presupuestos de *bundle* en `angular.json`: inicial ≤ 500 kB y falla el *build* al superarlos; cualquier feature perezoso ≤ 250 kB, con un presupuesto `bundle` por el nombre de su chunk (`feature-<nombre>`, que sale del archivo de entrada perezoso del feature). `anyScript` queda solo como aviso, porque también cae sobre `main`.
 - Imágenes con `NgOptimizedImage`; PDFs y XML descargados como blob, nunca incrustados en el estado.
 - Metas: LCP ≤ 2,5 s y INP ≤ 200 ms en 4G simulado; medidas con Lighthouse CI en el pipeline.
 
@@ -215,6 +215,8 @@ Tareas que el frontend necesita y que se suman al backlog del Api:
 4. ~~Fase 4: `GET /api/v1/notifications` y, opcional, SSE.~~ Hecho el 17-nov (fase 5, B4), sin SSE: `GET /api/v1/notifications` (`listNotifications`) pagina por cursor del más reciente al más antiguo, filtra con `unread=true|false` y trae `unread_count` para el número de la campana; `POST /api/v1/notifications/{id}/read` (`markNotificationRead`, 204) y `POST /api/v1/notifications/read-all` (`markAllNotificationsRead`, `marked_count`) son idempotentes. Piden `documents:read` de la empresa activa; un aviso de otra empresa o de otro usuario responde 404. El estado leído es una sola marca (`is_read`) por aviso, compartida por todos los usuarios cuando el aviso es de toda la empresa.
 5. Fase 4: URLs firmadas de descarga para XML y PDF (el panel las abre en nueva pestaña).
 6. Fase 5: endpoints de lectura para el tablero (documentos por estado y mes, consumo del plan, certificados por vencer).
+7. Fase 5 (encontrada en la tarea 5 del backlog): las empresas del usuario con nombre. El login y la renovación solo traen `companies` como identificadores, así que la selección de empresa (`/empresas/seleccionar`) las numera y muestra el identificador; hace falta un endpoint (por ejemplo, `GET /api/v1/me/companies`) con identificador, razón social y NIT de cada empresa a la que el usuario tiene acceso.
+8. Fase 5 (encontrada en la tarea 5): recuperación de contraseña (pedir el cambio por correo y fijar la nueva con un token de un solo uso). Mientras no exista, `/recuperar` solo lo explica.
 
 ## 17. Backlog del frontend (fase 5)
 
