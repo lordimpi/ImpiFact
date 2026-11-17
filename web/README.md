@@ -83,7 +83,7 @@ La URL base sale de `ApiConfiguration.rootUrl` (vacía por defecto: rutas relati
 - Fronteras entre librerías (sección 2 de la arquitectura), verificadas por `npm run lint` con `eslint-plugin-boundaries`: `app` importa todo; un `feature-*` importa `core`, `ui` y `api`, nunca otro `feature-*`; `core` solo importa `api`; `ui` y `api` no importan nada del workspace.
 - Componentes _standalone_ con `OnPush`, _signals_ y control flow nativo; sin NgModules ni NgRx clásico. El estado compartido va en NgRx SignalStore (`@ngrx/signals`), uno por _feature_ y los de `core`. La aplicación no usa Zone.js (_zoneless_, el valor por defecto de Angular 22).
 - Todo texto visible sale de Transloco (`es-CO`); no se escriben textos fijos en las plantillas.
-- Presupuestos de _bundle_ en `angular.json` (sección 11 de la arquitectura): inicial ≤ 500 kB y cada _feature_ perezoso ≤ 250 kB con un presupuesto `bundle` por nombre (`feature-auth`, …); el _build_ falla al superarlos. `anyScript` (250 kB) queda solo como aviso: también cae sobre `main`, que ya cuenta en el inicial.
+- Presupuestos de _bundle_ en `angular.json` (sección 11 de la arquitectura): inicial ≤ 500 kB y cada _feature_ perezoso ≤ 250 kB con un presupuesto `bundle` por nombre (`feature-auth`, …); el _build_ falla al superarlos.
 
 ## Librería `core`
 

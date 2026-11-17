@@ -160,7 +160,7 @@ Paginación y orden en el servidor (por clave `issued_at, id`), filtros por fech
 ## 11. Rendimiento
 
 - Rutas perezosas por feature; `@defer` para visor de PDF y gráficos; precarga de rutas frecuentes (`withPreloading`).
-- Presupuestos de *bundle* en `angular.json`: inicial ≤ 500 kB y falla el *build* al superarlos; cualquier feature perezoso ≤ 250 kB, con un presupuesto `bundle` por el nombre de su chunk (`feature-<nombre>`, que sale del archivo de entrada perezoso del feature). `anyScript` queda solo como aviso, porque también cae sobre `main`.
+- Presupuestos de *bundle* en `angular.json`: inicial ≤ 500 kB y falla el *build* al superarlos; cualquier feature perezoso ≤ 250 kB, con un presupuesto `bundle` por el nombre de su chunk (`feature-<nombre>`, que sale del archivo de entrada perezoso del feature). No hay presupuesto `anyScript`: caía también sobre `main`, que ya cuenta en el inicial, y solo producía avisos.
 - Imágenes con `NgOptimizedImage`; PDFs y XML descargados como blob, nunca incrustados en el estado.
 - Metas: LCP ≤ 2,5 s y INP ≤ 200 ms en 4G simulado; medidas con Lighthouse CI en el pipeline.
 
