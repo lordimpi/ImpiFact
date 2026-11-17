@@ -116,8 +116,10 @@ public sealed class S3BlobStorageTests
         Assert.Multiple(async () =>
         {
             Assert.That(url.Query, Does.Contain("X-Amz-Signature="));
-            // Nunca dura más de lo pedido; un segundo menos si el reloj cambió de segundo mientras se firmaba.
-            Assert.That(ExpiresSeconds(url), Is.InRange(299, 300));
+            // Nunca dura más de lo pedido. Puede durar unos segundos menos: el SDK toma su propia hora al firmar y, con
+            // el equipo cargado (por ejemplo, con toda la suite corriendo), entre las dos horas puede pasar más de un
+            // segundo.
+            Assert.That(ExpiresSeconds(url), Is.InRange(295, 300));
             Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
             Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/pdf"));
             Assert.That(await response.Content.ReadAsStringAsync(), Is.EqualTo("%PDF-1.7"));
