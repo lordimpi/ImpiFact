@@ -33,8 +33,17 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
+      # El cliente de API se genera desde el OpenAPI del backend, que exporta una herramienta de .NET.
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: backend/global.json
+
       - name: Install
         run: npm ci
+
+      # Regenera openapi.json y projects/api y falla si hay diferencias sin commitear: el contrato no diverge en silencio.
+      - name: API client up to date
+        run: npm run api:check
 
       # ESLint (incluye las fronteras entre librerías) y formato con Prettier.
       - name: Lint

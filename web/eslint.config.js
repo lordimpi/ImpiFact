@@ -32,6 +32,8 @@ module.exports = defineConfig([
     'coverage/',
     'playwright-report/',
     'test-results/',
+    // Cliente generado desde el OpenAPI (npm run api:generate): no se edita ni se revisa a mano.
+    'projects/api/src/generated/',
   ]),
   {
     files: ['**/*.ts'],

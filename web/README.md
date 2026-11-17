@@ -20,7 +20,8 @@ npm run lint           # ESLint (incluye fronteras entre librerías) y formato c
 npm test               # pruebas unitarias con Vitest, una sola pasada
 npm run build          # compilación de producción en dist/app; falla si se superan los presupuestos
 npm run e2e            # pruebas E2E con Playwright (levanta ng serve si no está corriendo)
-npm run api:generate   # generación del cliente de API (pendiente, tarea 2 del backlog)
+npm run api:generate   # regenera openapi.json y el cliente de API desde el backend (necesita el SDK de .NET)
+npm run api:check      # lo mismo y falla si quedan diferencias sin commitear (lo corre el CI)
 ```
 
 Antes de la primera ejecución de `npm run e2e` hay que descargar el navegador: `npx playwright install chromium`.
@@ -39,6 +40,24 @@ Otros comandos: `npm run format` corrige el formato con Prettier y `npm run buil
 | `e2e`                | Pruebas E2E con Playwright.                                                                                 |
 
 Las librerías se importan por alias: `@impifact/core`, `@impifact/ui`, `@impifact/api` y `@impifact/feature-<nombre>` (definidos en `tsconfig.base.json`).
+
+## Cliente de API
+
+`projects/api` se genera desde el OpenAPI (la descripción estándar de la API HTTP) del backend, en dos pasos:
+
+1. `npm run api:export`: la herramienta `backend/tools/openapi-export` levanta la API en memoria, sin servidor ni base de datos, y escribe `projects/api/openapi.json`. Necesita el SDK de .NET de `backend/global.json`.
+2. `npm run api:client`: [ng-openapi-gen](https://github.com/cyclosproject/ng-openapi-gen) (versión fijada en `package.json`, configuración en `projects/api/ng-openapi-gen.json`) escribe `projects/api/src/generated`.
+
+`npm run api:generate` hace los dos. Lo generado y `openapi.json` se commitean y no se editan a mano (ESLint y Prettier no los revisan). `npm run api:check` regenera y falla si algo cambió; el CI del panel lo corre, y el del backend verifica que `openapi.json` esté al día con la API.
+
+Cada operación es una función con el nombre de su `operationId` (`createCompany`, `issueInvoice`, `listDocuments`…), que se llama con el servicio `Api` sobre `HttpClient`, así pasa por los interceptores:
+
+```ts
+const api = inject(Api);
+api.invoke(createCompany, { nit, dv, body }); // Observable<CompanySavedResponse>
+```
+
+La URL base sale de `ApiConfiguration.rootUrl` (vacía por defecto: rutas relativas). `core` la fija al arrancar con `provideApiRootUrl(() => ...)`, que acepta una promesa (la configuración de ejecución). `login` y `refreshSession` devuelven `SessionTokens | PanelSessionTokens`; con `X-Client: panel` llega la segunda (sin `refresh_token`, que va en la cookie) y la unión se puede asignar directamente a `PanelSessionTokens`.
 
 ## Reglas
 

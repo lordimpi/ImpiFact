@@ -79,7 +79,8 @@ feature-documents/src/lib/
 ## 5. Cliente de API
 
 - Se **genera** desde el OpenAPI que publica el Api con un generador que produzca servicios de Angular sobre `HttpClient` (`ng-openapi-gen` u OpenAPI Generator `typescript-angular`), para que pasen por los interceptores. Se descarta `openapi-fetch` por saltarse `HttpClient`.
-- Script `npm run api:generate` descarga `openapi.json`, regenera `projects/api` y falla en CI si hay diferencias sin commitear (el contrato no puede divergir en silencio).
+- Generador: `ng-openapi-gen` (versión fijada), con una función por operación, nombrada por su `operationId`, y el servicio `Api` que la ejecuta sobre `HttpClient` (`api.invoke(createCompany, { nit, dv, body })`); sin NgModule y con Observables. La URL base es `ApiConfiguration.rootUrl`, que `core` fija al arrancar con `provideApiRootUrl`.
+- Script `npm run api:generate` exporta `openapi.json` con `backend/tools/openapi-export` (la API en memoria, sin servidor ni base de datos), regenera `projects/api/src/generated` y ambos se commitean. `npm run api:check` regenera y falla en CI si hay diferencias sin commitear (el contrato no puede divergir en silencio); el CI del backend verifica además que `openapi.json` esté al día con la API.
 - Nombres con typos heredados del contrato JSON (`integral_salarary`, `seze`) se conservan en los tipos generados; los formularios los mapean a nombres limpios en `forms/`.
 - Manejo de errores centralizado: un interceptor convierte `ProblemDetails` en un `AppError` con `code`, `message`, `fieldErrors` y `correlationId`; los formularios muestran `fieldErrors` junto al campo y el resto sale en un *toast* con el `correlationId` copiable.
 
@@ -208,7 +209,7 @@ Cobertura mínima: `core` y servicios de estado 80 %. El E2E corre contra el doc
 Tareas que el frontend necesita y que se suman al backlog del Api:
 
 1. ~~Fase 2: refresh por cookie `HttpOnly`, `/auth/logout`, CORS con credenciales para el origen del panel.~~ Hecho el 17-nov (fase 5, B1): encabezado `X-Client: panel`, cookie `impifact_refresh` y `Cors:Origins` con credenciales.
-2. Fase 2: `openapi.json` estable y versionado, con `operationId` legibles y *tags* por módulo.
+2. ~~Fase 2: `openapi.json` estable y versionado, con `operationId` legibles y *tags* por módulo.~~ Hecho el 17-nov (fase 5, B2): `operationId` en camelCase fijados por prueba, documento determinista y respuesta de la sesión del panel (`PanelSessionTokens`, sin `refresh_token`) descrita como `oneOf`.
 3. Fase 3: `POST /api/v1/documents/calculate` (totales e impuestos con `DianRounding`).
 4. Fase 4: `GET /api/v1/notifications` y, opcional, SSE.
 5. Fase 4: URLs firmadas de descarga para XML y PDF (el panel las abre en nueva pestaña).
