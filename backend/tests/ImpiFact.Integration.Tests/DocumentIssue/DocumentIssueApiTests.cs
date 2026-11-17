@@ -322,6 +322,25 @@ public sealed class DocumentIssueApiTests
         Assert.That(message.Payload["test_set_id"]!.GetValue<string>(), Is.EqualTo("0d2e2883-eb8d-4d5c-a4a6-1bd40f5a2b10"));
     }
 
+    /// <summary>
+    /// La DIAN da el <c>testSetId</c> como un GUID. Otra palabra en su lugar no es un set de pruebas: por ejemplo
+    /// <c>invoice/preeliminar-view</c>, la vista previa del PHP (colección Postman, carpeta 02), no debe emitir ni
+    /// mandar nada a la DIAN.
+    /// </summary>
+    [TestCase("invoice/preeliminar-view")]
+    [TestCase("credit-note/not-a-test-set")]
+    [TestCase("debit-note/not-a-test-set")]
+    public async Task A_test_set_segment_that_is_not_a_guid_does_not_issue_anything(string route)
+    {
+        using var issuer = await NewIssuerAsync();
+
+        using var response = await PostAsync(issuer.Client, route, Edited(Invoice, json => json.Remove("number")));
+
+        await using var scope = Api.OpenScope(null, null, ActorType.System);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound), await response.Content.ReadAsStringAsync());
+        Assert.That(await CompanyApiTests.Rows<Document>(scope.Db, issuer.CompanyId).CountAsync(), Is.Zero);
+    }
+
     private static async Task<Issuer> NewIssuerAsync(bool withCertificate = true, bool withSoftware = true, IEnumerable<object>? resolutions = null)
     {
         var (nit, dv) = CompaniesHost.NewNit();

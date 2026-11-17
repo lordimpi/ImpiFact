@@ -149,7 +149,7 @@ public sealed class OpenApiDocumentTests
     /// </summary>
     [TestCase("POST", "/api/ubl2.1/invoice")]
     [TestCase("POST", "/api/v1/documents/invoices")]
-    [TestCase("POST", "/api/ubl2.1/credit-note/test-set-id")]
+    [TestCase("POST", "/api/ubl2.1/credit-note/0d2e2883-eb8d-4d5c-a4a6-1bd40f5a2b10")]
     [TestCase("GET", "/api/download/900123456/FES-SETP990000001.pdf")]
     [TestCase("GET", "/api/ubl2.1/download/900123456/FES-SETP990000001.pdf")]
     [TestCase("GET", "/api/information/900123456")]

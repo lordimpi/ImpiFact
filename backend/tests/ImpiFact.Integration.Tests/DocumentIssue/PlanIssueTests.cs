@@ -108,7 +108,7 @@ public sealed class PlanIssueTests
         using var issuer = await NewIssuerAsync();
         await AssignPlanAsync(issuer, PlanPeriod.Package, quantity: 1, used: 1);
 
-        using var response = await PostAsync(issuer.Client, "invoice/c3a1f0e2-test-set", Body(Invoice));
+        using var response = await PostAsync(issuer.Client, "invoice/c3a1f0e2-5b7d-4e8a-9f10-2b3c4d5e6f70", Body(Invoice));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
     }

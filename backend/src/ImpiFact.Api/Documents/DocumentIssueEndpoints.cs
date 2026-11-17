@@ -48,12 +48,14 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         // Contrato heredado del PHP: sigue activo para la colección Postman, fuera de la documentación; se borra en la fase 7.
         var legacy = endpoints.MapGroup("/api/ubl2.1").WithTags(ApiTags.Documents)
             .RequireAuthorization(ApiScopes.DocumentsWrite).ExcludeFromDescription();
+        // El testSetId que da la DIAN es un GUID: así otra ruta del PHP con la misma forma (por ejemplo la vista previa
+        // invoice/preeliminar-view) no se toma por un envío al set de pruebas.
         legacy.MapPost("/invoice", Invoice);
-        legacy.MapPost("/invoice/{testSetId}", Invoice);
+        legacy.MapPost("/invoice/{testSetId:guid}", Invoice);
         legacy.MapPost("/credit-note", CreditNote);
-        legacy.MapPost("/credit-note/{testSetId}", CreditNote);
+        legacy.MapPost("/credit-note/{testSetId:guid}", CreditNote);
         legacy.MapPost("/debit-note", DebitNote);
-        legacy.MapPost("/debit-note/{testSetId}", DebitNote);
+        legacy.MapPost("/debit-note/{testSetId:guid}", DebitNote);
 
         var canonical = endpoints.MapGroup("/api/v1/documents").WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsWrite);
         Issue(canonical.MapPost("/invoices", Invoice), OpenApiExamples.Invoices)
