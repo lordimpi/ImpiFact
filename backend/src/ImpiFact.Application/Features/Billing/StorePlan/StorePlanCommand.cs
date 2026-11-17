@@ -32,8 +32,9 @@ public sealed record StorePlanCommand : ICommand, ICompanyOptional
     [JsonPropertyName("period")]
     public int? Period { get; init; }
 
-    /// <summary>Activo o no; verdadero si no llega.</summary>
+    /// <summary>Activo o no; verdadero si no llega. Acepta también 1 y 0, como el PHP.</summary>
     [JsonPropertyName("state")]
+    [JsonConverter(typeof(LaravelBooleanConverter))]
     public bool? State { get; init; }
 
     [JsonPropertyName("observations")]

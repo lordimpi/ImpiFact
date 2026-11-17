@@ -91,6 +91,35 @@ public sealed class PlanApiTests
         });
     }
 
+    /// <summary>
+    /// El PHP valida <c>state</c> con la regla <c>boolean</c> de Laravel, que también acepta 1, 0, "1" y "0"; la
+    /// colección Postman («Modificar un plan») lo manda como <c>"state": 1</c>.
+    /// </summary>
+    [TestCase(1, true)]
+    [TestCase(0, false)]
+    [TestCase("1", true)]
+    [TestCase("0", false)]
+    [TestCase(true, true)]
+    public async Task Put_plan_accepts_the_state_as_a_laravel_boolean(object state, bool expected)
+    {
+        using var platform = await PlansHost.PlatformAsync();
+        var id = NextId();
+
+        using var response = await platform.PutAsJsonAsync("/api/ubl2.1/plan", new Dictionary<string, object?>
+        {
+            ["id"] = id, ["name"] = $"Estado {id}", ["qty_docs_invoice"] = 3, ["qty_docs_payroll"] = 0, ["qty_docs_radian"] = 0,
+            ["qty_docs_ds"] = 0, ["period"] = 1, ["state"] = state,
+        });
+
+        using var json = await JsonAsync(response, HttpStatusCode.OK);
+        await using var scope = Api.OpenScope(null, null, ActorType.System);
+        Assert.Multiple(async () =>
+        {
+            Assert.That(json.RootElement.GetProperty("plan").GetProperty("state").GetBoolean(), Is.EqualTo(expected));
+            Assert.That((await scope.Db.Set<Plan>().AsNoTracking().SingleAsync(row => row.Id == id)).IsActive, Is.EqualTo(expected));
+        });
+    }
+
     [Test]
     public async Task Put_plan_validates_the_php_request_rules()
     {
