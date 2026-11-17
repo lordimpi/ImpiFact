@@ -41,11 +41,25 @@ internal static class OpenApiDocumentation
             });
         });
 
-    public static IEndpointConventionBuilder MapImpiFactApiReference(this IEndpointRouteBuilder endpoints) =>
-        endpoints.MapScalarApiReference(options => options
+    /// <summary>Ruta del módulo de JavaScript con la configuración extra de Scalar.</summary>
+    public const string ScalarConfigurationPath = "/scalar-config.js";
+
+    // El tema «halloween» existe en el visor de Scalar, pero la enumeración ScalarTheme de la librería de .NET no lo
+    // trae; por eso se pasa en este módulo, que Scalar importa y mezcla con el resto de su configuración.
+    private const string ScalarConfigurationModule = "export default { theme: 'halloween' };\n";
+
+    public static IEndpointConventionBuilder MapImpiFactApiReference(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapGet(ScalarConfigurationPath, () => Results.Text(ScalarConfigurationModule, "text/javascript"))
+            .AllowAnonymous()
+            .ExcludeFromDescription();
+
+        return endpoints.MapScalarApiReference(options => options
             .WithTitle(Title)
             .AddPreferredSecuritySchemes([AuthenticationSchemes.Bearer])
-            .WithDefaultHttpClient(ScalarTarget.Shell, ScalarClient.Curl));
+            .WithDefaultHttpClient(ScalarTarget.Shell, ScalarClient.Curl)
+            .WithJavaScriptConfiguration(ScalarConfigurationPath));
+    }
 
     private static void Describe(OpenApiDocument document)
     {
