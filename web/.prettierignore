@@ -1,0 +1,9 @@
+# Archivos que Prettier no revisa: salidas de compilación, dependencias y reportes.
+dist/
+out-tsc/
+.angular/
+node_modules/
+coverage/
+playwright-report/
+test-results/
+package-lock.json
