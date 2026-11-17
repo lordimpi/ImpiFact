@@ -99,6 +99,9 @@ public sealed class OpenApiContractTests
     [TestCase("PUT /api/v1/plans/{id}", "savePlan")]
     [TestCase("GET /api/v1/plans/{id}/companies", "listPlanCompanies")]
     [TestCase("GET /api/v1/plans/current", "getCurrentPlan")]
+    [TestCase("GET /api/v1/notifications", "listNotifications")]
+    [TestCase("POST /api/v1/notifications/{id}/read", "markNotificationRead")]
+    [TestCase("POST /api/v1/notifications/read-all", "markAllNotificationsRead")]
     public void An_operation_keeps_its_pinned_operation_id(string name, string operationId)
     {
         var operation = Operations().Where(candidate => candidate.Name == name).Select(candidate => candidate.Operation).ToList();
