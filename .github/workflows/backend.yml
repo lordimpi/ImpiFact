@@ -39,11 +39,16 @@ jobs:
 
       # Unitarias, de arquitectura y golden (XML y CUFE comparados byte a byte con el PHP original).
       - name: Unit, architecture and golden tests
-        run: dotnet test --no-build --filter "Category!=Integration"
+        run: dotnet test --no-build --filter "Category!=Integration&Category!=Contract"
 
       # Integración contra PostgreSQL real en un contenedor (Testcontainers); el runner ya trae Docker.
       - name: Integration tests
         run: dotnet test --no-build --filter "Category=Integration"
+
+      # Contrato: la colección Postman de ApiDian (copia en tests/ImpiFact.Contract.Tests/collection) contra la API,
+      # con PostgreSQL en Testcontainers y la DIAN falsa. Escribe la tabla de resultados por carpeta.
+      - name: Contract tests
+        run: dotnet test --no-build --filter "Category=Contract" --logger "console;verbosity=detailed"
 
       # Falla si algún paquete, directo o transitivo, tiene una vulnerabilidad conocida.
       - name: Vulnerability scan

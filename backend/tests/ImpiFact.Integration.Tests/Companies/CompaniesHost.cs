@@ -83,6 +83,17 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
 
     public string CertificateDirectory => _protection.CertificateDirectory;
 
+    /// <summary>
+    /// Llave maestra, carpeta de certificados y carpeta de archivos de esta API, para que otro host (por ejemplo el
+    /// Worker de las pruebas de contrato) lea lo que la API guardó.
+    /// </summary>
+    public IReadOnlyDictionary<string, string?> SharedSettings => new Dictionary<string, string?>(_protection.LocalAesGcmSettings())
+    {
+        ["Storage:Local:Root"] = StorageRoot,
+    };
+
+    private string StorageRoot => Path.Combine(_protection.Root, "storage");
+
     public FixedClock Clock { get; } = new(CompaniesHost.Now);
 
     /// <summary>
@@ -135,7 +146,7 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
         builder.UseSetting("Database:ConnectionString", connectionString);
         builder.UseSetting("Secrets:LocalAesGcm:MasterKeyFile", _protection.MasterKeyFile);
         builder.UseSetting("Secrets:LocalAesGcm:CertificateDirectory", _protection.CertificateDirectory);
-        builder.UseSetting("Storage:Local:Root", Path.Combine(_protection.Root, "storage"));
+        builder.UseSetting("Storage:Local:Root", StorageRoot);
         builder.UseSetting("Jwt:SigningKey", _signingKey.ExportPkcs8PrivateKeyPem());
         builder.UseSetting("RateLimit:PermitPerMinutePerKey", "10000");
         builder.UseSetting("RateLimit:PermitPerMinutePerIp", "10000");

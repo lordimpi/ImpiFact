@@ -460,7 +460,7 @@ Módulos del panel de la fase 5:
 | `Dian.Tests` | CUFE, firma, UBL contra fixtures | Sin red |
 | `Golden.Tests` | JSON de entrada → XML y CUFE idénticos al PHP | Comparación byte a byte (ADR-27); fixtures en `backend/tests/golden/<tipo>/<caso>/{input.json,expected.xml,expected.cufe}` |
 | `Integration.Tests` | EF + Dapper + cola con Testcontainers en PostgreSQL (fase 2) y en los 3 motores desde la fase 6 | Matriz de proveedor en CI desde la fase 6 |
-| `Contract.Tests` | Colección Postman (Newman) contra el Api levantado | Tokens propios; falla ante cambios de contrato |
+| `Contract.Tests` | Colección Postman oficial (copia limpia en el repo, sin credenciales) reproducida en orden por .NET, sin Newman ni Node: la API con `WebApplicationFactory`, PostgreSQL de Testcontainers, el Worker en el mismo proceso y la DIAN falsa. Revisa el código 2xx y las claves del primer nivel de las respuestas de ejemplo del PHP (`Category=Contract`) | Tokens propios; falla ante cambios de contrato y ante una diferencia que no esté en `KnownDeviations` (lista única, con el motivo de cada una) |
 | `Architecture.Tests` | Reglas de la sección 1, aislamiento de módulos, consultas Dapper con `company_id`, ausencia de secretos en logs | NetArchTest |
 | Seguridad | Aislamiento entre empresas por entidad, API keys revocadas, propiedad por NIT | En `Integration.Tests` |
 
@@ -622,7 +622,7 @@ Cada tarea es un PR con pruebas. Entre paréntesis, la puerta de salida de la fa
 - **Fase 0, tareas nuevas:** `docs/php-rules.md` (inventario de reglas por tipo de documento); levantar el PHP de referencia con su `Dockerfile` y correr `composer install` dentro del contenedor (la máquina de desarrollo no tiene PHP ni Composer) y, si falla, definir el plan B de fixtures; consulta regulatoria sobre proveedor tecnológico; decidir el nombre del producto y los namespaces.
 - **Fase 1 dividida:** **1a** sin DIAN (UBL, CUFE, firma con certificado de prueba, golden tests) y **1b** con certificado y `testSetId` reales (SOAP y aceptación). La 1a se hace antes de la fase 2; la 1b cuando haya credenciales.
 - **Fase 2:** agregar `data_protection_keys`, `HybridCache` y la prueba de llaves compartidas.
-- **Contract tests:** en la fase 4 solo se ejecutan las peticiones de la primera entrega (carpetas 01 a 06, 09 y 10, sin documento soporte, contingencia ni lotes); en la fase 7 se suman la 07, la 08 y esas peticiones. Nunca se ejecutan `payroll`, `payroll-adjust-note`, `eqdoc`, `send-email-employee` ni las carpetas 11 a 14.
+- **Contract tests:** en la fase 4 solo se ejecutan las peticiones de la primera entrega (carpetas 01 a 06, 09 y 10, sin documento soporte, contingencia ni lotes); en la fase 7 se suman la 07, la 08 y esas peticiones. Nunca se ejecutan `payroll`, `payroll-adjust-note`, `eqdoc`, `send-email-employee` ni las carpetas 11 a 14. La prueba escribe una tabla por carpeta con las solicitudes que pasan, las diferencias conocidas y las que quedan fuera de la fase.
 - **Criterios de aceptación del modelo:** las pruebas de los tres motores se exigen en la fase 6; en la fase 2 solo PostgreSQL.
 
 ### 19.6 ADR nuevos
