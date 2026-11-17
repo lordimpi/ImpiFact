@@ -2,22 +2,12 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { Translation, TranslocoLoader, provideTransloco } from '@jsverse/transloco';
-import { of } from 'rxjs';
 import { ToastStore } from '../notifications/toast.store';
 import { SessionStore } from '../session/session.store';
 import { FakeSessionSync, panelTokens, provideFakeSessionSync } from '../testing/fakes';
 import { InactivityMonitor } from './inactivity-monitor';
 
 const MINUTE = 60_000;
-
-class InMemoryLoader implements TranslocoLoader {
-  getTranslation() {
-    return of({
-      core: { inactivity: { warning: 'Su sesión se cerrará en {{ minutes }} minutos.' } },
-    } as Translation);
-  }
-}
 
 describe('InactivityMonitor', () => {
   let sync: FakeSessionSync;
@@ -38,10 +28,6 @@ describe('InactivityMonitor', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        provideTransloco({
-          config: { availableLangs: ['es-CO'], defaultLang: 'es-CO' },
-          loader: InMemoryLoader,
-        }),
         fake.provider,
       ],
     });
@@ -82,28 +68,53 @@ describe('InactivityMonitor', () => {
     expect(monitor.warning()).toBe(false);
     vi.advanceTimersByTime(1);
     expect(monitor.warning()).toBe(true);
-    expect(toasts.toasts()).toEqual([
-      expect.objectContaining({ kind: 'warning', key: 'inactivity' }),
-    ]);
+    expect(monitor.minutesLeft()).toBe(5);
+    // El aviso lo muestra el diálogo del shell, no un toast.
+    expect(toasts.toasts()).toEqual([]);
 
     vi.advanceTimersByTime(5 * MINUTE);
-    expect(logout).toHaveBeenCalledOnce();
+    expect(logout).toHaveBeenCalledExactlyOnceWith({ reason: 'inactivity' });
     expect(monitor.warning()).toBe(false);
-    expect(toasts.toasts()).toEqual([]);
   });
 
   it('starts over with user activity and tells the other tabs', () => {
     signIn();
-    vi.advanceTimersByTime(26 * MINUTE);
-    expect(monitor.warning()).toBe(true);
+    vi.advanceTimersByTime(20 * MINUTE);
 
     document.dispatchEvent(new KeyboardEvent('keydown'));
 
+    expect(sync.posted).toContainEqual({ type: 'activity', at: Date.now() });
+    vi.advanceTimersByTime(24 * MINUTE);
     expect(monitor.warning()).toBe(false);
-    expect(toasts.toasts()).toEqual([]);
+    expect(logout).not.toHaveBeenCalled();
+  });
+
+  it('keeps the warning up until the user chooses to stay connected', () => {
+    signIn();
+    vi.advanceTimersByTime(26 * MINUTE);
+    expect(monitor.warning()).toBe(true);
+
+    // Con el aviso abierto, la actividad suelta no lo cierra: así no desaparece bajo el puntero de quien pulsa
+    // «Cerrar sesión».
+    document.dispatchEvent(new KeyboardEvent('keydown'));
+    expect(monitor.warning()).toBe(true);
+
+    monitor.stayConnected();
+
+    expect(monitor.warning()).toBe(false);
     expect(sync.posted).toContainEqual({ type: 'activity', at: Date.now() });
     vi.advanceTimersByTime(29 * MINUTE);
     expect(logout).not.toHaveBeenCalled();
+  });
+
+  it('closes the warning when another tab reports activity', () => {
+    signIn();
+    vi.advanceTimersByTime(26 * MINUTE);
+    expect(monitor.warning()).toBe(true);
+
+    sync.receive({ type: 'activity', at: Date.now() });
+
+    expect(monitor.warning()).toBe(false);
   });
 
   it('counts the activity of another tab', () => {

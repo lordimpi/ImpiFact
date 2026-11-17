@@ -34,10 +34,7 @@
     "unexpected": "Ocurrió un error inesperado. Intente de nuevo."
   },
   "core": {
-    "unsavedChanges": "Hay cambios sin guardar. ¿Desea salir de todos modos?",
-    "inactivity": {
-      "warning": "Su sesión se cerrará en {{ minutes }} minutos por inactividad. Use el panel para seguir conectado."
-    }
+    "unsavedChanges": "Hay cambios sin guardar. ¿Desea salir de todos modos?"
   },
   "devUi": {
     "title": "Vitrina de componentes",

@@ -1,7 +1,5 @@
 import { DOCUMENT, Injectable, OnDestroy, effect, inject, signal } from '@angular/core';
-import { TranslocoService } from '@jsverse/transloco';
 import { RuntimeConfigService } from '../config/runtime-config';
-import { ToastStore } from '../notifications/toast.store';
 import { SessionSync } from '../session/session-sync';
 import { SessionStore } from '../session/session.store';
 
@@ -9,13 +7,15 @@ const MINUTE_MS = 60_000;
 /** Cada cuánto, como máximo, se avisa la actividad a las demás pestañas. */
 const BROADCAST_EVERY_MS = 30_000;
 const ACTIVITY_EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
-const TOAST_KEY = 'inactivity';
 
 /**
  * Cierre de sesión por inactividad (sección 6 de la arquitectura): aviso a los `warnMinutes` y cierre a los
  * `logoutMinutes` de `config.json` (25 y 30 por defecto) sin actividad del usuario.
  *
  * - La actividad en cualquier pestaña cuenta para todas (se comparte por `SessionSync`).
+ * - Con el aviso abierto, la actividad suelta de esta pestaña ya no cuenta: la persona elige en el diálogo del shell
+ *   «Seguir conectado» (`stayConnected()`) o «Cerrar sesión». Así el diálogo no se cierra bajo el puntero.
+ * - Al cerrar por inactividad, el login lo explica (`/login?reason=inactivity`).
  * - Con la pestaña oculta no corre ningún temporizador (como el *polling*, sección 9); al volver a mostrarse se
  *   compara el tiempo transcurrido desde la última actividad y, si ya pasó el límite, se cierra la sesión.
  *
@@ -26,13 +26,14 @@ export class InactivityMonitor implements OnDestroy {
   private readonly session = inject(SessionStore);
   private readonly config = inject(RuntimeConfigService);
   private readonly sync = inject(SessionSync);
-  private readonly toasts = inject(ToastStore);
-  private readonly transloco = inject(TranslocoService);
   private readonly document = inject(DOCUMENT);
 
   private readonly warningState = signal(false);
-  /** Si se mostró el aviso de inactividad. */
+  private readonly minutesLeftState = signal(0);
+  /** Si se mostró el aviso de inactividad (el shell abre su diálogo). */
   readonly warning = this.warningState.asReadonly();
+  /** Minutos que faltaban para el cierre cuando se abrió el aviso. */
+  readonly minutesLeft = this.minutesLeftState.asReadonly();
 
   private running = false;
   private lastActivity = 0;
@@ -40,7 +41,11 @@ export class InactivityMonitor implements OnDestroy {
   private timers: ReturnType<typeof setTimeout>[] = [];
   private unsubscribe: () => void = () => undefined;
 
-  private readonly onActivity = () => this.recordActivity();
+  private readonly onActivity = () => {
+    if (!this.warningState()) {
+      this.recordActivity();
+    }
+  };
   private readonly onVisibility = () => this.schedule();
 
   constructor() {
@@ -49,6 +54,14 @@ export class InactivityMonitor implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stop();
+  }
+
+  /** «Seguir conectado»: cuenta como actividad (también para las demás pestañas) y cierra el aviso. */
+  stayConnected(): void {
+    if (this.running) {
+      this.lastBroadcast = 0;
+      this.recordActivity();
+    }
   }
 
   private start(): void {
@@ -118,23 +131,16 @@ export class InactivityMonitor implements OnDestroy {
 
   private expire(): void {
     this.stop();
-    void this.session.logout();
+    void this.session.logout({ reason: 'inactivity' });
   }
 
   private showWarning(minutes: number): void {
+    this.minutesLeftState.set(minutes);
     this.warningState.set(true);
-    this.toasts.show({
-      kind: 'warning',
-      key: TOAST_KEY,
-      text: this.transloco.translate('core.inactivity.warning', { minutes }),
-    });
   }
 
   private hideWarning(): void {
-    if (this.warningState()) {
-      this.warningState.set(false);
-      this.toasts.dismissKey(TOAST_KEY);
-    }
+    this.warningState.set(false);
   }
 
   private clearTimers(): void {

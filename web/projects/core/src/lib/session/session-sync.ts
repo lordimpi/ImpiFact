@@ -1,10 +1,13 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { PanelSessionTokens } from '@impifact/api';
 
+/** Motivo de un cierre de sesión que no pidió la persona; el login lo explica (`/login?reason=…`). */
+export type LogoutReason = 'inactivity';
+
 /** Mensajes entre pestañas del panel. Nunca llevan la cookie de renovación, que el navegador no deja leer. */
 export type SessionMessage =
   | { type: 'session'; tokens: PanelSessionTokens; email: string | null }
-  | { type: 'logout' }
+  | { type: 'logout'; reason?: LogoutReason }
   | { type: 'activity'; at: number };
 
 /**

@@ -221,6 +221,93 @@ describe('SessionStore', () => {
     expect(navigate).toHaveBeenCalledOnce();
   });
 
+  it('logs out for inactivity, tells the other tabs why and opens the login with the reason', async () => {
+    sync.receive({ type: 'session', tokens: panelTokens(), email: null });
+
+    const done = store.logout({ reason: 'inactivity' });
+    http.expectOne('/api/v1/auth/logout').flush(null, { status: 204, statusText: 'No Content' });
+    await done;
+
+    expect(store.status()).toBe('anonymous');
+    expect(sync.posted).toEqual([{ type: 'logout', reason: 'inactivity' }]);
+    expect(navigate).toHaveBeenCalledWith('/login?reason=inactivity');
+  });
+
+  it('opens the login with the reason when another tab logs out for inactivity', () => {
+    sync.receive({ type: 'session', tokens: panelTokens(), email: null });
+
+    sync.receive({ type: 'logout', reason: 'inactivity' });
+
+    expect(store.status()).toBe('anonymous');
+    expect(navigate).toHaveBeenCalledWith('/login?reason=inactivity');
+  });
+
+  it('switches the active company with a refresh that carries company_id', async () => {
+    sync.receive({
+      type: 'session',
+      tokens: panelTokens({ company_id: null }),
+      email: 'ana@example.test',
+    });
+    const renewed = panelTokens({ company_id: 'company-2' });
+
+    const done = store.selectCompany('company-2');
+    await flushMicrotasks();
+    const request = http.expectOne('/api/v1/auth/refresh');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.headers.get('X-Client')).toBe('panel');
+    expect(request.request.body).toEqual({ company_id: 'company-2', refresh_token: null });
+    request.flush(renewed);
+    await done;
+
+    expect(store.companyId()).toBe('company-2');
+    expect(store.accessToken()).toBe(renewed.access_token);
+    expect(store.user()).toEqual({ id: 'user-1', email: 'ana@example.test' });
+    expect(sync.posted).toEqual([{ type: 'session', tokens: renewed, email: 'ana@example.test' }]);
+  });
+
+  it('keeps the session and rethrows when the API refuses the company (403)', async () => {
+    sync.receive({ type: 'session', tokens: panelTokens({ company_id: null }), email: null });
+
+    const done = store.selectCompany('company-9');
+    await flushMicrotasks();
+    http
+      .expectOne('/api/v1/auth/refresh')
+      .flush({ code: 'identity.company_not_allowed' }, { status: 403, statusText: 'Forbidden' });
+
+    await expect(done).rejects.toMatchObject({ status: 403 });
+    expect(store.status()).toBe('authenticated');
+    expect(store.companyId()).toBeNull();
+  });
+
+  it('ends the session and rethrows when the company switch answers 401', async () => {
+    sync.receive({ type: 'session', tokens: panelTokens({ company_id: null }), email: null });
+
+    const done = store.selectCompany('company-2');
+    await flushMicrotasks();
+    http.expectOne('/api/v1/auth/refresh').flush(null, { status: 401, statusText: 'Unauthorized' });
+
+    await expect(done).rejects.toMatchObject({ status: 401 });
+    expect(store.status()).toBe('anonymous');
+  });
+
+  it('a logout during a company switch is not undone by its answer', async () => {
+    sync.receive({ type: 'session', tokens: panelTokens({ company_id: null }), email: null });
+
+    const switching = store.selectCompany('company-2');
+    await flushMicrotasks();
+    const request = http.expectOne('/api/v1/auth/refresh');
+    const loggingOut = store.logout();
+    http.expectNone('/api/v1/auth/logout');
+    request.flush(panelTokens({ company_id: 'company-2' }));
+    await switching.catch(() => undefined);
+    await flushMicrotasks();
+    http.expectOne('/api/v1/auth/logout').flush(null, { status: 204, statusText: 'No Content' });
+    await loggingOut;
+
+    expect(store.status()).toBe('anonymous');
+    expect(store.companyId()).toBeNull();
+  });
+
   it('logs out locally when another tab logs out', () => {
     sync.receive({ type: 'session', tokens: panelTokens(), email: 'ana@example.test' });
     expect(store.user()).toEqual({ id: 'user-1', email: 'ana@example.test' });

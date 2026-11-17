@@ -15,7 +15,7 @@ import { firstValueFrom } from 'rxjs';
 import { SKIP_ERROR_TOAST } from '../http/api-request';
 import { readAccessTokenClaims } from './jwt-claims';
 import { CORE_ROUTE_PATHS } from './route-paths';
-import { SessionMessage, SessionSync } from './session-sync';
+import { LogoutReason, SessionMessage, SessionSync } from './session-sync';
 
 /**
  * - `unknown`: todavía no se intentó recuperar la sesión.
@@ -35,6 +35,11 @@ export interface LoginCredentials {
   password: string;
   /** Empresa con la que se entra; sin ella el Api elige o deja la sesión sin empresa activa. */
   companyId?: string | null;
+}
+
+export interface LogoutOptions {
+  /** Motivo del cierre cuando no lo pidió la persona; el login lo muestra. */
+  reason?: LogoutReason;
 }
 
 interface SessionState {
@@ -64,6 +69,7 @@ const ANONYMOUS: Omit<SessionState, 'status'> = {
 /** Encabezado que pide la sesión del panel: el Api deja la renovación en la cookie `HttpOnly`. */
 const PANEL_CLIENT = { 'X-Client': 'panel' } as const;
 const CONFLICT = 409;
+const UNAUTHORIZED = 401;
 
 /**
  * Sesión del panel (NgRx SignalStore). La renovación vive en la cookie `impifact_refresh`, que el navegador manda
@@ -120,8 +126,20 @@ export const SessionStore = signalStore(
       patchState(store, { status: 'anonymous', ...ANONYMOUS });
     }
 
-    function goToLogin(): void {
-      void store._router.navigateByUrl(store._paths.login);
+    function goToLogin(reason?: LogoutReason): void {
+      const query = reason ? `?reason=${reason}` : '';
+      void store._router.navigateByUrl(`${store._paths.login}${query}`);
+    }
+
+    /** Registra la renovación en vuelo (la esperan `logout` y los demás `refresh`) y la suelta al terminar. */
+    function track(task: Promise<boolean>): Promise<boolean> {
+      const tracked: Promise<boolean> = task.finally(() => {
+        if (refreshing === tracked) {
+          refreshing = null;
+        }
+      });
+      refreshing = tracked;
+      return tracked;
     }
 
     async function callRefresh(retryOnConflict: boolean, startedIn: number): Promise<boolean> {
@@ -150,9 +168,12 @@ export const SessionStore = signalStore(
     }
 
     function refresh(staleToken: string | null): Promise<boolean> {
+      if (refreshing) {
+        return refreshing;
+      }
       const startedIn = generation;
-      refreshing ??= store._sync
-        .exclusive(() => {
+      return track(
+        store._sync.exclusive(() => {
           if (generation !== startedIn) {
             return Promise.resolve(false);
           }
@@ -160,9 +181,47 @@ export const SessionStore = signalStore(
           return current !== null && current !== staleToken
             ? Promise.resolve(true)
             : callRefresh(true, startedIn);
-        })
-        .finally(() => (refreshing = null));
-      return refreshing;
+        }),
+      );
+    }
+
+    /**
+     * Renovación con `company_id`: el Api emite un token con esa empresa activa (si el usuario pertenece a ella).
+     * Un 403 deja la sesión como estaba; un 401 la cierra. En ambos casos el error queda en `failure`.
+     */
+    async function callSwitch(
+      companyId: string,
+      retryOnConflict: boolean,
+      startedIn: number,
+      failure: { error?: unknown },
+    ): Promise<boolean> {
+      try {
+        const tokens: PanelSessionTokens = await firstValueFrom(
+          store._api.invoke(
+            refreshSession,
+            { ...PANEL_CLIENT, body: { company_id: companyId, refresh_token: null } },
+            store._silent(),
+          ),
+        );
+        if (generation !== startedIn) {
+          return false;
+        }
+        apply(tokens, store.email());
+        store._sync.post({ type: 'session', tokens, email: store.email() });
+        return true;
+      } catch (error) {
+        if (generation !== startedIn) {
+          return false;
+        }
+        if (retryOnConflict && statusOf(error) === CONFLICT) {
+          return callSwitch(companyId, false, startedIn, failure);
+        }
+        failure.error = error;
+        if (statusOf(error) === UNAUTHORIZED) {
+          clear();
+        }
+        return store.isAuthenticated();
+      }
     }
 
     function onMessage(message: SessionMessage): void {
@@ -171,7 +230,7 @@ export const SessionStore = signalStore(
       } else if (message.type === 'logout') {
         clear();
         closed = true;
-        goToLogin();
+        goToLogin(message.reason);
       }
     }
 
@@ -229,12 +288,39 @@ export const SessionStore = signalStore(
       refresh,
 
       /**
+       * Cambia la empresa activa con una renovación que lleva `company_id` (sección 6 de la arquitectura); las demás
+       * pestañas reciben la sesión nueva. Espera la renovación en vuelo y comparte el candado entre pestañas, así
+       * nunca hay dos renovaciones con la misma cookie. Si el Api la rechaza lanza su error: con 403 la sesión sigue
+       * con la empresa anterior y con 401 queda cerrada. Un cierre de sesión mientras tanto descarta la respuesta.
+       */
+      async selectCompany(companyId: string): Promise<void> {
+        const previous = refreshing;
+        const failure: { error?: unknown } = {};
+        await track(
+          (async () => {
+            if (previous) {
+              await previous;
+            }
+            const startedIn = generation;
+            return store._sync.exclusive(() =>
+              generation === startedIn && store.isAuthenticated()
+                ? callSwitch(companyId, true, startedIn, failure)
+                : Promise.resolve(false),
+            );
+          })(),
+        );
+        if (failure.error !== undefined) {
+          throw failure.error;
+        }
+      },
+
+      /**
        * Cierra la sesión: la limpia aquí al instante, avisa a las demás pestañas, va al login y revoca la cookie en el
        * Api. Si hay una renovación en vuelo, la espera antes de llamar a `/auth/logout`: esa renovación pudo rotar la
        * cookie, y hay que revocar la más nueva. Varias llamadas a la vez comparten un solo cierre, y una llamada con
        * la sesión ya cerrada no hace nada.
        */
-      logout(): Promise<void> {
+      logout(options: LogoutOptions = {}): Promise<void> {
         if (loggingOut) {
           return loggingOut;
         }
@@ -244,8 +330,10 @@ export const SessionStore = signalStore(
         const pendingRefresh = refreshing;
         clear();
         closed = true;
-        store._sync.post({ type: 'logout' });
-        goToLogin();
+        store._sync.post(
+          options.reason ? { type: 'logout', reason: options.reason } : { type: 'logout' },
+        );
+        goToLogin(options.reason);
         loggingOut = (async () => {
           if (pendingRefresh) {
             await pendingRefresh;
