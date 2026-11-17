@@ -68,10 +68,12 @@ feature-documents/src/lib/
 
 ## 4. Estado
 
-- **Estado de servidor** (listas, detalles): servicios del feature con `signal`/`computed` y llamadas al cliente generado. Patrón: `state.loading()`, `state.error()`, `state.data()`; refresco explícito tras mutaciones.
+- **Estado compartido de un feature** (listas con filtros, detalle que otras partes leen): un store de **NgRx SignalStore** (`@ngrx/signals`) por feature, en `state/`, con `withState` (datos, `loading`, `error`), `withComputed` (lo derivado) y `withMethods` (las únicas formas de cambiarlo, que llaman al cliente generado). Las listas usan `withEntities`; la paginación, los filtros y los estados de carga se escriben una vez como *feature* reutilizable de SignalStore en `core`. Refresco explícito tras mutaciones.
+- **Datos de una sola pantalla** que nadie más comparte: `httpResource()`/`resource()` directamente en el componente, sin store.
 - **Estado de UI** local: signals dentro del componente.
 - **Estado global mínimo** en `core`: sesión (usuario, roles), empresa activa, preferencias, notificaciones.
-- No se usa NgRx al inicio (ADR-16): el estado es mayormente de servidor y local. Se reabre si aparece estado compartido complejo (por ejemplo, un POS Enterprise con carrito offline).
+- No se usa el NgRx clásico (acciones, *reducers*, *effects* y selectores): SignalStore da el mismo orden con mucho menos código (ADR-16).
+- **Paginación siempre en el servidor:** toda lista pide al Api solo la página visible, con orden y filtros aplicados allí; el cliente nunca descarga la lista completa.
 - Persistencia en el navegador: solo preferencias no sensibles (tema, densidad, última empresa) en `localStorage`. Nada de tokens ni datos fiscales.
 
 ## 5. Cliente de API
@@ -193,7 +195,7 @@ Cobertura mínima: `core` y servicios de estado 80 %. El E2E corre contra el doc
 | ID | Decisión | Resolución |
 | --- | --- | --- |
 | ADR-15 | Microfrontends | No; librerías por feature con fronteras por lint |
-| ADR-16 | Gestión de estado | Signals y servicios por feature; sin NgRx al inicio |
+| ADR-16 | Gestión de estado | NgRx SignalStore por feature y en `core` para el estado compartido; signals del componente para el estado local; `httpResource()` para lecturas de una sola pantalla; sin NgRx clásico (decidido el 17-nov) |
 | ADR-17 | Biblioteca de UI | Optimus UI (fork de PrimeNG), envuelta en `ui`; se confirma con el spike de la tarea 4 del backlog |
 | ADR-18 | i18n | Transloco o `@angular/localize`; decidir al crear el proyecto (preferencia: Transloco por carga en tiempo de ejecución) |
 | ADR-19 | Cliente de API | Generado con servicios Angular sobre `HttpClient` |
@@ -230,7 +232,8 @@ Cada tarea es un PR con pruebas.
 
 ## 18. Reglas de desarrollo del panel (carpeta `web/`)
 
-- Angular *standalone*, *signals*, `OnPush` y control flow nativo. Sin NgModules ni NgRx.
+- Angular *standalone*, *signals*, `OnPush` y control flow nativo. Sin NgModules ni NgRx clásico; el estado compartido va en NgRx SignalStore (ADR-16).
+- Listas con paginación, orden y filtros en el servidor.
 - Cada *feature* es una librería; un *feature* no importa a otro (el lint lo impide).
 - El cliente de API es generado: no se edita `projects/api`; se regenera con `npm run api:generate`.
 - Sin cálculos fiscales ni de CUFE en el cliente; se usan los endpoints del Api.
