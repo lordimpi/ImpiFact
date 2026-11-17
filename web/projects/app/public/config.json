@@ -1,0 +1,5 @@
+{
+  "apiBaseUrl": "http://127.0.0.1:5080",
+  "inactivity": { "warnMinutes": 25, "logoutMinutes": 30 },
+  "features": {}
+}

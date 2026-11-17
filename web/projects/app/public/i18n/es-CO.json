@@ -20,6 +20,23 @@
       "previous": "Anterior",
       "next": "Siguiente",
       "page": "Página {page}"
+    },
+    "toasts": {
+      "region": "Avisos",
+      "close": "Cerrar",
+      "copy": "Copiar código",
+      "reference": "Código de soporte",
+      "copied": "Código copiado."
+    }
+  },
+  "errors": {
+    "network": "No hay conexión con el servidor. Revise su red e intente de nuevo.",
+    "unexpected": "Ocurrió un error inesperado. Intente de nuevo."
+  },
+  "core": {
+    "unsavedChanges": "Hay cambios sin guardar. ¿Desea salir de todos modos?",
+    "inactivity": {
+      "warning": "Su sesión se cerrará en {{ minutes }} minutos por inactividad. Use el panel para seguir conectado."
     }
   },
   "devUi": {

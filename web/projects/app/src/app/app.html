@@ -16,3 +16,15 @@
 <main id="main-content" class="shell-main" tabindex="-1">
   <router-outlet />
 </main>
+
+<ui-toast-region
+  [toasts]="toasts()"
+  [labels]="{
+    region: 'ui.toasts.region' | transloco,
+    close: 'ui.toasts.close' | transloco,
+    copy: 'ui.toasts.copy' | transloco,
+    reference: 'ui.toasts.reference' | transloco,
+  }"
+  (dismiss)="toastStore.dismiss($event)"
+  (copyReference)="copyReference($event)"
+/>

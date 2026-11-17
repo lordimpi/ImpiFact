@@ -2,7 +2,8 @@ import { provideRouter } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { TestBed } from '@angular/core/testing';
 import { Translation, TranslocoLoader, provideTransloco } from '@jsverse/transloco';
-import { render, screen, within } from '@testing-library/angular';
+import { ToastStore } from '@impifact/core';
+import { fireEvent, render, screen, within } from '@testing-library/angular';
 import { of } from 'rxjs';
 import esCO from '../../public/i18n/es-CO.json';
 import { App } from './app';
@@ -43,6 +44,32 @@ describe('App shell', () => {
     await screen.findByText('ImpiFact');
 
     expect(TestBed.inject(Title).getTitle()).toBe('ImpiFact · Panel');
+  });
+
+  it('renders the core toasts with the support code and lets the user close them', async () => {
+    await renderShell();
+    await screen.findByText('ImpiFact');
+    const toasts = TestBed.inject(ToastStore);
+
+    toasts.show({ kind: 'error', text: 'No se pudo guardar', correlationId: 'abc-123' });
+    const toast = (await screen.findByText('No se pudo guardar')).closest('li') as HTMLElement;
+    expect(within(toast).getByText('abc-123')).toBeTruthy();
+
+    fireEvent.click(within(toast).getByRole('button', { name: 'Cerrar' }));
+    expect(toasts.toasts()).toEqual([]);
+  });
+
+  it('copies the support code and confirms it', async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    await renderShell();
+    await screen.findByText('ImpiFact');
+
+    TestBed.inject(ToastStore).show({ kind: 'error', text: 'Falló', correlationId: 'abc-123' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Copiar código' }));
+
+    expect(writeText).toHaveBeenCalledWith('abc-123');
+    expect(await screen.findByText('Código copiado.')).toBeTruthy();
   });
 
   it('shows the home page on the root route', async () => {
