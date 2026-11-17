@@ -1,5 +1,6 @@
 using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
+using ImpiFact.Api.OpenApi;
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Features.Billing;
@@ -22,11 +23,10 @@ namespace ImpiFact.Api.Plans;
 /// </remarks>
 internal sealed class PlanEndpoints : IEndpointModule
 {
-    private const string Tag = "Plans";
-
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        var legacy = endpoints.MapGroup("/api/ubl2.1/plan").WithTags(Tag);
+        // Contrato heredado del PHP: sigue activo para la colección Postman, fuera de la documentación; se borra en la fase 7.
+        var legacy = endpoints.MapGroup("/api/ubl2.1/plan").WithTags(ApiTags.Plans).ExcludeFromDescription();
         legacy.MapPut("", StorePlan).RequireAuthorization(ApiScopes.Platform);
         legacy.MapGet("/query", (IHandler<QueryPlansQuery, PlansResponse> handler, CancellationToken ct) => QueryPlans(null, handler, ct))
             .RequireAuthorization(ApiScopes.Platform);
@@ -34,16 +34,44 @@ internal sealed class PlanEndpoints : IEndpointModule
         legacy.MapGet("/queryusersbyplan/{id:int}", QueryPlanCompanies).RequireAuthorization(ApiScopes.Platform);
         legacy.MapGet("/infoplanuser", CurrentPlan).RequireAuthorization(ApiScopes.DocumentsRead);
 
-        var canonical = endpoints.MapGroup("/api/v1/plans").WithTags(Tag);
+        var canonical = endpoints.MapGroup("/api/v1/plans").WithTags(ApiTags.Plans);
         canonical.MapGet("", (IHandler<QueryPlansQuery, PlansResponse> handler, CancellationToken ct) => QueryPlans(null, handler, ct))
-            .RequireAuthorization(ApiScopes.Platform);
-        canonical.MapGet("/{id:int}", QueryPlans).RequireAuthorization(ApiScopes.Platform);
+            .RequireAuthorization(ApiScopes.Platform)
+            .Produces<PlansResponse>()
+            .WithSummary("Listar los planes")
+            .WithDescription("Lista todos los planes de la plataforma en `data`, con la cantidad de documentos por familia " +
+                "(`qty_docs_invoice`, `qty_docs_payroll`, `qty_docs_radian`, `qty_docs_ds`), el periodo y el estado.");
+        canonical.MapGet("/{id:int}", QueryPlans).RequireAuthorization(ApiScopes.Platform)
+            .Produces<PlansResponse>()
+            .WithSummary("Ver un plan")
+            .WithDescription("Responde en `data` el plan con ese `id`. Si no existe: 404 (`plan.not_found`).");
         canonical.MapPut("/{id:int}", (int id, StorePlanCommand body, IHandler<StorePlanCommand, PlanSavedResponse> handler, CancellationToken ct) =>
-            StorePlan(body with { Id = id }, handler, ct)).RequireAuthorization(ApiScopes.Platform);
-        canonical.MapGet("/{id:int}/companies", QueryPlanCompanies).RequireAuthorization(ApiScopes.Platform);
-        canonical.MapGet("/current", CurrentPlan).RequireAuthorization(ApiScopes.DocumentsRead);
+            StorePlan(body with { Id = id }, handler, ct)).RequireAuthorization(ApiScopes.Platform)
+            .Produces<PlanSavedResponse>()
+            .WithSummary("Crear o actualizar un plan")
+            .WithDescription(
+                "Crea el plan con ese `id` o lo actualiza si ya existe. Campos: `name` (único; obligatorio al crear), la " +
+                "cantidad de documentos por familia (`qty_docs_invoice` para facturas y notas, `qty_docs_payroll`, " +
+                "`qty_docs_radian`, `qty_docs_ds`), `period` (1 mensual, 2 anual, 3 paquete), `state` (activo si no llega) " +
+                "y `observations`. Los números pueden llegar como número o como texto. Nombre repetido: 422.");
+        canonical.MapGet("/{id:int}/companies", QueryPlanCompanies).RequireAuthorization(ApiScopes.Platform)
+            .Produces<PlanCompaniesResponse>()
+            .WithSummary("Empresas con un plan")
+            .WithDescription("Lista las empresas que tienen activo el plan con ese `id`. Si el plan no existe: 404 (`plan.not_found`).");
+        canonical.MapGet("/current", CurrentPlan).RequireAuthorization(ApiScopes.DocumentsRead)
+            .Produces<CurrentPlanResponse>()
+            .WithSummary("Plan vigente de la empresa")
+            .WithDescription(
+                "Plan vigente de la empresa de la credencial con los documentos que le quedan en el periodo. El consumo sube " +
+                "cuando la DIAN acepta un documento; al llegar al límite, la emisión responde 403 (`plan.limit_reached`).");
 
-        endpoints.MapPut("/api/v1/companies/{nit}/plan", AssignPlan).WithTags(Tag).RequireAuthorization(ApiScopes.Platform);
+        endpoints.MapPut("/api/v1/companies/{nit}/plan", AssignPlan).WithTags(ApiTags.Plans).RequireAuthorization(ApiScopes.Platform)
+            .Produces<PlanAssignedResponse>()
+            .WithSummary("Asignar un plan a una empresa")
+            .WithDescription(
+                "Asigna a la empresa del `{nit}` el plan `plan_id`. El plan empieza ahora y queda activo; los que la empresa " +
+                "tenía activos se desactivan. Volver a asignar el mismo plan lo renueva: el periodo empieza de nuevo y el " +
+                "consumo vuelve a cero. Plan o empresa que no existen: 404 (`plan.not_found`, `company.not_found`).");
     }
 
     private static async Task<IResult> StorePlan(StorePlanCommand body, IHandler<StorePlanCommand, PlanSavedResponse> handler, CancellationToken ct) =>
