@@ -36,17 +36,13 @@ public sealed class EmailEnvironment
     private static IContainer MailHog => mailHog ?? throw new InvalidOperationException("The MailHog container is not running.");
 
     /// <summary>Servidor y puerto SMTP del capturador, vistos desde las pruebas.</summary>
-    public static (string Host, int Port) Smtp => (MailHog.Hostname, MailHog.GetMappedPublicPort(SmtpPort));
+    public static (string Host, int Port) Smtp => SmtpOf(MailHog);
 
     [OneTimeSetUp]
     public async Task StartAsync()
     {
         database = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
-        mailHog = new ContainerBuilder(MailHogImage)
-            .WithPortBinding(SmtpPort, assignRandomHostPort: true)
-            .WithPortBinding(ApiPort, assignRandomHostPort: true)
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request => request.ForPort(ApiPort).ForPath("/api/v2/messages")))
-            .Build();
+        mailHog = NewMailHog();
         await Task.WhenAll(database.StartAsync(), mailHog.StartAsync());
 
         await using var host = DianSendHost.Create(connectionString: ConnectionString);
@@ -70,10 +66,23 @@ public sealed class EmailEnvironment
         }
     }
 
+    /// <summary>Un capturador de correo nuevo, sin arrancar, con sus puertos SMTP y HTTP en puertos libres del equipo.</summary>
+    internal static IContainer NewMailHog() => new ContainerBuilder(MailHogImage)
+        .WithPortBinding(SmtpPort, assignRandomHostPort: true)
+        .WithPortBinding(ApiPort, assignRandomHostPort: true)
+        .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request => request.ForPort(ApiPort).ForPath("/api/v2/messages")))
+        .Build();
+
+    /// <summary>Servidor y puerto SMTP de un capturador, vistos desde las pruebas.</summary>
+    internal static (string Host, int Port) SmtpOf(IContainer mailHog) => (mailHog.Hostname, mailHog.GetMappedPublicPort(SmtpPort));
+
     /// <summary>Los correos que recibió el capturador cuyo asunto contiene <paramref name="subjectPart"/>.</summary>
-    public static async Task<List<CapturedEmail>> EmailsAsync(string subjectPart)
+    public static Task<List<CapturedEmail>> EmailsAsync(string subjectPart) => EmailsAsync(MailHog, subjectPart);
+
+    /// <summary>Los correos que recibió el capturador <paramref name="mailHog"/> cuyo asunto contiene <paramref name="subjectPart"/>.</summary>
+    internal static async Task<List<CapturedEmail>> EmailsAsync(IContainer mailHog, string subjectPart)
     {
-        using var http = new HttpClient { BaseAddress = new Uri($"http://{MailHog.Hostname}:{MailHog.GetMappedPublicPort(ApiPort)}") };
+        using var http = new HttpClient { BaseAddress = new Uri($"http://{mailHog.Hostname}:{mailHog.GetMappedPublicPort(ApiPort)}") };
         using var json = JsonDocument.Parse(await http.GetStringAsync("/api/v2/messages?limit=250"));
         var emails = new List<CapturedEmail>();
         foreach (var item in json.RootElement.GetProperty("items").EnumerateArray())

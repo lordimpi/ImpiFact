@@ -1,12 +1,15 @@
 using ImpiFact.Application.Abstractions;
+using ImpiFact.Application.Abstractions.Maintenance;
 using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Platform.Outbox;
+using ImpiFact.Infrastructure.Platform.Scheduling;
 using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Protection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace ImpiFact.Integration.Tests.DianSend;
@@ -33,9 +36,65 @@ public sealed class WorkerCompositionTests
         Assert.Multiple(() =>
         {
             Assert.That(handlers.Select(handler => handler.MessageType),
-                Is.EquivalentTo(new[] { OutboxMessageTypes.SendDocumentToDian, OutboxMessageTypes.PollDianStatus, OutboxMessageTypes.RenderPdf, OutboxMessageTypes.SendEmail }));
+                Is.EquivalentTo(new[]
+                {
+                    OutboxMessageTypes.SendDocumentToDian, OutboxMessageTypes.PollDianStatus, OutboxMessageTypes.RenderPdf,
+                    OutboxMessageTypes.SendEmail, OutboxMessageTypes.SendNoticeEmail,
+                }));
             Assert.That(handlers.Select(handler => handler.MessageType), Is.Unique);
         });
+    }
+
+    [Test]
+    public async Task Every_daily_job_and_its_scheduler_can_be_created_with_the_worker_composition()
+    {
+        using var protection = new ProtectionScratch();
+        await using var services = Build(protection, new Dictionary<string, string?>());
+        await using var scope = services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<TenantContext>().Set(companyId: null, userId: null, ActorType.System);
+
+        var jobs = scope.ServiceProvider.GetServices<IScheduledJob>().Select(job => job.Name).ToList();
+        var hosted = services.GetServices<IHostedService>().ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(jobs, Is.EquivalentTo(new[] { "Housekeeping", "CertificateExpiryWatcher", "ResolutionRangeWatcher" }));
+            Assert.That(hosted.OfType<ScheduledJobsService>().Count(), Is.EqualTo(1));
+            Assert.That(hosted.OfType<OutboxProcessor>().Count(), Is.EqualTo(1));
+            Assert.That(scope.ServiceProvider.GetRequiredService<IScheduledNotices>(), Is.Not.Null);
+            Assert.That(scope.ServiceProvider.GetRequiredService<ICompanyNoticeReads>(), Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public async Task The_worker_runs_the_daily_jobs_once_a_day_with_the_documented_defaults()
+    {
+        using var protection = new ProtectionScratch();
+        await using var services = Build(protection, new Dictionary<string, string?>());
+
+        var options = services.GetRequiredService<IOptions<ScheduledJobsOptions>>().Value;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(options.RunAtUtc, Is.EqualTo(new TimeOnly(8, 0)));
+            Assert.That(options.RunOnStartup, Is.True);
+            Assert.That(options.OutboxRetentionDays, Is.EqualTo(30));
+            Assert.That(options.DeleteBatchSize, Is.EqualTo(1000));
+        });
+    }
+
+    [TestCase(nameof(ScheduledJobsOptions.OutboxRetentionDays), "0")]
+    [TestCase(nameof(ScheduledJobsOptions.DeleteBatchSize), "0")]
+    [TestCase(nameof(ScheduledJobsOptions.DeleteBatchSize), "100001")]
+    [TestCase(nameof(ScheduledJobsOptions.RunAtUtc), "08:00:30")]
+    public async Task An_invalid_daily_jobs_setting_stops_the_worker(string property, string value)
+    {
+        using var protection = new ProtectionScratch();
+        await using var services = Build(protection, new Dictionary<string, string?> { [$"ScheduledJobs:{property}"] = value });
+
+        var exception = Assert.Throws<OptionsValidationException>(() => _ = services.GetRequiredService<IOptions<ScheduledJobsOptions>>().Value);
+
+        Assert.That(exception?.Message, Does.Contain(property));
     }
 
     [Test]
