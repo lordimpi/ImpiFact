@@ -9,7 +9,7 @@ public static class DocumentServiceCollectionExtensions
     /// <summary>
     /// Registra los adaptadores del módulo Documents: consecutivos, archivos de documento y los puertos de la emisión
     /// (contexto de la empresa, catálogos, documentos, llaves de idempotencia y URL del QR) y del envío a la DIAN
-    /// (documento con rastreo e intentos en <c>dian_submissions</c>). El SQL del
+    /// (documento con rastreo e intentos en <c>dian_submissions</c>) y las búsquedas de las rutas utilitarias. El SQL del
     /// consecutivo (<see cref="INumberingSql"/>) lo registra el motor de base de datos elegido.
     /// </summary>
     public static IServiceCollection AddDocuments(this IServiceCollection services)
@@ -23,6 +23,7 @@ public static class DocumentServiceCollectionExtensions
         services.TryAddScoped<IDocumentDelivery, EfDocumentDelivery>();
         services.TryAddSingleton<IDianQrUrls, DianQrUrls>();
         services.TryAddScoped<IDocumentFileReads, EfDocumentFileReads>();
+        services.TryAddScoped<IDocumentLookups, EfDocumentLookups>();
         return services;
     }
 }
