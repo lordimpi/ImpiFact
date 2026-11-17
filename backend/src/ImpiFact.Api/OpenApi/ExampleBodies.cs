@@ -136,6 +136,13 @@ internal static class ExampleBodies
             """), "Reemplace el valor por el `refresh_token` que entregó `POST /api/v1/auth/login`."),
     ];
 
+    public static RequestExample[] Logout { get; } =
+    [
+        new("cerrar", "Cerrar la sesión de una integración con su refresh_token", Parse("""
+            { "refresh_token": "pegue-aqui-el-refresh_token-de-login" }
+            """), "El panel no manda cuerpo: envía `X-Client: panel` y el navegador agrega la cookie de la sesión."),
+    ];
+
     public static RequestExample[] ApiKey { get; } =
     [
         new("integracion", "Llave de empresa para emitir y consultar", Parse($$"""

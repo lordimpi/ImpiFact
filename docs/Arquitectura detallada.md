@@ -316,7 +316,7 @@ Las tareas diarias (`Housekeeping` y los dos vigilantes) corren una vez al día 
 1. `ForwardedHeaders` (detrás de proxy/ingress).
 2. `CorrelationId` (acepta `X-Correlation-Id` o genera uno; entra al contexto de Serilog).
 3. `ExceptionHandler` → `ProblemDetails` (RFC 9457) más los campos legados `success` y `message`.
-4. `HttpsRedirection`, `HSTS`, CORS con lista explícita.
+4. `HttpsRedirection`, `HSTS`, CORS con lista explícita (`Cors:Origins`, con credenciales para la cookie del panel; nunca `*`).
 5. `RateLimiter` (por API key, por IP y más estricto en login).
 6. `Authentication` → `TenantResolution` → `Authorization`.
 7. Endpoints.
@@ -326,6 +326,9 @@ Las tareas diarias (`Housekeeping` y los dos vigilantes) corren una vez al día 
 - **Esquema de política** que decide por el encabezado `Authorization: Bearer <token>`: si el token empieza por `apk_` es API key; si no, JWT. Así el Postman legado (que usa Bearer) funciona sin cambios.
 - **API key**: se busca por `key_hash` (SHA-256), se verifica `revoked_at`/`expires_at`, se actualiza `last_used_at` (sin bloquear la petición) y se crean los claims `company_id` y `scopes`.
 - **JWT** del panel: vida 15 min, refresh de 14 días rotativo (`refresh_tokens`), claims `sub`, `role` y `company_id` activa; cambiar de empresa emite un token nuevo.
+- **Sesión del panel en el navegador** (17-nov, ADR-20 de «Arquitectura frontend»): `POST /api/v1/auth/login`, `/refresh` y `/logout` con el encabezado `X-Client: panel` ponen el refresh en la cookie `impifact_refresh` (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth`, vence con el token) y no lo devuelven en el cuerpo; sin el encabezado, las integraciones siguen recibiéndolo en el JSON como antes. La renovación lee la cookie cuando el cuerpo no trae `refresh_token` (el cuerpo puede faltar o traer solo `company_id`) y reutiliza la misma rotación y detección de reúso; un 401 borra la cookie, y el panel sin cookie recibe 401. `Secure` solo se omite en Development, por HTTP y hacia `localhost` o `127.0.0.1`.
+- **Cierre de sesión** `POST /api/v1/auth/logout`: revoca el refresh presentado (cuerpo o cookie) sin reemplazo; como cada renovación revoca el anterior, solo el último de la cadena estaba vigente y la cadena queda cerrada. Las demás sesiones del usuario siguen vivas y el JWT ya entregado vale hasta vencer. Responde 204 aunque el token no exista o ya esté revocado (un token revocado aquí no cuenta como reúso) y, con `X-Client: panel`, borra la cookie.
+- **CSRF** (solicitud falsificada desde otro sitio) sobre la cookie, en dos capas: `SameSite=Strict` (el navegador no la manda desde otro sitio) y la cookie solo se acepta con `X-Client: panel`; sin él, 403 `identity.client_header_required` y la sesión no se toca. Un formulario no puede poner ese encabezado y otra página de otro origen solo puede hacerlo tras el *preflight* de CORS, que solo aprueban los orígenes de `Cors:Origins`; esto cubre también un subdominio vecino, donde `SameSite` no protege. Se eligió `Strict` y no `Lax` porque la cookie solo la usan llamadas `fetch`, nunca navegaciones. Requiere que el panel y la API estén en el mismo sitio (mismo dominio registrable) y, en desarrollo, con el mismo nombre de host.
 - **Plataforma**: llave con `company_id` nulo y alcance `platform:*` reemplaza `X-Admin-Token` para crear/borrar empresas, planes y revendedores.
 - **Propiedad por NIT**: toda ruta con `{nit}` o con NIT en el cuerpo compara contra la empresa del token; si no coincide responde 403 sin revelar si el NIT existe.
 - Políticas de autorización por alcance (`documents:write`, `documents:read`, `config:write`, `platform:*`) y por rol en el panel. Los usuarios del panel reciben sus alcances según sus roles al emitir el JWT (16-nov), en claims `scope`, así las mismas políticas sirven para usuarios y API keys: `owner` → `documents:read`, `documents:write` y `config:write`; `seller` → `documents:read` y `documents:write`; `customer` → `documents:read`; `platform_admin` → `platform:*`; `reseller` → ninguno por ahora. Los alcances de empresa solo se dan con empresa activa en el token y `platform:*` solo sin empresa activa.
@@ -441,6 +444,7 @@ Módulos del panel de la fase 5:
 - `Pdf` (solo el Worker; ADR-04): `GotenbergUrl` es la dirección de Gotenberg (`http://gotenberg:3000` dentro de la red de contenedores) y `TimeoutSeconds` el plazo de una conversión, que debe ser menor que `Outbox:HandlerTimeoutSeconds` (se valida al arrancar). A Gotenberg solo se le manda el HTML del documento, su hoja de estilos y la imagen del QR; nunca secretos.
 - Secretos (cadena de conexión, llave de JWT, llave maestra local, credenciales SMTP por defecto) **nunca** van en `appsettings`; el arranque falla (`ValidateOnStart`) si falta alguno.
 - Llave de JWT: asimétrica (RS256/ES256) con rotación; la pública se expone en `/.well-known/jwks.json` si se necesita.
+- `Cors:Origins`: orígenes exactos del panel tal como los manda el navegador en `Origin` (esquema, host y puerto si no es el de siempre; sin ruta, sin barra final y nunca `*`); un valor que no cumple detiene el arranque. Esos orígenes reciben `Access-Control-Allow-Credentials: true`; con la lista vacía no se permite ninguno.
 - Archivos de ejemplo `appsettings.Development.json` y `.env.example` se versionan sin secretos.
 
 ## 12. Observabilidad

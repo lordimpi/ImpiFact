@@ -88,7 +88,7 @@ feature-documents/src/lib/
 | Tema | Decisión |
 | --- | --- |
 | Token de acceso | JWT de 15 min, **solo en memoria** (un signal en `core`), nunca en `localStorage` |
-| Refresh | Cookie `HttpOnly; Secure; SameSite=Strict` emitida por el Api; el cliente llama a `/auth/refresh` con `withCredentials` al arrancar y ante un 401 |
+| Refresh | Cookie `impifact_refresh` (`HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`) emitida por el Api cuando la solicitud trae `X-Client: panel`; el cliente llama a `/auth/login`, `/auth/refresh` y `/auth/logout` con ese encabezado y `withCredentials`, al arrancar y ante un 401. El cuerpo no trae `refresh_token`; sin cookie, `/auth/refresh` responde 401 (no hay sesión) |
 | Interceptores | `authInterceptor` (adjunta Bearer), `refreshInterceptor` (un solo refresh en vuelo; reintenta una vez), `errorInterceptor`, `correlationInterceptor` (`X-Correlation-Id`) |
 | Guards | `authGuard` (sesión), `roleGuard(roles)`, `companyGuard` (empresa activa elegida), `unsavedChangesGuard` |
 | Permisos en UI | Se leen de los claims y ocultan o deshabilitan acciones; **el backend es la autoridad**, nunca se confía en el cliente |
@@ -99,7 +99,7 @@ feature-documents/src/lib/
 | Cierre de sesión | Llama a `/auth/logout` (revoca el refresh), limpia estado y redirige; sincroniza entre pestañas con `BroadcastChannel` |
 | Inactividad | Aviso a los 25 min y cierre a los 30 (configurable) |
 
-Cambio requerido en el backend: el endpoint de refresh debe aceptar y emitir la cookie `HttpOnly`, y CORS debe permitir credenciales para el origen del panel. Se agrega a las tareas de la fase 2.
+Cambio en el backend, hecho el 17-nov (fase 5, B1): el refresh acepta y emite la cookie `HttpOnly`, existe `/auth/logout` y CORS permite credenciales para los orígenes de `Cors:Origins`. La cookie solo se acepta con `X-Client: panel` (defensa contra CSRF junto con `SameSite=Strict`), así que el panel y la API deben estar en el mismo sitio (mismo dominio registrable) y, en desarrollo, con el mismo nombre de host (`localhost` o `127.0.0.1`, sin mezclarlos). Detalle en «Arquitectura detallada», sección 9.2.
 
 ## 7. Mapa de rutas y roles
 
@@ -206,7 +206,7 @@ Cobertura mínima: `core` y servicios de estado 80 %. El E2E corre contra el doc
 
 Tareas que el frontend necesita y que se suman al backlog del Api:
 
-1. Fase 2: refresh por cookie `HttpOnly`, `/auth/logout`, CORS con credenciales para el origen del panel.
+1. ~~Fase 2: refresh por cookie `HttpOnly`, `/auth/logout`, CORS con credenciales para el origen del panel.~~ Hecho el 17-nov (fase 5, B1): encabezado `X-Client: panel`, cookie `impifact_refresh` y `Cors:Origins` con credenciales.
 2. Fase 2: `openapi.json` estable y versionado, con `operationId` legibles y *tags* por módulo.
 3. Fase 3: `POST /api/v1/documents/calculate` (totales e impuestos con `DianRounding`).
 4. Fase 4: `GET /api/v1/notifications` y, opcional, SSE.

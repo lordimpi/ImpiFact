@@ -110,6 +110,7 @@ internal static class OpenApiExamples
         "desde" => "2026-11-01",
         "hasta" => "2026-11-30",
         "page" => 1,
+        "X-Client" => "panel",
         _ => null,
     };
 

@@ -3,6 +3,8 @@ using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
 using ImpiFact.Api.OpenApi;
 using ImpiFact.Application.Abstractions.Handlers;
+using ImpiFact.Application.Abstractions.Results;
+using ImpiFact.Application.Features.Identity;
 using ImpiFact.Application.Features.Identity.ApiKeys;
 using ImpiFact.Application.Features.Identity.Sessions;
 using ImpiFact.Application.Features.Identity.Users;
@@ -13,10 +15,10 @@ using Microsoft.Net.Http.Headers;
 namespace ImpiFact.Api.Identity;
 
 /// <summary>
-/// Endpoints de Identity (Arquitectura detallada, secciones 3 y 9.3): inicio de sesión y renovación (anónimos, con el
-/// límite estricto de inicio de sesión), API keys y usuarios (con la política
-/// <see cref="IdentityPolicies.ManageCredentials"/>). Cada endpoint solo arma la solicitud, llama al caso de uso y
-/// traduce el resultado.
+/// Endpoints de Identity (Arquitectura detallada, secciones 3 y 9.3): inicio de sesión, renovación y cierre de sesión
+/// (anónimos, con el límite estricto de inicio de sesión; el panel usa la cookie de <see cref="PanelSession"/>), API
+/// keys y usuarios (con la política <see cref="IdentityPolicies.ManageCredentials"/>). Cada endpoint solo arma la
+/// solicitud, llama al caso de uso y traduce el resultado.
 /// </summary>
 internal sealed class IdentityEndpoints : IEndpointModule
 {
@@ -43,7 +45,8 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "`access_token` (JWT de vida corta) y un `refresh_token`. El `access_token` se usa como credencial Bearer. " +
                 "Un correo desconocido, una contraseña equivocada o un usuario inactivo o bloqueado responden el mismo 401 " +
                 "(`identity.invalid_credentials`); una empresa a la que el usuario no pertenece responde 403 " +
-                "(`identity.company_not_allowed`). Tiene un límite estricto de intentos por minuto y por IP (429).");
+                "(`identity.company_not_allowed`). Tiene un límite estricto de intentos por minuto y por IP (429).\n\n" +
+                PanelCookieNote);
         auth.MapPost("/refresh", RefreshAsync)
             .Produces<SessionTokens>()
             .WithRequestExamples(ExampleBodies.Refresh)
@@ -52,7 +55,20 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "Cambia un `refresh_token` vigente por un `access_token` y un `refresh_token` nuevos; el usado queda revocado. " +
                 "Con `company_id` cambia la empresa activa del token. Un token vencido, revocado o desconocido responde 401 " +
                 "(`identity.invalid_refresh_token`); presentar uno ya revocado revoca todas las sesiones del usuario. Comparte el " +
-                "límite de intentos del inicio de sesión.");
+                "límite de intentos del inicio de sesión.\n\n" +
+                PanelCookieNote + " Con `X-Client: panel` y sin `refresh_token` en el cuerpo, la renovación usa la cookie " +
+                "(el cuerpo puede faltar o traer solo `company_id`) y la reemplaza por la nueva; si no hay cookie, o el token no " +
+                "sirve, responde 401 y borra la cookie.");
+        auth.MapPost("/logout", LogoutAsync)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithRequestExamples(ExampleBodies.Logout)
+            .WithSummary("Cerrar la sesión")
+            .WithDescription(
+                "Revoca el `refresh_token` de la sesión, del cuerpo o, para el panel, de la cookie: esa sesión ya no puede " +
+                "renovarse. Las demás sesiones del usuario (otros navegadores) siguen vivas, y el `access_token` que ya se " +
+                "entregó vale hasta su vencimiento (15 minutos como máximo). Responde 204 también si el token no existe o ya " +
+                "estaba revocado, así se puede repetir sin error. Comparte el límite de intentos del inicio de sesión.\n\n" +
+                PanelCookieNote + " Con `X-Client: panel`, además, borra la cookie.");
 
         var apiKeys = endpoints.MapGroup("/api/v1/api-keys").WithTags(ApiTags.Identity).RequireAuthorization(IdentityPolicies.ManageCredentials);
         apiKeys.MapPost("/", CreateApiKeyAsync).AddEndpointFilter(NoStore)
@@ -85,17 +101,94 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "repetido: 409 (`user.email_taken`); rol no permitido: 403 (`user.role_not_allowed`).");
     }
 
-    private static async Task<IResult> LoginAsync(
-        LoginBody body, HttpContext context, [FromServices] IHandler<LoginCommand, SessionTokens> handler, CancellationToken ct) =>
-        (await handler.HandleAsync(
-            new LoginCommand(body.Email ?? "", body.Password ?? "", body.CompanyId, ClientIp(context), UserAgent(context)), ct))
-        .ToHttpResult();
+    /// <summary>Texto común de las rutas de sesión sobre la cookie del panel (<see cref="PanelSession"/>).</summary>
+    private const string PanelCookieNote =
+        "**Panel web:** con el encabezado `X-Client: panel`, el `refresh_token` no va en el cuerpo sino en la cookie " +
+        "`" + PanelSession.CookieName + "` (`HttpOnly`, `Secure`, `SameSite=Strict`, solo para `" + PanelSession.CookiePath + "`, " +
+        "con el vencimiento del token). Esa cookie solo se acepta con el mismo encabezado; sin él responde 403 " +
+        "(`identity.client_header_required`), para que otra página no pueda usarla.";
 
+    private static async Task<IResult> LoginAsync(
+        LoginBody body,
+        [FromHeader(Name = PanelSession.ClientHeader)] string? client,
+        HttpContext context,
+        [FromServices] IHandler<LoginCommand, SessionTokens> handler,
+        CancellationToken ct)
+    {
+        var result = await handler.HandleAsync(
+            new LoginCommand(body.Email ?? "", body.Password ?? "", body.CompanyId, ClientIp(context), UserAgent(context)), ct);
+        return PanelSession.IsPanel(client) ? result.ToHttpResult(tokens => PanelSession.Issue(context, tokens)) : result.ToHttpResult();
+    }
+
+    /// <summary>
+    /// El token sale del cuerpo o, para el panel, de la cookie. Si el panel no tiene cookie, no hay sesión: 401, como un
+    /// token que no sirve. Un 401 con la cookie la borra, para que el navegador no la siga enviando.
+    /// </summary>
     private static async Task<IResult> RefreshAsync(
-        RefreshBody body, HttpContext context, [FromServices] IHandler<RefreshTokenCommand, SessionTokens> handler, CancellationToken ct) =>
-        (await handler.HandleAsync(
-            new RefreshTokenCommand(body.RefreshToken ?? "", body.CompanyId, ClientIp(context), UserAgent(context)), ct))
-        .ToHttpResult();
+        RefreshBody? body,
+        [FromHeader(Name = PanelSession.ClientHeader)] string? client,
+        HttpContext context,
+        [FromServices] IHandler<RefreshTokenCommand, SessionTokens> handler,
+        CancellationToken ct)
+    {
+        var isPanel = PanelSession.IsPanel(client);
+        var presented = PanelSession.ReadRefreshToken(context.Request, body?.RefreshToken, isPanel);
+        if (!presented.IsSuccess)
+        {
+            return presented.Error.ToHttpResult();
+        }
+
+        if (isPanel && presented.Value.Value.Length == 0)
+        {
+            return IdentityErrors.InvalidRefreshToken.ToHttpResult();
+        }
+
+        var result = await handler.HandleAsync(
+            new RefreshTokenCommand(presented.Value.Value, body?.CompanyId, ClientIp(context), UserAgent(context)), ct);
+        if (!result.IsSuccess)
+        {
+            if (presented.Value.FromCookie && result.Error.Type == ErrorType.Unauthorized)
+            {
+                PanelSession.Clear(context);
+            }
+
+            return result.Error.ToHttpResult();
+        }
+
+        return isPanel ? PanelSession.Issue(context, result.Value) : result.ToHttpResult();
+    }
+
+    /// <summary>Sin token no hay nada que revocar: responde 204 sin llamar al caso de uso.</summary>
+    private static async Task<IResult> LogoutAsync(
+        LogoutBody? body,
+        [FromHeader(Name = PanelSession.ClientHeader)] string? client,
+        HttpContext context,
+        [FromServices] IHandler<LogoutCommand, LoggedOut> handler,
+        CancellationToken ct)
+    {
+        var isPanel = PanelSession.IsPanel(client);
+        var presented = PanelSession.ReadRefreshToken(context.Request, body?.RefreshToken, isPanel);
+        if (!presented.IsSuccess)
+        {
+            return presented.Error.ToHttpResult();
+        }
+
+        if (presented.Value.Value.Length > 0)
+        {
+            var result = await handler.HandleAsync(new LogoutCommand(presented.Value.Value), ct);
+            if (!result.IsSuccess)
+            {
+                return result.Error.ToHttpResult();
+            }
+        }
+
+        if (isPanel)
+        {
+            PanelSession.Clear(context);
+        }
+
+        return TypedResults.NoContent();
+    }
 
     private static async Task<IResult> CreateApiKeyAsync(
         CreateApiKeyBody body, [FromServices] IHandler<CreateApiKeyCommand, CreatedApiKey> handler, CancellationToken ct) =>
@@ -140,6 +233,11 @@ internal sealed class IdentityEndpoints : IEndpointModule
         [property: JsonPropertyName("company_id")] Guid? CompanyId)
     {
         public override string ToString() => "RefreshBody";
+    }
+
+    internal sealed record LogoutBody([property: JsonPropertyName("refresh_token")] string? RefreshToken)
+    {
+        public override string ToString() => "LogoutBody";
     }
 
     internal sealed record CreateApiKeyBody(

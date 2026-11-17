@@ -60,13 +60,21 @@ internal static class ApiComposition
             }
         });
 
+        // CORS solo para los orígenes de Cors:Origins (validados al arrancar: nunca «*»). Con credenciales, para que el
+        // panel reciba y envíe la cookie de sesión (PanelSession); sin orígenes configurados no se permite ninguno.
         services.AddCors();
         services.AddOptions<CorsOptions>().Configure<IOptionsService<CorsOriginsOptions>>((options, cors) =>
-            options.AddDefaultPolicy(policy => policy
-                .WithOrigins(cors.Value.Origins)
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .WithExposedHeaders(CorrelationIdMiddleware.HeaderName)));
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.WithOrigins(cors.Value.Origins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .WithExposedHeaders(CorrelationIdMiddleware.HeaderName);
+                if (cors.Value.Origins.Length > 0)
+                {
+                    policy.AllowCredentials();
+                }
+            }));
 
         services.AddApiRateLimiting();
         services.AddBearerAuthentication();
