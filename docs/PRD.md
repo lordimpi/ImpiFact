@@ -333,7 +333,7 @@ El esquema original tiene 134 migraciones y unos 40 catálogos y tablas de negoc
 
 ## 9. Diseño de API
 
-La v1 de .NET conserva las rutas y el JSON del API actual bajo `/api/ubl2.1/`. Así la colección Postman oficial sirve como regresión y los integradores no cambian nada. La v2 (rutas limpias, REST estricto) se diseña después de terminar la migración.
+La v1 de .NET conserva las rutas y el JSON del API actual bajo `/api/ubl2.1/`. Así la colección Postman oficial sirve como regresión y los integradores no cambian nada. Esas rutas no aparecen en la documentación OpenAPI (solo se documenta `/api/v1`) y se borran en la fase 7, con el cierre de la referencia PHP. La v2 (rutas limpias, REST estricto) se diseña después de terminar la migración.
 
 **Inventario de rutas del origen** (`routes/api.php`, 439 líneas; el panel web tiene otras 164)
 
@@ -358,7 +358,7 @@ La v1 de .NET conserva las rutas y el JSON del API actual bajo `/api/ubl2.1/`. A
 
 - Los controladores se reemplazan por endpoints *Minimal API* delgados (ADR-11) que llaman a un caso de uso (`IHandler<TIn, TOut>`). Un handler por tipo de documento, no uno por ruta.
 - Las variantes con `testSetId` se resuelven con el mismo handler y el ambiente de la empresa, sin duplicar código.
-- Versionado por ruta: `/api/v1/...` es la ruta canónica que usa el panel. Las rutas heredadas (`/api/ubl2.1/...` y demás) se publican como alias para los contract tests.
+- Versionado por ruta: `/api/v1/...` es la ruta canónica que usa el panel. Las rutas heredadas (`/api/ubl2.1/...` y demás) se publican como alias para los contract tests; quedan fuera de la documentación OpenAPI y se borran en la fase 7.
 - OpenAPI nativo de .NET 10 y Scalar como documentación, como en tu proyecto de referencia.
 - Autenticación: API key con hash por empresa para integradores y JWT con refresh para el panel Angular.
 - `signdocument`, `senddocument`, `statusdocument` y `statuszip` estaban abiertas en el repo analizado, y el PHP de octubre de 2026 ya las protege. En .NET exigen API key (ADR-06); no hay clientes legados que dependan de ellas.
@@ -485,7 +485,7 @@ Cada fase termina en una puerta de salida medible. No se pasa a la siguiente sin
 | 4. Operación | Estados, Worker con reintentos, PDF, correo, almacenamiento, planes y consumo | Peticiones Postman de la primera entrega en verde (sección 13, revisión #9) |
 | 5. Panel Angular | Propietario, vendedor y cliente; configuración; paso a producción | Un flujo completo de alta de empresa y emisión sin usar el panel PHP |
 | 6. Endurecimiento | SQL Server, MySQL, Key Vault, Secrets Manager y Secret Manager, observabilidad, pruebas de carga | Mismo despliegue en Azure, AWS y GCP |
-| 7. Paridad y salida | Piloto con una empresa real usando la primera entrega; después, el resto de Community: exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes y eventos RADIAN; cierre de la referencia PHP | Una empresa emite en producción con .NET; golden de cada variante y colección Postman Community completa en verde |
+| 7. Paridad y salida | Piloto con una empresa real usando la primera entrega; después, el resto de Community: exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes y eventos RADIAN; cierre de la referencia PHP y borrado de las rutas heredadas (`/api/ubl2.1/...` y demás) | Una empresa emite en producción con .NET; golden de cada variante y colección Postman Community completa en verde |
 | 8. Enterprise | Nómina, POS, RIPS, extractor de compras, roles avanzados, app móvil | Se planifica en un PRD aparte |
 
 ```mermaid
@@ -582,7 +582,7 @@ flowchart LR
 - **Origen de paridad:** repo público github.com/facturalatam/apidian (Community; licencia por confirmar, ver riesgos) + colección Postman como referencia de contrato. Lo Enterprise de la colección (nómina, RIPS, extractor, WhatsApp) queda fuera de la fase Community.
 - **Datos:** sin migración de datos existentes; arranque desde cero (esquema nuevo, seeders de catálogos DIAN).
 - **Modelo comercial:** reventa con desarrollo propio y estándares de calidad nuevos → multi-empresa desde el día 1, planes/consumo y licencia propia.
-- **Clientes legados:** ninguno; no hay obligación de compatibilidad con las rutas públicas del PHP. Se conservan las rutas `/api/ubl2.1/*` solo como contrato de referencia y para los contract tests, no como promesa a terceros; las rutas sin autenticación (sign/send/status) se cierran.
+- **Clientes legados:** ninguno; no hay obligación de compatibilidad con las rutas públicas del PHP. Se conservan las rutas `/api/ubl2.1/*` solo como contrato de referencia y para los contract tests, no como promesa a terceros: no se documentan en OpenAPI y se borran en la fase 7; las rutas sin autenticación (sign/send/status) se cierran.
 - **Equipo:** una sola persona → la primera entrega se recorta a factura, notas crédito/débito, resoluciones, certificado, ambiente y consultas, contra habilitación DIAN. Confirmado el 14-nov: son las fases 3 y 4; el resto de Community pasa a la fase 7.
 - **Licencia del repositorio ImpiFact (14-nov):** se creó con Apache 2.0 de forma provisional. Hay que cambiarla por una licencia propia antes de vender o de publicar el código, porque Apache 2.0 permite a cualquiera usarlo y revenderlo.
 - **WhatsApp (14-nov):** Enterprise (fase 8). Sale de la fase 4, de los contract tests y de la migración inicial.

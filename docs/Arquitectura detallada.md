@@ -333,10 +333,10 @@ Las tareas diarias (`Housekeeping` y los dos vigilantes) corren una vez al día 
 ### 9.3 Endpoints
 
 - Estilo *Minimal API* agrupado por módulo (`MapGroup`), un archivo por caso de uso o por grupo pequeño; cada endpoint solo valida la forma HTTP, llama al handler y traduce el `Result`.
-- Rutas: `/api/v1/...` es la ruta canónica (la usa el panel). Las del contrato legado (`/api/ubl2.1/...`, `/api/information/...`, `/api/table/...`, etc., ver anexo A) se publican como alias del mismo handler para los contract tests.
+- Rutas: `/api/v1/...` es la ruta canónica (la usa el panel). Las del contrato legado (`/api/ubl2.1/...`, `/api/information/...`, `/api/table/...`, etc., ver anexo A) se publican como alias del mismo handler para los contract tests. No aparecen en la documentación OpenAPI (llevan `ExcludeFromDescription()`) y se borran en la fase 7, con el cierre de la referencia PHP.
 - Los DTO de entrada replican los nombres JSON del contrato (`[JsonPropertyName]`) incluyendo los typos heredados.
 - Planes (carpeta 09 del Postman, fase 4): `PUT /api/ubl2.1/plan` (alias `PUT /api/v1/plans/{id}`), `GET /api/ubl2.1/plan/query[/{id}]` (`GET /api/v1/plans[/{id}]`) y `GET /api/ubl2.1/plan/queryusersbyplan/{id}` (`GET /api/v1/plans/{id}/companies`) piden `platform:*` sin empresa (en el PHP eran públicas); `GET /api/ubl2.1/plan/infoplanuser` (`GET /api/v1/plans/current`) pide `documents:read` de la empresa. La asignación `PUT /api/v1/companies/{nit}/plan` con `{"plan_id": n}` (plataforma) es propia de ImpiFact: desactiva el plan contratado activo y crea otro que empieza ahora, así volver a asignar el mismo plan lo renueva. Diferencias con el PHP: un id inexistente es 404 (el PHP daba 500), el id 0 queda reservado, un plan nuevo sin nombre es 422 y el nombre único no choca consigo mismo; `queryusersbyplan` devuelve solo los datos de identificación de cada empresa; `infoplanuser` repite el mismo plan en `plan` a `plan4`, porque un plan contratado trae la cantidad de cada familia.
-- Documentación con `Microsoft.AspNetCore.OpenApi` y Scalar en `/scalar` (solo en desarrollo y staging, protegido en producción).
+- Documentación con `Microsoft.AspNetCore.OpenApi` y Scalar en `/scalar` (solo en desarrollo y staging, protegido en producción). Solo documenta las rutas `/api/v1`, en español: introducción con el flujo de integración, credenciales, alcances, errores e idempotencia; esquema Bearer para escribir la credencial en Scalar; descripción por sección y por ruta, con el permiso que pide cada una (`ImpiFact.Api/OpenApi`).
 
 ### 9.4 Mapeo de errores
 
@@ -574,6 +574,7 @@ Cada tarea es un PR con pruebas. Entre paréntesis, la puerta de salida de la fa
 2. Variantes de factura: exportación, contingencia, AIU, mandato, transporte.
 3. Documento soporte y su nota de ajuste.
 4. Eventos RADIAN y lotes.
+5. Cierre de la referencia PHP: se borran las rutas heredadas (`/api/ubl2.1/...` y demás), que ya no aparecían en la documentación OpenAPI.
 
 **Fases 5, 6 y 8** como en el PRD; se desglosan al cerrar la fase 4.
 
