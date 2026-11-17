@@ -247,6 +247,52 @@ public sealed class SessionHandlerTests
         {
             Assert.That(new LoginCommand("a@b.co", Password, null, null, null).ToString(), Does.Not.Contain(Password));
             Assert.That(new RefreshTokenCommand("refresh-1", null, null, null).ToString(), Does.Not.Contain("refresh-1"));
+            Assert.That(new LogoutCommand("refresh-1").ToString(), Does.Not.Contain("refresh-1"));
+        });
+    }
+
+    [Test]
+    public async Task A_logout_revokes_the_presented_token_and_leaves_the_other_sessions_alive()
+    {
+        var user = _users.AddUser("ana@example.com");
+        var thisDevice = (await Login("ana@example.com", Password)).Value;
+        await Login("ana@example.com", Password);
+        _clock.UtcNow = _clock.UtcNow.AddMinutes(5);
+
+        var loggedOut = await Logout(thisDevice.RefreshToken);
+        var revoked = _refreshStore.Tokens.Single(token => token.TokenHash == "sha:refresh-1");
+        var otherDevice = _refreshStore.Tokens.Single(token => token.TokenHash == "sha:refresh-2");
+        var refreshAfterLogout = await Refresh(thisDevice.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loggedOut.IsSuccess, Is.True);
+            Assert.That(loggedOut.Value.Revoked, Is.True);
+            Assert.That(revoked.RevokedAt, Is.EqualTo(_clock.UtcNow));
+            Assert.That(revoked.ReplacedBy, Is.Null, "A logout does not hand the session to another token.");
+            Assert.That(otherDevice.RevokedAt, Is.Null, "A logout ends only the session that presented the token.");
+            Assert.That(refreshAfterLogout.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(user.Id, Is.EqualTo(revoked.UserId));
+        });
+    }
+
+    [Test]
+    public async Task A_logout_with_an_unknown_or_already_revoked_token_succeeds_without_revoking_other_sessions()
+    {
+        _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Logout(login.RefreshToken);
+
+        var again = await Logout(login.RefreshToken);
+        var unknown = await Logout("refresh-que-no-existe");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(again.IsSuccess, Is.True);
+            Assert.That(again.Value.Revoked, Is.False);
+            Assert.That(unknown.IsSuccess, Is.True);
+            Assert.That(unknown.Value.Revoked, Is.False);
+            Assert.That(_refreshStore.RevokedAllFor, Is.Empty, "Logging out twice is not treated as a stolen token.");
         });
     }
 
@@ -257,4 +303,8 @@ public sealed class SessionHandlerTests
     private Task<Result<SessionTokens>> Refresh(string token, Guid? companyId = null) =>
         new RefreshTokenHandler(_refreshStore, _refreshFactory, _users, _issuer, _clock, NullLogger<RefreshTokenHandler>.Instance)
             .HandleAsync(new RefreshTokenCommand(token, companyId, null, null), CancellationToken.None);
+
+    private Task<Result<LoggedOut>> Logout(string token) =>
+        new LogoutHandler(_refreshStore, _refreshFactory, _clock, NullLogger<LogoutHandler>.Instance)
+            .HandleAsync(new LogoutCommand(token), CancellationToken.None);
 }
