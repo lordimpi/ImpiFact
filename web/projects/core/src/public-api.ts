@@ -4,6 +4,7 @@
  */
 export * from './lib/config/runtime-config';
 export * from './lib/errors/app-error';
+export * from './lib/guards/guards';
 export * from './lib/http/api-request';
 export * from './lib/http/interceptors';
 export * from './lib/i18n/provide-i18n';
