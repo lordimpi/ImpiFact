@@ -77,6 +77,8 @@ export type { IssueDebitNote$Params as IssueDebitNote$Params } from './fn/docume
 export { issueDebitNote as issueDebitNote } from './fn/documentos/issue-debit-note';
 export type { IssueTestSetDebitNote$Params as IssueTestSetDebitNote$Params } from './fn/documentos/issue-test-set-debit-note';
 export { issueTestSetDebitNote as issueTestSetDebitNote } from './fn/documentos/issue-test-set-debit-note';
+export type { CalculateDocumentTotals$Params as CalculateDocumentTotals$Params } from './fn/documentos/calculate-document-totals';
+export { calculateDocumentTotals as calculateDocumentTotals } from './fn/documentos/calculate-document-totals';
 export type { GetDocumentDianStatus$Params as GetDocumentDianStatus$Params } from './fn/documentos/get-document-dian-status';
 export { getDocumentDianStatus as getDocumentDianStatus } from './fn/documentos/get-document-dian-status';
 export type { GetDocumentXml$Params as GetDocumentXml$Params } from './fn/documentos/get-document-xml';
@@ -95,3 +97,9 @@ export type { RegenerateAttachedDocument$Params as RegenerateAttachedDocument$Pa
 export { regenerateAttachedDocument as regenerateAttachedDocument } from './fn/documentos/regenerate-attached-document';
 export type { ResendDocumentEmail$Params as ResendDocumentEmail$Params } from './fn/documentos/resend-document-email';
 export { resendDocumentEmail as resendDocumentEmail } from './fn/documentos/resend-document-email';
+export type { ListNotifications$Params as ListNotifications$Params } from './fn/notificaciones/list-notifications';
+export { listNotifications as listNotifications } from './fn/notificaciones/list-notifications';
+export type { MarkNotificationRead$Params as MarkNotificationRead$Params } from './fn/notificaciones/mark-notification-read';
+export { markNotificationRead as markNotificationRead } from './fn/notificaciones/mark-notification-read';
+export type { MarkAllNotificationsRead$Params as MarkAllNotificationsRead$Params } from './fn/notificaciones/mark-all-notifications-read';
+export { markAllNotificationsRead as markAllNotificationsRead } from './fn/notificaciones/mark-all-notifications-read';

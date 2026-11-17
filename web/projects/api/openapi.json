@@ -10336,6 +10336,140 @@
         ]
       }
     },
+    "/api/v1/documents/calculate": {
+      "post": {
+        "tags": [
+          "Documentos"
+        ],
+        "summary": "Calcular los totales de un documento",
+        "description": "Calcula los valores de una factura, nota cr\u00E9dito o nota d\u00E9bito a partir de sus l\u00EDneas: el valor de cada l\u00EDnea (precio \u00D7 cantidad \u2212 descuentos \u002B cargos), sus impuestos, los impuestos del documento agrupados como en el XML de la DIAN (un grupo por \u0060tax_id\u0060 con un subtotal por tarifa) y \u0060legal_monetary_totals\u0060. Cada importe sale con 2 decimales, redondeado como se escribe en el XML, y los totales suman esos valores, as\u00ED que lo calculado pasa las reglas de totales de la emisi\u00F3n: el panel lo muestra y lo env\u00EDa tal cual al emitir, sin hacer cuentas. En la nota d\u00E9bito, \u0060legal_monetary_totals\u0060 se env\u00EDa como \u0060requested_monetary_totals\u0060. Los descuentos y cargos globales no cambian los impuestos; los anticipos (\u0060prepaid_payments\u0060) suman \u0060pre_paid_amount\u0060, que no se resta del valor a pagar. Es c\u00E1lculo puro: no toma consecutivo, no guarda nada, no llama a la DIAN ni consume el plan. Pide \u0060documents:write\u0060, porque es parte de emitir, y una credencial de empresa. Datos inv\u00E1lidos: 422 (\u0060validation.failed\u0060, con \u0060errors\u0060 por campo, por ejemplo \u0060lines[0].taxes[0].percent\u0060).\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "calculateDocumentTotals",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateDocumentTotalsRequest"
+              },
+              "examples": {
+                "descuentos-iva19": {
+                  "summary": "Dos l\u00EDneas con descuento e IVA del 19 % y un descuento global",
+                  "value": {
+                    "lines": [
+                      {
+                        "quantity": 1,
+                        "unit_price": 1000,
+                        "allowance_charges": [
+                          {
+                            "charge_indicator": false,
+                            "amount": 50
+                          }
+                        ],
+                        "taxes": [
+                          {
+                            "tax_id": 1,
+                            "percent": 19
+                          }
+                        ]
+                      },
+                      {
+                        "quantity": 1,
+                        "unit_price": 1000,
+                        "allowance_charges": [
+                          {
+                            "charge_indicator": false,
+                            "percent": 5
+                          }
+                        ],
+                        "taxes": [
+                          {
+                            "tax_id": 1,
+                            "percent": 19
+                          }
+                        ]
+                      }
+                    ],
+                    "allowance_charges": [
+                      {
+                        "charge_indicator": false,
+                        "amount": 100
+                      }
+                    ]
+                  }
+                },
+                "iva-mixto-bolsas": {
+                  "summary": "IVA del 19 % y del 5 %, impuesto a las bolsas y un flete",
+                  "description": "La \u00FAltima l\u00EDnea es una muestra gratuita: vale 0 y su precio solo es de referencia.",
+                  "value": {
+                    "lines": [
+                      {
+                        "quantity": 2,
+                        "unit_price": 2350000,
+                        "taxes": [
+                          {
+                            "tax_id": 1,
+                            "percent": 19
+                          }
+                        ]
+                      },
+                      {
+                        "quantity": 3.5,
+                        "unit_price": 12500.75,
+                        "taxes": [
+                          {
+                            "tax_id": 1,
+                            "percent": 5
+                          }
+                        ]
+                      },
+                      {
+                        "quantity": 3,
+                        "unit_price": 0,
+                        "taxes": [
+                          {
+                            "tax_id": 10,
+                            "per_unit_amount": 66,
+                            "unit_measure_id": 70
+                          }
+                        ]
+                      },
+                      {
+                        "quantity": 1,
+                        "unit_price": 65000,
+                        "free_of_charge": true
+                      }
+                    ],
+                    "allowance_charges": [
+                      {
+                        "charge_indicator": true,
+                        "amount": 35000
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentTotalsCalculation"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/documents/by-cufe/{trackId}/dian-status": {
       "get": {
         "tags": [
@@ -10834,6 +10968,121 @@
           }
         ]
       }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "Notificaciones"
+        ],
+        "summary": "Listar los avisos de la empresa",
+        "description": "Avisos de la campana del panel, del m\u00E1s reciente al m\u00E1s antiguo. \u0060unread=true\u0060 trae solo los sin leer y \u0060unread=false\u0060 solo los le\u00EDdos; sin \u0060unread\u0060, todos. Pagina por cursor: \u0060limit\u0060 (20 si no llega, m\u00E1ximo 100) y \u0060cursor\u0060 (el \u0060next_cursor\u0060 de la p\u00E1gina anterior; nulo en la \u00FAltima). \u0060unread_count\u0060 es el total sin leer, sin importar el filtro ni la p\u00E1gina, para el n\u00FAmero de la campana. Un \u0060limit\u0060 o un \u0060cursor\u0060 no v\u00E1lidos responden 422. Solo se ven los avisos de la empresa activa: los de toda la empresa y, con sesi\u00F3n del panel, los dirigidos al usuario. Una API key solo ve los de toda la empresa.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "listNotifications",
+        "parameters": [
+          {
+            "name": "unread",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            },
+            "example": true
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "post": {
+        "tags": [
+          "Notificaciones"
+        ],
+        "summary": "Marcar un aviso como le\u00EDdo",
+        "description": "Marca como le\u00EDdo el aviso \u0060{id}\u0060 y responde 204 sin cuerpo. Repetirlo responde lo mismo y no cambia nada. Un aviso de otra empresa o dirigido a otro usuario responde 404 (\u0060notification.not_found\u0060), igual que uno que no existe. Solo se ven los avisos de la empresa activa: los de toda la empresa y, con sesi\u00F3n del panel, los dirigidos al usuario. Una API key solo ve los de toda la empresa.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "markNotificationRead",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "tags": [
+          "Notificaciones"
+        ],
+        "summary": "Marcar todos los avisos como le\u00EDdos",
+        "description": "Marca como le\u00EDdos todos los avisos sin leer que ve la credencial y responde en \u0060marked_count\u0060 cu\u00E1ntos cambiaron (0 si no hab\u00EDa ninguno). Nunca toca los avisos de otra empresa. Solo se ven los avisos de la empresa activa: los de toda la empresa y, con sesi\u00F3n del panel, los dirigidos al usuario. Una API key solo ve los de toda la empresa.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "markAllNotificationsRead",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsMarkedResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -10842,6 +11091,391 @@
         "type": "object",
         "properties": {
           "plan_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "CalculatedAllowanceCharge": {
+        "required": [
+          "charge_indicator",
+          "amount",
+          "base_amount"
+        ],
+        "type": "object",
+        "properties": {
+          "charge_indicator": {
+            "type": "boolean"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "base_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "CalculatedLine": {
+        "required": [
+          "line_extension_amount",
+          "allowance_charges",
+          "tax_subtotals"
+        ],
+        "type": "object",
+        "properties": {
+          "line_extension_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "allowance_charges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalculatedAllowanceCharge"
+            }
+          },
+          "tax_subtotals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalculatedTaxSubtotal"
+            }
+          }
+        }
+      },
+      "CalculatedMonetaryTotals": {
+        "required": [
+          "line_extension_amount",
+          "tax_exclusive_amount",
+          "tax_inclusive_amount",
+          "allowance_total_amount",
+          "charge_total_amount",
+          "pre_paid_amount",
+          "payable_amount"
+        ],
+        "type": "object",
+        "properties": {
+          "line_extension_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_exclusive_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_inclusive_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "allowance_total_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "charge_total_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "pre_paid_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "payable_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "CalculateDocumentTotalsRequest": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalculationLineRequest"
+            }
+          },
+          "allowance_charges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalculationAllowanceChargeRequest"
+            }
+          },
+          "prepaid_payments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalculationPrepaidPaymentRequest"
+            }
+          }
+        }
+      },
+      "CalculatedTaxSubtotal": {
+        "required": [
+          "tax_id",
+          "taxable_amount",
+          "tax_amount"
+        ],
+        "type": "object",
+        "properties": {
+          "tax_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "taxable_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "percent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "per_unit_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "base_unit_measure": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "unit_measure_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "CalculatedTaxTotal": {
+        "required": [
+          "tax_id",
+          "tax_amount",
+          "tax_subtotals"
+        ],
+        "type": "object",
+        "properties": {
+          "tax_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "tax_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_subtotals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalculatedTaxSubtotal"
+            }
+          }
+        }
+      },
+      "CalculationAllowanceChargeRequest": {
+        "type": "object",
+        "properties": {
+          "charge_indicator": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "percent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "CalculationLineRequest": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "unit_price": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "free_of_charge": {
+            "type": "boolean"
+          },
+          "allowance_charges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalculationAllowanceChargeRequest"
+            }
+          },
+          "taxes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalculationTaxRequest"
+            }
+          }
+        }
+      },
+      "CalculationPrepaidPaymentRequest": {
+        "type": "object",
+        "properties": {
+          "paid_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "CalculationTaxRequest": {
+        "type": "object",
+        "properties": {
+          "tax_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "percent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "per_unit_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "base_unit_measure": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "unit_measure_id": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "null",
@@ -12171,6 +12805,38 @@
           }
         }
       },
+      "DocumentTotalsCalculation": {
+        "required": [
+          "lines",
+          "tax_totals",
+          "allowance_charges",
+          "legal_monetary_totals"
+        ],
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalculatedLine"
+            }
+          },
+          "tax_totals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalculatedTaxTotal"
+            }
+          },
+          "allowance_charges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CalculatedAllowanceCharge"
+            }
+          },
+          "legal_monetary_totals": {
+            "$ref": "#/components/schemas/CalculatedMonetaryTotals"
+          }
+        }
+      },
       "DocumentTotalsResponse": {
         "type": "object",
         "properties": {
@@ -12753,6 +13419,69 @@
           },
           "document": {
             "$ref": "#/components/schemas/UtilityDocumentResponse"
+          }
+        }
+      },
+      "NotificationListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationResponse"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unread_count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "NotificationResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "is_read": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "NotificationsMarkedResponse": {
+        "type": "object",
+        "properties": {
+          "marked_count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -13850,6 +14579,10 @@
     {
       "name": "Planes",
       "description": "Planes de documentos y su consumo. La plataforma crea los planes y los asigna a las empresas; cada empresa consulta su plan vigente y los documentos que le quedan."
+    },
+    {
+      "name": "Notificaciones",
+      "description": "Avisos de la campana del panel: certificado por vencer, rangos de numeraci\u00F3n, documentos rechazados o sin confirmar. Se listan por empresa, del m\u00E1s reciente al m\u00E1s antiguo, y se marcan como le\u00EDdos."
     }
   ]
 }
