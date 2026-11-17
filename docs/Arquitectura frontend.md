@@ -68,7 +68,7 @@ feature-documents/src/lib/
 
 ## 4. Estado
 
-- **Estado compartido de un feature** (listas con filtros, detalle que otras partes leen): un store de **NgRx SignalStore** (`@ngrx/signals`) por feature, en `state/`, con `withState` (datos, `loading`, `error`), `withComputed` (lo derivado) y `withMethods` (las únicas formas de cambiarlo, que llaman al cliente generado). Las listas usan `withEntities`; la paginación, los filtros y los estados de carga se escriben una vez como *feature* reutilizable de SignalStore en `core`. Refresco explícito tras mutaciones.
+- **Estado compartido de un feature** (listas con filtros, detalle que otras partes leen): un store de **NgRx SignalStore** (`@ngrx/signals`) por feature, en `state/`, con `withState` (datos, `loading`, `error`), `withComputed` (lo derivado) y `withMethods` (las únicas formas de cambiarlo, que llaman al cliente generado). Las listas usan `withEntities`; la paginación, los filtros y los estados de carga se escriben una vez como *feature* reutilizable de SignalStore en `core` (`withServerList`). Refresco explícito tras mutaciones.
 - **Datos de una sola pantalla** que nadie más comparte: `httpResource()`/`resource()` directamente en el componente, sin store.
 - **Estado de UI** local: signals dentro del componente.
 - **Estado global mínimo** en `core`: sesión (usuario, roles), empresa activa, preferencias, notificaciones.
@@ -90,7 +90,8 @@ feature-documents/src/lib/
 | --- | --- |
 | Token de acceso | JWT de 15 min, **solo en memoria** (un signal en `core`), nunca en `localStorage` |
 | Refresh | Cookie `impifact_refresh` (`HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`) emitida por el Api cuando la solicitud trae `X-Client: panel`; el cliente llama a `/auth/login`, `/auth/refresh` y `/auth/logout` con ese encabezado y `withCredentials`, al arrancar y ante un 401. El cuerpo no trae `refresh_token`; sin cookie, `/auth/refresh` responde 401 (no hay sesión) |
-| Interceptores | `authInterceptor` (adjunta Bearer), `refreshInterceptor` (un solo refresh en vuelo; reintenta una vez), `errorInterceptor`, `correlationInterceptor` (`X-Correlation-Id`) |
+| Interceptores | `authInterceptor` (adjunta Bearer), `refreshInterceptor` (un solo refresh en vuelo; reintenta una vez; un segundo 401 cierra la sesión), `errorInterceptor`, `correlationInterceptor` (`X-Correlation-Id`) |
+| Refresh entre pestañas | Dos refresh simultáneos con la misma cookie dan 200 y 409, así que se serializan también entre pestañas con la Web Locks API (`navigator.locks`); la pestaña que renueva comparte el token nuevo por `BroadcastChannel` y la que esperaba el candado ya no renueva. Sin Web Locks, solo dentro de la pestaña y un 409 se reintenta una vez |
 | Guards | `authGuard` (sesión), `roleGuard(roles)`, `companyGuard` (empresa activa elegida), `unsavedChangesGuard` |
 | Permisos en UI | Se leen de los claims y ocultan o deshabilitan acciones; **el backend es la autoridad**, nunca se confía en el cliente |
 | XSS | Sin `innerHTML` ni `bypassSecurityTrust*` salvo en un wrapper revisado (`SafeHtml` solo para el PDF/XML renderizado); plantillas Angular escapan por defecto |
@@ -98,7 +99,7 @@ feature-documents/src/lib/
 | Secretos | Ninguno en el bundle. API keys se muestran una vez con botón de copiar y se borran del estado al cerrar el diálogo |
 | Certificado `.pfx` | Se sube por `multipart` directo al Api; la clave se escribe en un campo `type=password`, no se guarda en estado ni en logs del cliente |
 | Cierre de sesión | Llama a `/auth/logout` (revoca el refresh), limpia estado y redirige; sincroniza entre pestañas con `BroadcastChannel` |
-| Inactividad | Aviso a los 25 min y cierre a los 30 (configurable) |
+| Inactividad | Aviso a los 25 min y cierre a los 30 (configurable en `config.json`); la actividad de cualquier pestaña cuenta para todas; con la pestaña oculta no corre el temporizador y al volver se compara el tiempo transcurrido |
 
 Cambio en el backend, hecho el 17-nov (fase 5, B1): el refresh acepta y emite la cookie `HttpOnly`, existe `/auth/logout` y CORS permite credenciales para los orígenes de `Cors:Origins`. La cookie solo se acepta con `X-Client: panel` (defensa contra CSRF junto con `SameSite=Strict`), así que el panel y la API deben estar en el mismo sitio (mismo dominio registrable) y, en desarrollo, con el mismo nombre de host (`localhost` o `127.0.0.1`, sin mezclarlos). Detalle en «Arquitectura detallada», sección 9.2.
 
@@ -179,7 +180,7 @@ Cobertura mínima: `core` y servicios de estado 80 %. El E2E corre contra el doc
 ## 13. Construcción y despliegue
 
 - `Dockerfile.web`: etapa de compilación con Node LTS y etapa final Nginx sin privilegios de superusuario.
-- **Configuración en tiempo de ejecución**: `/assets/config.json` (URL del Api, entorno, indicadores de *features*) montado por contenedor; el mismo artefacto sirve para desarrollo, staging y producción. No se hornean URLs en el *build*.
+- **Configuración en tiempo de ejecución**: `/config.json` (URL del Api, minutos de inactividad, indicadores de *features*; en el repositorio, `web/projects/app/public/config.json`) montado por contenedor y leído al arrancar por `provideCore`; el mismo artefacto sirve para desarrollo, staging y producción. No se hornean URLs en el *build*.
 - Cabeceras de seguridad y caché en Nginx: archivos con hash `immutable`, `index.html` y `config.json` sin caché, CSP, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`.
 - Alternativas estáticas por nube: Azure Static Web Apps, S3 + CloudFront, Cloud Storage + Cloud CDN; mismas cabeceras y `config.json` por entorno.
 - *Fallback* de rutas a `index.html` para el *router* de Angular.
