@@ -106,6 +106,7 @@ internal static class OpenApiExamples
         "kind" when relativePath.Contains("/files/", StringComparison.Ordinal) => "pdf",
         "kind" => "invoice",
         "customer" => "Consumidor final",
+        "number" when relativePath.Contains("customers/lookup", StringComparison.Ordinal) => Nit,
         "number" => "SETP990000001",
         "from" => "2026-11-01",
         "to" => "2026-11-30",
@@ -116,7 +117,6 @@ internal static class OpenApiExamples
         "hasta" => "2026-11-30",
         "page" => 1,
         "unread" => true,
-        "number" => Nit,
         "X-Client" => "panel",
         _ => null,
     };
