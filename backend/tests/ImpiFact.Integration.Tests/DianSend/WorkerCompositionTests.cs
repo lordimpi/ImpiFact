@@ -40,6 +40,7 @@ public sealed class WorkerCompositionTests
                 {
                     OutboxMessageTypes.SendDocumentToDian, OutboxMessageTypes.PollDianStatus, OutboxMessageTypes.RenderPdf,
                     OutboxMessageTypes.SendEmail, OutboxMessageTypes.SendNoticeEmail,
+                    OutboxMessageTypes.RegeneratePdf, OutboxMessageTypes.RegenerateAttachedDocument,
                 }));
             Assert.That(handlers.Select(handler => handler.MessageType), Is.Unique);
         });

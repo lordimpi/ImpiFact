@@ -3,16 +3,20 @@ using ImpiFact.Api.Http;
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Abstractions.Results;
+using ImpiFact.Application.Features.Documents.Issue;
+using ImpiFact.Application.Features.Documents.Maintenance;
 using ImpiFact.Application.Features.Documents.Queries.DianStatus;
 using ImpiFact.Application.Features.Documents.Queries.Download;
 
 namespace ImpiFact.Api.Documents;
 
 /// <summary>
-/// Rutas utilitarias de documentos de la primera entrega (carpetas 03 «Consultas de estado» y 05 «Utilidades» del
-/// Postman): estado en la DIAN, XML validado y descargas, con el alcance <c>documents:read</c>. Las heredadas van bajo
+/// Rutas utilitarias de documentos de la primera entrega (carpetas 03 «Consultas de estado», 05 «Utilidades» y 10
+/// «Regenerar PDFs» del Postman): estado en la DIAN, XML validado y descargas con el alcance <c>documents:read</c>;
+/// regenerar el PDF o el AttachedDocument y reenviar el correo con <c>documents:write</c>. Las heredadas van bajo
 /// <c>/api/ubl2.1</c> con los mismos verbos del PHP; las canónicas, bajo <c>/api/v1/documents</c>. Ninguna llama a la
-/// DIAN (la autoridad tributaria de Colombia): responden con lo que guardó el Worker. El segmento opcional
+/// DIAN (la autoridad tributaria de Colombia) ni espera al Worker: las consultas responden con lo que guardó el Worker
+/// y las regeneraciones y el correo quedan en la bandeja de salida (decisión C5 de la fase 4). El segmento opcional
 /// <c>{GuardarEn}</c> del PHP (una carpeta del servidor) se acepta y se ignora. Cada endpoint solo arma la solicitud,
 /// llama al caso de uso y traduce el resultado.
 /// </summary>
@@ -45,7 +49,32 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
         canonical.MapGet("/by-cufe/{trackId}/xml", DocumentXml);
         canonical.MapGet("/zip/{trackId}/dian-status", ZipStatus);
         canonical.MapGet("/{id:guid}/files/{kind}", DownloadById);
+
+        var legacyWrite = endpoints.MapGroup("/api/ubl2.1").WithTags(Tag).RequireAuthorization(ApiScopes.DocumentsWrite);
+        legacyWrite.MapPost("/regeneratepdf", (RegeneratePdfCommand body, IHandler<RegeneratePdfCommand, MaintenanceQueuedResponse> handler,
+            CancellationToken ct) => Queue(body with { DocumentId = null }, handler, ct));
+        legacyWrite.MapPost("/regeneratepdf/{prefix}/{number}/{cufe}", (string prefix, string number, string cufe,
+            IHandler<RegeneratePdfCommand, MaintenanceQueuedResponse> handler, CancellationToken ct) =>
+            Queue(new RegeneratePdfCommand { Prefix = prefix, Number = new LegacyScalar(number, LegacyScalarKind.String), Cufe = cufe }, handler, ct));
+        legacyWrite.MapPost("/regenerate-attached-document", (RegenerateAttachedDocumentCommand body,
+            IHandler<RegenerateAttachedDocumentCommand, MaintenanceQueuedResponse> handler, CancellationToken ct) =>
+            Queue(body with { DocumentId = null }, handler, ct));
+        legacyWrite.MapPost("/send-email", (SendDocumentEmailCommand body, IHandler<SendDocumentEmailCommand, MaintenanceQueuedResponse> handler,
+            CancellationToken ct) => Queue(body with { DocumentId = null }, handler, ct));
+
+        var canonicalWrite = endpoints.MapGroup("/api/v1/documents").WithTags(Tag).RequireAuthorization(ApiScopes.DocumentsWrite);
+        canonicalWrite.MapPost("/{id:guid}/pdf/regenerate", (Guid id, IHandler<RegeneratePdfCommand, MaintenanceQueuedResponse> handler,
+            CancellationToken ct) => Queue(new RegeneratePdfCommand { DocumentId = id }, handler, ct));
+        canonicalWrite.MapPost("/{id:guid}/attached-document/regenerate", (Guid id,
+            IHandler<RegenerateAttachedDocumentCommand, MaintenanceQueuedResponse> handler, CancellationToken ct) =>
+            Queue(new RegenerateAttachedDocumentCommand { DocumentId = id }, handler, ct));
+        canonicalWrite.MapPost("/{id:guid}/email", (Guid id, IHandler<SendDocumentEmailCommand, MaintenanceQueuedResponse> handler,
+            CancellationToken ct) => Queue(new SendDocumentEmailCommand { DocumentId = id }, handler, ct));
     }
+
+    private static async Task<IResult> Queue<TCommand>(
+        TCommand command, IHandler<TCommand, MaintenanceQueuedResponse> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(command, ct)).ToHttpResult();
 
     private static async Task<IResult> DocumentStatus(
         string trackId, IHandler<GetDocumentDianStatusQuery, DianStatusResponse> handler, CancellationToken ct) =>
