@@ -37,4 +37,7 @@ public static class OutboxMessageTypes
     public const string SendEmail = "SendEmail";
 
     public const string RenderPdf = "RenderPdf";
+
+    /// <summary>Enviar por correo a la empresa un aviso de las tareas programadas (por ejemplo, el certificado por vencer).</summary>
+    public const string SendNoticeEmail = "SendNoticeEmail";
 }
