@@ -3,6 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Xml;
 using ImpiFact.Application.Abstractions;
+using ImpiFact.Application.Abstractions.Billing;
 using ImpiFact.Application.Abstractions.Dian;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Messaging;
@@ -10,6 +11,7 @@ using ImpiFact.Application.Abstractions.Notifications;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Application.Features.Documents.Email;
 using ImpiFact.Dian.Soap;
+using ImpiFact.Domain.Common;
 using ImpiFact.Domain.Documents;
 using Microsoft.Extensions.Logging;
 
@@ -68,6 +70,7 @@ internal sealed class DianDelivery(
     IDocumentStore store,
     IOutbox outbox,
     ICompanyNotifications notifications,
+    IPlanGate plans,
     IUnitOfWork unitOfWork,
     IClock clock,
     ILogger<DianDelivery> logger)
@@ -154,9 +157,16 @@ internal sealed class DianDelivery(
 
     /// <summary>
     /// Aplica la decisión de la DIAN a un documento enviado (<c>Sent</c> o <c>Unconfirmed</c>): estado final, código y
-    /// descripción de la DIAN y, si quedó aceptado, la hora de aceptación y lo que sigue a la aceptación (ver
-    /// <see cref="ScheduleAfterAcceptanceAsync"/>), todo para el mismo guardado.
+    /// descripción de la DIAN y, si quedó aceptado, la hora de aceptación, el consumo del plan y lo que sigue a la
+    /// aceptación (ver <see cref="ScheduleAfterAcceptanceAsync"/>), todo para el mismo guardado.
     /// </summary>
+    /// <remarks>
+    /// El consumo cuenta una sola vez por documento: solo un documento en <c>Sent</c> o <c>Unconfirmed</c> llega aquí
+    /// (<see cref="Document.MoveTo"/> no deja aceptar dos veces), y si otro proceso lo aceptó al mismo tiempo, el
+    /// guardado falla por la versión de fila del documento y la cuenta, que va en ese guardado, tampoco queda. Los
+    /// documentos del set de pruebas de habilitación (los que tienen la ZipKey en <c>track_id</c>) no cuentan, como en
+    /// el PHP, que nunca los dejaba en estado aceptado.
+    /// </remarks>
     /// <param name="endpoint">Servicio y certificado de la llamada; con ese certificado se firma el AttachedDocument.</param>
     public async Task DecideAsync(Document document, DianAnswer.Decided decided, DianEndpoint endpoint, CancellationToken ct)
     {
@@ -165,6 +175,12 @@ internal sealed class DianDelivery(
         if (decided.Status is DocumentStatus.Accepted or DocumentStatus.AcceptedWithWarnings)
         {
             document.AcceptedAt = clock.UtcNow;
+            if (document.TrackId is null)
+            {
+                // Facturas y notas (tipos 1 a 5) son la familia «factura» de las cuotas del plan.
+                await plans.CountAcceptedAsync(document.CompanyId, DocumentKind.Invoice, ct);
+            }
+
             await ScheduleAfterAcceptanceAsync(document, decided.Result, endpoint.Certificate, ct);
         }
     }
@@ -227,7 +243,7 @@ internal sealed class DianDelivery(
     /// Lo que sigue a la aceptación (Arquitectura detallada, sección 7, paso 9; supuesto C6), en el mismo guardado que
     /// la aceptación: genera y guarda el AttachedDocument (el contenedor XML que se entrega al comprador) firmado con el
     /// certificado de la llamada y encola <c>RenderPdf</c>; el handler del PDF encola después <c>SendEmail</c>. El
-    /// consumo de la cuota del plan y <c>DocumentAccepted</c> llegan en tareas posteriores de la fase 4.
+    /// consumo del plan lo agrega <see cref="DecideAsync"/>; <c>DocumentAccepted</c> llega en una tarea posterior.
     /// </summary>
     /// <remarks>
     /// La aceptación nunca falla por el AttachedDocument: si la respuesta no trae el ApplicationResponse (por ejemplo,

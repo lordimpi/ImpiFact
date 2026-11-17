@@ -1,4 +1,5 @@
 using ImpiFact.Application.Abstractions.Persistence;
+using ImpiFact.Infrastructure.Billing;
 using ImpiFact.Infrastructure.Documents;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
@@ -31,6 +32,7 @@ public sealed class PostgresDatabaseProvider : IDatabaseProvider
         services.TryAddSingleton<INumberingSql, PostgresNumberingSql>();
         services.TryAddSingleton<IOutboxQueueSql, PostgresOutboxQueueSql>();
         services.TryAddSingleton<IScheduledJobLockSql, PostgresScheduledJobLockSql>();
+        services.TryAddSingleton<IPlanUsageSql, PostgresPlanUsageSql>();
     }
 
     public void ConfigureDbContext(IServiceProvider services, DbContextOptionsBuilder options) =>

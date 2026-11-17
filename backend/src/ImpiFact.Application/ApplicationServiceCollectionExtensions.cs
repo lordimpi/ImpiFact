@@ -1,7 +1,9 @@
 using FluentValidation;
+using ImpiFact.Application.Abstractions.Billing;
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Application.Behaviors;
+using ImpiFact.Application.Features.Billing;
 using ImpiFact.Application.Features.Documents.Delivery;
 using ImpiFact.Application.Features.Documents.Email;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +32,9 @@ public static class ApplicationServiceCollectionExtensions
             .AddClasses(classes => classes.AssignableTo(typeof(IValidator<>)), publicOnly: false)
             .AsImplementedInterfaces()
             .WithScopedLifetime());
+
+        // Cuota del plan que consultan la emisión y el envío a la DIAN (módulo Documents) sin conocer Billing.
+        services.TryAddScoped<IPlanGate, PlanGate>();
 
         services.TryDecorate(typeof(IHandler<,>), typeof(TransactionDecorator<,>));
         services.TryDecorate(typeof(IHandler<,>), typeof(TenantDecorator<,>));
