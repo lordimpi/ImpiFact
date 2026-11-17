@@ -17,6 +17,13 @@ public record DocumentSummaryResponse
     [JsonPropertyName("document_type_id")]
     public int DocumentTypeId { get; init; }
 
+    /// <summary>
+    /// Familia en palabras (<c>invoice</c>, <c>credit_note</c>, <c>debit_note</c>); nula para los demás tipos de
+    /// documento.
+    /// </summary>
+    [JsonPropertyName("kind")]
+    public string? Kind { get; init; }
+
     /// <summary>Ambiente de la DIAN en que se emitió (1 producción, 2 habilitación).</summary>
     [JsonPropertyName("type_environment_id")]
     public int TypeEnvironmentId { get; init; }
@@ -58,6 +65,10 @@ public record DocumentSummaryResponse
 
     [JsonPropertyName("totals")]
     public DocumentTotalsResponse Totals { get; init; } = new();
+
+    /// <summary>Envío del documento por correo al adquiriente: <c>NotSent</c>, <c>Sent</c> o <c>Failed</c>.</summary>
+    [JsonPropertyName("email_status")]
+    public string EmailStatus { get; init; } = "";
 }
 
 /// <summary>Documento completo: la cabecera más los datos de la nota, la DIAN, los impuestos y las líneas.</summary>
@@ -135,6 +146,13 @@ public sealed record DocumentListResponse
     /// <summary>Texto opaco para pedir la página siguiente (<c>?cursor=</c>).</summary>
     [JsonPropertyName("next_cursor")]
     public string? NextCursor { get; init; }
+
+    /// <summary>
+    /// Cantidad de documentos que cumplen los filtros, sin importar la página; solo llega con <c>include_total=true</c>.
+    /// </summary>
+    [JsonPropertyName("total_count")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public long? TotalCount { get; init; }
 }
 
 /// <summary>Adquiriente tal como quedó copiado al emitir el documento.</summary>
@@ -295,6 +313,7 @@ internal static class DocumentMapping
     {
         Id = document.Id,
         DocumentTypeId = document.DocumentTypeId,
+        Kind = DocumentKinds.NameOf(document.DocumentTypeId),
         TypeEnvironmentId = document.TypeEnvironmentId,
         Prefix = document.Prefix,
         Number = document.Number,
@@ -330,6 +349,7 @@ internal static class DocumentMapping
             PrepaidAmount = document.Totals.PrepaidAmount,
             PayableAmount = document.Totals.PayableAmount,
         },
+        EmailStatus = document.EmailStatus.ToString(),
     };
 
     private static DocumentTaxResponse Tax(DocumentTaxAmount tax) => new()

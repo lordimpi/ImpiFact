@@ -56,7 +56,7 @@ public sealed class DocumentListTests
             Assert.That(filter.Take, Is.EqualTo(3));
             Assert.That(filter.After, Is.Null);
             Assert.That(filter.DocumentTypeId, Is.EqualTo(1));
-            Assert.That(filter.Status, Is.EqualTo(DocumentStatus.Accepted));
+            Assert.That(filter.Statuses, Is.EqualTo(new[] { DocumentStatus.Accepted }));
             Assert.That(filter.IssuedFrom, Is.EqualTo(new DateTimeOffset(2026, 1, 1, 5, 0, 0, TimeSpan.Zero)));
             Assert.That(filter.IssuedUntil, Is.EqualTo(new DateTimeOffset(2026, 2, 1, 5, 0, 0, TimeSpan.Zero)));
         });
@@ -77,7 +77,7 @@ public sealed class DocumentListTests
             Assert.That(result.Value.NextCursor, Is.Null);
             Assert.That(filter.After, Is.EqualTo(after));
             Assert.That(filter.Take, Is.EqualTo(ListDocumentsQueryValidator.DefaultLimit + 1));
-            Assert.That((filter.DocumentTypeId, filter.Status, filter.IssuedFrom, filter.IssuedUntil), Is.EqualTo(((int?)null, (DocumentStatus?)null, (DateTimeOffset?)null, (DateTimeOffset?)null)));
+            Assert.That((filter.DocumentTypeId, filter.Statuses.Count, filter.IssuedFrom, filter.IssuedUntil, filter.Customer, filter.Number), Is.EqualTo(((int?)null, 0, (DateTimeOffset?)null, (DateTimeOffset?)null, (string?)null, (string?)null)));
         });
     }
 
@@ -116,6 +116,94 @@ public sealed class DocumentListTests
         var result = await new ListDocumentsQueryValidator().ValidateAsync(new ListDocumentsQuery(null, status, from, to, cursor, limit));
 
         Assert.That(result.Errors.Select(error => (error.PropertyName, error.ErrorMessage)), Is.EqualTo(new[] { (field, message) }));
+    }
+
+    [Test]
+    public async Task Kind_statuses_customer_and_number_reach_the_reads_trimmed_and_without_repeated_statuses()
+    {
+        var query = new ListDocumentsQuery(null, "accepted, Rejected,ACCEPTED", null, null, null, null, Kind: "credit_note", Customer: "  acme ", Number: " SETP7 ");
+
+        await Handler().HandleAsync(query, CancellationToken.None);
+
+        var filter = _reads.ListCalls.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(filter.DocumentTypeId, Is.EqualTo(4));
+            Assert.That(filter.Statuses, Is.EqualTo(new[] { DocumentStatus.Accepted, DocumentStatus.Rejected }));
+            Assert.That(filter.Customer, Is.EqualTo("acme"));
+            Assert.That(filter.Number, Is.EqualTo("SETP7"));
+        });
+    }
+
+    [Test]
+    public async Task Blank_customer_and_number_do_not_filter()
+    {
+        await Handler().HandleAsync(new ListDocumentsQuery(null, null, null, null, null, null, Customer: "  ", Number: ""), CancellationToken.None);
+
+        var filter = _reads.ListCalls.Single();
+        Assert.That((filter.Customer, filter.Number), Is.EqualTo(((string?)null, (string?)null)));
+    }
+
+    [Test]
+    public async Task Total_count_is_read_only_when_asked_for()
+    {
+        _reads.Listed.Add(DocumentSamples.Summary(number: 1));
+        _reads.Total = 42;
+
+        var without = await Handler().HandleAsync(new ListDocumentsQuery(null, null, null, null, null, null), CancellationToken.None);
+        var with = await Handler().HandleAsync(new ListDocumentsQuery(null, null, null, null, null, null, IncludeTotal: true), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(without.Value.TotalCount, Is.Null);
+            Assert.That(with.Value.TotalCount, Is.EqualTo(42));
+            Assert.That(_reads.CountListCalls, Has.Count.EqualTo(1));
+        });
+    }
+
+    [TestCase(1, "invoice")]
+    [TestCase(4, "credit_note")]
+    [TestCase(5, "debit_note")]
+    [TestCase(11, null)]
+    public async Task Every_row_says_its_kind_and_email_status(int typeId, string? kind)
+    {
+        _reads.Listed.Add(DocumentSamples.Summary(typeId: typeId) with { EmailStatus = EmailStatus.Failed });
+
+        var item = (await Handler().HandleAsync(new ListDocumentsQuery(null, null, null, null, null, null), CancellationToken.None)).Value.Items.Single();
+
+        Assert.That((item.Kind, item.EmailStatus), Is.EqualTo((kind, "Failed")));
+    }
+
+    [TestCase(null, "receipt", null, null, "kind", "kind es inválido.")]
+    [TestCase(4, "invoice", null, null, "kind", "kind no coincide con document_type_id.")]
+    [TestCase(null, null, "accepted,", null, "status", "status es inválido.")]
+    [TestCase(null, null, "", null, "status", "status es inválido.")]
+    [TestCase(null, null, null, "SETP-1", "number", "number es inválido.")]
+    [TestCase(null, null, null, "1234567890123456789012345678901", "number", "number es inválido.")]
+    public async Task Invalid_panel_filters_are_rejected(int? typeId, string? kind, string? status, string? number, string field, string message)
+    {
+        var result = await new ListDocumentsQueryValidator().ValidateAsync(
+            new ListDocumentsQuery(typeId, status, null, null, null, null, Kind: kind, Number: number));
+
+        Assert.That(result.Errors.Select(error => (error.PropertyName, error.ErrorMessage)), Is.EqualTo(new[] { (field, message) }));
+    }
+
+    [Test]
+    public async Task A_matching_kind_and_document_type_id_are_accepted()
+    {
+        var result = await new ListDocumentsQueryValidator().ValidateAsync(new ListDocumentsQuery(4, null, null, null, null, null, Kind: "CREDIT_NOTE"));
+
+        Assert.That(result.IsValid, Is.True);
+    }
+
+    [Test]
+    public async Task A_customer_text_longer_than_100_characters_is_rejected()
+    {
+        var result = await new ListDocumentsQueryValidator().ValidateAsync(
+            new ListDocumentsQuery(null, null, null, null, null, null, Customer: new string('a', 101)));
+
+        Assert.That(result.Errors.Select(error => (error.PropertyName, error.ErrorMessage)),
+            Is.EqualTo(new[] { ("customer", "customer no debe ser mayor que 100 caracteres.") }));
     }
 
     [Test]

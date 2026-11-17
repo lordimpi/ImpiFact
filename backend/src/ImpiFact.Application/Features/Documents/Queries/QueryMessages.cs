@@ -11,6 +11,8 @@ internal static class QueryMessages
 
     public static string AfterOrEqual(string field, string other) => $"{field} debe ser una fecha posterior o igual a {other}.";
 
+    public static string Mismatch(string field, string other) => $"{field} no coincide con {other}.";
+
     public static string Integer(string field) => $"{field} debe ser un número entero.";
 
     public static string Invalid(string field) => $"{field} es inválido.";

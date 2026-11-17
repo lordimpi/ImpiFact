@@ -30,6 +30,20 @@ public interface IDocumentReads
     /// </summary>
     Task<IReadOnlyList<DocumentSummary>> ListAsync(DocumentListFilter filter, CancellationToken ct);
 
+    /// <summary>
+    /// Cantidad de documentos que cumplen los filtros, sin paginar: no usa <see cref="DocumentListFilter.After"/> ni
+    /// <see cref="DocumentListFilter.Take"/>. Recorre todas las filas que cumplen los filtros, así que cuesta más que
+    /// leer una página.
+    /// </summary>
+    Task<long> CountAsync(DocumentListFilter filter, CancellationToken ct);
+
+    /// <summary>
+    /// Los mismos documentos de <see cref="ListAsync"/>, en el mismo orden y hasta <see cref="DocumentListFilter.Take"/>
+    /// filas, leídos de a uno mientras se recorren: la conexión queda abierta hasta terminar el recorrido y nunca se
+    /// cargan todos en memoria. Lo usa la exportación CSV.
+    /// </summary>
+    IAsyncEnumerable<DocumentSummary> StreamAsync(DocumentListFilter filter, CancellationToken ct);
+
     /// <summary>Documento completo por su id; nulo si no existe en la empresa.</summary>
     Task<DocumentDetail?> FindByIdAsync(Guid companyId, Guid documentId, CancellationToken ct);
 
@@ -53,7 +67,8 @@ public readonly record struct PageWindow(int Skip, int Take);
 /// <summary>Posición de un documento en el orden del listado: instante de emisión y id.</summary>
 public readonly record struct DocumentKey(DateTimeOffset IssuedAt, Guid Id);
 
-/// <summary>Filtros del listado canónico. Los nulos no filtran.</summary>
+/// <summary>Filtros del listado canónico. Los nulos y la lista de estados vacía no filtran.</summary>
+/// <param name="Statuses">Estados aceptados (basta uno); vacía para todos.</param>
 /// <param name="IssuedFrom">Primer instante de emisión incluido (UTC).</param>
 /// <param name="IssuedUntil">Primer instante de emisión que ya no se incluye (UTC).</param>
 /// <param name="After">Último documento de la página anterior; nulo para la primera página.</param>
@@ -61,11 +76,24 @@ public readonly record struct DocumentKey(DateTimeOffset IssuedAt, Guid Id);
 public sealed record DocumentListFilter(
     Guid CompanyId,
     int? DocumentTypeId,
-    DocumentStatus? Status,
+    IReadOnlyCollection<DocumentStatus> Statuses,
     DateTimeOffset? IssuedFrom,
     DateTimeOffset? IssuedUntil,
     DocumentKey? After,
-    int Take);
+    int Take)
+{
+    /// <summary>
+    /// Texto que debe aparecer, sin distinguir mayúsculas, en el número de identificación o en el nombre del
+    /// adquiriente copiado en el documento.
+    /// </summary>
+    public string? Customer { get; init; }
+
+    /// <summary>
+    /// Número del documento: el número completo con prefijo (<c>SETP990000001</c>, sin distinguir mayúsculas) o solo
+    /// los dígitos, que coinciden con ese número en cualquier prefijo.
+    /// </summary>
+    public string? Number { get; init; }
+}
 
 /// <summary>Adquiriente tal como quedó copiado en el documento al emitirlo.</summary>
 public sealed record DocumentCustomer(
@@ -96,6 +124,7 @@ public sealed record DocumentTotals(
 /// <param name="IssueDate">Fecha de emisión en hora Colombia, como va en el XML.</param>
 /// <param name="IssueTime">Hora de emisión en hora Colombia.</param>
 /// <param name="IssuedAt">El mismo instante en UTC.</param>
+/// <param name="EmailStatus">Estado del envío del documento por correo al adquiriente.</param>
 public sealed record DocumentSummary(
     Guid Id,
     int DocumentTypeId,
@@ -110,7 +139,8 @@ public sealed record DocumentSummary(
     DateTimeOffset IssuedAt,
     int CurrencyId,
     DocumentCustomer Customer,
-    DocumentTotals Totals);
+    DocumentTotals Totals,
+    EmailStatus EmailStatus = EmailStatus.NotSent);
 
 /// <summary>Documento completo: cabecera, datos de la DIAN, impuestos y líneas.</summary>
 public sealed record DocumentDetail(

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Dapper;
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Identity;
@@ -61,21 +62,27 @@ internal static class DocumentSeed
         DateTimeOffset issuedAt,
         string? cufe = null,
         Guid? id = null,
-        string prefix = "SETP")
+        string prefix = "SETP",
+        string? customerName = null,
+        string? customerIdentification = null,
+        EmailStatus emailStatus = EmailStatus.NotSent)
     {
         var documentId = id ?? Guid.CreateVersion7();
         var local = issuedAt.ToOffset(Colombia);
+        var customer = JsonNode.Parse(CustomerJson)!.AsObject();
+        customer["name"] = customerName ?? (string?)customer["name"];
+        customer["identification_number"] = customerIdentification ?? (string?)customer["identification_number"];
         await using var connection = new NpgsqlConnection(DocumentQueriesHost.ConnectionString);
         await connection.ExecuteAsync(
             """
             insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status, cufe,
                 uuid_algorithm, issue_date, issue_time, issued_at, customer_snapshot, currency_id, line_extension_amount,
                 tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
-                notes, created_by_type, created_at, updated_at, row_version)
+                notes, email_status, created_by_type, created_at, updated_at, row_version)
             values (@Id, @CompanyId, @TypeId, 2, @Prefix, @Number, @FullNumber, @Status, @Cufe,
                 'CUFE-SHA384', cast(@IssueDate as date), cast(@IssueTime as time), @IssuedAt, cast(@Customer as jsonb), 35, 100.00,
                 100.00, 119.00, 0, 0, 0, 119.00,
-                'nota de prueba', 2, now(), now(), 1)
+                'nota de prueba', @EmailStatus, 2, now(), now(), 1)
             """,
             new
             {
@@ -90,9 +97,41 @@ internal static class DocumentSeed
                 IssueDate = local.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 IssueTime = local.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
                 IssuedAt = issuedAt.ToUniversalTime(),
-                Customer = CustomerJson,
+                Customer = customer.ToJsonString(),
+                EmailStatus = (short)emailStatus,
             });
         return documentId;
+    }
+
+    /// <summary>
+    /// Inserta <paramref name="count"/> facturas aceptadas con una sola sentencia (<c>generate_series</c>), una por
+    /// segundo desde <paramref name="start"/>, para probar topes sin miles de viajes a la base.
+    /// </summary>
+    public static async Task ManyDocumentsAsync(SeededCompany company, int count, DateTimeOffset start)
+    {
+        await using var connection = new NpgsqlConnection(DocumentQueriesHost.ConnectionString);
+        await connection.ExecuteAsync(
+            """
+            insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status,
+                uuid_algorithm, issue_date, issue_time, issued_at, customer_snapshot, currency_id, line_extension_amount,
+                tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
+                created_by_type, created_at, updated_at, row_version)
+            select gen_random_uuid(), @CompanyId, 1, 2, 'BULK', n, 'BULK' || n, 4,
+                'CUFE-SHA384', cast(@IssueDate as date), time '00:00:00', @Start + n * interval '1 second', cast(@Customer as jsonb), 35, 100.00,
+                100.00, 119.00, 0, 0, 0, 119.00,
+                2, now(), now(), 1
+            from generate_series(1, @Count) as n
+            """,
+            new
+            {
+                CompanyId = company.Id,
+                IssueDate = start.ToOffset(Colombia).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                Start = start.ToUniversalTime(),
+                Customer = CustomerJson,
+                Count = count,
+            },
+            // Con toda la suite corriendo en paralelo, insertar 50.000 filas puede pasar de los 30 s por defecto.
+            commandTimeout: 300);
     }
 
     /// <summary>Agrega una línea con IVA (impuesto 1) del 19 % y el mismo impuesto en la cabecera.</summary>

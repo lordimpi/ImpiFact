@@ -46,6 +46,29 @@ public sealed class FakeDocumentReads : IDocumentReads
         return Task.FromResult<IReadOnlyList<DocumentSummary>>(Listed.Take(filter.Take).ToList());
     }
 
+    /// <summary>Lo que responde <see cref="CountAsync"/>; si es nulo, la cantidad de <see cref="Listed"/>.</summary>
+    public long? Total { get; set; }
+
+    public List<DocumentListFilter> CountListCalls { get; } = [];
+
+    public List<DocumentListFilter> StreamCalls { get; } = [];
+
+    public Task<long> CountAsync(DocumentListFilter filter, CancellationToken ct)
+    {
+        CountListCalls.Add(filter);
+        return Task.FromResult(Total ?? Listed.Count);
+    }
+
+    public async IAsyncEnumerable<DocumentSummary> StreamAsync(DocumentListFilter filter, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
+    {
+        StreamCalls.Add(filter);
+        foreach (var row in Listed.Take(filter.Take))
+        {
+            await Task.Yield();
+            yield return row;
+        }
+    }
+
     public Task<DocumentDetail?> FindByIdAsync(Guid companyId, Guid documentId, CancellationToken ct) =>
         Task.FromResult(Details.SingleOrDefault(detail => detail.Header.Id == documentId));
 
