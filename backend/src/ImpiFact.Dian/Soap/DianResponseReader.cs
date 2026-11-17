@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Xml;
 using ImpiFact.Dian.Signing;
 
@@ -5,7 +6,7 @@ namespace ImpiFact.Dian.Soap;
 
 /// <summary>
 /// Interpreta el cuerpo de una respuesta del servicio web de la DIAN (la autoridad tributaria de Colombia) a
-/// SendBillSync, SendTestSetAsync, GetStatus y GetStatusZip.
+/// SendBillSync, SendTestSetAsync, GetStatus, GetStatusZip y GetNumberingRange.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -26,9 +27,10 @@ public static class DianResponseReader
     private const string XsiNs = "http://www.w3.org/2001/XMLSchema-instance";
     private const string ResponseSuffix = "Response";
     private const string StatusZipOperation = "GetStatusZip";
+    private const string NumberingRangeOperation = "GetNumberingRange";
 
     private static readonly HashSet<string> KnownOperations =
-        new(["SendBillSync", "SendTestSetAsync", "GetStatus", StatusZipOperation], StringComparer.Ordinal);
+        new(["SendBillSync", "SendTestSetAsync", "GetStatus", StatusZipOperation, NumberingRangeOperation], StringComparer.Ordinal);
 
     /// <summary>Interpreta <paramref name="body"/>, el cuerpo HTTP de la respuesta de la DIAN.</summary>
     public static DianSoapResponse Read(string body)
@@ -75,6 +77,18 @@ public static class DianResponseReader
             return new DianUnrecognizedResponse(body);
         }
 
+        if (operation == NumberingRangeOperation)
+        {
+            try
+            {
+                return ReadNumberingRange(result);
+            }
+            catch (Exception exception) when (exception is FormatException or OverflowException)
+            {
+                return new DianUnrecognizedResponse(body);
+            }
+        }
+
         // GetStatusZip trae un elemento DianResponse por documento; las demás operaciones traen el resultado directo.
         var items = operation == StatusZipOperation
             ? Children(result).Where(e => e.LocalName == "DianResponse")
@@ -110,6 +124,38 @@ public static class DianResponseReader
             XmlFileName: Text(result, "XmlFileName"),
             XmlBase64Bytes: xmlBase64 is null ? null : Convert.FromBase64String(xmlBase64),
             ZipKey: Text(result, "ZipKey"));
+    }
+
+    // GetNumberingRange: OperationCode, OperationDescription y ResponseList con un NumberRangeResponse por rango.
+    private static DianNumberingRangeResponse ReadNumberingRange(XmlElement result) => new(
+        Text(result, "OperationCode"),
+        Text(result, "OperationDescription"),
+        Children(Child(result, "ResponseList"))
+            .Where(e => e.LocalName == "NumberRangeResponse")
+            .Select(range => new DianNumberingRange(
+                ResolutionNumber: Text(range, "ResolutionNumber"),
+                ResolutionDate: Date(Text(range, "ResolutionDate")),
+                Prefix: Text(range, "Prefix"),
+                FromNumber: Number(Text(range, "FromNumber")),
+                ToNumber: Number(Text(range, "ToNumber")),
+                ValidDateFrom: Date(Text(range, "ValidDateFrom")),
+                ValidDateTo: Date(Text(range, "ValidDateTo")),
+                TechnicalKey: Text(range, "TechnicalKey")))
+            .ToList());
+
+    private static long? Number(string? text) =>
+        text is null ? null : long.Parse(text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture);
+
+    /// <summary>Fecha <c>yyyy-MM-dd</c>; si trae hora (<c>yyyy-MM-ddTHH:mm:ss</c>), se toma solo el día.</summary>
+    private static DateOnly? Date(string? text)
+    {
+        if (text is null)
+        {
+            return null;
+        }
+
+        var day = text.Trim();
+        return DateOnly.ParseExact(day.Length > 10 && day[10] == 'T' ? day[..10] : day, "yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
 
     // SOAP 1.2: Code/Value, Code/Subcode/Value y Reason/Text. Si viniera en SOAP 1.1: faultcode y faultstring.

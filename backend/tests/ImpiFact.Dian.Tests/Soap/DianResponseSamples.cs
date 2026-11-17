@@ -54,9 +54,20 @@ public static class DianResponseSamples
         <html><head><title>Service Unavailable</title></head><body><h2>Service Unavailable</h2><hr><p>HTTP Error 503. The service is unavailable.</p></body></html>
         """;
 
-    public const string NumberingRangeResponse = """
-        <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><GetNumberingRangeResponse xmlns="http://wcf.dian.colombia"><GetNumberingRangeResult xmlns:b="http://schemas.datacontract.org/2004/07/NumberRangeResponseList"><b:OperationCode>100</b:OperationCode></GetNumberingRangeResult></GetNumberingRangeResponse></s:Body></s:Envelope>
-        """;
+    public const string TechnicalKey = "fc8eac422eba16e22ffd8c6f94b3f40a6e38162c";
+
+    /// <summary>
+    /// GetNumberingRange con dos rangos autorizados: el del set de pruebas (con su clave técnica) y uno de notas sin
+    /// clave. Forma de los contratos de datos <c>NumberRangeResponseList</c> y <c>NumberRangeResponse</c> del servicio.
+    /// </summary>
+    public static string NumberingRangeTwoRanges => Envelope("GetNumberingRange", $"""
+        <GetNumberingRangeResponse xmlns="http://wcf.dian.colombia"><GetNumberingRangeResult xmlns:b="http://schemas.datacontract.org/2004/07/NumberRangeResponseList" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"><b:OperationCode>100</b:OperationCode><b:OperationDescription>Acción completada OK.</b:OperationDescription><b:ResponseList xmlns:c="http://schemas.datacontract.org/2004/07/NumberRangeResponse"><c:NumberRangeResponse><c:ResolutionNumber>18760000001</c:ResolutionNumber><c:ResolutionDate>2019-01-19</c:ResolutionDate><c:Prefix>SETP</c:Prefix><c:FromNumber>990000000</c:FromNumber><c:ToNumber>995000000</c:ToNumber><c:ValidDateFrom>2019-01-19</c:ValidDateFrom><c:ValidDateTo>2030-01-19</c:ValidDateTo><c:TechnicalKey>{TechnicalKey}</c:TechnicalKey></c:NumberRangeResponse><c:NumberRangeResponse><c:ResolutionNumber>18760000002</c:ResolutionNumber><c:ResolutionDate>2024-05-02</c:ResolutionDate><c:Prefix>NC</c:Prefix><c:FromNumber>1</c:FromNumber><c:ToNumber>1000</c:ToNumber><c:ValidDateFrom>2024-05-02</c:ValidDateFrom><c:ValidDateTo>2026-05-02</c:ValidDateTo><c:TechnicalKey i:nil="true"/></c:NumberRangeResponse></b:ResponseList></GetNumberingRangeResult></GetNumberingRangeResponse>
+        """);
+
+    /// <summary>GetNumberingRange cuando la DIAN no autoriza la consulta: código de operación sin rangos.</summary>
+    public static string NumberingRangeNotAuthorized => Envelope("GetNumberingRange", """
+        <GetNumberingRangeResponse xmlns="http://wcf.dian.colombia"><GetNumberingRangeResult xmlns:b="http://schemas.datacontract.org/2004/07/NumberRangeResponseList" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"><b:OperationCode>301</b:OperationCode><b:OperationDescription>Nit del proveedor tecnológico no autorizado.</b:OperationDescription><b:ResponseList i:nil="true" xmlns:c="http://schemas.datacontract.org/2004/07/NumberRangeResponse"/></GetNumberingRangeResult></GetNumberingRangeResponse>
+        """);
 
     // Encabezado como el de la respuesta real del README: Action de respuesta y marca de tiempo con Id "_0".
     private static string Envelope(string operation, string body) => $"""

@@ -2,9 +2,9 @@ namespace ImpiFact.Dian.Soap;
 
 /// <summary>
 /// Lo que respondió el servicio web de la DIAN (la autoridad tributaria de Colombia), ya interpretado por
-/// <see cref="DianResponseReader"/>. Es una de cuatro posibilidades: <see cref="DianResultResponse"/>,
-/// <see cref="DianSoapFaultResponse"/>, <see cref="DianServiceUnavailableResponse"/> o
-/// <see cref="DianUnrecognizedResponse"/>.
+/// <see cref="DianResponseReader"/>. Es una de cinco posibilidades: <see cref="DianResultResponse"/>,
+/// <see cref="DianNumberingRangeResponse"/>, <see cref="DianSoapFaultResponse"/>,
+/// <see cref="DianServiceUnavailableResponse"/> o <see cref="DianUnrecognizedResponse"/>.
 /// </summary>
 public abstract record DianSoapResponse
 {
@@ -19,6 +19,39 @@ public abstract record DianSoapResponse
 /// documento del ZIP (archivo comprimido) enviado.
 /// </summary>
 public sealed record DianResultResponse(string OperationName, IReadOnlyList<DianResult> Results) : DianSoapResponse;
+
+/// <summary>
+/// Respuesta de GetNumberingRange: los rangos de numeración que la DIAN tiene autorizados para el emisor y el software
+/// consultados. <paramref name="OperationCode"/> es <c>100</c> cuando la consulta se completó; con otro código
+/// (por ejemplo, un NIT o un software no autorizados) <paramref name="Ranges"/> viene vacía y
+/// <paramref name="OperationDescription"/> explica el motivo.
+/// </summary>
+public sealed record DianNumberingRangeResponse(
+    string? OperationCode, string? OperationDescription, IReadOnlyList<DianNumberingRange> Ranges) : DianSoapResponse;
+
+/// <summary>
+/// Un rango de numeración autorizado por la DIAN. Los campos que la respuesta no trae, o trae vacíos o nulos, quedan
+/// en <see langword="null"/>.
+/// </summary>
+/// <param name="ResolutionNumber">Número de la resolución de la DIAN que autoriza el rango.</param>
+/// <param name="Prefix">Prefijo de los documentos del rango.</param>
+/// <param name="FromNumber">Primer número autorizado.</param>
+/// <param name="ToNumber">Último número autorizado.</param>
+/// <param name="ValidDateFrom">Primer día de vigencia.</param>
+/// <param name="ValidDateTo">Último día de vigencia.</param>
+/// <param name="TechnicalKey">
+/// Clave técnica del rango (entra en el CUFE, el código único de la factura electrónica); nula en los rangos que no
+/// la tienen, como los de notas.
+/// </param>
+public sealed record DianNumberingRange(
+    string? ResolutionNumber,
+    DateOnly? ResolutionDate,
+    string? Prefix,
+    long? FromNumber,
+    long? ToNumber,
+    DateOnly? ValidDateFrom,
+    DateOnly? ValidDateTo,
+    string? TechnicalKey);
 
 /// <summary>
 /// Error SOAP (soap:Fault): el servicio no procesó la operación, por ejemplo porque la firma del sobre no es

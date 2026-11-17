@@ -140,7 +140,7 @@ public class DianResponseReaderTests
 
     [TestCase("<root/>")]
     [TestCase("<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\"><s:Body/></s:Envelope>")]
-    [TestCase(DianResponseSamples.NumberingRangeResponse)]
+    [TestCase("<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\"><s:Body><GetXmlByDocumentKeyResponse xmlns=\"http://wcf.dian.colombia\"><GetXmlByDocumentKeyResult/></GetXmlByDocumentKeyResponse></s:Body></s:Envelope>")]
     public void Xml_without_a_known_result_is_unrecognized(string body)
     {
         var response = Read<DianUnrecognizedResponse>(body);
@@ -152,6 +152,47 @@ public class DianResponseReaderTests
     public void Invalid_base64_application_response_is_unrecognized()
     {
         var body = DianResponseSamples.GetStatusAccepted.Replace(DianResponseSamples.ApplicationResponseBase64, "not base64!", StringComparison.Ordinal);
+
+        Read<DianUnrecognizedResponse>(body);
+    }
+
+    [Test]
+    public void Get_numbering_range_is_read_with_each_authorized_range()
+    {
+        var response = Read<DianNumberingRangeResponse>(DianResponseSamples.NumberingRangeTwoRanges);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.OperationCode, Is.EqualTo("100"));
+            Assert.That(response.OperationDescription, Is.EqualTo("Acción completada OK."));
+            Assert.That(response.Ranges, Is.EqualTo(new[]
+            {
+                new DianNumberingRange(
+                    "18760000001", new DateOnly(2019, 1, 19), "SETP", 990000000, 995000000, new DateOnly(2019, 1, 19), new DateOnly(2030, 1, 19),
+                    DianResponseSamples.TechnicalKey),
+                new DianNumberingRange(
+                    "18760000002", new DateOnly(2024, 5, 2), "NC", 1, 1000, new DateOnly(2024, 5, 2), new DateOnly(2026, 5, 2), null),
+            }));
+        });
+    }
+
+    [Test]
+    public void Get_numbering_range_without_ranges_keeps_the_operation_code_and_description()
+    {
+        var response = Read<DianNumberingRangeResponse>(DianResponseSamples.NumberingRangeNotAuthorized);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.OperationCode, Is.EqualTo("301"));
+            Assert.That(response.OperationDescription, Is.EqualTo("Nit del proveedor tecnológico no autorizado."));
+            Assert.That(response.Ranges, Is.Empty);
+        });
+    }
+
+    [Test]
+    public void Get_numbering_range_with_an_unreadable_number_is_unrecognized()
+    {
+        var body = DianResponseSamples.NumberingRangeTwoRanges.Replace("<c:ToNumber>1000<", "<c:ToNumber>mil<", StringComparison.Ordinal);
 
         Read<DianUnrecognizedResponse>(body);
     }
