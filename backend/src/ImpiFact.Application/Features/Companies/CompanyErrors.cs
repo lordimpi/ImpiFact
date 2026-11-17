@@ -42,4 +42,25 @@ public static class CompanyErrors
         "certificate.not_found",
         "La empresa no tiene un certificado activo.",
         ErrorType.NotFound);
+
+    /// <summary>Texto del PHP (<c>verify_certificate</c>): el certificado activo ya venció, también el día en que vence.</summary>
+    public static readonly Error CertificateExpired = new(
+        "certificate.expired",
+        "El certificado digital ya se encuentra vencido...",
+        ErrorType.Validation);
+
+    /// <summary>
+    /// Texto del PHP (<c>verificarEstadoDIAN</c>): la DIAN (la autoridad tributaria de Colombia) no respondió, respondió
+    /// una página de error o una respuesta que no se reconoce.
+    /// </summary>
+    public static readonly Error DianUnavailable = new(
+        "dian.unavailable",
+        "El servicio de la DIAN no está disponible en este momento. Por favor, inténtelo más tarde.",
+        ErrorType.Unavailable);
+
+    /// <summary>La DIAN rechazó el mensaje sin procesar la consulta (SOAP Fault), por ejemplo por el certificado.</summary>
+    public static Error DianFault(string reason) => new(
+        "dian.fault",
+        $"La DIAN rechazó la consulta: {reason}",
+        ErrorType.DianRejected);
 }

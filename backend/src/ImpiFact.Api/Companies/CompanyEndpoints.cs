@@ -5,6 +5,7 @@ using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Features.Companies.CreateCompany;
 using ImpiFact.Application.Features.Companies.ListCertificates;
+using ImpiFact.Application.Features.Companies.NumberingRange;
 using ImpiFact.Application.Features.Companies.SetEnvironment;
 using ImpiFact.Application.Features.Companies.SetSoftware;
 using ImpiFact.Application.Features.Companies.UpdateCompany;
@@ -12,6 +13,7 @@ using ImpiFact.Application.Features.Companies.UploadCertificate;
 using ImpiFact.Application.Features.Companies.UpsertResolution;
 using ImpiFact.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ImpiFact.Api.Companies;
 
@@ -58,6 +60,13 @@ internal sealed class CompanyEndpoints : IEndpointModule
 
         canonical.MapGet("/{nit}/certificate/end-date", CertificateEndDate).RequireAuthorization(ApiScopes.ConfigWrite);
         legacy.MapPut("/certificate-end-date", CertificateEndDate).RequireAuthorization(ApiScopes.ConfigWrite);
+
+        // Única consulta en vivo a la DIAN desde la API (rangos de numeración autorizados).
+        canonical.MapGet("/{nit}/numbering-ranges", (string nit, [FromQuery(Name = "software_id")] string? softwareId,
+            IHandler<GetNumberingRangeQuery, NumberingRangeResponse> handler, CancellationToken ct) =>
+            NumberingRange(new GetNumberingRangeQuery(softwareId) { Nit = nit }, handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite);
+        legacy.MapPost("/numbering-range", (GetNumberingRangeQuery body, IHandler<GetNumberingRangeQuery, NumberingRangeResponse> handler,
+            CancellationToken ct) => NumberingRange(body with { Nit = null }, handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite);
     }
 
     /// <summary>
@@ -114,6 +123,10 @@ internal sealed class CompanyEndpoints : IEndpointModule
     private static async Task<IResult> ListCertificates(
         string? nit, IHandler<ListCertificatesQuery, CertificatesResponse> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new ListCertificatesQuery(nit), ct)).ToHttpResult();
+
+    private static async Task<IResult> NumberingRange(
+        GetNumberingRangeQuery query, IHandler<GetNumberingRangeQuery, NumberingRangeResponse> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(query, ct)).ToHttpResult();
 
     private static async Task<IResult> CertificateEndDate(
         string? nit, IHandler<GetCertificateEndDateQuery, CertificateEndDateResponse> handler, CancellationToken ct) =>
