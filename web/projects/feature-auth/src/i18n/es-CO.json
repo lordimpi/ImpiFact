@@ -1,0 +1,47 @@
+{
+  "login": {
+    "title": "Iniciar sesión",
+    "description": "Ingrese con el correo y la contraseña de su cuenta de ImpiFact.",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Ingresar",
+    "forgotPassword": "¿Olvidó su contraseña?",
+    "inactivity": "Su sesión se cerró por inactividad. Inicie sesión de nuevo para continuar.",
+    "errors": {
+      "emailRequired": "Escriba su correo electrónico.",
+      "emailInvalid": "Escriba un correo electrónico válido, por ejemplo nombre@empresa.com.",
+      "passwordRequired": "Escriba su contraseña.",
+      "invalidCredentials": "El correo o la contraseña no son correctos.",
+      "tooManyAttempts": "Hubo demasiados intentos. Espere un minuto e intente de nuevo.",
+      "unexpected": "No se pudo iniciar sesión. Intente de nuevo."
+    }
+  },
+  "recovery": {
+    "title": "Recuperar la contraseña",
+    "unavailable": "La recuperación de la contraseña todavía no está disponible en el panel.",
+    "help": "Pida al propietario de su empresa o al equipo de soporte que le asigne una contraseña nueva.",
+    "back": "Volver a iniciar sesión"
+  },
+  "selectCompany": {
+    "title": "Seleccionar empresa",
+    "description": "Elija la empresa con la que va a trabajar. Puede cambiarla después desde el menú de usuario.",
+    "listLabel": "Empresas disponibles",
+    "company": "Empresa {{ number }}",
+    "companyId": "Identificador: {{ id }}",
+    "select": "Trabajar con la empresa {{ number }}",
+    "active": "Empresa activa",
+    "emptyTitle": "No tiene empresas asignadas",
+    "emptyDescription": "Pida al propietario de una empresa que le dé acceso, o comuníquese con soporte.",
+    "goHome": "Ir al inicio",
+    "errors": {
+      "notAllowed": "No tiene acceso a esa empresa. Elija otra."
+    }
+  },
+  "inactivity": {
+    "title": "Su sesión se cerrará por inactividad",
+    "body": "No hemos detectado actividad en el panel. Si no hace nada, la sesión se cerrará en {{ minutes }} minutos para proteger su información.",
+    "stay": "Seguir conectado",
+    "logout": "Cerrar sesión",
+    "close": "Cerrar el aviso y seguir conectado"
+  }
+}

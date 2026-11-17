@@ -1,0 +1,94 @@
+/* Estilos comunes de las páginas del feature: una tarjeta centrada, cómoda en móvil y en escritorio. */
+:host {
+  display: block;
+}
+
+.auth-page {
+  display: flex;
+  justify-content: center;
+  padding-block: var(--if-space-5);
+}
+
+.auth-card {
+  inline-size: min(100%, 28rem);
+  padding: var(--if-space-5);
+  background: var(--if-color-surface);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-md);
+}
+
+.auth-lead {
+  margin-block: 0 var(--if-space-4);
+  color: var(--if-color-text-muted);
+}
+
+.auth-notice,
+.auth-error {
+  margin-block: 0 var(--if-space-4);
+  padding: var(--if-space-3);
+  border-radius: var(--if-radius-sm);
+  border-inline-start: 4px solid currentColor;
+}
+
+.auth-notice {
+  color: var(--if-color-text);
+  background: var(--if-color-primary-subtle);
+}
+
+.auth-error {
+  color: var(--if-color-danger);
+  background: var(--if-color-danger-subtle);
+}
+
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--if-space-3);
+  margin-block-start: var(--if-space-2);
+}
+
+.auth-actions a,
+.auth-link {
+  color: var(--if-color-primary);
+}
+
+.auth-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-company {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--if-space-2);
+  padding: var(--if-space-3);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-sm);
+}
+
+.auth-company__id {
+  margin: 0;
+  font-family: var(--if-font-family-mono);
+  font-size: var(--if-font-size-sm);
+  color: var(--if-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.auth-company__active {
+  margin: 0;
+  font-size: var(--if-font-size-sm);
+  font-weight: var(--if-font-weight-bold);
+  color: var(--if-color-success);
+}
+
+.auth-company__name {
+  margin: 0;
+  font-weight: var(--if-font-weight-medium);
+}
