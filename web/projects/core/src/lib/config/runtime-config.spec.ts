@@ -52,6 +52,38 @@ describe('RuntimeConfigService', () => {
     });
   });
 
+  // Sonda P7 del verificador (nota 4): solo URL absolutas http(s); http solo en el equipo local.
+  it.each([
+    'javascript:alert(1)//',
+    'ftp://api.example.test',
+    'http://api.example.test',
+    '/api',
+    'no es una url',
+  ])('rejects %s as API url, keeping the default and logging without the value', async (url) => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const loaded = service.load();
+    http.expectOne('config.json').flush({ apiBaseUrl: url });
+
+    expect((await loaded).apiBaseUrl).toBe('');
+    expect(error).toHaveBeenCalledOnce();
+    expect(JSON.stringify(error.mock.calls)).not.toContain(url);
+  });
+
+  it.each([
+    ['https://api.example.test/', 'https://api.example.test'],
+    ['http://localhost:5080', 'http://localhost:5080'],
+    ['http://127.0.0.1:5080', 'http://127.0.0.1:5080'],
+    ['http://[::1]:5080', 'http://[::1]:5080'],
+    ['', ''],
+  ])('accepts %s as API url', async (url, expected) => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const loaded = service.load();
+    http.expectOne('config.json').flush({ apiBaseUrl: url });
+
+    expect((await loaded).apiBaseUrl).toBe(expected);
+    expect(error).not.toHaveBeenCalled();
+  });
+
   it('starts with the defaults when config.json cannot be read', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const loaded = service.load();

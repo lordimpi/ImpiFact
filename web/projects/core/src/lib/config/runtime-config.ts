@@ -64,13 +64,43 @@ export class RuntimeConfigService {
 
 function normalize(raw: unknown): RuntimeConfig {
   const source = isRecord(raw) ? raw : {};
-  const apiBaseUrl =
-    typeof source['apiBaseUrl'] === 'string' ? source['apiBaseUrl'].trim().replace(/\/+$/, '') : '';
+  const apiBaseUrl = normalizeApiBaseUrl(source['apiBaseUrl']);
   return {
     apiBaseUrl,
     inactivity: normalizeInactivity(source['inactivity']),
     features: normalizeFeatures(source['features']),
   };
+}
+
+/** Nombres del equipo local, donde se permite `http` (el Api de desarrollo). */
+const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+
+/**
+ * La URL del Api recibe el token Bearer, así que solo se acepta una URL absoluta `https` (o `http` en el equipo
+ * local) sin usuario, consulta ni fragmento; vacía significa «mismo origen». Si no cumple se usa la de por defecto y
+ * se avisa en la consola sin repetir el valor (podría venir manipulado).
+ */
+function normalizeApiBaseUrl(raw: unknown): string {
+  if (raw === undefined) {
+    return DEFAULT_RUNTIME_CONFIG.apiBaseUrl;
+  }
+  const value = typeof raw === 'string' ? raw.trim().replace(/\/+$/, '') : null;
+  if (value === '') {
+    return value;
+  }
+  if (value !== null && URL.canParse(value)) {
+    const url = new URL(value);
+    const secure =
+      url.protocol === 'https:' ||
+      (url.protocol === 'http:' && LOOPBACK_HOSTS.includes(url.hostname));
+    if (secure && !url.username && !url.password && !url.search && !url.hash) {
+      return value;
+    }
+  }
+  console.error(
+    `${RUNTIME_CONFIG_URL}: apiBaseUrl no es una URL https válida (o http en el equipo local); se usa la URL por defecto.`,
+  );
+  return DEFAULT_RUNTIME_CONFIG.apiBaseUrl;
 }
 
 function normalizeInactivity(raw: unknown): RuntimeConfig['inactivity'] {
