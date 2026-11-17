@@ -44,6 +44,8 @@ internal static partial class MasterMessages
 
     public static string Decimals(string field, int scale) => $"{Attribute(field)} admite como máximo {scale} decimales.";
 
+    public static string ControlCharacters(string field) => $"{Attribute(field)} no debe contener caracteres de control.";
+
     /// <summary>Correo como lo acepta la regla <c>email</c> de Laravel, igual que la emisión.</summary>
     public static bool IsEmail(string value) => EmailPattern().IsMatch(value);
 
@@ -101,6 +103,14 @@ internal static class MasterCatalogs
 internal static class MasterText
 {
     public static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// Verdadero si el texto no trae caracteres de control (U+0000 a U+001F). PostgreSQL rechaza U+0000 en una columna o
+    /// un parámetro de texto, así que sin esta regla llegaría como un error 500. En los datos de un maestro se aceptan
+    /// el tabulador y los saltos de línea (<paramref name="allowLineBreaks"/>); en la búsqueda, no.
+    /// </summary>
+    public static bool IsPlain(string? value, bool allowLineBreaks) =>
+        value is null || !value.Any(character => character < ' ' && !(allowLineBreaks && (character is '\t' or '\n' or '\r')));
 }
 
 /// <summary>Errores de los maestros que comparten clientes y productos.</summary>

@@ -128,7 +128,8 @@ public static class MasterCursor
         try
         {
             var data = JsonSerializer.Deserialize<CursorData>(Base64Url.DecodeFromChars(cursor));
-            if (data is not { S: { } s, V: { } v } || data.I == Guid.Empty)
+            // El valor va como parámetro de la consulta: con caracteres de control (U+0000) PostgreSQL fallaría.
+            if (data is not { S: { } s, V: { } v } || data.I == Guid.Empty || !MasterText.IsPlain(v, allowLineBreaks: true))
             {
                 return false;
             }
@@ -165,6 +166,7 @@ internal static class MasterListRules
             .OverridePropertyName("limit");
         validator.RuleFor(query => search(query))
             .MaximumLength(MasterListing.MaxSearchLength).WithMessage(MasterMessages.MaxLength("search", MasterListing.MaxSearchLength))
+            .Must(text => MasterText.IsPlain(text, allowLineBreaks: false)).WithMessage(MasterMessages.ControlCharacters("search"))
             .OverridePropertyName("search");
         validator.RuleFor(query => status(query))
             .Must(text => MasterListing.TryStatus(text, out _)).WithMessage(MasterMessages.Invalid("status"))

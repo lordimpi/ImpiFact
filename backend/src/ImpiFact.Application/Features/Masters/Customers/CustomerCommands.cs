@@ -123,6 +123,7 @@ internal abstract class CustomerFieldsValidator<T> : AbstractValidator<T>
             .Cascade(CascadeMode.Stop)
             .NotNull().WithMessage(MasterMessages.Required("name"))
             .MaximumLength(255).WithMessage(MasterMessages.MaxLength("name", 255))
+            .Must(name => MasterText.IsPlain(name, allowLineBreaks: true)).WithMessage(MasterMessages.ControlCharacters("name"))
             .OverridePropertyName("name");
         Text(customer => customer.Phone, "phone", 20);
         Text(customer => customer.Address, "address", 255);
@@ -130,13 +131,16 @@ internal abstract class CustomerFieldsValidator<T> : AbstractValidator<T>
         RuleFor(customer => MasterText.Clean(customer.Email))
             .Cascade(CascadeMode.Stop)
             .MaximumLength(200).WithMessage(MasterMessages.MaxLength("email", 200))
+            .Must(email => MasterText.IsPlain(email, allowLineBreaks: true)).WithMessage(MasterMessages.ControlCharacters("email"))
             .Must(email => email is null || MasterMessages.IsEmail(email)).WithMessage(MasterMessages.Email("email"))
             .OverridePropertyName("email");
     }
 
     private void Text(Func<T, string?> value, string field, int max) =>
         RuleFor(customer => MasterText.Clean(value(customer)))
+            .Cascade(CascadeMode.Stop)
             .MaximumLength(max).WithMessage(MasterMessages.MaxLength(field, max))
+            .Must(text => MasterText.IsPlain(text, allowLineBreaks: true)).WithMessage(MasterMessages.ControlCharacters(field))
             .OverridePropertyName(field);
 }
 

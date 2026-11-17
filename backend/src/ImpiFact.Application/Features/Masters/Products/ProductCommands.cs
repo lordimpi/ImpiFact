@@ -153,7 +153,9 @@ internal abstract class ProductFieldsValidator<T> : AbstractValidator<T>
             rule.NotNull().WithMessage(MasterMessages.Required(field));
         }
 
-        rule.MaximumLength(max).WithMessage(MasterMessages.MaxLength(field, max)).OverridePropertyName(field);
+        rule.MaximumLength(max).WithMessage(MasterMessages.MaxLength(field, max))
+            .Must(text => MasterText.IsPlain(text, allowLineBreaks: true)).WithMessage(MasterMessages.ControlCharacters(field))
+            .OverridePropertyName(field);
     }
 }
 
