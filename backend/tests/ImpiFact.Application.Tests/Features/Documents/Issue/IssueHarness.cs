@@ -29,6 +29,8 @@ public sealed class IssueHarness : IDisposable
 
     public FakeCertificateStore Certificates { get; } = new();
 
+    public FakePlanGate Plans { get; } = new();
+
     public IssueClock Clock { get; } = new(Now);
 
     public IssuerResolution InvoiceResolution { get; } = new(
@@ -84,7 +86,8 @@ public sealed class IssueHarness : IDisposable
     public static IssueHarness Create() => new IssueHarness().WithDefaultResolutions();
 
     /// <summary>Corre la validación y el handler del tipo, como el decorador de validación.</summary>
-    public async Task<Result<IssueDocumentResponse>> IssueAsync(string kind, byte[] json, string? idempotencyKey = null, Guid? companyId = null)
+    public async Task<Result<IssueDocumentResponse>> IssueAsync(
+        string kind, byte[] json, string? idempotencyKey = null, Guid? companyId = null, string? testSetId = null)
     {
         Assert.That(IssueDocumentJson.TryParse(json, out var body), Is.True, "The test body must parse.");
         var tenant = new IssueTenant(companyId ?? CompanyId);
@@ -92,12 +95,12 @@ public sealed class IssueHarness : IDisposable
         var secrets = new FakeSecretProtector();
         return kind switch
         {
-            "invoice" => await Run(new IssueInvoiceCommandValidator(), new IssueInvoiceCommand(body!, json, idempotencyKey),
-                new IssueInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Clock).HandleAsync),
-            "credit-note" => await Run(new IssueCreditNoteCommandValidator(), new IssueCreditNoteCommand(body!, json, idempotencyKey),
-                new IssueCreditNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Clock).HandleAsync),
-            _ => await Run(new IssueDebitNoteCommandValidator(), new IssueDebitNoteCommand(body!, json, idempotencyKey),
-                new IssueDebitNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Clock).HandleAsync),
+            "invoice" => await Run(new IssueInvoiceCommandValidator(), new IssueInvoiceCommand(body!, json, idempotencyKey, testSetId),
+                new IssueInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+            "credit-note" => await Run(new IssueCreditNoteCommandValidator(), new IssueCreditNoteCommand(body!, json, idempotencyKey, testSetId),
+                new IssueCreditNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+            _ => await Run(new IssueDebitNoteCommandValidator(), new IssueDebitNoteCommand(body!, json, idempotencyKey, testSetId),
+                new IssueDebitNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
         };
     }
 

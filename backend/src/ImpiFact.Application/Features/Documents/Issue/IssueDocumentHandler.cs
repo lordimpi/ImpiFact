@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using ImpiFact.Application.Abstractions;
+using ImpiFact.Application.Abstractions.Billing;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Messaging;
@@ -28,6 +29,7 @@ internal sealed record IssuePorts(
     ICertificateStore Certificates,
     ISecretProtector Secrets,
     IDianQrUrls QrUrls,
+    IPlanGate Plans,
     IClock Clock);
 
 /// <summary>Mensaje <c>SendDocumentToDian</c> de la bandeja de salida (supuesto B7: el envío lo hará el Worker).</summary>
@@ -37,8 +39,9 @@ public sealed record SendDocumentToDianPayload(Guid DocumentId, string? TestSetI
 /// <summary>
 /// Emisión de una factura o nota de punta a punta (Arquitectura detallada, sección 7, pasos 1 a 6, con el supuesto
 /// B7 de la fase 3: todo dentro de la misma solicitud y de la transacción del decorador). En orden: idempotencia,
-/// empresa activa, resolución del tipo, ambiente y prefijo, certificado vigente, software, catálogos, totales con las
-/// reglas de la DIAN (antes de tomar el número), número (el del cliente o el siguiente del consecutivo, revisado con
+/// empresa activa, resolución del tipo, ambiente y prefijo, certificado vigente, software, plan de la empresa
+/// (<see cref="IPlanGate"/>), catálogos, totales con las reglas de la DIAN (antes de tomar el número), en las notas la
+/// factura referenciada aceptada, número (el del cliente o el siguiente del consecutivo, revisado con
 /// <see cref="NumberingRange.Check"/>), XML UBL (Universal Business Language, el formato XML de la DIAN) con su
 /// CUFE o CUDE (códigos únicos de factura y de documento electrónico), firma, archivos, documento en
 /// <see cref="DocumentStatus.Queued"/> y mensaje <c>SendDocumentToDian</c>. El caso de uso nunca guarda: lo hace el
@@ -102,6 +105,13 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             return setup.Error;
         }
 
+        // Como el PHP: el plan se revisa justo después del certificado, y el set de pruebas (testSetStore) no lo revisa.
+        // Facturas y notas (tipos 1 a 5) son la familia «factura» de las cuotas del plan.
+        if (request.TestSetId is null && await ports.Plans.CheckIssueAsync(companyId, DocumentKind.Invoice, ct) is { } refused)
+        {
+            return refused;
+        }
+
         var catalogs = await LoadCatalogsAsync(issuer, body, ct);
         if (!catalogs.IsSuccess)
         {
@@ -119,6 +129,12 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         var issueTime = body.Time is { } time && time.Text.Length > 0
             ? TimeOnly.ParseExact(time.Text, "HH:mm:ss", CultureInfo.InvariantCulture)
             : ColombiaTime.Now(now);
+
+        var reference = await FindReferenceAsync(companyId, body, request.TestSetId, ct);
+        if (!reference.IsSuccess)
+        {
+            return reference.Error;
+        }
 
         var number = await TakeNumberAsync(companyId, issuer, resolution.Value, body, issueDate, requestHash, ct);
         if (!number.IsSuccess)
@@ -145,18 +161,13 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             ? Unpack(InvoiceUblBuilder.Build(mapper.MapInvoice(frame, body)))
             : Unpack(NoteUblBuilder.Build(mapper.MapNote(frame, body)));
 
-        // Supuesto B8: la nota se enlaza con el documento de la empresa que tenga ese CUFE, si existe.
-        Guid? referenceId = spec.IsNote && body.BillingReference?.Uuid is { } referenced
-            ? await ports.Store.FindIdByCufeAsync(companyId, PhpText.Clean(referenced.Text), ct)
-            : null;
-
         string signedXml;
         using (var certificate = await ports.Certificates.LoadAsync(companyId, issuer.Certificate!.SecretRef, ct))
         {
             signedXml = XmlSigner.Sign(unsignedXml, certificate, now);
         }
 
-        var graph = DocumentGraphBuilder.Build(frame, body, uuid, referenceId, ports.Tenant);
+        var graph = DocumentGraphBuilder.Build(frame, body, uuid, reference.Value, ports.Tenant);
         var document = graph.Document;
         ports.Store.Add(graph);
         await ports.Files.AddAsync(new NewDocumentFile(companyId, document.Id, DocumentFileKind.RequestJson, storedRequest, "application/json"), ct);
@@ -174,6 +185,34 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             document.Id, document.DocumentTypeId, document.TypeEnvironmentId, document.ResolutionId, document.Prefix, document.Number,
             document.FullNumber, document.Status, uuid, document.UuidAlgorithm, requestHash);
         return Respond(typeName, stored, issuer, signedXml, unsignedXml, replayed: false);
+    }
+
+    /// <summary>
+    /// Supuesto B8 y la regla de la fase 4: la nota se enlaza con el documento de la empresa que tenga el CUFE de
+    /// <c>billing_reference.uuid</c>, si existe, y ese documento debe estar aceptado por la DIAN
+    /// (<see cref="DocumentStatus.Accepted"/> o <see cref="DocumentStatus.AcceptedWithWarnings"/>). Un CUFE que la
+    /// empresa no tiene (una factura emitida fuera de ImpiFact) se acepta sin enlace, como en el PHP, que no buscaba la
+    /// factura. El set de pruebas no exige la aceptación: sus facturas se aceptan de forma asíncrona y el PHP no lo
+    /// revisaba.
+    /// </summary>
+    /// <returns>El id del documento referenciado, o nulo si la solicitud no es una nota o no lo encuentra.</returns>
+    private async Task<Result<Guid?>> FindReferenceAsync(Guid companyId, IssueDocumentBody body, string? testSetId, CancellationToken ct)
+    {
+        if (!spec.IsNote || body.BillingReference?.Uuid is not { } referenced
+            || await ports.Store.FindIdByCufeAsync(companyId, PhpText.Clean(referenced.Text), ct) is not { } referenceId)
+        {
+            return Result<Guid?>.Ok(null);
+        }
+
+        if (testSetId is not null)
+        {
+            return referenceId;
+        }
+
+        var original = await ports.Store.FindByIdAsync(companyId, referenceId, ct);
+        return original?.Status is DocumentStatus.Accepted or DocumentStatus.AcceptedWithWarnings
+            ? referenceId
+            : IssueErrors.ReferenceNotAccepted;
     }
 
     private static (string Xml, string Uuid) Unpack(InvoiceUblResult result) => (result.Xml, result.Cufe);
@@ -367,23 +406,23 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
 internal sealed class IssueInvoiceHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
     : IssueDocumentHandler<IssueInvoiceCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
         IssueSpec.Invoice);
 
 internal sealed class IssueCreditNoteHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
     : IssueDocumentHandler<IssueCreditNoteCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
         IssueSpec.CreditNote);
 
 internal sealed class IssueDebitNoteHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
     : IssueDocumentHandler<IssueDebitNoteCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
         IssueSpec.DebitNote);

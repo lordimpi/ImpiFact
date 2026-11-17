@@ -356,6 +356,9 @@ public sealed class IssueDocumentTests
     {
         using var harness = IssueHarness.Create();
         var invoice = await harness.IssueAsync("invoice", IssueHarness.GoldenInput(IssueHarness.FirstInvoice));
+        // Desde la fase 4 la nota exige que la factura de la empresa ya esté aceptada por la DIAN.
+        harness.Db.Graphs[0].Document.MoveTo(DocumentStatus.Sent);
+        harness.Db.Graphs[0].Document.MoveTo(DocumentStatus.Accepted);
 
         var note = await harness.IssueAsync("credit-note", IssueHarness.Edited(IssueHarness.FirstCreditNote, json =>
             json["billing_reference"]!["uuid"] = invoice.Value.Cufe));

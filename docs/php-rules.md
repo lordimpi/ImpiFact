@@ -143,7 +143,7 @@ Campos en este orden (IC:763-783): `success`, `message`, `send_email_success`, `
 
 1. PDF con mPDF, generado antes de la respuesta de la DIAN; el QR es la URL del catálogo (`catalogo-vpfe[-hab].dian.gov.co/document/searchqr?documentkey=…`) más el CUFE (DT:372-443).
 2. Correo solo si `sendmail` y el documento quedó en estado 1; no se envía al consumidor final salvo con `email_pos_customer`; copias a `sendmailtome` y `email_cc_list`. Los errores solo quedan en el log (IC:668-690).
-3. Cuota del plan solo en `store`, contando documentos en estado 1. El `switch` no tiene `break` y la cuota no se aplica cuando existe `absolut_start_plan_date` (IC:225-270; DT:1543-1561). **Bug del PHP.**
+3. Cuota del plan solo en `store`, contando documentos en estado 1. El `switch` no tiene `break` y la cuota no se aplica cuando existe `absolut_start_plan_date` (IC:225-270; DT:1543-1561). **Bug del PHP.** ImpiFact (fase 4): mismas reglas y mensajes (plan inactivo; mensual al mes y anual al año; usados contra la cantidad del plan por familia en `plan_quotas`) también en las notas, contando en `plan_usage` al aceptar; sin plan contratado no hay límites; el set de pruebas no revisa ni cuenta; no existe el «plan mixto» (`absolut_plan_documents`).
 4. `ActualizarTablas` modifica catálogos en cada petición: borra responsabilidades y operaciones y renombra impuestos (DT:1290-1411). **Bug del PHP**; ImpiFact usa catálogos sembrados y versionados.
 5. `preeliminar-view` genera solo el PDF, con el CUFE vacío, y lo escribe en la misma ruta que la factura real, así que puede sobrescribirla (IC:41-188). **Bug del PHP.**
 
@@ -162,7 +162,7 @@ Los dos controladores son copias casi idénticas. Se listan solo las diferencias
 
 ### 4.2 Referencia a la factura y discrepancia
 
-1. La factura original no se busca en la base: se copian `number`, `uuid` e `issue_date` a `BillingReference` (`TPL/_billing_reference.blade.php:1-14`). **Mejora** en ImpiFact: validar que exista, sea de la empresa y esté aceptada.
+1. La factura original no se busca en la base: se copian `number`, `uuid` e `issue_date` a `BillingReference` (`TPL/_billing_reference.blade.php:1-14`). **Mejora** en ImpiFact (fase 4): si el CUFE es de un documento de la empresa, ese documento debe estar aceptado por la DIAN (si no, 422 `document.reference_not_accepted`); un CUFE desconocido se acepta sin enlace, como en el PHP, y el set de pruebas no exige la aceptación.
 2. `schemeName` del UUID referenciado: `CUFE-SHA384` por defecto (`app/BillingReference.php:62-65`).
 3. Se admiten notas sin referencia (sin `billing_reference`, el bloque se omite).
 4. `DiscrepancyResponse/Description` sale del **catálogo** por código, no del campo `discrepancyresponsedescription` del request, que se ignora (`TPL/_discrepancy_response.blade.php:15-31`). **Conservar.**
