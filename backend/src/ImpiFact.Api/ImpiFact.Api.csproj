@@ -10,6 +10,17 @@
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
     <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
+  <!--
+    Ejemplos de emisión que Scalar muestra precargados: se incrustan al compilar desde los casos golden
+    (tests/golden, solicitudes que la DIAN aceptó), así nunca se desalinean de ellos. Ver OpenApi/OpenApiExamples.cs.
+  -->
+  <ItemGroup>
+    <GoldenExample Include="invoice/single-line-iva19;invoice/two-lines-discounts-iva19;invoice/mixed-iva-19-5-0;invoice/final-consumer" />
+    <GoldenExample Include="credit-note/partial-return-with-reference;credit-note/without-reference-invoice-period" />
+    <GoldenExample Include="debit-note/price-adjustment-with-reference" />
+    <GoldenExample Update="@(GoldenExample)" LogicalName="golden/%(Identity)/input.json" />
+    <EmbeddedResource Include="@(GoldenExample->'..\..\tests\golden\%(Identity)\input.json')" Visible="false" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ImpiFact.Application\ImpiFact.Application.csproj" />
     <ProjectReference Include="..\ImpiFact.Infrastructure\ImpiFact.Infrastructure.csproj" />

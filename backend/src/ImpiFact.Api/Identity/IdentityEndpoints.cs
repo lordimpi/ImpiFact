@@ -36,6 +36,7 @@ internal sealed class IdentityEndpoints : IEndpointModule
             .AddEndpointFilter(NoStore);
         auth.MapPost("/login", LoginAsync)
             .Produces<SessionTokens>()
+            .WithRequestExamples(ExampleBodies.Login)
             .WithSummary("Iniciar sesión en el panel")
             .WithDescription(
                 "Recibe `email` y `password` (y, si quiere, `company_id`, la empresa con la que va a trabajar) y entrega un " +
@@ -45,6 +46,7 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "(`identity.company_not_allowed`). Tiene un límite estricto de intentos por minuto y por IP (429).");
         auth.MapPost("/refresh", RefreshAsync)
             .Produces<SessionTokens>()
+            .WithRequestExamples(ExampleBodies.Refresh)
             .WithSummary("Renovar la sesión")
             .WithDescription(
                 "Cambia un `refresh_token` vigente por un `access_token` y un `refresh_token` nuevos; el usado queda revocado. " +
@@ -55,6 +57,7 @@ internal sealed class IdentityEndpoints : IEndpointModule
         var apiKeys = endpoints.MapGroup("/api/v1/api-keys").WithTags(ApiTags.Identity).RequireAuthorization(IdentityPolicies.ManageCredentials);
         apiKeys.MapPost("/", CreateApiKeyAsync).AddEndpointFilter(NoStore)
             .Produces<CreatedApiKey>(StatusCodes.Status201Created)
+            .WithRequestExamples(ExampleBodies.ApiKey)
             .WithSummary("Crear una API key")
             .WithDescription(
                 "Crea una llave de acceso para una integración, con `name`, `scopes` y, si quiere, `expires_at`. Con una " +
@@ -73,6 +76,7 @@ internal sealed class IdentityEndpoints : IEndpointModule
         endpoints.MapGroup("/api/v1/users").WithTags(ApiTags.Identity).RequireAuthorization(IdentityPolicies.ManageCredentials)
             .MapPost("/", CreateUserAsync)
             .Produces<CreatedUser>(StatusCodes.Status201Created)
+            .WithRequestExamples(ExampleBodies.User)
             .WithSummary("Crear un usuario del panel")
             .WithDescription(
                 "Crea un usuario con `email`, `password` (al menos 10 caracteres), `name`, `role` y, si quiere, `phone`. El dueño (`owner`) de una " +

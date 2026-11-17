@@ -40,6 +40,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
         // Alta o actualización por NIT: operación de plataforma.
         canonical.MapPost("/{nit}/{dv}", CreateCompany).RequireAuthorization(ApiScopes.Platform)
             .Produces<CompanySavedResponse>()
+            .WithRequestExamples(ExampleBodies.Company)
             .WithSummary("Crear o actualizar una empresa")
             .WithDescription(
                 "Crea la empresa emisora con su NIT (número de identificación tributaria) y su dígito de verificación " +
@@ -56,6 +57,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
 
         canonical.MapPut("/{nit}/{dv}", UpdateCompany).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<CompanySavedResponse>()
+            .WithRequestExamples(ExampleBodies.Company)
             .WithSummary("Actualizar los datos de la empresa")
             .WithDescription(
                 "La empresa actualiza sus propios datos con el mismo cuerpo del alta. Los ambientes no cambian aquí (use " +
@@ -64,6 +66,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
 
         canonical.MapPut("/{nit}/environment", SetEnvironment).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<EnvironmentsResponse>()
+            .WithRequestExamples(ExampleBodies.Environment)
             .WithSummary("Cambiar el ambiente de la DIAN")
             .WithDescription(
                 "Pone cada familia de documentos en producción (1) o habilitación (2): `type_environment_id` (factura y " +
@@ -75,6 +78,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
 
         canonical.MapPut("/{nit}/software", SetSoftware).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<SoftwareSavedResponse>()
+            .WithRequestExamples(ExampleBodies.Software)
             .WithSummary("Registrar el software ante la DIAN")
             .WithDescription(
                 "Guarda el identificador del software (`id`), su PIN de 5 dígitos (`pin`) y, si quiere, la URL del servicio " +
@@ -86,6 +90,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
 
         canonical.MapPut("/{nit}/certificate", UploadCertificate).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<CertificateSavedResponse>()
+            .WithRequestExamples(ExampleBodies.Certificate)
             .WithSummary("Subir el certificado de firma")
             .WithDescription(
                 "Recibe el certificado digital de la empresa como PKCS#12 (archivo .p12 o .pfx con el certificado y su llave " +
@@ -98,6 +103,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
 
         canonical.MapPut("/{nit}/resolution", UpsertResolution).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<ResolutionSavedResponse>()
+            .WithRequestExamples(ExampleBodies.Resolution)
             .WithSummary("Crear o actualizar una resolución de numeración")
             .WithDescription(
                 "Guarda una resolución de numeración autorizada por la DIAN: `type_document_id`, `prefix`, `resolution`, " +

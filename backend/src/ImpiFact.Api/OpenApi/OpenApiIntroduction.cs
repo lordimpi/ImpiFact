@@ -18,6 +18,27 @@ internal static class OpenApiIntroduction
 
         Aquí solo se documentan las rutas `/api/v1`.
 
+        ## Pruebe en este orden
+
+        Cada ruta trae ejemplos listos para enviar (elíjalos en el selector de ejemplos del cuerpo). La empresa de
+        ejemplo es el NIT `{{OpenApiExamples.Nit}}` con dígito de verificación `{{OpenApiExamples.Dv}}`.
+
+        1. **Consiga una credencial.** Desde la carpeta `backend/`, una llave de plataforma:
+           `dotnet run --project src/ImpiFact.Migrator -- create-platform-key <nombre>`. O, más rápido, una empresa de
+           prueba ya configurada: `dotnet run --project src/ImpiFact.Migrator -- seed-demo`, que muestra la llave de esa
+           empresa; con ella siga directo al paso 5.
+        2. **Péguela en la sección de autenticación** de esta página (sin la palabra Bearer).
+        3. **Cree la empresa** con la llave de plataforma: `POST /api/v1/companies/{nit}/{dv}` con su ejemplo. Copie el
+           `token` de la respuesta (la llave de la empresa) y cámbielo en la sección de autenticación: los pasos
+           siguientes usan esa llave.
+        4. **Configure la empresa** con la llave de la empresa: `PUT /api/v1/companies/{nit}/software` (con el `id` y el
+           `pin` que le dio la DIAN), `PUT .../certificate` (su archivo .p12 en Base64) y `PUT .../resolution` (los tres
+           ejemplos: la resolución de habilitación SETP para facturas y las numeraciones NC y ND para las notas).
+        5. **Emita una factura** con la llave de la empresa: `POST /api/v1/documents/invoices` con el ejemplo «Factura
+           simple». Copie el `document.id` de la respuesta.
+        6. **Consulte su estado** con la llave de la empresa: `GET /api/v1/documents/{id}`. Pasa de `Queued` a
+           `Accepted` cuando el Worker la envía y la DIAN la acepta.
+
         ## Flujo de integración
 
         1. **Crear la empresa** con una llave de plataforma: `POST /api/v1/companies/{nit}/{dv}`. La respuesta trae en

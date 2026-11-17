@@ -48,6 +48,7 @@ internal sealed class PlanEndpoints : IEndpointModule
         canonical.MapPut("/{id:int}", (int id, StorePlanCommand body, IHandler<StorePlanCommand, PlanSavedResponse> handler, CancellationToken ct) =>
             StorePlan(body with { Id = id }, handler, ct)).RequireAuthorization(ApiScopes.Platform)
             .Produces<PlanSavedResponse>()
+            .WithRequestExamples(ExampleBodies.Plan)
             .WithSummary("Crear o actualizar un plan")
             .WithDescription(
                 "Crea el plan con ese `id` o lo actualiza si ya existe. Campos: `name` (único; obligatorio al crear), la " +
@@ -67,6 +68,7 @@ internal sealed class PlanEndpoints : IEndpointModule
 
         endpoints.MapPut("/api/v1/companies/{nit}/plan", AssignPlan).WithTags(ApiTags.Plans).RequireAuthorization(ApiScopes.Platform)
             .Produces<PlanAssignedResponse>()
+            .WithRequestExamples(ExampleBodies.AssignPlan)
             .WithSummary("Asignar un plan a una empresa")
             .WithDescription(
                 "Asigna a la empresa del `{nit}` el plan `plan_id`. El plan empieza ahora y queda activo; los que la empresa " +

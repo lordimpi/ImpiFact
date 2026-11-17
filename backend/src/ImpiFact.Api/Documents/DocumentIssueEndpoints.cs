@@ -56,22 +56,22 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         legacy.MapPost("/debit-note/{testSetId}", DebitNote);
 
         var canonical = endpoints.MapGroup("/api/v1/documents").WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsWrite);
-        Issue(canonical.MapPost("/invoices", Invoice))
+        Issue(canonical.MapPost("/invoices", Invoice), OpenApiExamples.Invoices)
             .WithSummary("Emitir una factura")
             .WithDescription(InvoiceText + IssueRules);
-        Issue(canonical.MapPost("/invoices/test-set/{testSetId}", Invoice))
+        Issue(canonical.MapPost("/invoices/test-set/{testSetId}", Invoice), OpenApiExamples.Invoices)
             .WithSummary("Emitir una factura del set de pruebas")
             .WithDescription(InvoiceText + TestSetRules + IssueRules);
-        Issue(canonical.MapPost("/credit-notes", CreditNote))
+        Issue(canonical.MapPost("/credit-notes", CreditNote), OpenApiExamples.CreditNotes)
             .WithSummary("Emitir una nota crédito")
             .WithDescription(CreditNoteText + NoteRules + IssueRules);
-        Issue(canonical.MapPost("/credit-notes/test-set/{testSetId}", CreditNote))
+        Issue(canonical.MapPost("/credit-notes/test-set/{testSetId}", CreditNote), OpenApiExamples.CreditNotes)
             .WithSummary("Emitir una nota crédito del set de pruebas")
             .WithDescription(CreditNoteText + TestSetRules + IssueRules);
-        Issue(canonical.MapPost("/debit-notes", DebitNote))
+        Issue(canonical.MapPost("/debit-notes", DebitNote), OpenApiExamples.DebitNotes)
             .WithSummary("Emitir una nota débito")
             .WithDescription(DebitNoteText + NoteRules + IssueRules);
-        Issue(canonical.MapPost("/debit-notes/test-set/{testSetId}", DebitNote))
+        Issue(canonical.MapPost("/debit-notes/test-set/{testSetId}", DebitNote), OpenApiExamples.DebitNotes)
             .WithSummary("Emitir una nota débito del set de pruebas")
             .WithDescription(DebitNoteText + TestSetRules + IssueRules);
     }
@@ -92,18 +92,23 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         "`debit_note_lines`, `requested_monetary_totals` y `tax_totals`.";
 
     /// <summary>
-    /// El cuerpo se lee a mano (su resumen identifica la solicitud repetida), así que su forma y la respuesta se
-    /// declaran aquí para que aparezcan en el documento OpenAPI. El cuerpo se agrega solo al documento: con
-    /// <c>Accepts</c> la ruta exigiría el tipo de contenido JSON y respondería 415 antes de revisar la credencial.
+    /// El cuerpo se lee a mano (su resumen identifica la solicitud repetida), así que su forma, sus ejemplos (los casos
+    /// golden que Scalar muestra precargados) y la respuesta se declaran aquí para que aparezcan en el documento
+    /// OpenAPI. El cuerpo se agrega solo al documento: con <c>Accepts</c> la ruta exigiría el tipo de contenido JSON y
+    /// respondería 415 antes de revisar la credencial.
     /// </summary>
-    private static RouteHandlerBuilder Issue(RouteHandlerBuilder route) => route
+    private static RouteHandlerBuilder Issue(RouteHandlerBuilder route, IReadOnlyList<RequestExample> examples) => route
         .Produces<IssueDocumentResponse>()
         .AddOpenApiOperationTransformer(async (operation, context, ct) => operation.RequestBody = new OpenApiRequestBody
         {
             Required = true,
             Content = new Dictionary<string, OpenApiMediaType>
             {
-                ["application/json"] = new() { Schema = await context.GetOrCreateSchemaAsync(typeof(IssueDocumentBody), null, ct) },
+                ["application/json"] = new()
+                {
+                    Schema = await context.GetOrCreateSchemaAsync(typeof(IssueDocumentBody), null, ct),
+                    Examples = OpenApiExamples.ToOpenApi(examples),
+                },
             },
         });
 

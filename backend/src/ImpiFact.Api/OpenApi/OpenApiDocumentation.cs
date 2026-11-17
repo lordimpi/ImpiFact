@@ -12,7 +12,8 @@ namespace ImpiFact.Api.OpenApi;
 /// Documento OpenAPI (la descripción estándar de una API HTTP, en <c>/openapi/v1.json</c>) y la página de Scalar (el
 /// visor interactivo en <c>/scalar</c>) en español. Agrega la introducción con el flujo de integración, el esquema de
 /// autenticación Bearer (para que Scalar muestre dónde escribir la credencial), la descripción de cada sección y, en
-/// cada operación, el permiso que pide. Solo se documentan las rutas <c>/api/v1</c>: las heredadas del PHP llevan
+/// cada operación, el permiso que pide y valores de ejemplo para sus parámetros (<see cref="OpenApiExamples"/>; los
+/// cuerpos de ejemplo los agrega cada ruta con <c>WithRequestExamples</c>). Solo se documentan las rutas <c>/api/v1</c>: las heredadas del PHP llevan
 /// <c>ExcludeFromDescription()</c> en su módulo y se borran en la fase 7.
 /// </summary>
 internal static class OpenApiDocumentation
@@ -32,6 +33,7 @@ internal static class OpenApiDocumentation
             options.AddOperationTransformer((operation, context, _) =>
             {
                 DescribePermission(operation, context);
+                OpenApiExamples.DescribeParameters(operation, context.Description.RelativePath);
                 return Task.CompletedTask;
             });
             options.AddSchemaTransformer((schema, context, _) =>
