@@ -1363,7 +1363,7 @@
           "Documentos"
         ],
         "summary": "Listar los documentos de la empresa",
-        "description": "Documentos de la empresa de la credencial, del m\u00E1s reciente al m\u00E1s antiguo. Filtros opcionales: \u0060document_type_id\u0060, \u0060status\u0060 (nombre del estado, por ejemplo \u0060Accepted\u0060 o \u0060Rejected\u0060), \u0060from\u0060 y \u0060to\u0060 (d\u00EDas de emisi\u00F3n \u0060yyyy-MM-dd\u0060, hora de Colombia). Pagina por cursor: \u0060limit\u0060 (50 si no llega, m\u00E1ximo 200) y \u0060cursor\u0060 (el \u0060next_cursor\u0060 de la p\u00E1gina anterior). Un filtro no v\u00E1lido responde 422.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "description": "Documentos de la empresa de la credencial, del m\u00E1s reciente al m\u00E1s antiguo (orden \u0060issued_at\u0060 y luego \u0060id\u0060, ambos descendentes). Filtros opcionales, que se combinan entre s\u00ED: \u0060kind\u0060 (\u0060invoice\u0060, \u0060credit_note\u0060 o \u0060debit_note\u0060) o \u0060document_type_id\u0060 (1 factura, 4 nota cr\u00E9dito, 5 nota d\u00E9bito\u2026; si llegan los dos deben coincidir); \u0060status\u0060, uno o varios estados por su nombre sin distinguir may\u00FAsculas, separados por coma o repitiendo el par\u00E1metro (\u0060status=Accepted,Rejected\u0060); \u0060from\u0060 y \u0060to\u0060, d\u00EDas de emisi\u00F3n \u0060yyyy-MM-dd\u0060 en hora de Colombia, ambos incluidos; \u0060customer\u0060, texto (hasta 100 caracteres) que aparece en el n\u00FAmero de identificaci\u00F3n o en el nombre del adquiriente, sin distinguir may\u00FAsculas; \u0060number\u0060, el n\u00FAmero completo con prefijo (\u0060SETP990000001\u0060) o solo los d\u00EDgitos, que coinciden con ese n\u00FAmero en cualquier prefijo. Un \u0060customer\u0060 o \u0060number\u0060 vac\u00EDo no filtra. Pagina por cursor: \u0060limit\u0060 (50 si no llega, m\u00E1ximo 200; el panel pide hasta 100) y \u0060cursor\u0060 (el \u0060next_cursor\u0060 de la p\u00E1gina anterior; nulo en la \u00FAltima). Con \u0060include_total=true\u0060 la respuesta trae adem\u00E1s \u0060total_count\u0060, la cantidad de documentos que cumplen los filtros sin importar la p\u00E1gina: cuesta una consulta m\u00E1s que recorre todas esas filas, as\u00ED que conviene pedirlo solo en la primera p\u00E1gina o al cambiar los filtros. Cada fila trae \u0060kind\u0060 (\u0060invoice\u0060, \u0060credit_note\u0060, \u0060debit_note\u0060 o nulo para otros tipos) y \u0060email_status\u0060 (\u0060NotSent\u0060, \u0060Sent\u0060 o \u0060Failed\u0060). Un filtro no v\u00E1lido responde 422.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
         "operationId": "listDocuments",
         "parameters": [
           {
@@ -1379,10 +1379,21 @@
             }
           },
           {
-            "name": "status",
+            "name": "kind",
             "in": "query",
             "schema": {
               "type": "string"
+            },
+            "example": "invoice"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
@@ -1390,14 +1401,32 @@
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "2026-11-01"
           },
           {
             "name": "to",
             "in": "query",
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "2026-11-30"
+          },
+          {
+            "name": "customer",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Consumidor final"
+          },
+          {
+            "name": "number",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "SETP990000001"
           },
           {
             "name": "cursor",
@@ -1417,6 +1446,13 @@
               ],
               "format": "int32"
             }
+          },
+          {
+            "name": "include_total",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -1429,6 +1465,90 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/documents/export.csv": {
+      "get": {
+        "tags": [
+          "Documentos"
+        ],
+        "summary": "Exportar los documentos de la empresa a CSV",
+        "description": "Los documentos del listado en un archivo CSV para hoja de c\u00E1lculo, con los mismos filtros de \u0060GET /api/v1/documents\u0060 y el mismo orden, sin cursor ni l\u00EDmite. Filtros opcionales, que se combinan entre s\u00ED: \u0060kind\u0060 (\u0060invoice\u0060, \u0060credit_note\u0060 o \u0060debit_note\u0060) o \u0060document_type_id\u0060 (1 factura, 4 nota cr\u00E9dito, 5 nota d\u00E9bito\u2026; si llegan los dos deben coincidir); \u0060status\u0060, uno o varios estados por su nombre sin distinguir may\u00FAsculas, separados por coma o repitiendo el par\u00E1metro (\u0060status=Accepted,Rejected\u0060); \u0060from\u0060 y \u0060to\u0060, d\u00EDas de emisi\u00F3n \u0060yyyy-MM-dd\u0060 en hora de Colombia, ambos incluidos; \u0060customer\u0060, texto (hasta 100 caracteres) que aparece en el n\u00FAmero de identificaci\u00F3n o en el nombre del adquiriente, sin distinguir may\u00FAsculas; \u0060number\u0060, el n\u00FAmero completo con prefijo (\u0060SETP990000001\u0060) o solo los d\u00EDgitos, que coinciden con ese n\u00FAmero en cualquier prefijo. Un \u0060customer\u0060 o \u0060number\u0060 vac\u00EDo no filtra. Formato pensado para abrir con doble clic en espa\u00F1ol de Colombia: UTF-8 con BOM, separador \u0060;\u0060, fin de l\u00EDnea CRLF, importes con coma decimal y sin separador de miles (\u00601234567,89\u0060), fechas \u0060yyyy-MM-dd\u0060 y horas en hora de Colombia, encabezados y estados en espa\u00F1ol. Columnas: Tipo, N\u00FAmero, Fecha de emisi\u00F3n, Hora de emisi\u00F3n, Identificaci\u00F3n del cliente, Cliente, Subtotal, Impuestos, Total, Estado, Estado del correo y CUFE/CUDE. Un texto que empieza por \u0060=\u0060, \u0060\u002B\u0060, \u0060-\u0060 o \u0060@\u0060 lleva un ap\u00F3strofo delante para que la hoja no lo ejecute como f\u00F3rmula. El archivo se escribe mientras se lee de la base. M\u00E1ximo 50.000 filas: si los filtros dan m\u00E1s, responde 422 (\u0060documents.export_too_large\u0060) antes de escribir nada; acote por fechas u otros filtros. Un filtro no v\u00E1lido responde 422.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "exportDocumentsCsv",
+        "parameters": [
+          {
+            "name": "document_type_id",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "invoice"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-30"
+          },
+          {
+            "name": "customer",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Consumidor final"
+          },
+          {
+            "name": "number",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "SETP990000001"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         },
         "security": [
@@ -11083,10 +11203,671 @@
           }
         ]
       }
+    },
+    "/api/v1/customers": {
+      "get": {
+        "tags": [
+          "Clientes y productos"
+        ],
+        "summary": "Listar los clientes",
+        "description": "Clientes de la empresa activa. \u0060search\u0060 busca el texto dentro del n\u00FAmero de identificaci\u00F3n o del nombre, sin distinguir may\u00FAsculas. \u0060sort\u0060 es \u0060name\u0060 (por defecto) o \u0060identification_number\u0060; con \u0060-\u0060 delante, de mayor a menor. Pagina por cursor: \u0060limit\u0060 (20 si no llega, m\u00E1ximo 100) y \u0060cursor\u0060 (el \u0060next_cursor\u0060 de la p\u00E1gina anterior, pedido con el mismo \u0060sort\u0060; nulo en la \u00FAltima). \u0060status\u0060 es \u0060active\u0060 (por defecto), \u0060inactive\u0060 o \u0060all\u0060. Un par\u00E1metro no v\u00E1lido responde 422.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "listCustomers",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Clientes y productos"
+        ],
+        "summary": "Crear un cliente",
+        "description": "Crea un cliente con los campos del cliente (\u0060customer\u0060) de la emisi\u00F3n y las mismas reglas: identificaci\u00F3n de letras y n\u00FAmeros (hasta 15), \u0060dv\u0060 obligatorio con NIT (\u0060type_document_identification_id\u0060 6) y siempre el que calcula la DIAN, correo v\u00E1lido y cat\u00E1logos existentes. Responde 201 con el cliente y su ubicaci\u00F3n. Otro cliente de la empresa con el mismo tipo y n\u00FAmero de identificaci\u00F3n, aunque est\u00E9 desactivado: 409 (\u0060customer.duplicate\u0060).\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "createCustomer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCustomerCommand"
+              },
+              "examples": {
+                "persona-juridica": {
+                  "summary": "Cliente con NIT (persona jur\u00EDdica)",
+                  "value": {
+                    "type_document_identification_id": 6,
+                    "identification_number": "900123456",
+                    "dv": "8",
+                    "name": "CLIENTE DE PRUEBA SAS",
+                    "type_organization_id": 1,
+                    "type_regime_id": 2,
+                    "type_liability_id": 14,
+                    "municipality_id": 1006,
+                    "address": "CARRERA 7 # 71-21",
+                    "phone": "6017654321",
+                    "email": "facturacion@cliente-prueba.com",
+                    "merchant_registration": "0000000-00"
+                  }
+                },
+                "persona-natural": {
+                  "summary": "Cliente con c\u00E9dula de ciudadan\u00EDa (persona natural)",
+                  "value": {
+                    "type_document_identification_id": 3,
+                    "identification_number": "1020304050",
+                    "name": "MARIA PEREZ",
+                    "type_organization_id": 2,
+                    "type_regime_id": 2,
+                    "municipality_id": 1006,
+                    "email": "maria.perez@example.com"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/customers/lookup": {
+      "get": {
+        "tags": [
+          "Clientes y productos"
+        ],
+        "summary": "Consultar un adquiriente en la DIAN",
+        "description": "Pregunta en vivo a la DIAN (servicio GetAcquirer) qu\u00E9 nombre y qu\u00E9 correo de recepci\u00F3n de facturas tiene registrados el comprador con \u0060type\u0060 (id del cat\u00E1logo de tipos de identificaci\u00F3n; 6 es NIT) y \u0060number\u0060 (sin d\u00EDgito de verificaci\u00F3n), para llenar el formulario del cliente. Usa el certificado activo y el ambiente de facturaci\u00F3n de la empresa. Responde 200 con \u0060found: true\u0060 y \u0060name\u0060/\u0060email\u0060, o con \u0060found: false\u0060 si la DIAN no lo tiene registrado. Sin certificado activo: 404 (\u0060certificate.not_found\u0060); vencido: 422 (\u0060certificate.expired\u0060); la DIAN rechaz\u00F3 la consulta: 422 (\u0060dian.fault\u0060 o \u0060dian.rejected\u0060); la DIAN no respondi\u00F3: 503 (\u0060dian.unavailable\u0060). No guarda nada.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "lookupAcquirer",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            },
+            "example": 1
+          },
+          {
+            "name": "number",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcquirerLookupResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/customers/{id}": {
+      "get": {
+        "tags": [
+          "Clientes y productos"
+        ],
+        "summary": "Ver un cliente",
+        "description": "Datos del cliente \u0060{id}\u0060. Un id de otra empresa responde 404, igual que uno que no existe.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "getCustomer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Clientes y productos"
+        ],
+        "summary": "Editar un cliente",
+        "description": "Reemplaza todos los datos del cliente \u0060{id}\u0060 con las reglas del alta: lo que no llega queda vac\u00EDo. \u0060is_active: true\u0060 reactiva un cliente desactivado. Tipo y n\u00FAmero de identificaci\u00F3n de otro cliente: 409 (\u0060customer.duplicate\u0060). Un id de otra empresa responde 404, igual que uno que no existe.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "updateCustomer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCustomerCommand"
+              },
+              "examples": {
+                "persona-juridica": {
+                  "summary": "Cliente con NIT (persona jur\u00EDdica)",
+                  "value": {
+                    "type_document_identification_id": 6,
+                    "identification_number": "900123456",
+                    "dv": "8",
+                    "name": "CLIENTE DE PRUEBA SAS",
+                    "type_organization_id": 1,
+                    "type_regime_id": 2,
+                    "type_liability_id": 14,
+                    "municipality_id": 1006,
+                    "address": "CARRERA 7 # 71-21",
+                    "phone": "6017654321",
+                    "email": "facturacion@cliente-prueba.com",
+                    "merchant_registration": "0000000-00"
+                  }
+                },
+                "persona-natural": {
+                  "summary": "Cliente con c\u00E9dula de ciudadan\u00EDa (persona natural)",
+                  "value": {
+                    "type_document_identification_id": 3,
+                    "identification_number": "1020304050",
+                    "name": "MARIA PEREZ",
+                    "type_organization_id": 2,
+                    "type_regime_id": 2,
+                    "municipality_id": 1006,
+                    "email": "maria.perez@example.com"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/customers/{id}/deactivate": {
+      "post": {
+        "tags": [
+          "Clientes y productos"
+        ],
+        "summary": "Desactivar un cliente",
+        "description": "Desactiva el cliente \u0060{id}\u0060 y responde 204 sin cuerpo; repetirlo responde lo mismo. Nunca se borra: los documentos emitidos pueden referirse a \u00E9l. Deja de salir en el listado por defecto (\u0060status=active\u0060) y se reactiva con la edici\u00F3n (\u0060is_active: true\u0060). Un id de otra empresa responde 404, igual que uno que no existe.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "deactivateCustomer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/products": {
+      "get": {
+        "tags": [
+          "Clientes y productos"
+        ],
+        "summary": "Listar los productos",
+        "description": "Productos y servicios de la empresa activa. \u0060search\u0060 busca el texto dentro del c\u00F3digo o del nombre, sin distinguir may\u00FAsculas. \u0060sort\u0060 es \u0060name\u0060 (por defecto) o \u0060code\u0060; con \u0060-\u0060 delante, de mayor a menor. Pagina por cursor: \u0060limit\u0060 (20 si no llega, m\u00E1ximo 100) y \u0060cursor\u0060 (el \u0060next_cursor\u0060 de la p\u00E1gina anterior, pedido con el mismo \u0060sort\u0060; nulo en la \u00FAltima). \u0060status\u0060 es \u0060active\u0060 (por defecto), \u0060inactive\u0060 o \u0060all\u0060. Un par\u00E1metro no v\u00E1lido responde 422.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "listProducts",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Clientes y productos"
+        ],
+        "summary": "Crear un producto",
+        "description": "Crea un producto: \u0060code\u0060 (\u00FAnico en la empresa), \u0060name\u0060 (lo que va en la l\u00EDnea de la emisi\u00F3n), \u0060unit_measure_id\u0060, \u0060unit_price\u0060 (sin impuestos, hasta 6 decimales) y, si lleva impuesto, \u0060tax_id\u0060 con \u0060tax_percent\u0060 (obligatorio salvo con los impuestos 2 y 10) o \u0060tax_per_unit_amount\u0060 (obligatorio con el 10). \u0060type_item_identification_id\u0060 es 4 (c\u00F3digo propio) si no llega. Responde 201 con el producto. C\u00F3digo repetido, aunque el otro est\u00E9 desactivado: 409 (\u0060product.duplicate\u0060).\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "createProduct",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductCommand"
+              },
+              "examples": {
+                "iva-19": {
+                  "summary": "Producto con IVA del 19 %",
+                  "value": {
+                    "code": "PROD-001",
+                    "name": "Servicio de soporte mensual",
+                    "description": "Soporte t\u00E9cnico remoto, 20 horas al mes",
+                    "unit_measure_id": 70,
+                    "unit_price": 150000,
+                    "tax_id": 1,
+                    "tax_percent": 19
+                  }
+                },
+                "sin-impuesto": {
+                  "summary": "Producto sin impuesto",
+                  "value": {
+                    "code": "PROD-002",
+                    "name": "Libro impreso",
+                    "unit_measure_id": 70,
+                    "unit_price": 45000
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/products/{id}": {
+      "get": {
+        "tags": [
+          "Clientes y productos"
+        ],
+        "summary": "Ver un producto",
+        "description": "Datos del producto \u0060{id}\u0060. Un id de otra empresa responde 404, igual que uno que no existe.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "getProduct",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Clientes y productos"
+        ],
+        "summary": "Editar un producto",
+        "description": "Reemplaza todos los datos del producto \u0060{id}\u0060 con las reglas del alta: lo que no llega queda vac\u00EDo. \u0060is_active: true\u0060 reactiva un producto desactivado. C\u00F3digo de otro producto: 409 (\u0060product.duplicate\u0060). Un id de otra empresa responde 404, igual que uno que no existe.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "updateProduct",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProductCommand"
+              },
+              "examples": {
+                "iva-19": {
+                  "summary": "Producto con IVA del 19 %",
+                  "value": {
+                    "code": "PROD-001",
+                    "name": "Servicio de soporte mensual",
+                    "description": "Soporte t\u00E9cnico remoto, 20 horas al mes",
+                    "unit_measure_id": 70,
+                    "unit_price": 150000,
+                    "tax_id": 1,
+                    "tax_percent": 19
+                  }
+                },
+                "sin-impuesto": {
+                  "summary": "Producto sin impuesto",
+                  "value": {
+                    "code": "PROD-002",
+                    "name": "Libro impreso",
+                    "unit_measure_id": 70,
+                    "unit_price": 45000
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/products/{id}/deactivate": {
+      "post": {
+        "tags": [
+          "Clientes y productos"
+        ],
+        "summary": "Desactivar un producto",
+        "description": "Desactiva el producto \u0060{id}\u0060 y responde 204 sin cuerpo; repetirlo responde lo mismo. Nunca se borra. Se reactiva con la edici\u00F3n (\u0060is_active: true\u0060). Un id de otra empresa responde 404, igual que uno que no existe.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "deactivateProduct",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/dashboard/summary": {
+      "get": {
+        "tags": [
+          "Tablero"
+        ],
+        "summary": "Resumen del tablero de la empresa",
+        "description": "Lo que muestra el tablero, armado en el servidor con una cantidad fija de consultas: \u0060current_month\u0060, los documentos emitidos en el mes actual por estado (\u0060by_status\u0060, solo los estados con documentos, de m\u00E1s a menos); \u0060months\u0060, los \u00FAltimos 12 meses del m\u00E1s antiguo al actual (tambi\u00E9n los vac\u00EDos) con los documentos de cada familia (\u0060invoice\u0060, \u0060credit_note\u0060, \u0060debit_note\u0060, \u0060other\u0060) en todos los estados; \u0060plan\u0060, el plan vigente con lo usado, el l\u00EDmite y lo que queda por familia (\u0060limit\u0060 y \u0060remaining\u0060 nulos si no tiene l\u00EDmites) y el fin del periodo (\u0060period_end\u0060), o nulo sin plan contratado; \u0060certificate\u0060, el certificado de firma activo con los d\u00EDas que le quedan (\u0060days_left\u0060), o nulo; y \u0060resolutions\u0060, las resoluciones activas a las que les queda menos del 10 % del rango o menos de 30 d\u00EDas de vigencia (las mismas reglas de los avisos de la campana). Los meses y los d\u00EDas se cuentan en el calendario de Colombia.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "getDashboardSummary",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardSummaryResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
     "schemas": {
+      "AcquirerLookupResponse": {
+        "type": "object",
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "status_code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "message": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "AssignPlanCommand": {
         "type": "object",
         "properties": {
@@ -11941,6 +12722,98 @@
           }
         }
       },
+      "CreateCustomerCommand": {
+        "type": "object",
+        "properties": {
+          "type_document_identification_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "identification_number": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dv": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "phone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "municipality_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_organization_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_regime_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_liability_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "merchant_registration": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CreatedApiKey": {
         "required": [
           "id",
@@ -12017,6 +12890,83 @@
               "string"
             ],
             "format": "uuid"
+          }
+        }
+      },
+      "CreateProductCommand": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unit_measure_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_item_identification_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unit_price": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "tax_percent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_per_unit_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -12241,6 +13191,428 @@
               "string"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "CustomerListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerResponse"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CustomerResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type_document_identification_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "identification_number": {
+            "type": "string"
+          },
+          "dv": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "municipality_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_organization_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_regime_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_liability_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "merchant_registration": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "is_active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DashboardCertificateResponse": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "not_after": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "days_left": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "expired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DashboardCurrentMonthResponse": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string"
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "by_status": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardStatusCountResponse"
+            }
+          }
+        }
+      },
+      "DashboardMonthResponse": {
+        "type": "object",
+        "properties": {
+          "month": {
+            "type": "string"
+          },
+          "invoice": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "credit_note": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "debit_note": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "other": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "DashboardPlanResponse": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "starts_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "period_end": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "quotas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardQuotaResponse"
+            }
+          }
+        }
+      },
+      "DashboardQuotaResponse": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "used": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "limit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "remaining": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "DashboardResolutionResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "document_type_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "kind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "prefix": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "resolution_number": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "range_from": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "range_to": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "next_number": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "remaining_numbers": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "valid_to": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "days_left": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "numbers_low": {
+            "type": "boolean"
+          },
+          "expiring": {
+            "type": "boolean"
+          },
+          "expired": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DashboardStatusCountResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "DashboardSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current_month": {
+            "$ref": "#/components/schemas/DashboardCurrentMonthResponse"
+          },
+          "months": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardMonthResponse"
+            }
+          },
+          "plan": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DashboardPlanResponse"
+              }
+            ]
+          },
+          "certificate": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DashboardCertificateResponse"
+              }
+            ]
+          },
+          "resolutions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DashboardResolutionResponse"
+            }
           }
         }
       },
@@ -12509,6 +13881,12 @@
             ],
             "format": "int32"
           },
+          "kind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
           "type_environment_id": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
@@ -12563,6 +13941,9 @@
           },
           "totals": {
             "$ref": "#/components/schemas/DocumentTotalsResponse"
+          },
+          "email_status": {
+            "type": "string"
           }
         }
       },
@@ -12674,6 +14055,15 @@
               "null",
               "string"
             ]
+          },
+          "total_count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },
@@ -12691,6 +14081,12 @@
               "string"
             ],
             "format": "int32"
+          },
+          "kind": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "type_environment_id": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
@@ -12746,6 +14142,9 @@
           },
           "totals": {
             "$ref": "#/components/schemas/DocumentTotalsResponse"
+          },
+          "email_status": {
+            "type": "string"
           }
         }
       },
@@ -13817,6 +15216,98 @@
           "data": {}
         }
       },
+      "ProductListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductResponse"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ProductResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unit_measure_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_item_identification_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unit_price": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "tax_percent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_per_unit_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "is_active": {
+            "type": "boolean"
+          }
+        }
+      },
       "RefreshBody": {
         "required": [
           "refresh_token",
@@ -14427,6 +15918,187 @@
           }
         }
       },
+      "UpdateCustomerCommand": {
+        "type": "object",
+        "properties": {
+          "is_active": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "type_document_identification_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "identification_number": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dv": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "phone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "municipality_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_organization_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_regime_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_liability_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "merchant_registration": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "UpdateProductCommand": {
+        "type": "object",
+        "properties": {
+          "is_active": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "unit_measure_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_item_identification_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "unit_price": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "tax_percent": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_per_unit_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "UploadCertificateCommand": {
         "type": "object",
         "properties": {
@@ -14581,8 +16253,16 @@
       "description": "Planes de documentos y su consumo. La plataforma crea los planes y los asigna a las empresas; cada empresa consulta su plan vigente y los documentos que le quedan."
     },
     {
+      "name": "Clientes y productos",
+      "description": "Clientes y productos de la empresa para llenar la emisi\u00F3n: alta, edici\u00F3n, desactivaci\u00F3n y b\u00FAsqueda paginada en el servidor, y la consulta en vivo a la DIAN del nombre y el correo registrados de un adquiriente (GetAcquirer)."
+    },
+    {
       "name": "Notificaciones",
       "description": "Avisos de la campana del panel: certificado por vencer, rangos de numeraci\u00F3n, documentos rechazados o sin confirmar. Se listan por empresa, del m\u00E1s reciente al m\u00E1s antiguo, y se marcan como le\u00EDdos."
+    },
+    {
+      "name": "Tablero",
+      "description": "Resumen del tablero del panel: documentos por estado y por mes, consumo del plan, certificado de firma y resoluciones por agotarse de la empresa activa."
     }
   ]
 }

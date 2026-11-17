@@ -15,6 +15,7 @@ export interface DocumentDetailResponse {
   discrepancy_code?: (number | string | null);
   discrepancy_description?: (string | null);
   document_type_id?: (number | string);
+  email_status?: string;
   exchange_rate?: (number | string | null);
   foot_note?: (string | null);
   full_number?: string;
@@ -23,6 +24,7 @@ export interface DocumentDetailResponse {
   issue_date?: string;
   issue_time?: string;
   issued_at?: string;
+  kind?: (string | null);
   lines?: Array<DocumentLineResponse>;
   notes?: (string | null);
   number?: (number | string);

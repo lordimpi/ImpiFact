@@ -8,11 +8,13 @@ export interface DocumentSummaryResponse {
   currency_id?: (number | string);
   customer?: DocumentCustomerResponse;
   document_type_id?: (number | string);
+  email_status?: string;
   full_number?: string;
   id?: string;
   issue_date?: string;
   issue_time?: string;
   issued_at?: string;
+  kind?: (string | null);
   number?: (number | string);
   prefix?: string;
   status?: string;

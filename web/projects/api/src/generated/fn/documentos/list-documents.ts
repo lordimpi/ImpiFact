@@ -11,22 +11,30 @@ import { DocumentListResponse } from '../../models/document-list-response';
 
 export interface ListDocuments$Params {
   document_type_id?: (number | string);
-  status?: string;
+  kind?: string;
+  status?: Array<string>;
   from?: string;
   to?: string;
+  customer?: string;
+  number?: string;
   cursor?: string;
   limit?: (number | string);
+  include_total?: boolean;
 }
 
 export function listDocuments(http: HttpClient, rootUrl: string, params?: ListDocuments$Params, context?: HttpContext): Observable<StrictHttpResponse<DocumentListResponse>> {
   const rb = new RequestBuilder(rootUrl, listDocuments.PATH, 'get');
   if (params) {
     rb.query('document_type_id', params.document_type_id, {});
+    rb.query('kind', params.kind, {});
     rb.query('status', params.status, {});
     rb.query('from', params.from, {});
     rb.query('to', params.to, {});
+    rb.query('customer', params.customer, {});
+    rb.query('number', params.number, {});
     rb.query('cursor', params.cursor, {});
     rb.query('limit', params.limit, {});
+    rb.query('include_total', params.include_total, {});
   }
 
   return http.request(

@@ -5,4 +5,5 @@ import { DocumentSummaryResponse } from '../models/document-summary-response';
 export interface DocumentListResponse {
   items?: Array<DocumentSummaryResponse>;
   next_cursor?: (string | null);
+  total_count?: (number | string | null);
 }
