@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
 import { InactivityMonitor, SessionStore } from '@impifact/core';
 import { ButtonComponent, DialogComponent } from '@impifact/ui';
 import { TranslocoPipe } from '@jsverse/transloco';
@@ -46,7 +46,18 @@ import { provideAuthI18n } from '../auth-i18n';
 export class InactivityWarningComponent {
   protected readonly monitor = inject(InactivityMonitor);
   private readonly session = inject(SessionStore);
+  /** «Cerrar sesión» pulsado en este aviso: el cierre del diálogo que sigue no cuenta como «Seguir conectado». */
   private loggingOut = false;
+
+  constructor() {
+    // El shell mantiene montado este componente y el logout no recarga la página: cada aviso nuevo empieza sin
+    // el «Cerrar sesión» del anterior, para que Escape o el botón de cerrar vuelvan a contar como actividad.
+    effect(() => {
+      if (this.monitor.warning()) {
+        this.loggingOut = false;
+      }
+    });
+  }
 
   protected stay(): void {
     this.monitor.stayConnected();
