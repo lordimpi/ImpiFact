@@ -37,6 +37,10 @@ internal static class ApiComposition
         services.AddProblemDetails(options =>
             options.CustomizeProblemDetails = context => LegacyProblemFields.Apply(context.ProblemDetails, context.HttpContext));
         services.AddExceptionHandler<CredentialStoreUnavailableHandler>();
+        services.AddExceptionHandler<InvalidRequestBodyHandler>();
+        // Las rutas mínimas lanzan BadHttpRequestException ante un cuerpo ilegible en todos los ambientes (por defecto
+        // solo en Development), así InvalidRequestBodyHandler responde siempre con el mismo formato.
+        services.Configure<Microsoft.AspNetCore.Routing.RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
 
         // Detrás de un proxy o ingress: la IP y el esquema reales vienen en X-Forwarded-For y X-Forwarded-Proto. Por
         // defecto solo se confía en la propia máquina (loopback); cada despliegue agrega sus proxies en la sección
