@@ -94,7 +94,7 @@ Cada módulo es una carpeta en `Domain`, `Application/Features` y `Infrastructur
 | `Catalog` | Catálogos DIAN de solo lectura | `GetCatalog(tabla)`, `GetMunicipalitiesByFacturador` |
 | `Identity` | Usuarios, roles, API keys, JWT | `Login`, `RefreshToken`, `CreateApiKey`, `RevokeApiKey`, `CreateUser` |
 | `Company` | Empresa, ambientes, software, certificado, resoluciones, correo, logo | `CreateCompany`, `UpdateCompany`, `SetEnvironment`, `SetSoftware`, `UploadCertificate`, `UpsertResolution`, `SetMailSettings`, `DeleteCompany` |
-| `Masters` | Clientes y productos | `UpsertCustomer`, `SearchCustomers`, `UpsertItem`, `SearchItems` |
+| `Masters` | Clientes y productos | `ListCustomers`, `GetCustomer`, `CreateCustomer`, `UpdateCustomer`, `DeactivateCustomer`, `LookupAcquirer` (GetAcquirer en vivo), `ListProducts`, `GetProduct`, `CreateProduct`, `UpdateProduct`, `DeactivateProduct` |
 | `Documents` | Emisión y consulta de documentos | `IssueInvoice`, `IssueCreditNote`, `IssueDebitNote`, `IssueSupportDocument`, `PreviewInvoice`, `GetDocument`, `ListDocuments`, `RegenerateAttachedDocument`, `RegeneratePdf`, `SendEmail`, `SendEvent`, `ProcessContingency` |
 | `Billing` | Planes y consumo | `StorePlan`, `AssignPlan`, `QueryPlans`, `QueryPlanCompanies`, `GetCurrentPlan` (consumo restante) y el puerto `IPlanGate` (revisar la cuota antes de emitir y contar al aceptar) |
 | `Platform` | Outbox, auditoría, notificaciones, idempotencia | `AppendAudit`, `ListNotifications` |
@@ -246,7 +246,7 @@ Estado al 15-nov (fase 1a): `XmlSigner` firma con RSA-SHA256, C14N inclusivo y d
 - URLs por ambiente en `DianOptions`: habilitación `https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc`, producción `https://vpfe.dian.gov.co/WcfDianCustomerServices.svc`.
 - URLs de consulta del QR por ambiente, también en `DianOptions`: habilitación `https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=`, producción `https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=`. `ImpiFact.Dian` las recibe en su modelo de entrada (`SalesInvoice.QrCodeBaseUrl`, 16-nov) y Application se las pasa desde `DianOptions`; el núcleo no depende de `IOptions` (ADR-26).
 - Lo que no va en configuración: espacios de nombres, algoritmos, política de firma, NIT de la DIAN y códigos de catálogo. Son reglas del anexo técnico: si la DIAN las cambia, se cambia el código con sus pruebas golden.
-- Operaciones: `SendBillSync`, `SendTestSetAsync`, `SendBillAsync`, `GetStatus`, `GetStatusZip`, `SendEventUpdateStatus`, `GetNumberingRange`, `GetXmlByDocumentKey`.
+- Operaciones: `SendBillSync`, `SendTestSetAsync`, `SendBillAsync`, `GetStatus`, `GetStatusZip`, `SendEventUpdateStatus`, `GetNumberingRange`, `GetAcquirer`, `GetXmlByDocumentKey`.
 - Los archivos se envían como ZIP en base64 con el nombre de archivo que exige la DIAN por tipo de documento.
 - Resiliencia (`Microsoft.Extensions.Http.Resilience`): tiempo de espera 60 s por intento, 3 reintentos con retroceso exponencial y jitter solo ante errores transitorios (timeout, 5xx, red); rechazo de negocio no se reintenta; *circuit breaker* tras 5 fallos en 30 s. Valores en `ResilienceOptions`.
 - La cadena de resiliencia va alrededor de cada intento en el cliente SOAP, no en el `HttpClient`: cada reintento arma y firma un sobre nuevo, con su propia `wsu:Timestamp`. La firma cubre solo `wsa:To` (supuesto C1, como el PHP), así que su valor no cambia entre reintentos; si la DIAN detectara repeticiones por la firma, también rechazaría los envíos del PHP.
@@ -365,7 +365,7 @@ El PHP respondía muchos errores con 200 y `success: false`. Los errores de vali
 
 ### 9.6 Rutas utilitarias de la primera entrega
 
-Ninguna espera a la DIAN (decisión C5 de la fase 4). Solo `numbering-range` la llama en vivo desde la API; las demás responden con lo que guardó el Worker o encolan el trabajo.
+Ninguna espera a la DIAN (decisión C5 de la fase 4). Solo `numbering-range` y la consulta de adquiriente (`GET /api/v1/customers/lookup`, sección 9.7) la llaman en vivo desde la API; las demás responden con lo que guardó el Worker o encolan el trabajo.
 
 | Ruta heredada (`/api/ubl2.1`) | Alias canónico | Alcance | Qué hace |
 | --- | --- | --- | --- |
@@ -381,6 +381,27 @@ Ninguna espera a la DIAN (decisión C5 de la fase 4). Solo `numbering-range` la 
 - Las regeneraciones y el correo solo valen para documentos `Accepted` o `AcceptedWithWarnings` (si no, 409 `document.not_accepted`); un documento de otra empresa responde 404. El documento se busca por `cufe` o por `prefix` y `number`, en ese orden, como el PHP.
 - `config/environment` y `certificate-end-date` ya estaban en el módulo Company (fase 2).
 - `config/certificate` (GET) **no se implementa**; se reemplaza por consulta de metadatos (`certificates-listing`).
+
+### 9.7 Clientes y productos (fase 5)
+
+Maestros del panel (`/clientes` y `/productos`, Arquitectura frontend sección 7). Todas las rutas piden `documents:write`: lo tienen el propietario, el vendedor y las API keys de emisión, y no el rol cliente del portal ni las llaves de solo consulta, que con `documents:read` verían los datos de todos los clientes de la empresa. Un id de otra empresa responde 404.
+
+| Ruta | `operationId` | Qué hace |
+| --- | --- | --- |
+| `GET /api/v1/customers?search=&status=&sort=&cursor=&limit=` | `listCustomers` | Página de clientes. `search` busca dentro del número o del nombre sin distinguir mayúsculas; `status` `active` (por defecto), `inactive` o `all`; `sort` `name` (por defecto) o `identification_number`, con `-` para descendente; cursor por clave (columna, id), 20 por defecto y 100 como máximo |
+| `GET /api/v1/customers/{id}` | `getCustomer` | Un cliente |
+| `POST /api/v1/customers` | `createCustomer` | 201 con `Location`. Reglas del cliente de la emisión (identificación alfanumérica hasta 15, `dv` obligatorio con NIT y verificado, correo, catálogos). Mismo tipo y número en la empresa, aunque esté desactivado: 409 `customer.duplicate` |
+| `PUT /api/v1/customers/{id}` | `updateCustomer` | Reemplaza todos los campos; `is_active: true` reactiva |
+| `POST /api/v1/customers/{id}/deactivate` | `deactivateCustomer` | 204, idempotente. Nunca borra la fila (los documentos pueden referirse a ella) |
+| `GET /api/v1/customers/lookup?type=&number=` | `lookupAcquirer` | GetAcquirer en vivo con el certificado activo y el ambiente de facturación de la empresa; a la DIAN va el código del tipo (31 para NIT), no el id del catálogo. 200 `{found, status_code, message, name, email}` (código 200 de la DIAN: encontrado; 404: no registrado); sin certificado 404, vencido 422, otro código de la DIAN 422 `dian.rejected`, SOAP Fault 422 `dian.fault`, sin respuesta 503. No guarda nada ni registra la identificación consultada |
+| `GET /api/v1/products?search=&status=&sort=&cursor=&limit=` | `listProducts` | Como clientes; `search` en código o nombre, `sort` `name` (por defecto) o `code` |
+| `GET /api/v1/products/{id}` | `getProduct` | Un producto |
+| `POST /api/v1/products` | `createProduct` | 201. `code` único por empresa (409 `product.duplicate`), `name` (va en la línea), `unit_measure_id`, `unit_price` (hasta 6 decimales), `type_item_identification_id` (4 si no llega) y el impuesto: `tax_id` con `tax_percent` (obligatorio salvo con 2 y 10) o `tax_per_unit_amount` (obligatorio con 10), las reglas de `tax_totals` de la emisión |
+| `PUT /api/v1/products/{id}` | `updateProduct` | Reemplaza todos los campos; `is_active: true` reactiva |
+| `POST /api/v1/products/{id}/deactivate` | `deactivateProduct` | 204, idempotente, sin borrar |
+
+- Desactivar no usa `deleted_at`: el índice único de `customers` y de `items` incluye las filas con borrado lógico, así que una fila oculta impediría crear otra igual sin que el panel pudiera verla ni reactivarla.
+- Por confirmar con la DIAN real: los nombres de los campos de la respuesta de GetAcquirer (`StatusCode`, `Message`, `ReceiverName`, `ReceiverEmail`; el lector no depende del espacio de nombres) y que `identificationType` sea el código DIAN del tipo y no el id que mandaba el PHP.
 
 ## 10. Panel Angular (`web/`)
 
