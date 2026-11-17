@@ -197,6 +197,38 @@ public class DianResponseReaderTests
         Read<DianUnrecognizedResponse>(body);
     }
 
+    [Test]
+    public void Get_acquirer_reads_the_status_message_name_and_email()
+    {
+        var response = Read<DianAcquirerResponse>(DianResponseSamples.AcquirerFound);
+
+        Assert.That(response, Is.EqualTo(new DianAcquirerResponse("200", "Consulta exitosa.", "CLIENTE DE PRUEBA SAS", "facturacion@cliente-prueba.com")));
+    }
+
+    [Test]
+    public void Get_acquirer_not_found_keeps_the_status_and_message_without_name_or_email()
+    {
+        var response = Read<DianAcquirerResponse>(DianResponseSamples.AcquirerNotFound);
+
+        Assert.That(response, Is.EqualTo(new DianAcquirerResponse("404", "No se encontró información para el adquiriente.", null, null)));
+    }
+
+    [Test]
+    public void Get_acquirer_answered_with_a_fault_is_a_fault()
+    {
+        var response = Read<DianSoapFaultResponse>(DianResponseSamples.SecurityFault);
+
+        Assert.That(response.Subcode, Is.EqualTo("a:InvalidSecurity"));
+    }
+
+    [Test]
+    public void Get_acquirer_without_its_result_is_unrecognized()
+    {
+        var body = DianResponseSamples.AcquirerFound.Replace("GetAcquirerResult", "OtherResult", StringComparison.Ordinal);
+
+        Read<DianUnrecognizedResponse>(body);
+    }
+
     private static DianResult SingleResult(string body, string operation)
     {
         var response = Read<DianResultResponse>(body);

@@ -6,7 +6,7 @@ namespace ImpiFact.Dian.Soap;
 
 /// <summary>
 /// Interpreta el cuerpo de una respuesta del servicio web de la DIAN (la autoridad tributaria de Colombia) a
-/// SendBillSync, SendTestSetAsync, GetStatus, GetStatusZip y GetNumberingRange.
+/// SendBillSync, SendTestSetAsync, GetStatus, GetStatusZip, GetNumberingRange y GetAcquirer.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,9 +28,10 @@ public static class DianResponseReader
     private const string ResponseSuffix = "Response";
     private const string StatusZipOperation = "GetStatusZip";
     private const string NumberingRangeOperation = "GetNumberingRange";
+    private const string AcquirerOperation = "GetAcquirer";
 
     private static readonly HashSet<string> KnownOperations =
-        new(["SendBillSync", "SendTestSetAsync", "GetStatus", StatusZipOperation, NumberingRangeOperation], StringComparer.Ordinal);
+        new(["SendBillSync", "SendTestSetAsync", "GetStatus", StatusZipOperation, NumberingRangeOperation, AcquirerOperation], StringComparer.Ordinal);
 
     /// <summary>Interpreta <paramref name="body"/>, el cuerpo HTTP de la respuesta de la DIAN.</summary>
     public static DianSoapResponse Read(string body)
@@ -87,6 +88,12 @@ public static class DianResponseReader
             {
                 return new DianUnrecognizedResponse(body);
             }
+        }
+
+        if (operation == AcquirerOperation)
+        {
+            return new DianAcquirerResponse(
+                Text(result, "StatusCode")?.Trim(), Text(result, "Message"), Text(result, "ReceiverName")?.Trim(), Text(result, "ReceiverEmail")?.Trim());
         }
 
         // GetStatusZip trae un elemento DianResponse por documento; las demás operaciones traen el resultado directo.

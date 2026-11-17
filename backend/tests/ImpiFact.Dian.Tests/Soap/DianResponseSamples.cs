@@ -69,6 +69,20 @@ public static class DianResponseSamples
         <GetNumberingRangeResponse xmlns="http://wcf.dian.colombia"><GetNumberingRangeResult xmlns:b="http://schemas.datacontract.org/2004/07/NumberRangeResponseList" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"><b:OperationCode>301</b:OperationCode><b:OperationDescription>Nit del proveedor tecnológico no autorizado.</b:OperationDescription><b:ResponseList i:nil="true" xmlns:c="http://schemas.datacontract.org/2004/07/NumberRangeResponse"/></GetNumberingRangeResult></GetNumberingRangeResponse>
         """);
 
+    /// <summary>
+    /// GetAcquirer con un adquiriente registrado: código 200 con su nombre y su correo de recepción. Forma del contrato de
+    /// datos del servicio (<c>StatusCode</c>, <c>Message</c>, <c>ReceiverName</c>, <c>ReceiverEmail</c>); el espacio de
+    /// nombres del contrato está por confirmar con la DIAN real y el lector no depende de él.
+    /// </summary>
+    public static string AcquirerFound => Envelope("GetAcquirer", """
+        <GetAcquirerResponse xmlns="http://wcf.dian.colombia"><GetAcquirerResult xmlns:b="http://schemas.datacontract.org/2004/07/ExchangeEmailResponse" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"><b:Message>Consulta exitosa.</b:Message><b:ReceiverEmail>facturacion@cliente-prueba.com</b:ReceiverEmail><b:ReceiverName>CLIENTE DE PRUEBA SAS</b:ReceiverName><b:StatusCode>200</b:StatusCode></GetAcquirerResult></GetAcquirerResponse>
+        """);
+
+    /// <summary>GetAcquirer cuando la identificación no está registrada: código 404 sin nombre ni correo (así lo trata el PHP).</summary>
+    public static string AcquirerNotFound => Envelope("GetAcquirer", """
+        <GetAcquirerResponse xmlns="http://wcf.dian.colombia"><GetAcquirerResult xmlns:b="http://schemas.datacontract.org/2004/07/ExchangeEmailResponse" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"><b:Message>No se encontró información para el adquiriente.</b:Message><b:ReceiverEmail i:nil="true"/><b:ReceiverName i:nil="true"/><b:StatusCode>404</b:StatusCode></GetAcquirerResult></GetAcquirerResponse>
+        """);
+
     // Encabezado como el de la respuesta real del README: Action de respuesta y marca de tiempo con Id "_0".
     private static string Envelope(string operation, string body) => $"""
         <s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope" xmlns:a="http://www.w3.org/2005/08/addressing" xmlns:u="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd"><s:Header><a:Action s:mustUnderstand="1">http://wcf.dian.colombia/IWcfDianCustomerServices/{operation}Response</a:Action><o:Security s:mustUnderstand="1" xmlns:o="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"><u:Timestamp u:Id="_0"><u:Created>2025-07-22T17:20:27.320Z</u:Created><u:Expires>2025-07-22T17:25:27.320Z</u:Expires></u:Timestamp></o:Security></s:Header><s:Body>{body}</s:Body></s:Envelope>

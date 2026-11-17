@@ -2,8 +2,8 @@ namespace ImpiFact.Dian.Soap;
 
 /// <summary>
 /// Lo que respondió el servicio web de la DIAN (la autoridad tributaria de Colombia), ya interpretado por
-/// <see cref="DianResponseReader"/>. Es una de cinco posibilidades: <see cref="DianResultResponse"/>,
-/// <see cref="DianNumberingRangeResponse"/>, <see cref="DianSoapFaultResponse"/>,
+/// <see cref="DianResponseReader"/>. Es una de seis posibilidades: <see cref="DianResultResponse"/>,
+/// <see cref="DianNumberingRangeResponse"/>, <see cref="DianAcquirerResponse"/>, <see cref="DianSoapFaultResponse"/>,
 /// <see cref="DianServiceUnavailableResponse"/> o <see cref="DianUnrecognizedResponse"/>.
 /// </summary>
 public abstract record DianSoapResponse
@@ -52,6 +52,14 @@ public sealed record DianNumberingRange(
     DateOnly? ValidDateFrom,
     DateOnly? ValidDateTo,
     string? TechnicalKey);
+
+/// <summary>
+/// Respuesta de GetAcquirer: lo que la DIAN tiene registrado del adquiriente consultado. <paramref name="StatusCode"/> es
+/// <c>200</c> cuando lo encontró y <c>404</c> cuando no (el PHP solo distingue esos dos); <paramref name="Message"/>
+/// explica el resultado. <paramref name="ReceiverName"/> y <paramref name="ReceiverEmail"/> son el nombre y el correo de
+/// recepción de facturas; quedan en <see langword="null"/> si no vienen o vienen vacíos.
+/// </summary>
+public sealed record DianAcquirerResponse(string? StatusCode, string? Message, string? ReceiverName, string? ReceiverEmail) : DianSoapResponse;
 
 /// <summary>
 /// Error SOAP (soap:Fault): el servicio no procesó la operación, por ejemplo porque la firma del sobre no es
