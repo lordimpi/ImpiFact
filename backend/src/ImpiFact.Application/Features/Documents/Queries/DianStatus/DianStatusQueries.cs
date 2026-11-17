@@ -61,6 +61,17 @@ public sealed record DianStatusResponse
     [JsonPropertyName("rptazip")]
     public string? ResponseBase64 { get; init; }
 
+    /// <summary>
+    /// AttachedDocument (contenedor que se entrega al comprador) en Base64, como el PHP; nulo si todavía no existe
+    /// (se genera cuando la DIAN acepta el documento).
+    /// </summary>
+    [JsonPropertyName("attacheddocument")]
+    public string? AttachedDocument { get; init; }
+
+    /// <summary>Días que le quedan al certificado de la empresa (<c>certificate_days_left</c> del PHP).</summary>
+    [JsonPropertyName("certificate_days_left")]
+    public int CertificateDaysLeft { get; init; }
+
     [JsonPropertyName("document")]
     public UtilityDocumentResponse Document { get; init; } = null!;
 }
@@ -109,7 +120,8 @@ public static class DianStatusMessages
     public const string NotAnsweredYet = "La DIAN todavía no ha respondido sobre el documento; consulte de nuevo más tarde.";
 }
 
-internal sealed class GetDocumentDianStatusHandler(IDocumentLookups lookups, ITenantContext tenant)
+internal sealed class GetDocumentDianStatusHandler(
+    IDocumentLookups lookups, IDocumentFileReads files, IIssuerContextReads issuers, ITenantContext tenant, IClock clock)
     : IHandler<GetDocumentDianStatusQuery, DianStatusResponse>
 {
     public async Task<Result<DianStatusResponse>> HandleAsync(GetDocumentDianStatusQuery request, CancellationToken ct)
@@ -119,11 +131,13 @@ internal sealed class GetDocumentDianStatusHandler(IDocumentLookups lookups, ITe
             return DocumentErrors.NotFound;
         }
 
-        return DianStatusAnswer.Of(document, await lookups.LatestDianAnswerAsync(companyId, document.Id, ct));
+        var answer = DianStatusAnswer.Of(document, await lookups.LatestDianAnswerAsync(companyId, document.Id, ct));
+        return await DianStatusAnswer.WithCompanyFieldsAsync(answer, companyId, document, files, issuers, clock, ct);
     }
 }
 
-internal sealed class GetZipDianStatusHandler(IDocumentLookups lookups, ITenantContext tenant)
+internal sealed class GetZipDianStatusHandler(
+    IDocumentLookups lookups, IDocumentFileReads files, IIssuerContextReads issuers, ITenantContext tenant, IClock clock)
     : IHandler<GetZipDianStatusQuery, DianStatusResponse>
 {
     public async Task<Result<DianStatusResponse>> HandleAsync(GetZipDianStatusQuery request, CancellationToken ct)
@@ -133,7 +147,8 @@ internal sealed class GetZipDianStatusHandler(IDocumentLookups lookups, ITenantC
             return DocumentErrors.NotFound;
         }
 
-        return DianStatusAnswer.Of(answer.Document, answer.Body);
+        return await DianStatusAnswer.WithCompanyFieldsAsync(
+            DianStatusAnswer.Of(answer.Document, answer.Body), companyId, answer.Document, files, issuers, clock, ct);
     }
 }
 
@@ -161,7 +176,7 @@ internal sealed class GetDocumentXmlHandler(
             return DocumentErrors.FileNotFound;
         }
 
-        var certificate = (await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentKind.Invoice, ct))?.Certificate;
+        var daysLeft = await DianStatusAnswer.CertificateDaysLeftAsync(issuers, clock, companyId, document.DocumentTypeId, ct);
         return new DocumentXmlResponse
         {
             ResponseDian = new JsonObject
@@ -182,7 +197,7 @@ internal sealed class GetDocumentXmlHandler(
                     },
                 },
             },
-            CertificateDaysLeft = certificate is null ? 0 : ColombiaTime.DaysLeft(ColombiaTime.Today(certificate.NotAfter), clock.UtcNow),
+            CertificateDaysLeft = daysLeft,
         };
     }
 }
@@ -204,6 +219,27 @@ internal static class DianStatusAnswer
             ResponseBase64 = Convert.ToBase64String(body),
             Document = UtilityDocumentResponse.From(document),
         };
+    }
+
+    /// <summary>Agrega lo que el PHP también respondía: el AttachedDocument y los días que le quedan al certificado.</summary>
+    public static async Task<DianStatusResponse> WithCompanyFieldsAsync(
+        DianStatusResponse response, Guid companyId, DocumentRef document, IDocumentFileReads files, IIssuerContextReads issuers, IClock clock,
+        CancellationToken ct)
+    {
+        var attached = await files.ReadLatestAsync(companyId, document.Id, DocumentFileKind.AttachedDocument, ct);
+        return response with
+        {
+            AttachedDocument = attached is null ? null : Convert.ToBase64String(attached),
+            CertificateDaysLeft = await CertificateDaysLeftAsync(issuers, clock, companyId, document.DocumentTypeId, ct),
+        };
+    }
+
+    /// <summary>Días que le quedan al certificado activo de la empresa, contados como el PHP; 0 si no tiene.</summary>
+    public static async Task<int> CertificateDaysLeftAsync(
+        IIssuerContextReads issuers, IClock clock, Guid companyId, int documentTypeId, CancellationToken ct)
+    {
+        var certificate = (await issuers.GetAsync(companyId, documentTypeId, DocumentKind.Invoice, ct))?.Certificate;
+        return certificate is null ? 0 : ColombiaTime.DaysLeft(ColombiaTime.Today(certificate.NotAfter), clock.UtcNow);
     }
 }
 

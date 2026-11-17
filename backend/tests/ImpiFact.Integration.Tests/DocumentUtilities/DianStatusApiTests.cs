@@ -46,6 +46,37 @@ public sealed class DianStatusApiTests
         });
     }
 
+    /// <summary>
+    /// Como el PHP (ejemplo de la carpeta 03 del Postman), las dos consultas de estado responden también los días que
+    /// le quedan al certificado y el AttachedDocument (contenedor que se entrega al comprador) en base64, o nulo si
+    /// todavía no existe.
+    /// </summary>
+    [Test]
+    public async Task Status_document_and_zip_answer_the_certificate_days_and_the_attached_document()
+    {
+        var company = await CompanyAsync();
+        var client = await ClientAsync(company, ApiScopes.DocumentsRead);
+        var accepted = await DocumentAsync(company);
+        await SubmissionAsync(accepted, 1, DianOperation.SendBillSync, DianReplies.SendBillSync(true, "00"));
+        var attached = Encoding.UTF8.GetBytes("<AttachedDocument/>");
+        await FileAsync(accepted, DocumentFileKind.AttachedDocument, attached, "application/xml");
+        var testSet = await DocumentAsync(company, DocumentStatus.Sent);
+        await SubmissionAsync(testSet, 1, DianOperation.SendTestSetAsync, DianReplies.SendTestSetAsync("zip-attached"), zipKey: "zip-attached");
+
+        var (documentStatus, document) = await SendAsync(client, HttpMethod.Post, $"/api/ubl2.1/status/document/{accepted.Cufe}");
+        var (zipStatus, zip) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/status/zip/zip-attached");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(documentStatus, Is.EqualTo(200), document.ToString());
+            Assert.That(document.GetProperty("certificate_days_left").GetInt32(), Is.EqualTo(3637));
+            Assert.That(document.GetProperty("attacheddocument").GetString(), Is.EqualTo(Convert.ToBase64String(attached)));
+            Assert.That(zipStatus, Is.EqualTo(200), zip.ToString());
+            Assert.That(zip.GetProperty("certificate_days_left").GetInt32(), Is.EqualTo(3637));
+            Assert.That(zip.GetProperty("attacheddocument").ValueKind, Is.EqualTo(JsonValueKind.Null));
+        });
+    }
+
     [Test]
     public async Task Status_document_without_an_answer_yet_says_so()
     {
