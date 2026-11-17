@@ -1,1 +1,20 @@
-/* You can add global styles to this file, and also import other style files */
+/* Estilos globales del panel. Los valores de diseño salen de los design tokens de ui (styles/tokens.css). */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--if-font-family);
+  font-size: var(--if-font-size-base);
+  line-height: var(--if-line-height);
+  color: var(--if-color-text);
+  background: var(--if-color-bg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--if-color-focus);
+  outline-offset: 2px;
+}

@@ -1,0 +1,50 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--if-space-2);
+  top: -3rem;
+  padding: var(--if-space-2) var(--if-space-3);
+  background: var(--if-color-primary);
+  color: var(--if-color-on-primary);
+  border-radius: var(--if-radius-sm);
+
+  &:focus {
+    top: var(--if-space-2);
+  }
+}
+
+.shell-header {
+  display: flex;
+  align-items: center;
+  gap: var(--if-space-4);
+  padding: var(--if-space-3) var(--if-space-4);
+  background: var(--if-color-surface);
+  border-bottom: 1px solid var(--if-color-border);
+}
+
+.shell-brand {
+  font-weight: 600;
+}
+
+.shell-nav {
+  display: flex;
+  gap: var(--if-space-3);
+
+  a {
+    color: var(--if-color-primary);
+  }
+
+  .is-active {
+    font-weight: 600;
+  }
+}
+
+.shell-main {
+  flex: 1;
+  padding: var(--if-space-4);
+}

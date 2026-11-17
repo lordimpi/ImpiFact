@@ -1,0 +1,44 @@
+/*
+ * Design tokens (variables de diseño) del panel: colores, tipografía, espaciado y radios.
+ * Es el único archivo con valores de diseño; los componentes usan solo estas variables.
+ * Marcador inicial: la tarea 4 del backlog (librería ui) define la paleta, la densidad y el tema oscuro completos.
+ */
+:root {
+  color-scheme: light dark;
+
+  --if-color-bg: #ffffff;
+  --if-color-surface: #f5f7fa;
+  --if-color-text: #1a1f29;
+  --if-color-text-muted: #4a5466;
+  --if-color-primary: #0b5cad;
+  --if-color-on-primary: #ffffff;
+  --if-color-border: #d5dbe3;
+  --if-color-focus: #0b5cad;
+
+  --if-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --if-font-size-base: 1rem;
+  --if-font-size-lg: 1.5rem;
+  --if-line-height: 1.5;
+
+  --if-space-1: 0.25rem;
+  --if-space-2: 0.5rem;
+  --if-space-3: 1rem;
+  --if-space-4: 1.5rem;
+  --if-space-5: 2rem;
+
+  --if-radius-sm: 4px;
+  --if-radius-md: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --if-color-bg: #12161d;
+    --if-color-surface: #1b212b;
+    --if-color-text: #e8ecf2;
+    --if-color-text-muted: #aab3c2;
+    --if-color-primary: #6aaef5;
+    --if-color-on-primary: #0b1a2b;
+    --if-color-border: #2e3744;
+    --if-color-focus: #6aaef5;
+  }
+}

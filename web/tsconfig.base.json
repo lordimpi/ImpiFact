@@ -1,0 +1,34 @@
+/*
+ * Opciones de TypeScript compartidas por todos los proyectos del workspace (aplicación y librerías).
+ * Los alias @impifact/* apuntan al código fuente de cada librería: la aplicación compila sin construirlas antes.
+ */
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "resolveJsonModule": true,
+    "target": "ES2022",
+    "module": "preserve",
+    "paths": {
+      "@impifact/api": ["./projects/api/src/public-api.ts"],
+      "@impifact/core": ["./projects/core/src/public-api.ts"],
+      "@impifact/ui": ["./projects/ui/src/public-api.ts"],
+      "@impifact/feature-*": ["./projects/feature-*/src/public-api.ts"]
+    }
+  },
+  "angularCompilerOptions": {
+    "enableI18nLegacyMessageIdFormat": false,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true,
+    "strictTemplates": true
+  }
+}

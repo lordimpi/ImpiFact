@@ -1,0 +1,15 @@
+{
+  "app": {
+    "name": "ImpiFact",
+    "documentTitle": "ImpiFact · Panel",
+    "skipToContent": "Saltar al contenido",
+    "mainNav": "Navegación principal"
+  },
+  "nav": {
+    "home": "Inicio"
+  },
+  "home": {
+    "title": "Panel de ImpiFact",
+    "description": "Facturación electrónica para la DIAN. El panel se está construyendo."
+  }
+}

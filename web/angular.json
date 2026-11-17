@@ -2,7 +2,8 @@
   "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
   "version": 1,
   "cli": {
-    "packageManager": "npm"
+    "packageManager": "npm",
+    "analytics": false
   },
   "newProjectRoot": "projects",
   "projects": {
@@ -29,15 +30,20 @@
                 "input": "projects/app/public"
               }
             ],
-            "styles": ["projects/app/src/styles.scss"]
+            "styles": ["projects/ui/src/styles/tokens.css", "projects/app/src/styles.scss"]
           },
           "configurations": {
             "production": {
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
-                  "maximumError": "1MB"
+                  "maximumWarning": "400kB",
+                  "maximumError": "500kB"
+                },
+                {
+                  "type": "anyScript",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
                 },
                 {
                   "type": "anyComponentStyle",
@@ -69,13 +75,6 @@
         },
         "test": {
           "builder": "@angular/build:unit-test"
-        },
-        "lint": {
-          "builder": "@angular-eslint/builder:lint",
-          "options": {
-            "lintFilePatterns": ["projects/app/**/*.ts", "projects/app/**/*.html"],
-            "eslintConfig": "projects/app/eslint.config.js"
-          }
         }
       }
     },
@@ -83,7 +82,7 @@
       "projectType": "library",
       "root": "projects/core",
       "sourceRoot": "projects/core/src",
-      "prefix": "lib",
+      "prefix": "core",
       "architect": {
         "build": {
           "builder": "@angular/build:ng-packagr",
@@ -102,13 +101,6 @@
           "options": {
             "tsConfig": "projects/core/tsconfig.spec.json"
           }
-        },
-        "lint": {
-          "builder": "@angular-eslint/builder:lint",
-          "options": {
-            "lintFilePatterns": ["projects/core/**/*.ts", "projects/core/**/*.html"],
-            "eslintConfig": "projects/core/eslint.config.js"
-          }
         }
       }
     },
@@ -116,7 +108,7 @@
       "projectType": "library",
       "root": "projects/ui",
       "sourceRoot": "projects/ui/src",
-      "prefix": "lib",
+      "prefix": "ui",
       "architect": {
         "build": {
           "builder": "@angular/build:ng-packagr",
@@ -135,13 +127,6 @@
           "options": {
             "tsConfig": "projects/ui/tsconfig.spec.json"
           }
-        },
-        "lint": {
-          "builder": "@angular-eslint/builder:lint",
-          "options": {
-            "lintFilePatterns": ["projects/ui/**/*.ts", "projects/ui/**/*.html"],
-            "eslintConfig": "projects/ui/eslint.config.js"
-          }
         }
       }
     },
@@ -149,7 +134,7 @@
       "projectType": "library",
       "root": "projects/api",
       "sourceRoot": "projects/api/src",
-      "prefix": "lib",
+      "prefix": "api",
       "architect": {
         "build": {
           "builder": "@angular/build:ng-packagr",
@@ -167,13 +152,6 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/api/tsconfig.spec.json"
-          }
-        },
-        "lint": {
-          "builder": "@angular-eslint/builder:lint",
-          "options": {
-            "lintFilePatterns": ["projects/api/**/*.ts", "projects/api/**/*.html"],
-            "eslintConfig": "projects/api/eslint.config.js"
           }
         }
       }
