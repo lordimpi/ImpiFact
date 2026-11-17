@@ -8,7 +8,8 @@ namespace ImpiFact.Application.Features.Maintenance;
 /// <summary>
 /// Tarea diaria <c>ResolutionRangeWatcher</c> (Arquitectura detallada, sección 8): deja una notificación a la empresa
 /// cuando a una resolución de numeración activa le queda menos del 10 % de su rango o le faltan menos de 30 días
-/// para <c>valid_to</c> (fin de su vigencia), contados en el calendario de Colombia. No envía correo.
+/// para <c>valid_to</c> (fin de su vigencia), contados en el calendario de Colombia. No envía correo. Las dos
+/// condiciones son las de <see cref="ResolutionAlertRule"/>, las mismas que muestra el tablero del panel.
 /// </summary>
 /// <remarks>
 /// Cada condición se avisa una sola vez por resolución. La llave del aviso lleva el fin del rango o la fecha de
@@ -18,12 +19,6 @@ namespace ImpiFact.Application.Features.Maintenance;
 internal sealed class ResolutionRangeWatcher(
     IExpiryWatchReads reads, IScheduledNotices notices, IClock clock, ILogger<ResolutionRangeWatcher> logger) : IScheduledJob
 {
-    /// <summary>Se avisa si los números que quedan son menos que este porcentaje del rango.</summary>
-    internal const int RemainingPercent = 10;
-
-    /// <summary>Se avisa si faltan menos de estos días para el fin de la vigencia.</summary>
-    internal const int ValidityDays = 30;
-
     internal const string NumbersLowType = "ResolutionNumbersLow";
     internal const string ExpiringType = "ResolutionExpiring";
 
@@ -61,10 +56,9 @@ internal sealed class ResolutionRangeWatcher(
     private static IEnumerable<ScheduledNotice> NoticesFor(WatchedResolution resolution, DateOnly today)
     {
         var label = Label(resolution);
-        var total = resolution.RangeTo - resolution.RangeFrom + 1;
-        var next = Math.Max(resolution.NextNumber ?? resolution.RangeFrom, resolution.RangeFrom);
-        var remaining = Math.Max(0, resolution.RangeTo - next + 1);
-        if (total > 0 && remaining * 100 < total * RemainingPercent)
+        var alert = ResolutionAlertRule.Evaluate(resolution.RangeFrom, resolution.RangeTo, resolution.NextNumber, resolution.ValidTo, today);
+        var (total, remaining) = (alert.Total, alert.Remaining);
+        if (alert.NumbersLow)
         {
             yield return new ScheduledNotice(
                 resolution.CompanyId,
@@ -76,9 +70,9 @@ internal sealed class ResolutionRangeWatcher(
                 SendEmail: false);
         }
 
-        if (resolution.ValidTo is { } validTo && validTo.DayNumber - today.DayNumber < ValidityDays)
+        if (resolution.ValidTo is { } validTo && alert.Expiring)
         {
-            var expired = validTo < today;
+            var expired = alert.Expired;
             var date = validTo.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
             yield return new ScheduledNotice(
                 resolution.CompanyId,
