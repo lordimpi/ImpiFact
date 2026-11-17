@@ -188,6 +188,7 @@ customers                      — PHP: customers (la PK era el NIT; luego se ag
   municipality_id int null FK, type_organization_id int null FK,
   type_regime_id int null FK, type_liability_id int null FK,
   merchant_registration varchar(50) null, is_active bool default true, deleted_at ts null
+  — desactivar = is_active false; la API no usa deleted_at (el UQ incluye las filas borradas)
   UQ (company_id, id)           — destino de FKs compuestas
   UQ (company_id, type_document_identification_id, identification_number)
   — SIN password/newpassword (el portal usa Identity)
@@ -196,7 +197,9 @@ customers                      — PHP: customers (la PK era el NIT; luego se ag
 items                          — PHP: items (solo el subconjunto Community)
   id uuid PK, company_id FK, code varchar(100), name varchar(500),
   description varchar(1000) null, unit_measure_id int FK, type_item_identification_id int FK,
-  sale_unit_price numeric(18,6), tax_id int null FK, is_active bool, deleted_at ts null
+  sale_unit_price numeric(18,6), tax_id int null FK,
+  tax_percent numeric(9,4) null, tax_per_unit_amount numeric(18,6) null   — fase 5 (migración ItemTaxRate)
+  is_active bool, deleted_at ts null
   UQ (company_id, code)         — en PHP name e internal_id eran únicos GLOBALES (bug en multi-empresa)
   — Stock, lotes, series, comisiones, imágenes: Enterprise (POS); no se crean en la paridad Community
 ```

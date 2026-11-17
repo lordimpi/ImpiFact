@@ -70,7 +70,8 @@ public sealed class SchemaTests
             "type_organization_id int null|type_regime_id int null|type_liability_id int null|merchant_registration varchar(50) null|" +
             "is_active bool|deleted_at ts null|" + Common,
         ["items"] = "id uuid|company_id uuid|code varchar(100)|name varchar(500)|description varchar(1000) null|unit_measure_id int|" +
-            "type_item_identification_id int|sale_unit_price numeric(18,6)|tax_id int null|is_active bool|deleted_at ts null|" + Common,
+            "type_item_identification_id int|sale_unit_price numeric(18,6)|tax_id int null|tax_percent numeric(9,4) null|" +
+            "tax_per_unit_amount numeric(18,6) null|is_active bool|deleted_at ts null|" + Common,
         ["documents"] = "id uuid|company_id uuid|document_type_id int|type_environment_id int|resolution_id uuid null|" +
             "prefix varchar(10)|number bigint|full_number varchar(30)|status smallint|cufe varchar(96) null|" +
             "uuid_algorithm varchar(16) null|issue_date date|issue_time time|issued_at ts|customer_id uuid null|" +
@@ -131,7 +132,7 @@ public sealed class SchemaTests
         "received_documents.line_extension_amount numeric(18,2)", "received_documents.tax_exclusive_amount numeric(18,2)",
         "received_documents.allowance_total_amount numeric(18,2)", "received_documents.tax_amount numeric(18,2)",
         "received_documents.payable_amount numeric(18,2)",
-        "items.sale_unit_price numeric(18,6)",
+        "items.sale_unit_price numeric(18,6)", "items.tax_percent numeric(9,4)", "items.tax_per_unit_amount numeric(18,6)",
     ];
 
     /// <summary>Llaves primarias que no son <c>id</c>.</summary>

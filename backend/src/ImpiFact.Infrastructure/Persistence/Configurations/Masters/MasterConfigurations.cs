@@ -40,6 +40,8 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
         builder.Property(item => item.Name).HasMaxLength(500);
         builder.Property(item => item.Description).HasMaxLength(1000);
         builder.Property(item => item.SaleUnitPrice).IsQuantity();
+        builder.Property(item => item.TaxPercent).IsPercentage();
+        builder.Property(item => item.TaxPerUnitAmount).IsQuantity();
         builder.Property(item => item.IsActive).HasStoreDefault(true);
         builder.BelongsToCompany();
         builder.References<Item, UnitMeasure>(item => item.UnitMeasureId);

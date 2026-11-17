@@ -3805,6 +3805,16 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("tax_id");
 
+                    b.Property<decimal?>("TaxPerUnitAmount")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("tax_per_unit_amount");
+
+                    b.Property<decimal?>("TaxPercent")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("numeric(9,4)")
+                        .HasColumnName("tax_percent");
+
                     b.Property<int>("TypeItemIdentificationId")
                         .HasColumnType("integer")
                         .HasColumnName("type_item_identification_id");
