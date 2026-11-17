@@ -17,3 +17,5 @@ export * from './lib/table/table-cell.directive';
 export * from './lib/table/table.component';
 export * from './lib/table/table.models';
 export * from './lib/theme/provide-ui-theme';
+export * from './lib/toast/toast-region.component';
+export * from './lib/toast/toast.models';
