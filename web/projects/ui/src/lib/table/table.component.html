@@ -1,0 +1,109 @@
+<div class="ui-table__scroll" role="region" tabindex="0" [attr.aria-labelledby]="captionId">
+  <table class="ui-table" [attr.aria-busy]="loading() || null">
+    <caption [id]="captionId" [class.ui-visually-hidden]="!showCaption()">
+      {{
+        caption()
+      }}
+    </caption>
+    <thead>
+      <tr>
+        @for (column of columns(); track column.key) {
+          <th
+            scope="col"
+            [class.ui-table__cell--end]="column.align === 'end'"
+            [attr.aria-sort]="column.sortable ? ariaSort(column.key) : null"
+          >
+            @if (column.sortable) {
+              <button type="button" class="ui-table__sort" (click)="toggleSort(column.key)">
+                {{ column.header }}
+                <span class="ui-table__sort-icon" aria-hidden="true">{{
+                  sortIcon(column.key)
+                }}</span>
+              </button>
+            } @else {
+              {{ column.header }}
+            }
+          </th>
+        }
+      </tr>
+      @if (hasFilters()) {
+        <tr class="ui-table__filters">
+          @for (column of columns(); track column.key) {
+            <td>
+              @if (column.filterable) {
+                <input
+                  pInputText
+                  type="text"
+                  class="ui-table__filter"
+                  [attr.aria-label]="column.filterLabel ?? column.header"
+                  [value]="filters()[column.key] ?? ''"
+                  (change)="changeFilter(column.key, $event)"
+                />
+              }
+            </td>
+          }
+        </tr>
+      }
+    </thead>
+    <tbody>
+      @if (loading()) {
+        @for (index of skeletonList(); track index) {
+          <tr aria-hidden="true">
+            @for (column of columns(); track column.key) {
+              <td><p-skeleton /></td>
+            }
+          </tr>
+        }
+      } @else if (error()) {
+        <tr>
+          <td [attr.colspan]="columns().length">
+            <ui-error-state
+              [title]="labels().errorTitle"
+              [description]="labels().errorDescription"
+              [retryLabel]="labels().retry"
+              (retry)="retry.emit()"
+            />
+          </td>
+        </tr>
+      } @else {
+        @for (row of rows(); track trackBy()($index, row)) {
+          <tr>
+            @for (column of columns(); track column.key) {
+              <td [class.ui-table__cell--end]="column.align === 'end'">
+                @if (cellTemplates().get(column.key); as template) {
+                  <ng-container
+                    [ngTemplateOutlet]="template"
+                    [ngTemplateOutletContext]="{ $implicit: row }"
+                  />
+                } @else {
+                  {{ cellValue(row, column.key) }}
+                }
+              </td>
+            }
+          </tr>
+        } @empty {
+          <tr>
+            <td [attr.colspan]="columns().length">
+              <ui-empty-state
+                [title]="labels().emptyTitle"
+                [description]="labels().emptyDescription"
+              />
+            </td>
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+</div>
+<div class="ui-visually-hidden" role="status">
+  @if (loading()) {
+    {{ labels().loading }}
+  }
+</div>
+@if (pagination(); as page) {
+  <ui-paginator
+    [pagination]="page"
+    [labels]="labels().paginator"
+    (pageChange)="pageChange.emit($event)"
+  />
+}
