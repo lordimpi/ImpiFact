@@ -38,17 +38,20 @@ internal sealed class PlanEndpoints : IEndpointModule
         canonical.MapGet("", (IHandler<QueryPlansQuery, PlansResponse> handler, CancellationToken ct) => QueryPlans(null, handler, ct))
             .RequireAuthorization(ApiScopes.Platform)
             .Produces<PlansResponse>()
+            .WithOperationId("listPlans")
             .WithSummary("Listar los planes")
             .WithDescription("Lista todos los planes de la plataforma en `data`, con la cantidad de documentos por familia " +
                 "(`qty_docs_invoice`, `qty_docs_payroll`, `qty_docs_radian`, `qty_docs_ds`), el periodo y el estado.");
         canonical.MapGet("/{id:int}", QueryPlans).RequireAuthorization(ApiScopes.Platform)
             .Produces<PlansResponse>()
+            .WithOperationId("getPlan")
             .WithSummary("Ver un plan")
             .WithDescription("Responde en `data` el plan con ese `id`. Si no existe: 404 (`plan.not_found`).");
         canonical.MapPut("/{id:int}", (int id, StorePlanCommand body, IHandler<StorePlanCommand, PlanSavedResponse> handler, CancellationToken ct) =>
             StorePlan(body with { Id = id }, handler, ct)).RequireAuthorization(ApiScopes.Platform)
             .Produces<PlanSavedResponse>()
             .WithRequestExamples(ExampleBodies.Plan)
+            .WithOperationId("savePlan")
             .WithSummary("Crear o actualizar un plan")
             .WithDescription(
                 "Crea el plan con ese `id` o lo actualiza si ya existe. Campos: `name` (único; obligatorio al crear), la " +
@@ -57,10 +60,12 @@ internal sealed class PlanEndpoints : IEndpointModule
                 "y `observations`. Los números pueden llegar como número o como texto. Nombre repetido: 422.");
         canonical.MapGet("/{id:int}/companies", QueryPlanCompanies).RequireAuthorization(ApiScopes.Platform)
             .Produces<PlanCompaniesResponse>()
+            .WithOperationId("listPlanCompanies")
             .WithSummary("Empresas con un plan")
             .WithDescription("Lista las empresas que tienen activo el plan con ese `id`. Si el plan no existe: 404 (`plan.not_found`).");
         canonical.MapGet("/current", CurrentPlan).RequireAuthorization(ApiScopes.DocumentsRead)
             .Produces<CurrentPlanResponse>()
+            .WithOperationId("getCurrentPlan")
             .WithSummary("Plan vigente de la empresa")
             .WithDescription(
                 "Plan vigente de la empresa de la credencial con los documentos que le quedan en el periodo. El consumo sube " +
@@ -69,6 +74,7 @@ internal sealed class PlanEndpoints : IEndpointModule
         endpoints.MapPut("/api/v1/companies/{nit}/plan", AssignPlan).WithTags(ApiTags.Plans).RequireAuthorization(ApiScopes.Platform)
             .Produces<PlanAssignedResponse>()
             .WithRequestExamples(ExampleBodies.AssignPlan)
+            .WithOperationId("assignCompanyPlan")
             .WithSummary("Asignar un plan a una empresa")
             .WithDescription(
                 "Asigna a la empresa del `{nit}` el plan `plan_id`. El plan empieza ahora y queda activo; los que la empresa " +

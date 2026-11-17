@@ -41,6 +41,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
         canonical.MapPost("/{nit}/{dv}", CreateCompany).RequireAuthorization(ApiScopes.Platform)
             .Produces<CompanySavedResponse>()
             .WithRequestExamples(ExampleBodies.Company)
+            .WithOperationId("createCompany")
             .WithSummary("Crear o actualizar una empresa")
             .WithDescription(
                 "Crea la empresa emisora con su NIT (número de identificación tributaria) y su dígito de verificación " +
@@ -58,6 +59,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
         canonical.MapPut("/{nit}/{dv}", UpdateCompany).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<CompanySavedResponse>()
             .WithRequestExamples(ExampleBodies.Company)
+            .WithOperationId("updateCompany")
             .WithSummary("Actualizar los datos de la empresa")
             .WithDescription(
                 "La empresa actualiza sus propios datos con el mismo cuerpo del alta. Los ambientes no cambian aquí (use " +
@@ -67,6 +69,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
         canonical.MapPut("/{nit}/environment", SetEnvironment).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<EnvironmentsResponse>()
             .WithRequestExamples(ExampleBodies.Environment)
+            .WithOperationId("setCompanyEnvironment")
             .WithSummary("Cambiar el ambiente de la DIAN")
             .WithDescription(
                 "Pone cada familia de documentos en producción (1) o habilitación (2): `type_environment_id` (factura y " +
@@ -79,6 +82,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
         canonical.MapPut("/{nit}/software", SetSoftware).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<SoftwareSavedResponse>()
             .WithRequestExamples(ExampleBodies.Software)
+            .WithOperationId("setCompanySoftware")
             .WithSummary("Registrar el software ante la DIAN")
             .WithDescription(
                 "Guarda el identificador del software (`id`), su PIN de 5 dígitos (`pin`) y, si quiere, la URL del servicio " +
@@ -91,6 +95,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
         canonical.MapPut("/{nit}/certificate", UploadCertificate).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<CertificateSavedResponse>()
             .WithRequestExamples(ExampleBodies.Certificate)
+            .WithOperationId("uploadCompanyCertificate")
             .WithSummary("Subir el certificado de firma")
             .WithDescription(
                 "Recibe el certificado digital de la empresa como PKCS#12 (archivo .p12 o .pfx con el certificado y su llave " +
@@ -104,6 +109,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
         canonical.MapPut("/{nit}/resolution", UpsertResolution).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<ResolutionSavedResponse>()
             .WithRequestExamples(ExampleBodies.Resolution)
+            .WithOperationId("saveCompanyResolution")
             .WithSummary("Crear o actualizar una resolución de numeración")
             .WithDescription(
                 "Guarda una resolución de numeración autorizada por la DIAN: `type_document_id`, `prefix`, `resolution`, " +
@@ -115,6 +121,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
 
         canonical.MapGet("/{nit}/certificates", ListCertificates).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<CertificatesResponse>()
+            .WithOperationId("listCompanyCertificates")
             .WithSummary("Listar los certificados de la empresa")
             .WithDescription("Lista los certificados que la empresa ha subido, solo con sus datos (titular, emisor, vigencia, " +
                 "días que le quedan); nunca el archivo ni la contraseña." + OwnNit);
@@ -122,6 +129,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
 
         canonical.MapGet("/{nit}/certificate/end-date", CertificateEndDate).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<CertificateEndDateResponse>()
+            .WithOperationId("getCertificateEndDate")
             .WithSummary("Consultar el vencimiento del certificado")
             .WithDescription("Responde la fecha de vencimiento del certificado activo (formato `dd/MM/yyyy`, hora de Colombia). " +
                 "Sin certificado activo: 404 (`certificate.not_found`)." + OwnNit);
@@ -132,6 +140,7 @@ internal sealed class CompanyEndpoints : IEndpointModule
             IHandler<GetNumberingRangeQuery, NumberingRangeResponse> handler, CancellationToken ct) =>
             NumberingRange(new GetNumberingRangeQuery(softwareId) { Nit = nit }, handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<NumberingRangeResponse>()
+            .WithOperationId("getNumberingRanges")
             .WithSummary("Consultar los rangos de numeración en la DIAN")
             .WithDescription(
                 "Pregunta en línea a la DIAN (servicio GetNumberingRange) qué rangos de numeración tiene autorizados la " +

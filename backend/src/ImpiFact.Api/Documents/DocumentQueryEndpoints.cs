@@ -42,26 +42,33 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
             }
 
             group.MapGet("/information/{nit}", Information).Produces<InformationResponse>()
+                .WithOperationId("listValidatedDocuments")
                 .WithSummary("Documentos validados (todos)")
                 .WithDescription(InformationText + Dates + OwnNit);
             group.MapGet("/information/{nit}/{desde}", Information).Produces<InformationResponse>()
+                .WithOperationId("listValidatedDocumentsOfDay")
                 .WithSummary("Documentos validados de un día")
                 .WithDescription(InformationText + Dates + OwnNit);
             group.MapGet("/information/{nit}/{desde}/{hasta}", Information).Produces<InformationResponse>()
+                .WithOperationId("listValidatedDocumentsBetween")
                 .WithSummary("Documentos validados entre dos fechas")
                 .WithDescription(InformationText + Dates + OwnNit);
             group.MapGet("/information/{nit}/page/{page}/page", InformationPage).Produces<InformationResponse>()
+                .WithOperationId("listValidatedDocumentsPage")
                 .WithSummary("Documentos validados por página")
                 .WithDescription(
                     "Los mismos documentos de `information`, sin filtro de fechas: 100 por tipo y por página, del más antiguo " +
                     "al más nuevo. `{page}` empieza en 1." + OwnNit);
             group.MapGet("/total_documents/{nit}", TotalDocuments).Produces<TotalDocumentsResponse>()
+                .WithOperationId("countValidatedDocuments")
                 .WithSummary("Cantidad de documentos validados (todos)")
                 .WithDescription(TotalsText + Dates + OwnNit);
             group.MapGet("/total_documents/{nit}/{desde}", TotalDocuments).Produces<TotalDocumentsResponse>()
+                .WithOperationId("countValidatedDocumentsOfDay")
                 .WithSummary("Cantidad de documentos validados de un día")
                 .WithDescription(TotalsText + Dates + OwnNit);
             group.MapGet("/total_documents/{nit}/{desde}/{hasta}", TotalDocuments).Produces<TotalDocumentsResponse>()
+                .WithOperationId("countValidatedDocumentsBetween")
                 .WithSummary("Cantidad de documentos validados entre dos fechas")
                 .WithDescription(TotalsText + Dates + OwnNit);
         }
@@ -77,6 +84,7 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
         documents.MapGet("/current-number/{type:int}", (int type, [FromQuery(Name = "prefix")] string? prefix,
             IHandler<GetCurrentNumberQuery, CurrentNumberResponse> handler, CancellationToken ct) => CurrentNumber(type, prefix, handler, ct))
             .Produces<CurrentNumberResponse>()
+            .WithOperationId("getNextDocumentNumber")
             .WithSummary("Próximo número de una resolución")
             .WithDescription(
                 "Responde el número que tomará el próximo documento del tipo `{type}` (1 factura, 4 nota crédito, 5 nota " +
@@ -84,6 +92,7 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
                 "tipo). `range_exceeded` es verdadero si ese número ya está fuera del rango autorizado.");
         documents.MapGet("/", List)
             .Produces<DocumentListResponse>()
+            .WithOperationId("listDocuments")
             .WithSummary("Listar los documentos de la empresa")
             .WithDescription(
                 "Documentos de la empresa de la credencial, del más reciente al más antiguo. Filtros opcionales: " +
@@ -92,6 +101,7 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
                 "`cursor` (el `next_cursor` de la página anterior). Un filtro no válido responde 422.");
         documents.MapGet("/{id:guid}", Detail)
             .Produces<DocumentDetailResponse>()
+            .WithOperationId("getDocument")
             .WithSummary("Ver un documento por su id")
             .WithDescription(
                 "Detalle del documento: número, estado (`status`), CUFE o CUDE, comprador, totales, impuestos y la última " +
@@ -99,6 +109,7 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
                 "el estado después de emitir. Un documento de otra empresa responde 404, igual que uno que no existe.");
         documents.MapGet("/by-cufe/{cufe}", DetailByCufe)
             .Produces<DocumentDetailResponse>()
+            .WithOperationId("getDocumentByCufe")
             .WithSummary("Ver un documento por su CUFE o CUDE")
             .WithDescription(
                 "El mismo detalle de `GET /api/v1/documents/{id}`, buscando por el CUFE (factura) o el CUDE (nota), los " +

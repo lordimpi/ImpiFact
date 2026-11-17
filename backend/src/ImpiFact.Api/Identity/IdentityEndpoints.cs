@@ -37,8 +37,9 @@ internal sealed class IdentityEndpoints : IEndpointModule
             .RequireRateLimiting(RateLimitingExtensions.LoginPolicy)
             .AddEndpointFilter(NoStore);
         auth.MapPost("/login", LoginAsync)
-            .Produces<SessionTokens>()
+            .WithSessionResponses()
             .WithRequestExamples(ExampleBodies.Login)
+            .WithOperationId("login")
             .WithSummary("Iniciar sesión en el panel")
             .WithDescription(
                 "Recibe `email` y `password` (y, si quiere, `company_id`, la empresa con la que va a trabajar) y entrega un " +
@@ -48,8 +49,9 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "(`identity.company_not_allowed`). Tiene un límite estricto de intentos por minuto y por IP (429).\n\n" +
                 PanelCookieNote);
         auth.MapPost("/refresh", RefreshAsync)
-            .Produces<SessionTokens>()
+            .WithSessionResponses()
             .WithRequestExamples(ExampleBodies.Refresh)
+            .WithOperationId("refreshSession")
             .WithSummary("Renovar la sesión")
             .WithDescription(
                 "Cambia un `refresh_token` vigente por un `access_token` y un `refresh_token` nuevos; el usado queda revocado. " +
@@ -62,6 +64,7 @@ internal sealed class IdentityEndpoints : IEndpointModule
         auth.MapPost("/logout", LogoutAsync)
             .Produces(StatusCodes.Status204NoContent)
             .WithRequestExamples(ExampleBodies.Logout)
+            .WithOperationId("logout")
             .WithSummary("Cerrar la sesión")
             .WithDescription(
                 "Revoca el `refresh_token` de la sesión, del cuerpo o, para el panel, de la cookie: esa sesión ya no puede " +
@@ -74,6 +77,7 @@ internal sealed class IdentityEndpoints : IEndpointModule
         apiKeys.MapPost("/", CreateApiKeyAsync).AddEndpointFilter(NoStore)
             .Produces<CreatedApiKey>(StatusCodes.Status201Created)
             .WithRequestExamples(ExampleBodies.ApiKey)
+            .WithOperationId("createApiKey")
             .WithSummary("Crear una API key")
             .WithDescription(
                 "Crea una llave de acceso para una integración, con `name`, `scopes` y, si quiere, `expires_at`. Con una " +
@@ -83,6 +87,7 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "(`api_key.scope_not_allowed`).");
         apiKeys.MapDelete("/{id:guid}", RevokeApiKeyAsync)
             .Produces(StatusCodes.Status204NoContent)
+            .WithOperationId("revokeApiKey")
             .WithSummary("Revocar una API key")
             .WithDescription(
                 "Revoca la llave con ese `id`; revocarla otra vez no cambia nada. Una empresa solo revoca sus propias llaves " +
@@ -93,6 +98,7 @@ internal sealed class IdentityEndpoints : IEndpointModule
             .MapPost("/", CreateUserAsync)
             .Produces<CreatedUser>(StatusCodes.Status201Created)
             .WithRequestExamples(ExampleBodies.User)
+            .WithOperationId("createUser")
             .WithSummary("Crear un usuario del panel")
             .WithDescription(
                 "Crea un usuario con `email`, `password` (al menos 10 caracteres), `name`, `role` y, si quiere, `phone`. El dueño (`owner`) de una " +

@@ -39,6 +39,7 @@ internal static class OpenApiDocumentation
             options.AddSchemaTransformer((schema, context, _) =>
             {
                 DescribeLegacyScalar(schema, context);
+                SessionResponses.DescribeSchema(schema, context);
                 return Task.CompletedTask;
             });
         });

@@ -59,21 +59,27 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
 
         var canonical = endpoints.MapGroup("/api/v1/documents").WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsWrite);
         Issue(canonical.MapPost("/invoices", Invoice), OpenApiExamples.Invoices)
+            .WithOperationId("issueInvoice")
             .WithSummary("Emitir una factura")
             .WithDescription(InvoiceText + IssueRules);
         Issue(canonical.MapPost("/invoices/test-set/{testSetId}", Invoice), OpenApiExamples.Invoices)
+            .WithOperationId("issueTestSetInvoice")
             .WithSummary("Emitir una factura del set de pruebas")
             .WithDescription(InvoiceText + TestSetRules + IssueRules);
         Issue(canonical.MapPost("/credit-notes", CreditNote), OpenApiExamples.CreditNotes)
+            .WithOperationId("issueCreditNote")
             .WithSummary("Emitir una nota crédito")
             .WithDescription(CreditNoteText + NoteRules + IssueRules);
         Issue(canonical.MapPost("/credit-notes/test-set/{testSetId}", CreditNote), OpenApiExamples.CreditNotes)
+            .WithOperationId("issueTestSetCreditNote")
             .WithSummary("Emitir una nota crédito del set de pruebas")
             .WithDescription(CreditNoteText + TestSetRules + IssueRules);
         Issue(canonical.MapPost("/debit-notes", DebitNote), OpenApiExamples.DebitNotes)
+            .WithOperationId("issueDebitNote")
             .WithSummary("Emitir una nota débito")
             .WithDescription(DebitNoteText + NoteRules + IssueRules);
         Issue(canonical.MapPost("/debit-notes/test-set/{testSetId}", DebitNote), OpenApiExamples.DebitNotes)
+            .WithOperationId("issueTestSetDebitNote")
             .WithSummary("Emitir una nota débito del set de pruebas")
             .WithDescription(DebitNoteText + TestSetRules + IssueRules);
     }
