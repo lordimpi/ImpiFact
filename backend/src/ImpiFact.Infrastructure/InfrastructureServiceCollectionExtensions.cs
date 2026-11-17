@@ -4,6 +4,7 @@ using ImpiFact.Infrastructure.Billing;
 using ImpiFact.Infrastructure.Companies;
 using ImpiFact.Infrastructure.Dian;
 using ImpiFact.Infrastructure.Documents;
+using ImpiFact.Infrastructure.Masters;
 using ImpiFact.Infrastructure.Notifications;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
@@ -57,6 +58,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddBilling();
         services.AddPlatform();
         services.AddNotificationInbox();
+        services.AddMasters();
         services.AddDianWebService(configuration);
         services.AddReads();
         return services;
