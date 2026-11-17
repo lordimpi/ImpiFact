@@ -1,44 +1,106 @@
 /*
- * Design tokens (variables de diseño) del panel: colores, tipografía, espaciado y radios.
- * Es el único archivo con valores de diseño; los componentes usan solo estas variables.
- * Marcador inicial: la tarea 4 del backlog (librería ui) define la paleta, la densidad y el tema oscuro completos.
+ * Design tokens (variables de diseño) del panel: colores, tipografía, espaciado, radios y densidad.
+ * Es el único archivo con valores de diseño; los componentes de ui y el preset de Optimus UI
+ * (provide-ui-theme.ts) usan solo estas variables.
+ *
+ * Tema claro y oscuro: cada color se declara con light-dark(claro, oscuro). El navegador elige según
+ * `color-scheme`: por defecto sigue la preferencia del sistema (prefers-color-scheme) y el atributo
+ * `data-theme="light" | "dark"` en <html> la fuerza.
+ *
+ * Contraste WCAG (pautas de accesibilidad web) 2.2 AA verificado sobre el fondo y la superficie de cada tema:
+ * texto ≥ 4,5:1 y bordes de controles ≥ 3:1.
  */
 :root {
-  color-scheme: light dark;
+  /* Fondos y superficies. */
+  --if-color-bg: light-dark(#ffffff, #12161d);
+  --if-color-surface: light-dark(#f5f7fa, #1b212b);
+  --if-color-surface-raised: light-dark(#eceff4, #252d39);
+  --if-color-overlay: light-dark(rgb(18 22 29 / 45%), rgb(0 0 0 / 60%));
 
-  --if-color-bg: #ffffff;
-  --if-color-surface: #f5f7fa;
-  --if-color-text: #1a1f29;
-  --if-color-text-muted: #4a5466;
-  --if-color-primary: #0b5cad;
-  --if-color-on-primary: #ffffff;
-  --if-color-border: #d5dbe3;
-  --if-color-focus: #0b5cad;
+  /* Texto sobre fondo (claro / oscuro): normal 16,5:1 / 15,3:1; secundario 7,6:1 / 8,6:1. */
+  --if-color-text: light-dark(#1a1f29, #e8ecf2);
+  --if-color-text-muted: light-dark(#4a5466, #aab3c2);
 
+  /* Marca: primario sobre fondo 6,7:1 / 7,8:1; texto sobre primario 6,7:1 / 7,5:1. */
+  --if-color-primary: light-dark(#0b5cad, #6aaef5);
+  --if-color-primary-hover: light-dark(#094a8c, #8cc1f7);
+  --if-color-primary-active: light-dark(#073a6e, #a9d0f9);
+  --if-color-on-primary: light-dark(#ffffff, #0b1a2b);
+  --if-color-primary-subtle: light-dark(#e6f0fa, #1a2d44);
+  --if-color-primary-subtle-strong: light-dark(#cde1f5, #223b59);
+
+  /* Estados: peligro sobre fondo 6,6:1 / 7,6:1; éxito 5,4:1 / 9,9:1; aviso 5,9:1 / 10,8:1. */
+  --if-color-danger: light-dark(#b42318, #f28b82);
+  --if-color-danger-hover: light-dark(#912018, #f5a39c);
+  --if-color-danger-active: light-dark(#7a1a13, #f8bbb6);
+  --if-color-on-danger: light-dark(#ffffff, #2b0b08);
+  --if-color-danger-subtle: light-dark(#fdecea, #3a1714);
+  --if-color-success: light-dark(#1e7a3c, #6fd394);
+  --if-color-warning: light-dark(#8a5a00, #f2c14e);
+
+  /* Bordes: decorativo (sin requisito de contraste) y de controles 4,6:1 / 5,1:1. */
+  --if-color-border: light-dark(#d5dbe3, #2e3744);
+  --if-color-border-strong: light-dark(#6b7687, #7d8899);
+  --if-color-focus: light-dark(#0b5cad, #6aaef5);
+
+  /* Tipografía. */
   --if-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --if-font-family-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
+  --if-font-size-sm: 0.875rem;
   --if-font-size-base: 1rem;
+  --if-font-size-md: 1.125rem;
   --if-font-size-lg: 1.5rem;
+  --if-font-weight-normal: 400;
+  --if-font-weight-medium: 500;
+  --if-font-weight-bold: 600;
   --if-line-height: 1.5;
+  --if-line-height-tight: 1.25;
 
+  /* Espaciado (escala de 4 px). */
   --if-space-1: 0.25rem;
   --if-space-2: 0.5rem;
   --if-space-3: 1rem;
   --if-space-4: 1.5rem;
   --if-space-5: 2rem;
 
+  /* Radios. */
   --if-radius-sm: 4px;
   --if-radius-md: 8px;
+  --if-radius-lg: 12px;
+
+  /* Densidad: alto y relleno de controles y celdas. `data-density="compact"` en <html> la reduce. */
+  --if-control-padding-y: 0.5rem;
+  --if-control-padding-x: 0.75rem;
+  --if-control-min-height: 2.5rem;
+  --if-cell-padding-y: 0.625rem;
+  --if-cell-padding-x: 0.75rem;
+
+  /* Elevación y foco. */
+  --if-shadow-overlay: 0 10px 30px rgb(0 0 0 / 20%);
+  --if-focus-ring-width: 2px;
+  --if-focus-ring-offset: 2px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --if-color-bg: #12161d;
-    --if-color-surface: #1b212b;
-    --if-color-text: #e8ecf2;
-    --if-color-text-muted: #aab3c2;
-    --if-color-primary: #6aaef5;
-    --if-color-on-primary: #0b1a2b;
-    --if-color-border: #2e3744;
-    --if-color-focus: #6aaef5;
-  }
+/*
+ * Esquema de color. Los selectores llevan un atributo para ganarle en especificidad al
+ * `:root { color-scheme: light }` que inyecta Optimus UI en tiempo de ejecución.
+ */
+:root:not([data-theme]) {
+  color-scheme: light dark;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+:root[data-density='compact'] {
+  --if-control-padding-y: 0.25rem;
+  --if-control-padding-x: 0.5rem;
+  --if-control-min-height: 2rem;
+  --if-cell-padding-y: 0.375rem;
+  --if-cell-padding-x: 0.5rem;
 }
