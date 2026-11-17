@@ -78,6 +78,38 @@ public sealed class PanelSessionTests
     }
 
     [Test]
+    public async Task Api_client_refresh_without_a_body_keeps_the_invalid_body_error()
+    {
+        using var response = await Client().PostAsync("/api/v1/auth/refresh", content: null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((int)response.StatusCode, Is.EqualTo(422));
+            Assert.That(Code(response), Is.EqualTo("request.invalid_body"));
+        });
+    }
+
+    [Test]
+    public async Task A_request_with_the_refresh_cookie_twice_is_rejected_and_the_session_survives()
+    {
+        var (_, email) = await AddUserAsync();
+        var valid = RefreshCookie(await PanelLogin(email)).Value.Value!;
+        using var request = PanelRequest("/api/v1/auth/refresh", body: null);
+        request.Headers.Add(HeaderNames.Cookie, $"{CookieName}=planted-by-a-sibling-subdomain; {CookieName}={valid}");
+
+        using var response = await Client().SendAsync(request);
+        var revokedAt = await QuerySingleAsync<DateTime?>(
+            "select revoked_at from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(valid) });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            Assert.That(Code(response), Is.EqualTo("identity.invalid_refresh_token"));
+            Assert.That(revokedAt, Is.Null, "The real session is not rotated nor revoked.");
+        });
+    }
+
+    [Test]
     public async Task Api_client_login_keeps_the_token_in_the_body_and_sets_no_cookie()
     {
         var (_, email) = await AddUserAsync();

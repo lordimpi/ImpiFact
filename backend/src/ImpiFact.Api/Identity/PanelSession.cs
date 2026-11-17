@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json.Serialization;
 using ImpiFact.Application.Abstractions.Results;
+using ImpiFact.Application.Features.Identity;
 using ImpiFact.Application.Features.Identity.Sessions;
 
 namespace ImpiFact.Api.Identity;
@@ -25,8 +26,8 @@ namespace ImpiFact.Api.Identity;
 /// <item>
 /// La cookie solo se acepta si la solicitud trae <c>X-Client: panel</c>. Un formulario HTML no puede poner encabezados,
 /// y una página de otro origen solo puede ponerlos después de una consulta previa de CORS (preflight), que la API
-/// solo aprueba para los orígenes de <c>Cors:Origins</c>. Esto cubre también un subdominio vecino del mismo sitio,
-/// donde <c>SameSite</c> no protege.
+/// solo aprueba para los orígenes de <c>Cors:Origins</c>. Contra un subdominio vecino comprometido, que podría plantar
+/// su propia cookie para el dominio padre, se rechaza la solicitud que trae la cookie de sesión más de una vez.
 /// </item>
 /// </list>
 /// <para>
@@ -72,6 +73,13 @@ internal static class PanelSession
             return new PresentedRefreshToken(bodyToken, FromCookie: false);
         }
 
+        // Dos cookies con el mismo nombre (una puede venir plantada desde un subdominio vecino) no se aceptan: ASP.NET
+        // tomaría la última y el navegador podría quedar en la sesión de otra persona.
+        if (CountRefreshCookies(request) > 1)
+        {
+            return IdentityErrors.InvalidRefreshToken;
+        }
+
         if (!request.Cookies.TryGetValue(CookieName, out var cookie) || string.IsNullOrEmpty(cookie))
         {
             return new PresentedRefreshToken("", FromCookie: false);
@@ -79,6 +87,11 @@ internal static class PanelSession
 
         return isPanel ? new PresentedRefreshToken(cookie, FromCookie: true) : ClientHeaderRequired;
     }
+
+    private static int CountRefreshCookies(HttpRequest request) =>
+        request.Headers.Cookie
+            .SelectMany(header => (header ?? "").Split(';'))
+            .Count(part => part.TrimStart().StartsWith(CookieName + "=", StringComparison.Ordinal));
 
     /// <summary>Pone el token de renovación en la cookie y responde 200 con la sesión sin ese token.</summary>
     public static IResult Issue(HttpContext context, SessionTokens tokens)

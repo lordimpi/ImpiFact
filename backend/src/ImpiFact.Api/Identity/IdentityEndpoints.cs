@@ -132,6 +132,13 @@ internal sealed class IdentityEndpoints : IEndpointModule
         CancellationToken ct)
     {
         var isPanel = PanelSession.IsPanel(client);
+        // Un integrador (sin X-Client: panel) siempre manda el token en el cuerpo: sin cuerpo, el mismo error de un
+        // cuerpo ilegible que respondía antes de que el panel pudiera omitirlo.
+        if (body is null && !isPanel)
+        {
+            return InvalidRequestBodyHandler.InvalidBody.ToHttpResult();
+        }
+
         var presented = PanelSession.ReadRefreshToken(context.Request, body?.RefreshToken, isPanel);
         if (!presented.IsSuccess)
         {
