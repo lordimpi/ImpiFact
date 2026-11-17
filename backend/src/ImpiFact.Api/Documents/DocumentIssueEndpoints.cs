@@ -3,15 +3,17 @@ using ImpiFact.Api.Http;
 using ImpiFact.Api.OpenApi;
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Identity;
+using ImpiFact.Application.Features.Documents.Calculate;
 using ImpiFact.Application.Features.Documents.Issue;
 using Microsoft.OpenApi;
 
 namespace ImpiFact.Api.Documents;
 
 /// <summary>
-/// Emisión de factura, nota crédito y nota débito (Arquitectura detallada, sección 7; anexo A.1 a A.3). Todas piden el
-/// alcance <c>documents:write</c>; la empresa es siempre la de la credencial, porque el cuerpo heredado no trae el NIT
-/// del emisor. Las rutas heredadas <c>/api/ubl2.1/...</c> y sus variantes con <c>{testSetId}</c> (set de pruebas de
+/// Emisión de factura, nota crédito y nota débito (Arquitectura detallada, sección 7; anexo A.1 a A.3) y el cálculo de
+/// sus totales antes de emitir (<c>POST /api/v1/documents/calculate</c>). Todas piden el alcance
+/// <c>documents:write</c>; la empresa es siempre la de la credencial, porque el cuerpo heredado no trae el NIT del
+/// emisor. Las rutas heredadas <c>/api/ubl2.1/...</c> y sus variantes con <c>{testSetId}</c> (set de pruebas de
 /// habilitación) usan el mismo caso de uso que las canónicas de <c>/api/v1/documents</c>. El encabezado
 /// <c>Idempotency-Key</c> es opcional. Cada endpoint solo lee el cuerpo, arma la solicitud, llama al caso de uso y
 /// traduce el resultado.
@@ -82,7 +84,31 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
             .WithOperationId("issueTestSetDebitNote")
             .WithSummary("Emitir una nota débito del set de pruebas")
             .WithDescription(DebitNoteText + TestSetRules + IssueRules);
+
+        canonical.MapPost("/calculate", Calculate)
+            .Produces<DocumentTotalsCalculation>()
+            .WithOperationId("calculateDocumentTotals")
+            .WithSummary("Calcular los totales de un documento")
+            .WithDescription(CalculateText)
+            .WithRequestExamples(ExampleBodies.CalculateTotals);
     }
+
+    /// <summary>
+    /// Por qué el cálculo pide <c>documents:write</c> y no <c>documents:read</c>: es el primer paso de una emisión (el
+    /// panel lo llama mientras arma el documento que va a emitir) y no consulta nada guardado; una credencial de solo
+    /// consulta no emite, así que tampoco lo necesita.
+    /// </summary>
+    private const string CalculateText =
+        "Calcula los valores de una factura, nota crédito o nota débito a partir de sus líneas: el valor de cada línea " +
+        "(precio × cantidad − descuentos + cargos), sus impuestos, los impuestos del documento agrupados como en el XML " +
+        "de la DIAN (un grupo por `tax_id` con un subtotal por tarifa) y `legal_monetary_totals`. Cada importe sale con " +
+        "2 decimales, redondeado como se escribe en el XML, y los totales suman esos valores, así que lo calculado pasa " +
+        "las reglas de totales de la emisión: el panel lo muestra y lo envía tal cual al emitir, sin hacer cuentas. En la " +
+        "nota débito, `legal_monetary_totals` se envía como `requested_monetary_totals`. Los descuentos y cargos globales " +
+        "no cambian los impuestos; los anticipos (`prepaid_payments`) suman `pre_paid_amount`, que no se resta del valor " +
+        "a pagar. Es cálculo puro: no toma consecutivo, no guarda nada, no llama a la DIAN ni consume el plan. Pide " +
+        "`documents:write`, porque es parte de emitir, y una credencial de empresa. Datos inválidos: 422 " +
+        "(`validation.failed`, con `errors` por campo, por ejemplo `lines[0].taxes[0].percent`).";
 
     private const string InvoiceText =
         "Emite una factura electrónica de venta. El cuerpo sigue el contrato de ApiDian: `customer` (comprador), " +
@@ -119,6 +145,10 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
                 },
             },
         });
+
+    private static async Task<IResult> Calculate(
+        CalculateDocumentTotalsRequest body, IHandler<CalculateDocumentTotalsRequest, DocumentTotalsCalculation> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(body, ct)).ToHttpResult();
 
     private static Task<IResult> Invoice(
         HttpRequest request, string? testSetId, IHandler<IssueInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>

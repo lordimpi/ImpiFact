@@ -87,6 +87,7 @@ public sealed class OpenApiContractTests
     [TestCase("POST /api/v1/documents/credit-notes/test-set/{testSetId}", "issueTestSetCreditNote")]
     [TestCase("POST /api/v1/documents/debit-notes", "issueDebitNote")]
     [TestCase("POST /api/v1/documents/debit-notes/test-set/{testSetId}", "issueTestSetDebitNote")]
+    [TestCase("POST /api/v1/documents/calculate", "calculateDocumentTotals")]
     [TestCase("GET /api/v1/documents/by-cufe/{trackId}/dian-status", "getDocumentDianStatus")]
     [TestCase("GET /api/v1/documents/by-cufe/{trackId}/xml", "getDocumentXml")]
     [TestCase("GET /api/v1/documents/zip/{trackId}/dian-status", "getTestSetZipStatus")]
