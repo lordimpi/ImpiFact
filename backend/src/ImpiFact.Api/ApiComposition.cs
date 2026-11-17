@@ -4,6 +4,7 @@ using ImpiFact.Api.Documents;
 using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
 using ImpiFact.Api.Identity;
+using ImpiFact.Api.Plans;
 using ImpiFact.Application;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Identity;
@@ -73,6 +74,7 @@ internal static class ApiComposition
         services.AddSingleton<IEndpointModule, DocumentQueryEndpoints>();
         services.AddSingleton<IEndpointModule, DocumentIssueEndpoints>();
         services.AddSingleton<IEndpointModule, DocumentUtilityEndpoints>();
+        services.AddSingleton<IEndpointModule, PlanEndpoints>();
         return builder;
     }
 
