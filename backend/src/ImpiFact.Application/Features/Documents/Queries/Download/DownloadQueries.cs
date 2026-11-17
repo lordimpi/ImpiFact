@@ -94,7 +94,7 @@ internal sealed partial class DownloadDocumentFileHandler(
         };
     }
 
-    [GeneratedRegex("^(?<tag>FES|NCS|NDS|Attachment|ZipAttachm)-(?<number>[A-Za-z0-9]{1,40})\\.(?<ext>xml|pdf|zip)$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^(?<tag>FES|NCS|NDS|Attachment|ZipAttachm)-(?<number>[A-Za-z0-9]{1,40})\\.(?<ext>xml|pdf|zip)\\z", RegexOptions.CultureInvariant)]
     private static partial Regex FileNamePattern();
 }
 

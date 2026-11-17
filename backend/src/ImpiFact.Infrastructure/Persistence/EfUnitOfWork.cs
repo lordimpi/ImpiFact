@@ -11,7 +11,8 @@ namespace ImpiFact.Infrastructure.Persistence;
 /// <remarks>
 /// Si algún adaptador dejó escrituras atómicas pendientes (<see cref="IPendingWrites"/>), el guardado las ejecuta en
 /// su misma transacción, después de los cambios de EF: en la transacción que abrió quien llama o, si no hay, en una
-/// propia que se confirma al terminar. Si los cambios de EF fallan, las escrituras no se ejecutan.
+/// propia que se confirma al terminar. Si los cambios de EF fallan, las escrituras no se ejecutan; si falla la
+/// transacción propia, además se descartan.
 /// </remarks>
 internal sealed class EfUnitOfWork(DbContext db, IDatabaseProvider provider, IEnumerable<IPendingWrites> pendingWrites) : IUnitOfWork
 {
@@ -32,10 +33,20 @@ internal sealed class EfUnitOfWork(DbContext db, IDatabaseProvider provider, IEn
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var saved = await SaveEntitiesAsync(ct);
-        await FlushAsync(transaction, ct);
-        await transaction.CommitAsync(ct);
-        return saved;
+        try
+        {
+            var saved = await SaveEntitiesAsync(ct);
+            await FlushAsync(transaction, ct);
+            await transaction.CommitAsync(ct);
+            return saved;
+        }
+        catch
+        {
+            // La transacción propia se revierte al liberarla; sin esto, un guardado posterior del mismo ámbito
+            // escribiría las escrituras pendientes de este intento fallido.
+            Discard();
+            throw;
+        }
     }
 
     public async Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken ct) =>
@@ -56,6 +67,14 @@ internal sealed class EfUnitOfWork(DbContext db, IDatabaseProvider provider, IEn
         catch (DbUpdateException exception) when (provider.IsUniqueViolation(exception))
         {
             throw new PersistenceConflictException("Another request stored the same unique value.", exception);
+        }
+    }
+
+    private void Discard()
+    {
+        foreach (var writes in pendingWrites)
+        {
+            writes.Discard();
         }
     }
 
