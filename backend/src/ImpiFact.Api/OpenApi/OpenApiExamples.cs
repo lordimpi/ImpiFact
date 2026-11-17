@@ -111,6 +111,7 @@ internal static class OpenApiExamples
         "hasta" => "2026-11-30",
         "page" => 1,
         "unread" => true,
+        "number" => Nit,
         "X-Client" => "panel",
         _ => null,
     };

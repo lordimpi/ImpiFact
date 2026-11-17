@@ -17,6 +17,8 @@ public static class ApiTags
 
     public const string Notifications = "Notificaciones";
 
+    public const string Masters = "Clientes y productos";
+
     /// <summary>Descripción de cada sección, en el orden en que se muestran.</summary>
     public static IReadOnlyList<(string Name, string Description)> Descriptions { get; } =
     [
@@ -34,6 +36,9 @@ public static class ApiTags
         (Plans,
             "Planes de documentos y su consumo. La plataforma crea los planes y los asigna a las empresas; cada empresa " +
             "consulta su plan vigente y los documentos que le quedan."),
+        (Masters,
+            "Clientes y productos de la empresa para llenar la emisión: alta, edición, desactivación y búsqueda paginada en " +
+            "el servidor, y la consulta en vivo a la DIAN del nombre y el correo registrados de un adquiriente (GetAcquirer)."),
         (Notifications,
             "Avisos de la campana del panel: certificado por vencer, rangos de numeración, documentos rechazados o sin " +
             "confirmar. Se listan por empresa, del más reciente al más antiguo, y se marcan como leídos."),
