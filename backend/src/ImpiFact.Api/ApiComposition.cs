@@ -1,5 +1,6 @@
 using System.Net;
 using ImpiFact.Api.Companies;
+using ImpiFact.Api.Dashboard;
 using ImpiFact.Api.Documents;
 using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
@@ -91,6 +92,7 @@ internal static class ApiComposition
         services.AddSingleton<IEndpointModule, PlanEndpoints>();
         services.AddSingleton<IEndpointModule, NotificationEndpoints>();
         services.AddSingleton<IEndpointModule, MasterEndpoints>();
+        services.AddSingleton<IEndpointModule, DashboardEndpoints>();
         return builder;
     }
 

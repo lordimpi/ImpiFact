@@ -79,6 +79,7 @@ public sealed class OpenApiContractTests
     [TestCase("GET /api/v1/total_documents/{nit}/{desde}/{hasta}", "countValidatedDocumentsBetween")]
     [TestCase("GET /api/v1/documents/current-number/{type}", "getNextDocumentNumber")]
     [TestCase("GET /api/v1/documents", "listDocuments")]
+    [TestCase("GET /api/v1/documents/export.csv", "exportDocumentsCsv")]
     [TestCase("GET /api/v1/documents/{id}", "getDocument")]
     [TestCase("GET /api/v1/documents/by-cufe/{cufe}", "getDocumentByCufe")]
     [TestCase("POST /api/v1/documents/invoices", "issueInvoice")]
@@ -114,6 +115,7 @@ public sealed class OpenApiContractTests
     [TestCase("POST /api/v1/products", "createProduct")]
     [TestCase("PUT /api/v1/products/{id}", "updateProduct")]
     [TestCase("POST /api/v1/products/{id}/deactivate", "deactivateProduct")]
+    [TestCase("GET /api/v1/dashboard/summary", "getDashboardSummary")]
     public void An_operation_keeps_its_pinned_operation_id(string name, string operationId)
     {
         var operation = Operations().Where(candidate => candidate.Name == name).Select(candidate => candidate.Operation).ToList();

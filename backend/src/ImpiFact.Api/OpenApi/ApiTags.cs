@@ -18,6 +18,7 @@ public static class ApiTags
     public const string Notifications = "Notificaciones";
 
     public const string Masters = "Clientes y productos";
+    public const string Dashboard = "Tablero";
 
     /// <summary>Descripción de cada sección, en el orden en que se muestran.</summary>
     public static IReadOnlyList<(string Name, string Description)> Descriptions { get; } =
@@ -42,5 +43,8 @@ public static class ApiTags
         (Notifications,
             "Avisos de la campana del panel: certificado por vencer, rangos de numeración, documentos rechazados o sin " +
             "confirmar. Se listan por empresa, del más reciente al más antiguo, y se marcan como leídos."),
+        (Dashboard,
+            "Resumen del tablero del panel: documentos por estado y por mes, consumo del plan, certificado de firma y " +
+            "resoluciones por agotarse de la empresa activa."),
     ];
 }
