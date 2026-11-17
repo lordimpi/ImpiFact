@@ -93,9 +93,16 @@ export const SessionStore = signalStore(
   withMethods((store) => {
     let refreshing: Promise<boolean> | null = null;
     let restoring: Promise<void> | null = null;
+    let loggingOut: Promise<void> | null = null;
+    // Generación de la sesión: cambia cada vez que se limpia. Una renovación que empezó en otra generación (por
+    // ejemplo, antes de un cierre de sesión aquí o en otra pestaña) descarta su resultado: no revive la sesión.
+    let generation = 0;
+    // La sesión se cerró con logout (aquí o en otra pestaña) y no hubo otra después: un logout más no hace nada.
+    let closed = false;
 
     function apply(tokens: PanelSessionTokens, email: string | null): void {
       const claims = readAccessTokenClaims(tokens.access_token);
+      closed = false;
       patchState(store, {
         status: 'authenticated',
         accessToken: tokens.access_token,
@@ -109,6 +116,7 @@ export const SessionStore = signalStore(
     }
 
     function clear(): void {
+      generation++;
       patchState(store, { status: 'anonymous', ...ANONYMOUS });
     }
 
@@ -116,19 +124,25 @@ export const SessionStore = signalStore(
       void store._router.navigateByUrl(store._paths.login);
     }
 
-    async function callRefresh(retryOnConflict: boolean): Promise<boolean> {
+    async function callRefresh(retryOnConflict: boolean, startedIn: number): Promise<boolean> {
       try {
         const tokens: PanelSessionTokens = await firstValueFrom(
           store._api.invoke(refreshSession, PANEL_CLIENT, store._silent()),
         );
+        if (generation !== startedIn) {
+          return false;
+        }
         apply(tokens, store.email());
         store._sync.post({ type: 'session', tokens, email: store.email() });
         return true;
       } catch (error) {
         // 409: otra renovación con la misma cookie llegó primero (por ejemplo, un navegador sin Web Locks). La
         // cookie ya quedó renovada, así que un segundo intento sale bien.
+        if (generation !== startedIn) {
+          return false;
+        }
         if (retryOnConflict && statusOf(error) === CONFLICT) {
-          return callRefresh(false);
+          return callRefresh(false, startedIn);
         }
         clear();
         return false;
@@ -136,12 +150,16 @@ export const SessionStore = signalStore(
     }
 
     function refresh(staleToken: string | null): Promise<boolean> {
+      const startedIn = generation;
       refreshing ??= store._sync
         .exclusive(() => {
+          if (generation !== startedIn) {
+            return Promise.resolve(false);
+          }
           const current = store.accessToken();
           return current !== null && current !== staleToken
             ? Promise.resolve(true)
-            : callRefresh(true);
+            : callRefresh(true, startedIn);
         })
         .finally(() => (refreshing = null));
       return refreshing;
@@ -152,6 +170,7 @@ export const SessionStore = signalStore(
         apply(message.tokens, message.email ?? store.email());
       } else if (message.type === 'logout') {
         clear();
+        closed = true;
         goToLogin();
       }
     }
@@ -209,16 +228,35 @@ export const SessionStore = signalStore(
        */
       refresh,
 
-      /** Cierra la sesión en el Api (revoca la cookie), la limpia aquí, avisa a las demás pestañas y va al login. */
-      async logout(): Promise<void> {
-        try {
-          await firstValueFrom(store._api.invoke(logout, PANEL_CLIENT, store._silent()));
-        } catch {
-          // El Api responde 204 siempre; si no hay red, la sesión se cierra igual en el panel.
+      /**
+       * Cierra la sesión: la limpia aquí al instante, avisa a las demás pestañas, va al login y revoca la cookie en el
+       * Api. Si hay una renovación en vuelo, la espera antes de llamar a `/auth/logout`: esa renovación pudo rotar la
+       * cookie, y hay que revocar la más nueva. Varias llamadas a la vez comparten un solo cierre, y una llamada con
+       * la sesión ya cerrada no hace nada.
+       */
+      logout(): Promise<void> {
+        if (loggingOut) {
+          return loggingOut;
         }
+        if (closed) {
+          return Promise.resolve();
+        }
+        const pendingRefresh = refreshing;
         clear();
+        closed = true;
         store._sync.post({ type: 'logout' });
         goToLogin();
+        loggingOut = (async () => {
+          if (pendingRefresh) {
+            await pendingRefresh;
+          }
+          try {
+            await firstValueFrom(store._api.invoke(logout, PANEL_CLIENT, store._silent()));
+          } catch {
+            // El Api responde 204 siempre; si no hay red, la sesión ya quedó cerrada en el panel.
+          }
+        })().finally(() => (loggingOut = null));
+        return loggingOut;
       },
     };
   }),

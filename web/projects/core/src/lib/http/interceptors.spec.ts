@@ -186,6 +186,35 @@ describe('core interceptors', () => {
     });
   });
 
+  describe('refreshInterceptor with several requests', () => {
+    // Sonda P5 del verificador (nota 2).
+    it('logs out once when concurrent 401 responses share a failed refresh', async () => {
+      signIn();
+      const first = firstValueFrom(client.get(`${API}/api/v1/plans`)).catch((e: unknown) => e);
+      const second = firstValueFrom(client.get(`${API}/api/v1/companies`)).catch((e: unknown) => e);
+
+      http
+        .expectOne(`${API}/api/v1/plans`)
+        .flush(null, { status: 401, statusText: 'Unauthorized' });
+      http
+        .expectOne(`${API}/api/v1/companies`)
+        .flush(null, { status: 401, statusText: 'Unauthorized' });
+      await flushMicrotasks();
+      http
+        .expectOne(`${API}/api/v1/auth/refresh`)
+        .flush(null, { status: 401, statusText: 'Unauthorized' });
+      await flushMicrotasks();
+      const logouts = http.match(`${API}/api/v1/auth/logout`);
+      logouts.forEach((request) => request.flush(null, { status: 204, statusText: 'No Content' }));
+      await Promise.all([first, second]);
+
+      expect(logouts).toHaveLength(1);
+      expect(sync.posted.filter((message) => message.type === 'logout')).toHaveLength(1);
+      expect(navigate).toHaveBeenCalledOnce();
+      expect(session.status()).toBe('anonymous');
+    });
+  });
+
   describe('errorInterceptor', () => {
     it('maps a ProblemDetails response to an AppError with field errors and correlation id', async () => {
       signIn();

@@ -156,6 +156,71 @@ describe('SessionStore', () => {
     expect(navigate).toHaveBeenCalledWith('/login');
   });
 
+  // Sonda P1 del verificador. Orden adaptado a la corrección: el cierre limpia la sesión al instante y espera la
+  // renovación en vuelo antes de llamar a /auth/logout, para revocar la cookie más nueva.
+  it('logout while a refresh is in flight leaves the session closed and revokes the newest cookie', async () => {
+    sync.receive({
+      type: 'session',
+      tokens: panelTokens({ access_token: fakeJwt({ sub: 'user-1', n: 1 }) }),
+      email: null,
+    });
+    const refreshing = store.refresh(store.accessToken());
+    await flushMicrotasks();
+    const refreshRequest = http.expectOne('/api/v1/auth/refresh');
+
+    const loggingOut = store.logout();
+    expect(store.status()).toBe('anonymous');
+    http.expectNone('/api/v1/auth/logout');
+
+    refreshRequest.flush(panelTokens({ access_token: fakeJwt({ sub: 'user-1', n: 2 }) }));
+    await refreshing;
+    await flushMicrotasks();
+    http.expectOne('/api/v1/auth/logout').flush(null, { status: 204, statusText: 'No Content' });
+    await loggingOut;
+
+    expect(store.status()).toBe('anonymous');
+    expect(store.accessToken()).toBeNull();
+    const afterLogout = sync.posted.slice(
+      sync.posted.findIndex((message) => message.type === 'logout') + 1,
+    );
+    expect(afterLogout.filter((message) => message.type === 'session')).toEqual([]);
+  });
+
+  // Sonda P2 del verificador.
+  it('a logout from another tab is not undone by an in-flight refresh', async () => {
+    sync.receive({
+      type: 'session',
+      tokens: panelTokens({ access_token: fakeJwt({ sub: 'user-1', n: 1 }) }),
+      email: null,
+    });
+    const refreshing = store.refresh(store.accessToken());
+    await flushMicrotasks();
+    const refreshRequest = http.expectOne('/api/v1/auth/refresh');
+
+    sync.receive({ type: 'logout' });
+    expect(store.status()).toBe('anonymous');
+    refreshRequest.flush(panelTokens({ access_token: fakeJwt({ sub: 'user-1', n: 2 }) }));
+
+    expect(await refreshing).toBe(false);
+    expect(store.status()).toBe('anonymous');
+    expect(store.accessToken()).toBeNull();
+    expect(sync.posted.filter((message) => message.type === 'session')).toEqual([]);
+  });
+
+  it('shares one logout between concurrent callers and ignores a repeated one', async () => {
+    sync.receive({ type: 'session', tokens: panelTokens(), email: null });
+
+    const first = store.logout();
+    const second = store.logout();
+    http.expectOne('/api/v1/auth/logout').flush(null, { status: 204, statusText: 'No Content' });
+    await Promise.all([first, second]);
+    await store.logout();
+
+    http.expectNone('/api/v1/auth/logout');
+    expect(sync.posted.filter((message) => message.type === 'logout')).toHaveLength(1);
+    expect(navigate).toHaveBeenCalledOnce();
+  });
+
   it('logs out locally when another tab logs out', () => {
     sync.receive({ type: 'session', tokens: panelTokens(), email: 'ana@example.test' });
     expect(store.user()).toEqual({ id: 'user-1', email: 'ana@example.test' });
