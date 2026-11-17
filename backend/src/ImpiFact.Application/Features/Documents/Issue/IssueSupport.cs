@@ -104,6 +104,23 @@ public static class IssueErrors
         "La resolución no tiene consecutivo de numeración. Vuelva a guardar la resolución para crearlo.",
         ErrorType.Validation);
 
+    /// <summary>
+    /// Texto de <see cref="ReferenceNotAccepted"/>. El PHP no buscaba la factura referenciada («php-rules», sección 4.2),
+    /// así que no tiene un mensaje para esto.
+    /// </summary>
+    public const string ReferenceNotAcceptedMessage =
+        "La factura referenciada en billing_reference todavía no está aceptada por la DIAN. Emita la nota cuando la factura quede aceptada.";
+
+    /// <summary>
+    /// La nota referencia por su CUFE (código único de la factura electrónica) una factura de la empresa que la DIAN
+    /// todavía no aceptó (o que rechazó): una nota solo corrige un documento ya válido.
+    /// </summary>
+    public static readonly Error ReferenceNotAccepted = new(
+        "document.reference_not_accepted", ReferenceNotAcceptedMessage, ErrorType.Validation)
+    {
+        Fields = [new FieldError("billing_reference.uuid", ReferenceNotAcceptedMessage)],
+    };
+
     public static readonly Error RangeExhausted = Error.Validation(
         [new FieldError("number", "Se agotó el rango de numeración de la resolución. Configure una resolución nueva.")]);
 }
@@ -121,6 +138,24 @@ public sealed record IssueDocumentResponse
 
     [JsonPropertyName("message")]
     public required string Message { get; init; }
+
+    /// <summary>
+    /// Nombre del XML firmado como lo da el PHP (<c>FES-</c>, <c>NCS-</c> o <c>NDS-</c> más el número completo), el que
+    /// entiende la ruta <c>download</c>.
+    /// </summary>
+    [JsonPropertyName("urlinvoicexml")]
+    public required string UrlInvoiceXml { get; init; }
+
+    /// <summary>Nombre del PDF como lo da el PHP; se puede descargar cuando el Worker lo genera.</summary>
+    [JsonPropertyName("urlinvoicepdf")]
+    public required string UrlInvoicePdf { get; init; }
+
+    /// <summary>
+    /// Nombre del AttachedDocument (contenedor que se entrega al comprador) con el prefijo <c>Attachment-</c> que
+    /// entiende la ruta <c>download</c>; existe cuando la DIAN acepta el documento.
+    /// </summary>
+    [JsonPropertyName("urlinvoiceattached")]
+    public required string UrlInvoiceAttached { get; init; }
 
     [JsonPropertyName("cufe")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

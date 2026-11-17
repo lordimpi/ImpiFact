@@ -1,0 +1,22 @@
+{
+  "kind": "invoice",
+  "type_document_id": 1,
+  "prefix": "SETP",
+  "number": 990000002,
+  "cufe": "0ca39906d8c33e7b2b965be29afcd74fc6746835362bce580f26d49868bc80a5445bdb6c57bbc164484c112df5117cb3",
+  "now": "2026-11-16 09:15:31",
+  "customer": {
+    "identification_number": "800000001",
+    "dv": "1",
+    "type_document_identification_id": 6,
+    "type_organization_id": 1,
+    "type_regime_id": 1,
+    "type_liability_id": 117,
+    "name": "CLIENTE DE PRUEBA GOLDEN SAS",
+    "phone": "3000000001",
+    "address": "CARRERA 2 # 2-02",
+    "email": "cliente.golden@example.com",
+    "merchant_registration": "0000000-00",
+    "municipality_id": 149
+  }
+}

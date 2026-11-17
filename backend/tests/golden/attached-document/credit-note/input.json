@@ -1,0 +1,22 @@
+{
+  "kind": "credit-note",
+  "type_document_id": 4,
+  "prefix": "NC",
+  "number": 1,
+  "cufe": "f915302772247d2114eabcadb51ef8fb341f6cd78ae942e3b85771355749a08d52cc2cae5146726f08ab4a56f97af4e3",
+  "now": "2026-11-16 10:02:40",
+  "customer": {
+    "identification_number": "800000001",
+    "dv": "1",
+    "type_document_identification_id": 6,
+    "type_organization_id": 1,
+    "type_regime_id": 1,
+    "type_liability_id": 117,
+    "name": "CLIENTE DE PRUEBA GOLDEN SAS",
+    "phone": "3000000001",
+    "address": "CARRERA 2 # 2-02",
+    "email": "cliente.golden@example.com",
+    "merchant_registration": "0000000-00",
+    "municipality_id": 149
+  }
+}

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>NOTA CREDITO ELECTRONICA Nro: {{Document.Prefix}} - {{Document.Number}}</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+{{> _header}}
+    {{#if Document.HeadNote}}<p class="center"><strong>{{Document.HeadNote}}</strong></p>{{/if}}
+{{> _note-customer}}
+{{> _lines}}
+{{> _summary}}
+{{> _footer}}
+</body>
+</html>

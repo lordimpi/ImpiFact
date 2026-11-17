@@ -4,8 +4,9 @@
 #   2. docker compose -f deploy/docker-compose.yml up -d
 #
 # Los puertos quedan atados a 127.0.0.1: solo se puede entrar desde este mismo equipo.
-# Los demás servicios (SQL Server y MySQL como perfiles, almacenamiento de archivos, correo, Api, Worker y web)
-# se agregan en la fase que los necesita.
+# MinIO (almacenamiento compatible con S3) va en el perfil «s3»; ver el servicio más abajo.
+# Gotenberg (HTML a PDF) y MailHog (correo de prueba) arrancan con los demás; ver sus servicios más abajo.
+# Los demás servicios (SQL Server y MySQL como perfiles, Api, Worker y web) se agregan en la fase que los necesita.
 name: impifact
 
 services:
@@ -28,5 +29,84 @@ services:
       timeout: 3s
       retries: 10
 
+  # MinIO: almacenamiento de objetos compatible con S3 (el de Amazon) para probar Storage:Provider = S3 en desarrollo.
+  # Va en el perfil «s3», así que solo arranca con:  docker compose -f deploy/docker-compose.yml --profile s3 up -d
+  # Necesita en deploy/.env:
+  #   MINIO_ROOT_USER=<usuario propio>
+  #   MINIO_ROOT_PASSWORD=<contraseña propia, 8 caracteres o más>
+  #   MINIO_KMS_SECRET_KEY=impifact-dev:<base64 de 32 bytes al azar, por ejemplo de «openssl rand -base64 32»>
+  # La llave KMS (servicio de administración de llaves) permite el cifrado del lado del servidor (SSE-S3) que la
+  # aplicación pide al guardar. Sin estas variables MinIO no arranca (nunca usa su usuario y contraseña de fábrica).
+  # La aplicación toma sus credenciales de AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY (los mismos valores), nunca de
+  # appsettings. MinIO dejó de publicar imágenes oficiales en 2025; esta es la del fork comunitario, con la versión fija.
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    profiles: ["s3"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
+      MINIO_KMS_SECRET_KEY: ${MINIO_KMS_SECRET_KEY:-}
+    # «$$» llega como «$» al contenedor: las variables se leen allí, no al armar el compose.
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        if [ -z "$$MINIO_ROOT_USER" ] || [ -z "$$MINIO_ROOT_PASSWORD" ] || [ -z "$$MINIO_KMS_SECRET_KEY" ]; then
+        echo "Set MINIO_ROOT_USER, MINIO_ROOT_PASSWORD and MINIO_KMS_SECRET_KEY in deploy/.env" >&2; exit 1; fi;
+        exec minio server /data --console-address :9001
+    ports:
+      # API S3 (Storage:S3:ServiceUrl = http://127.0.0.1:9000) y consola web de MinIO.
+      - "127.0.0.1:${MINIO_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Crea el bucket (MINIO_BUCKET, por omisión «impifact-documents») una vez que MinIO está listo; la aplicación no
+  # crea buckets.
+  minio-bucket:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    profiles: ["s3"]
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
+      MINIO_BUCKET: ${MINIO_BUCKET:-impifact-documents}
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
+        mc mb --ignore-existing "local/$$MINIO_BUCKET"
+    restart: "no"
+
+  # Conversor de HTML a PDF del Worker (ADR-04): Chromium detrás de una API HTTP, sin estado ni secretos.
+  # La variante «-chromium» no trae LibreOffice, que el PDF no usa. Las pruebas de integración usan la misma imagen.
+  gotenberg:
+    image: gotenberg/gotenberg:8.39.0-chromium
+    ports:
+      # El Worker usa Pdf:GotenbergUrl = http://127.0.0.1:3000 (o http://gotenberg:3000 dentro de esta red).
+      - "127.0.0.1:${GOTENBERG_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  # Capturador de correo de desarrollo: recibe por SMTP todo lo que envía el Worker y no lo entrega a nadie. Los
+  # correos se ven en http://127.0.0.1:8025. Para usarlo, el Worker lleva Email__Host=127.0.0.1, Email__Port=1025,
+  # Email__Encryption=none y Email__FromAddress=<un remitente de prueba>.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    ports:
+      - "127.0.0.1:${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILHOG_UI_PORT:-8025}:8025"
+
 volumes:
   postgres-data:
+  minio-data:

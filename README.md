@@ -21,6 +21,17 @@ dotnet build -warnaserror
 dotnet test
 ```
 
+### Correr en local
+
+Nada de esto se versiona: cada equipo arma sus propios archivos.
+
+1. `deploy/.env` con `POSTGRES_PASSWORD=<contraseña propia>` (y `POSTGRES_PORT=5433` si ya hay un PostgreSQL en el 5432). Luego, desde la raíz: `docker compose -f deploy/docker-compose.yml up -d postgres gotenberg mailhog`.
+2. Carpeta `.local/` en la raíz con `master.key` (32 bytes al azar en base64, por ejemplo `openssl rand -base64 32`), `certificates/` y `storage/`. La llave maestra cifra los certificados de las empresas: si se pierde, hay que volver a subirlos.
+3. `Properties/launchSettings.json` en `ImpiFact.Api`, `ImpiFact.Worker` y `ImpiFact.Migrator` con las variables de entorno: `Database__ConnectionString`, `Secrets__LocalAesGcm__MasterKeyFile`, `Secrets__LocalAesGcm__CertificateDirectory` y `Storage__Local__Root` (rutas a `.local/`); el Worker además lleva `Email__Host=127.0.0.1`, `Email__Port=1025`, `Email__Encryption=none` y `Email__FromAddress`.
+4. Correr una vez el Migrator (aplica las migraciones y los catálogos) y crear la primera llave de plataforma con `dotnet run --project src/ImpiFact.Migrator -- create-platform-key <nombre>`; se muestra una sola vez.
+5. Opcional, para probar desde Scalar: `dotnet run --project src/ImpiFact.Migrator -- seed-demo` crea (o actualiza) la empresa de prueba NIT 900123456-8 lista para emitir en habilitación, con software, resoluciones SETP/NC/ND y un certificado autofirmado (la DIAN lo rechaza, sirve solo en local), y muestra una API key nueva en cada corrida. Pide `DOTNET_ENVIRONMENT=Development` (o `--force`) y las mismas variables `Secrets__LocalAesGcm__*` que la API.
+6. Arrancar la API (Scalar, la documentación interactiva, en `/scalar`) y el Worker desde Visual Studio o con `dotnet run`. Los correos de prueba se ven en MailHog: `http://127.0.0.1:8025`.
+
 Los casos golden (XML y CUFE de referencia capturados del PHP) están en `backend/tests/golden`; cómo se generan se explica en [`backend/tools/golden-capture`](backend/tools/golden-capture/README.md).
 
 ## Documentación

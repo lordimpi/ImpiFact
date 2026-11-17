@@ -94,7 +94,6 @@ public sealed class StorageStartupTests
     }
 
     [TestCase("AzureBlob")]
-    [TestCase("S3")]
     [TestCase("Gcs")]
     public void Startup_fails_with_a_cloud_provider_that_is_not_available_yet(string provider)
     {

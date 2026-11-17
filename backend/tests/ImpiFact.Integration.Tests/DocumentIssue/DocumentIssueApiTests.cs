@@ -322,6 +322,59 @@ public sealed class DocumentIssueApiTests
         Assert.That(message.Payload["test_set_id"]!.GetValue<string>(), Is.EqualTo("0d2e2883-eb8d-4d5c-a4a6-1bd40f5a2b10"));
     }
 
+    /// <summary>
+    /// La respuesta lleva los nombres de archivo del PHP (<c>urlinvoicexml</c>, <c>urlinvoicepdf</c> y
+    /// <c>urlinvoiceattached</c>, inventario de reglas 3.8), los mismos que entiende la ruta <c>download</c>. El XML
+    /// firmado ya se puede descargar con su nombre; el PDF y el AttachedDocument existen cuando el Worker los genera.
+    /// </summary>
+    [TestCase("invoice", "invoice", "single-line-iva19", "FES")]
+    [TestCase("credit-note", "credit-note", "partial-return-with-reference", "NCS")]
+    [TestCase("debit-note", "debit-note", "price-adjustment-with-reference", "NDS")]
+    public async Task The_response_names_the_php_files_of_the_document(string route, string kind, string name, string tag)
+    {
+        using var issuer = await NewIssuerAsync();
+
+        using var response = await PostAsync(issuer.Client, route, Edited(Dir(kind, name), json => json.Remove("number")));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
+        string fullNumber;
+        string xmlName;
+        using (var json = await Json(response))
+        {
+            var root = json.RootElement;
+            fullNumber = root.GetProperty("document").GetProperty("full_number").GetString()!;
+            xmlName = root.GetProperty("urlinvoicexml").GetString()!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(xmlName, Is.EqualTo($"{tag}-{fullNumber}.xml"));
+                Assert.That(root.GetProperty("urlinvoicepdf").GetString(), Is.EqualTo($"{tag}-{fullNumber}.pdf"));
+                Assert.That(root.GetProperty("urlinvoiceattached").GetString(), Is.EqualTo($"Attachment-{fullNumber}.xml"));
+            });
+        }
+
+        using var download = await issuer.Client.GetAsync($"/api/ubl2.1/download/{issuer.Nit}/{xmlName}");
+        Assert.That(download.StatusCode, Is.EqualTo(HttpStatusCode.OK), await download.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>
+    /// La DIAN da el <c>testSetId</c> como un GUID. Otra palabra en su lugar no es un set de pruebas: por ejemplo
+    /// <c>invoice/preeliminar-view</c>, la vista previa del PHP (colección Postman, carpeta 02), no debe emitir ni
+    /// mandar nada a la DIAN.
+    /// </summary>
+    [TestCase("invoice/preeliminar-view")]
+    [TestCase("credit-note/not-a-test-set")]
+    [TestCase("debit-note/not-a-test-set")]
+    public async Task A_test_set_segment_that_is_not_a_guid_does_not_issue_anything(string route)
+    {
+        using var issuer = await NewIssuerAsync();
+
+        using var response = await PostAsync(issuer.Client, route, Edited(Invoice, json => json.Remove("number")));
+
+        await using var scope = Api.OpenScope(null, null, ActorType.System);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound), await response.Content.ReadAsStringAsync());
+        Assert.That(await CompanyApiTests.Rows<Document>(scope.Db, issuer.CompanyId).CountAsync(), Is.Zero);
+    }
+
     private static async Task<Issuer> NewIssuerAsync(bool withCertificate = true, bool withSoftware = true, IEnumerable<object>? resolutions = null)
     {
         var (nit, dv) = CompaniesHost.NewNit();

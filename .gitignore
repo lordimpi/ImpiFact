@@ -13,6 +13,7 @@ odd/
 .DS_Store
 Thumbs.db
 .vs/
+*.user
 .vscode/
 .idea/
 
@@ -28,3 +29,7 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# Local development keys, stored files and launch profiles with local settings (never versioned)
+.local/
+launchSettings.json

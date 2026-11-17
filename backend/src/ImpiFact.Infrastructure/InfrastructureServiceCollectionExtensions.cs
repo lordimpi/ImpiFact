@@ -1,6 +1,8 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Persistence;
+using ImpiFact.Infrastructure.Billing;
 using ImpiFact.Infrastructure.Companies;
+using ImpiFact.Infrastructure.Dian;
 using ImpiFact.Infrastructure.Documents;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
@@ -51,7 +53,9 @@ public static class InfrastructureServiceCollectionExtensions
         // La carpeta de certificados cifrados no puede quedar dentro del almacenamiento de documentos, ni al revés.
         services.AddSingleton(new ReservedDirectory("Secrets:LocalAesGcm:CertificateDirectory", configuration["Secrets:LocalAesGcm:CertificateDirectory"]));
         services.AddDocuments();
+        services.AddBilling();
         services.AddPlatform();
+        services.AddDianWebService(configuration);
         services.AddReads();
         return services;
     }
@@ -67,7 +71,10 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddDbContext<TContext>((serviceProvider, options) =>
             serviceProvider.GetRequiredService<IDatabaseProvider>().ConfigureDbContext(serviceProvider, options));
         services.Replace(ServiceDescriptor.Scoped<IUnitOfWork>(serviceProvider =>
-            new EfUnitOfWork(serviceProvider.GetRequiredService<TContext>(), serviceProvider.GetRequiredService<IDatabaseProvider>())));
+            new EfUnitOfWork(
+                serviceProvider.GetRequiredService<TContext>(),
+                serviceProvider.GetRequiredService<IDatabaseProvider>(),
+                serviceProvider.GetServices<IPendingWrites>())));
         return services;
     }
 

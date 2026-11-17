@@ -1,6 +1,6 @@
 // Prototipo de la fase 1: construye una factura nacional de ejemplo, la firma con XAdES-EPES (el formato de
-// firma digital XML que exige la DIAN) y la empaca en el ZIP que espera la DIAN. La fase 1a llega hasta
-// aquí; el envío a la DIAN llega en la fase 1b.
+// firma digital XML que exige la DIAN) y la empaca en el ZIP que espera la DIAN. El envío a la DIAN de la
+// fase 1b está en DianSendCommands.cs (comandos send-test-set y status-zip).
 //
 // Uso (desde la carpeta backend/):
 //   dotnet run --project tools/ImpiFact.Prototype -- [--out <dir>] [--cert <file.p12> --password <pwd>]
@@ -28,6 +28,17 @@ using ImpiFact.Dian.Ubl;
 if (args is ["sign-samples", ..])
 {
     return SignSamples(ParseArguments(args[1..]));
+}
+
+// Fase 1b: envío real al ambiente de habilitación de la DIAN (ver DianSendCommands.cs).
+if (args is ["send-test-set", ..])
+{
+    return await DianSendCommands.SendTestSetAsync(ParseArguments(args[1..]));
+}
+
+if (args is ["status-zip", ..])
+{
+    return await DianSendCommands.StatusZipAsync(ParseArguments(args[1..]));
 }
 
 var options = ParseArguments(args);

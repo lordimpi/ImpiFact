@@ -2,9 +2,11 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using ImpiFact.Application.Abstractions;
+using ImpiFact.Application.Abstractions.Billing;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Application.Abstractions.Protection;
+using ImpiFact.Application.Abstractions.Results;
 using ImpiFact.Application.Features.Documents.Issue;
 using ImpiFact.Domain.Common;
 using ImpiFact.Domain.Documents;
@@ -59,6 +61,9 @@ public sealed class FakeDocumentDb : IDocumentStore, IDocumentFiles, INumberingS
     }
 
     public Task OpenForResolutionAsync(Guid companyId, Guid resolutionId, long firstNumber, CancellationToken ct) =>
+        throw new NotSupportedException();
+
+    public Task OpenAsync(Guid companyId, string scopeKey, long firstNumber, CancellationToken ct) =>
         throw new NotSupportedException();
 
     public Task<long?> TakeNextAsync(Guid companyId, string scopeKey, CancellationToken ct)
@@ -222,6 +227,23 @@ public sealed class FakeQrUrls : IDianQrUrls
     public string ForEnvironment(int typeEnvironmentId) => typeEnvironmentId == 1
         ? "https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey="
         : "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=";
+}
+
+/// <summary>Plan de la empresa preparado por la prueba: deja emitir salvo que tenga un rechazo; anota cada consulta.</summary>
+public sealed class FakePlanGate : IPlanGate
+{
+    public Error? Refusal { get; set; }
+
+    public List<(Guid CompanyId, DocumentKind Kind)> Checks { get; } = [];
+
+    public Task<Error?> CheckIssueAsync(Guid companyId, DocumentKind kind, CancellationToken ct)
+    {
+        Checks.Add((companyId, kind));
+        return Task.FromResult(Refusal);
+    }
+
+    public Task CountAcceptedAsync(Guid companyId, DocumentKind kind, CancellationToken ct) =>
+        throw new NotSupportedException("Issuing a document never counts plan usage.");
 }
 
 public sealed class IssueClock(DateTimeOffset now) : IClock

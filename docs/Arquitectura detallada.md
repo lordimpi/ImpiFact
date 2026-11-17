@@ -52,8 +52,8 @@ ImpiFact/
 │  │  │  ├─ Storage/           IBlobStorage: Local, AzureBlob, S3, Gcs
 │  │  │  ├─ Protection/        ICertificateStore, ISecretProtector: KeyVault, AwsSecrets, GcpSecrets, LocalAesGcm
 │  │  │  ├─ Email/             IEmailSender (MailKit, SMTP por empresa)
-│  │  │  ├─ Pdf/               IPdfRenderer + plantillas
-│  │  │  ├─ Outbox/            publicador y procesador
+│  │  │  ├─ Pdf/               IPdfRenderer con Gotenberg, plantillas HTML (Handlebars, recursos incrustados) y QR (QRCoder)
+│  │  │  ├─ Platform/Outbox/   cola (toma con SKIP LOCKED) y procesador del Worker; el publicador es Platform/EfOutbox
 │  │  │  └─ Options/           GenericOptionsService<T> y clases de opciones
 │  │  ├─ ImpiFact.Infrastructure.Postgres/ | .SqlServer/ | .MySql/
 │  │  ├─ ImpiFact.Api/          Program.cs, endpoints, middleware, auth, OpenAPI
@@ -76,7 +76,7 @@ Organización del repositorio (15-nov, ADR-28): monorepo con una carpeta por apl
 | Domain | ninguno |
 | Application | `FluentValidation`, `Mapster`, `Scrutor`, `Microsoft.Extensions.*.Abstractions` |
 | Dian | `System.Security.Cryptography.Xml`, `System.IO.Compression` (BCL) |
-| Infrastructure | `Microsoft.EntityFrameworkCore`, `Dapper`, `Serilog`, `MailKit`, `QuestPDF` (candidato; ADR-04 abierto), `Azure.Storage.Blobs`, `AWSSDK.S3`, `Google.Cloud.Storage.V1`, `Azure.Security.KeyVault.*`, `AWSSDK.SecretsManager`, `Google.Cloud.SecretManager.V1`, `Microsoft.Extensions.Http.Resilience`, `Microsoft.AspNetCore.DataProtection` |
+| Infrastructure | `Microsoft.EntityFrameworkCore`, `Dapper`, `Serilog`, `MailKit`, `Handlebars.Net` y `QRCoder` (PDF; el HTML lo convierte Gotenberg, un contenedor aparte: ADR-04), `Azure.Storage.Blobs`, `AWSSDK.S3`, `Google.Cloud.Storage.V1`, `Azure.Security.KeyVault.*`, `AWSSDK.SecretsManager`, `Google.Cloud.SecretManager.V1`, `Microsoft.Extensions.Http.Resilience`, `Microsoft.AspNetCore.DataProtection` |
 | Infrastructure.Postgres | `Npgsql.EntityFrameworkCore.PostgreSQL` |
 | Infrastructure.SqlServer | `Microsoft.EntityFrameworkCore.SqlServer` |
 | Infrastructure.MySql | proveedor definido en ADR-08 (Pomelo u Oracle) |
@@ -96,7 +96,7 @@ Cada módulo es una carpeta en `Domain`, `Application/Features` y `Infrastructur
 | `Company` | Empresa, ambientes, software, certificado, resoluciones, correo, logo | `CreateCompany`, `UpdateCompany`, `SetEnvironment`, `SetSoftware`, `UploadCertificate`, `UpsertResolution`, `SetMailSettings`, `DeleteCompany` |
 | `Masters` | Clientes y productos | `UpsertCustomer`, `SearchCustomers`, `UpsertItem`, `SearchItems` |
 | `Documents` | Emisión y consulta de documentos | `IssueInvoice`, `IssueCreditNote`, `IssueDebitNote`, `IssueSupportDocument`, `PreviewInvoice`, `GetDocument`, `ListDocuments`, `RegenerateAttachedDocument`, `RegeneratePdf`, `SendEmail`, `SendEvent`, `ProcessContingency` |
-| `Billing` | Planes y consumo | `AssignPlan`, `GetPlanUsage`, `ConsumeQuota` |
+| `Billing` | Planes y consumo | `StorePlan`, `AssignPlan`, `QueryPlans`, `QueryPlanCompanies`, `GetCurrentPlan` (consumo restante) y el puerto `IPlanGate` (revisar la cuota antes de emitir y contar al aceptar) |
 | `Platform` | Outbox, auditoría, notificaciones, idempotencia | `AppendAudit`, `ListNotifications` |
 
 Enterprise (nómina, POS, RIPS, extractor, app) entra después como módulos nuevos que reutilizan `Dian`, `Company` y `Platform` sin tocar los existentes.
@@ -159,7 +159,7 @@ Clases de opciones: `DatabaseOptions`, `DianOptions`, `StorageOptions`, `Secrets
 ### 4.5 Eventos
 
 - **De dominio, en proceso:** `DocumentAccepted`, `DocumentRejected`, `CertificateExpiring`. Se despachan después de confirmar la transacción; los handlers suscritos (consumo de cuota, notificaciones, correo) no pueden hacer fallar la emisión.
-- **Entre procesos, por outbox:** `BuildDocumentXml`, `SendDocumentToDian`, `PollDianStatus`, `SendEmail`, `RenderPdf`. Se escriben en `outbox_messages` en la misma transacción que el cambio de estado y los procesa el Worker.
+- **Entre procesos, por outbox:** `BuildDocumentXml`, `SendDocumentToDian`, `PollDianStatus`, `SendEmail`, `RenderPdf`, `RegeneratePdf` y `RegenerateAttachedDocument` (estos dos los encolan las rutas `regeneratepdf` y `regenerate-attached-document`; guardan una revisión nueva del archivo y no envían correo). Se escriben en `outbox_messages` en la misma transacción que el cambio de estado y los procesa el Worker.
 
 ## 5. Puertos
 
@@ -198,7 +198,7 @@ public interface IUblBuilder<TDoc> { string Build(TDoc document); }          // 
 public interface ICufeCalculator { string Compute(CufeInput input); }
 public interface IXmlSigner { string Sign(string xml, SigningCertificate cert, SigningProfile profile); }
 
-public interface IPdfRenderer { Task<byte[]> RenderAsync(DocumentPdfModel model, int templateId, CancellationToken ct); }
+public interface IPdfRenderer { Task<byte[]> RenderAsync(DocumentPdfModel model, CancellationToken ct); }   // ADR-04
 public interface IEmailSender { Task SendAsync(MailSettings settings, EmailMessage message, CancellationToken ct); }
 public interface INumberingSql { Task<long> TakeNextAsync(DbConnection c, DbTransaction t, Guid companyId, string scopeKey, CancellationToken ct); }
 public interface ITenantContext { Guid? CompanyId { get; } Guid? UserId { get; } ActorType Actor { get; } }
@@ -249,7 +249,9 @@ Estado al 15-nov (fase 1a): `XmlSigner` firma con RSA-SHA256, C14N inclusivo y d
 - Operaciones: `SendBillSync`, `SendTestSetAsync`, `SendBillAsync`, `GetStatus`, `GetStatusZip`, `SendEventUpdateStatus`, `GetNumberingRange`, `GetXmlByDocumentKey`.
 - Los archivos se envían como ZIP en base64 con el nombre de archivo que exige la DIAN por tipo de documento.
 - Resiliencia (`Microsoft.Extensions.Http.Resilience`): tiempo de espera 60 s por intento, 3 reintentos con retroceso exponencial y jitter solo ante errores transitorios (timeout, 5xx, red); rechazo de negocio no se reintenta; *circuit breaker* tras 5 fallos en 30 s. Valores en `ResilienceOptions`.
-- Cada llamada guarda una fila en `dian_submissions` y la solicitud/respuesta en `document_files`.
+- La cadena de resiliencia va alrededor de cada intento en el cliente SOAP, no en el `HttpClient`: cada reintento arma y firma un sobre nuevo, con su propia `wsu:Timestamp`. La firma cubre solo `wsa:To` (supuesto C1, como el PHP), así que su valor no cambia entre reintentos; si la DIAN detectara repeticiones por la firma, también rechazaría los envíos del PHP.
+- Si algún intento de una llamada pudo llegar a la DIAN (tiempo agotado o conexión cortada después de enviar, o un 502/504 de un intermediario), la llamada se informa como «enviada sin respuesta» aunque el último intento termine en 503, en un SOAP Fault o con el *circuit breaker* abierto: el documento pasa a `Unconfirmed` y se consulta su estado (sección 7).
+- Cada llamada guarda una fila en `dian_submissions` y la solicitud/respuesta en `document_files`. De la solicitud se guarda el ZIP enviado (`SentZip`), no el sobre SOAP: el sobre solo agrega el certificado público, la marca de tiempo y la firma, que cambian en cada intento, y repetiría el documento completo en base64; el ZIP es lo que la DIAN valida. De la respuesta se guarda el sobre completo (`DianResponse`) y el `ApplicationResponse` si viene.
 
 ### 6.5 Redondeo
 
@@ -277,8 +279,13 @@ Reglas:
 - El consecutivo se consume en el paso 3; si el documento termina `Failed` queda como hueco registrado.
 - Los pasos 7 a 10 son idempotentes: reintentar un mensaje no duplica archivos (`UQ document_id, kind, revision`) ni intentos (`UQ document_id, attempt`).
 - El reconsultado de `Unconfirmed` se hace cada 1 minuto durante \~10 minutos y luego cada 15 minutos hasta 24 h; pasado ese plazo pasa a `Failed` con alerta.
+- Un documento que la DIAN pudo recibir nunca pasa a `Failed` desde `Queued`. Si el Worker se rinde con `SendDocumentToDian` y algún intento guardado en `dian_submissions` pudo llegar (sin resultado guardado, con un resultado de la DIAN como la regla 90, o una consulta de estado), el documento pasa `Queued → Sent → Unconfirmed` y se programa `PollDianStatus` con GetStatus y el CUFE; `Failed` directo desde `Queued` solo cuando ningún intento pudo llegar. Lo mismo antes de tomar un SOAP Fault del que envía como rechazo: si un intento anterior pudo llegar, cuenta como «sin respuesta».
+- GetStatus con código 66 (la DIAN todavía no registra ese CUFE) no es una decisión aunque traiga mensajes: se sigue consultando hasta el plazo.
+- Consumo del plan (paso 9, 17-nov): al pasar a `Accepted`/`AcceptedWithWarnings`, el Worker suma un documento de la familia «factura» (tipos 1 a 5) en `plan_usage` del plan contratado activo de la empresa, en el mismo guardado que la aceptación. La suma es un `INSERT … ON CONFLICT DO UPDATE SET used = used + 1` (`IPlanUsageSql`, propio de cada motor) que la unidad de trabajo ejecuta en la transacción del guardado, después de los cambios de EF (`IPendingWrites`): si el guardado de la aceptación falla (otro proceso aceptó el mismo documento y cambió su `row_version`), la suma tampoco queda; dos aceptaciones simultáneas de la misma empresa se esperan en la fila y no pierden cuentas. Es la misma excepción a la regla «Escrituras (16-nov)» que el consecutivo. Sin plan contratado no se cuenta nada (sin límites, como el plan por defecto del PHP), y los documentos del set de pruebas (ZipKey en `track_id`) no cuentan, como en el PHP.
+- Una consulta de estado nunca deja el documento sin otra consulta pendiente: sin certificado activo cuenta como una consulta sin decisión, y si el Worker se rinde con `PollDianStatus` por cualquier otra falla, se programa otra consulta o, pasado el plazo de 24 h, pasa a `Failed` con alerta (`Unconfirmed → Failed`; un documento en `Sent` pasa antes por `Unconfirmed`).
 - El JSON de respuesta mantiene los campos legados (`success`, `message`, `ResponseDian`, `cufe`, `urlinvoicexml`, `urlinvoicepdf`, …); el conjunto exacto se fija con los contract tests de la colección Postman.
-- Notas crédito/débito: mismo flujo. La factura de referencia es opcional, como en el PHP (operaciones sin referencia 22/8 y 5); si `billing_reference.uuid` corresponde a un documento de la empresa se enlaza `reference_document_id` (17-nov). Exigir que el original esté `Accepted*` llega con el envío a la DIAN (fase 4).
+- Notas crédito/débito: mismo flujo. La factura de referencia es opcional, como en el PHP (operaciones sin referencia 22/8 y 5); si `billing_reference.uuid` corresponde a un documento de la empresa se enlaza `reference_document_id` (17-nov), y ese documento debe estar `Accepted` o `AcceptedWithWarnings` (fase 4): si no, 422 con `code = document.reference_not_accepted` y el error en `billing_reference.uuid`, antes de tomar número. Un CUFE que la empresa no tiene (factura emitida fuera de ImpiFact) se acepta sin enlace, como en el PHP, y el set de pruebas (`/{testSetId}`) no exige la aceptación, porque sus facturas se aceptan de forma asíncrona.
+- Plan (paso 2, fase 4): con las reglas y los mensajes del PHP, después del certificado y antes de los catálogos: plan inactivo, mensual vencido al mes o anual al año, o documentos usados iguales a la cantidad del plan → 403 con el mensaje del PHP (`plan.inactive` o `plan.limit_reached`). El periodo 0 no tiene límites; sin plan contratado activo tampoco (el plan por defecto del PHP). El set de pruebas no revisa el plan, como `testSetStore`. Es una revisión blanda, como en el PHP: dos emisiones simultáneas con un solo documento disponible pasan las dos, porque el consumo se cuenta al aceptar.
 - Vista previa (`preeliminar-view`): valida (paso 2), arma el documento en memoria en estado `Draft` y genera UBL y PDF sin tomar consecutivo ni persistir nada; devuelve el PDF.
 - Contingencia: `invoice-contingency` emite sin enviar (`ContingencyPending`); `send_pendings` los encola.
 
@@ -288,14 +295,19 @@ Proceso aparte (`ImpiFact.Worker`) con la misma imagen base que el Api y otro pu
 
 | Servicio | Intervalo | Qué hace |
 | --- | --- | --- |
-| `OutboxProcessor` | continuo (sondeo 1–5 s con espera adaptativa) | Toma mensajes `status = 0` con `next_attempt_at <= now` usando `SKIP LOCKED`/`READPAST`, los marca en proceso (`locked_until = now + 5 min`) y despacha al handler por `type`. Reintentos con retroceso: 10 s, 1 min, 5 min, 30 min, 2 h; al quinto fallo queda `Failed` y genera notificación. |
+| `OutboxProcessor` | continuo (sondeo 1–5 s con espera adaptativa) | Toma mensajes `status = 0` con `next_attempt_at <= now` usando `SKIP LOCKED`/`READPAST`, los marca en proceso (`locked_until = now + 5 min`) y despacha al handler por `type`. Reintentos con retroceso: 10 s, 1 min, 5 min y 30 min (el escalón de 2 h solo se usa si `MaxAttempts` sube de 5); al quinto fallo queda `Failed` y genera notificación. Cada handler tiene un plazo (`HandlerTimeoutSeconds`, 270 s) menor que el bloqueo, para que otra instancia no lo tome mientras sigue corriendo; un mensaje que se volvió a tomar más veces que `MaxAttempts` sin registrar resultado queda `Failed` sin ejecutarse. Antes de guardar el fallo final se avisa al handler (`OnFailedAsync`) para que deje en estado final lo que el mensaje iba a cambiar; si el proceso se cae entre los dos pasos, el mensaje sigue en proceso y se vuelve a tomar al vencer su bloqueo, así el aviso se repite y nada queda a medias. |
 | `DianStatusPoller` | 1 min | Reconsulta documentos `Unconfirmed` (sección 7). |
 | `ContingencySender` | 5 min | Encola `send_pendings` de documentos `ContingencyPending` cuando la DIAN vuelve a responder. |
-| `CertificateExpiryWatcher` | diario | Crea notificaciones y correo a 30, 15 y 5 días del vencimiento. |
-| `ResolutionRangeWatcher` | diario | Avisa cuando queda menos del 10 % del rango o faltan 30 días para `valid_to`. |
-| `Housekeeping` | diario | Purga `outbox_messages` hechos con más de 30 días, `idempotency_keys` vencidas y `refresh_tokens` expirados; mueve `request`/`response` antiguos a almacenamiento frío si se configura. |
+| `CertificateExpiryWatcher` | diario | Crea notificaciones y correo a 30, 15 y 5 días del vencimiento del certificado activo, contados en el calendario de Colombia. Cada umbral se avisa una vez por certificado; si el Worker no corrió el día exacto, se avisa el umbral más estrecho alcanzado. El correo (`SendNoticeEmail`, por la bandeja de salida) sale con el servidor de la plataforma hacia el correo de la empresa. |
+| `ResolutionRangeWatcher` | diario | Avisa (notificación, sin correo) cuando queda menos del 10 % del rango o faltan menos de 30 días para `valid_to`; una vez por resolución y condición, y otra vez si la resolución cambia de rango o de vigencia. |
+| `Housekeeping` | diario | Purga `outbox_messages` hechos con más de 30 días, `idempotency_keys` vencidas y `refresh_tokens` expirados, por tandas de `DeleteBatchSize` filas. Mover `request`/`response` antiguos a almacenamiento frío queda para después: en la fase 4 no hay almacenamiento frío configurado. |
 
 Cada mensaje del outbox lleva `company_id`; el Worker lo establece en `ITenantContext` antes de ejecutar el handler. Un fallo de un tenant nunca detiene el procesamiento de los demás.
+
+Las tareas diarias (`Housekeeping` y los dos vigilantes) corren una vez al día a `ScheduledJobs:RunAtUtc` y, si `RunOnStartup` está activo, también al arrancar el Worker, para no saltarse un día. Con varias instancias del Worker:
+
+- Cada tarea toma un *advisory lock* de PostgreSQL (`pg_try_advisory_lock`, un bloqueo con nombre por sesión que no toca tablas) en una conexión propia mientras corre; la instancia que no lo obtiene salta la tarea. Si la instancia se cae, la base cierra la sesión y el bloqueo se suelta solo.
+- Cada aviso tiene una llave estable (por ejemplo `certificate-expiry:{id}:30`) y el id de su notificación sale de esa llave (los primeros 16 bytes de su SHA-256, como uuid versión 8). La llave primaria de `notifications` impide el duplicado aunque la tarea corra dos veces seguidas o dos instancias guarden el mismo aviso a la vez, sin columnas ni migraciones nuevas. El mensaje `SendNoticeEmail` se guarda en la misma transacción que la notificación, así el correo tampoco se duplica.
 
 ## 9. Capa API
 
@@ -321,9 +333,10 @@ Cada mensaje del outbox lleva `company_id`; el Worker lo establece en `ITenantCo
 ### 9.3 Endpoints
 
 - Estilo *Minimal API* agrupado por módulo (`MapGroup`), un archivo por caso de uso o por grupo pequeño; cada endpoint solo valida la forma HTTP, llama al handler y traduce el `Result`.
-- Rutas: `/api/v1/...` es la ruta canónica (la usa el panel). Las del contrato legado (`/api/ubl2.1/...`, `/api/information/...`, `/api/table/...`, etc., ver anexo A) se publican como alias del mismo handler para los contract tests.
+- Rutas: `/api/v1/...` es la ruta canónica (la usa el panel). Las del contrato legado (`/api/ubl2.1/...`, `/api/information/...`, `/api/table/...`, etc., ver anexo A) se publican como alias del mismo handler para los contract tests. No aparecen en la documentación OpenAPI (llevan `ExcludeFromDescription()`) y se borran en la fase 7, con el cierre de la referencia PHP.
 - Los DTO de entrada replican los nombres JSON del contrato (`[JsonPropertyName]`) incluyendo los typos heredados.
-- Documentación con `Microsoft.AspNetCore.OpenApi` y Scalar en `/scalar` (solo en desarrollo y staging, protegido en producción).
+- Planes (carpeta 09 del Postman, fase 4): `PUT /api/ubl2.1/plan` (alias `PUT /api/v1/plans/{id}`), `GET /api/ubl2.1/plan/query[/{id}]` (`GET /api/v1/plans[/{id}]`) y `GET /api/ubl2.1/plan/queryusersbyplan/{id}` (`GET /api/v1/plans/{id}/companies`) piden `platform:*` sin empresa (en el PHP eran públicas); `GET /api/ubl2.1/plan/infoplanuser` (`GET /api/v1/plans/current`) pide `documents:read` de la empresa. La asignación `PUT /api/v1/companies/{nit}/plan` con `{"plan_id": n}` (plataforma) es propia de ImpiFact: desactiva el plan contratado activo y crea otro que empieza ahora, así volver a asignar el mismo plan lo renueva. Diferencias con el PHP: un id inexistente es 404 (el PHP daba 500), el id 0 queda reservado, un plan nuevo sin nombre es 422 y el nombre único no choca consigo mismo; `queryusersbyplan` devuelve solo los datos de identificación de cada empresa; `infoplanuser` repite el mismo plan en `plan` a `plan4`, porque un plan contratado trae la cantidad de cada familia.
+- Documentación con `Microsoft.AspNetCore.OpenApi` y Scalar en `/scalar` (solo en desarrollo y staging, protegido en producción). Solo documenta las rutas `/api/v1`, en español: introducción con el flujo de integración, credenciales, alcances, errores e idempotencia; esquema Bearer para escribir la credencial en Scalar; descripción por sección y por ruta, con el permiso que pide cada una (`ImpiFact.Api/OpenApi`).
 
 ### 9.4 Mapeo de errores
 
@@ -343,6 +356,25 @@ El PHP respondía muchos errores con 200 y `success: false`. Los errores de vali
 ### 9.5 Archivos y descargas
 
 - Las rutas de descarga legadas (`download/{nit}/{archivo}`, `invoice/{nit}/{pdf}`, `receivedfile/...`) exigen autenticación y propiedad del NIT, o aceptan un token de URL firmada con vencimiento. Ya no existen rutas públicas adivinables.
+- `download/{nit}/{archivo}/{type_response?}` (también bajo `/api/download`) reconoce los nombres del PHP: `FES-`, `NCS-` o `NDS-{prefijo}{número}.xml` (XML firmado) y `.pdf`, `Attachment-{prefijo}{número}.xml` (AttachedDocument) y `ZipAttachm-{prefijo}{número}.zip` (el ZIP del correo, armado al vuelo). Entrega la revisión más reciente; `BASE64` responde `{success, message, filebase64}`, `INLINE` el archivo sin nombre de descarga. Alias canónico: `GET /api/v1/documents/{id}/files/{xml|pdf|attached-document|zip}`. Con `documents:read`.
+
+### 9.6 Rutas utilitarias de la primera entrega
+
+Ninguna espera a la DIAN (decisión C5 de la fase 4). Solo `numbering-range` la llama en vivo desde la API; las demás responden con lo que guardó el Worker o encolan el trabajo.
+
+| Ruta heredada (`/api/ubl2.1`) | Alias canónico | Alcance | Qué hace |
+| --- | --- | --- | --- |
+| `POST status/document/{trackId}[/{GuardarEn}]` | `GET /api/v1/documents/by-cufe/{cufe}/dian-status` | `documents:read` | Última respuesta guardada de SendBillSync, GetStatus o GetStatusZip del documento: `{success, message, ResponseDian, reqzip: null, rptazip, document}` |
+| `POST status/zip/{trackId}[/{GuardarEn}]` | `GET /api/v1/documents/zip/{zipKey}/dian-status` | `documents:read` | Última respuesta guardada de GetStatusZip para esa ZipKey |
+| `POST xml/document/{trackId}[/{GuardarEn}]` | `GET /api/v1/documents/by-cufe/{cufe}/xml` | `documents:read` | XML firmado guardado con la forma de GetXmlByDocumentKey; solo documentos aceptados |
+| `POST regeneratepdf[/{prefix}/{number}/{cufe}]` | `POST /api/v1/documents/{id}/pdf/regenerate` | `documents:write` | Encola `RegeneratePdf` |
+| `POST regenerate-attached-document` | `POST /api/v1/documents/{id}/attached-document/regenerate` | `documents:write` | Encola `RegenerateAttachedDocument`; exige ApplicationResponse guardado y certificado activo |
+| `POST send-email` | `POST /api/v1/documents/{id}/email` | `documents:write` | Deja `email_status` sin enviar y encola `SendEmail` con los destinatarios de la solicitud original |
+| `POST numbering-range` | `GET /api/v1/companies/{nit}/numbering-ranges?software_id=` | `config:write` | GetNumberingRange en vivo con el NIT de la empresa como emisor y proveedor: `{success, message, ResponseDian, certificate_days_left, operation_code, operation_description, numbering_ranges}`; SOAP Fault 422, sin respuesta 503 |
+
+- `ResponseDian` es el sobre SOAP completo convertido con las reglas del PHP (`DianLegacyJson`): hijos por nombre sin prefijo, atributos en `_attributes`, texto solo como valor y repetidos como lista.
+- Las regeneraciones y el correo solo valen para documentos `Accepted` o `AcceptedWithWarnings` (si no, 409 `document.not_accepted`); un documento de otra empresa responde 404. El documento se busca por `cufe` o por `prefix` y `number`, en ese orden, como el PHP.
+- `config/environment` y `certificate-end-date` ya estaban en el módulo Company (fase 2).
 - `config/certificate` (GET) **no se implementa**; se reemplaza por consulta de metadatos (`certificates-listing`).
 
 ## 10. Panel Angular (`web/`)
@@ -380,22 +412,33 @@ Módulos del panel de la fase 5:
                   "HabilitacionQrUrl": "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=",
                   "ProduccionQrUrl":   "https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey=",
                   "TimeoutSeconds": 60 },
-  "Storage":    { "Provider": "Local", "Local": { "Root": "/data" },    // Local | AzureBlob | S3 | Gcs
-                  "AzureBlob": { "Container": "impifact" }, "S3": { "Bucket": "", "Region": "" }, "Gcs": { "Bucket": "" } },
+  "Storage":    { "Provider": "Local", "Local": { "Root": "/data" },    // Local | S3 (fase 4) | AzureBlob | Gcs (fase 6)
+                  "AzureBlob": { "Container": "impifact" },
+                  "S3": { "Bucket": "", "Region": "", "ServiceUrl": "", "ForcePathStyle": false,
+                          "ServerSideEncryption": true, "SignedUrlMaxMinutes": 60 },
+                  "Gcs": { "Bucket": "" } },
   "Secrets":    { "Provider": "LocalAesGcm", "LocalAesGcm": { "CertificateDirectory": "/data/certificates" },  // MasterKeyFile: ruta del secreto montado
                   "KeyVaultUri": "", "AwsRegion": "", "GcpProject": "" },
   "Jwt":        { "Issuer": "impifact", "Audience": "impifact-web", "AccessMinutes": 15, "RefreshDays": 14 },  // SigningKey (PEM) es secreto
   "ForwardedHeaders": { "KnownProxies": [], "KnownNetworks": [] },          // vacío = solo loopback
   "ApiKey":     { "Prefix": "apk_" },
-  "Outbox":     { "PollSeconds": 2, "LockMinutes": 5, "MaxAttempts": 5 },
-  "Resilience": { "Retries": 3, "BreakerFailures": 5, "BreakerSeconds": 30 },
+  "Outbox":     { "PollSeconds": 2, "LockMinutes": 5, "MaxAttempts": 5, "BatchSize": 20, "HandlerTimeoutSeconds": 270 },
+  "ScheduledJobs": { "RunAtUtc": "08:00", "RunOnStartup": true, "OutboxRetentionDays": 30, "DeleteBatchSize": 1000 },   // solo el Worker
+  "Resilience": { "Retries": 3, "BaseDelaySeconds": 2, "BreakerFailures": 5, "BreakerSeconds": 30,
+                  "BreakDurationSeconds": 30, "TotalSeconds": 120 },               // 2 × TotalSeconds < Outbox:HandlerTimeoutSeconds
   "Cors":       { "Origins": [ "https://app.example.com" ] },
   "RateLimit":  { "PermitPerMinutePerKey": 120, "PermitPerMinutePerIp": 300, "LoginPerMinute": 10 },
-  "Pdf":        { "DefaultTemplate": 2 },
+  "Pdf":        { "GotenbergUrl": "http://127.0.0.1:3000", "TimeoutSeconds": 60 },   // solo el Worker
+  "Email":      { "Host": "", "Port": 587, "Encryption": "starttls", "FromAddress": "", "FromName": "ImpiFact", "TimeoutSeconds": 60 },   // solo el Worker; Username y Password por variables de entorno o el proveedor de secretos
   "Serilog":    { /* niveles y sinks */ }
 }
 ```
 
+- `Resilience` (llamadas a la DIAN): `Retries` reintentos después del primero; `BaseDelaySeconds` espera base del retroceso exponencial con jitter (cerca de 2, 4 y 8 s); `BreakerFailures` fallos dentro de `BreakerSeconds` abren el *circuit breaker*, que queda abierto `BreakDurationSeconds`; `TotalSeconds` es el plazo de una llamada con todos sus intentos y esperas. El Worker exige al arrancar que dos llamadas (un envío y la consulta GetStatus de la regla 90) quepan en el plazo de un handler: `2 × TotalSeconds < Outbox:HandlerTimeoutSeconds` (120 s y 270 s por defecto). Con 60 s por intento, una llamada que se agota alcanza a hacer dos intentos, no cuatro.
+- `ScheduledJobs` (solo el Worker; sección 8): `RunAtUtc` es la hora del día en UTC, en horas y minutos, en que corren las tareas diarias (08:00 UTC son las 03:00 en Colombia); `RunOnStartup` las corre también al arrancar; `OutboxRetentionDays` (de 1 a 3650) son los días que se guardan los mensajes hechos de la bandeja de salida; `DeleteBatchSize` (de 1 a 100000) son las filas que borra cada sentencia de la limpieza. Un valor fuera de rango detiene el arranque.
+- `Storage:S3` (S3 de AWS o un servicio compatible; MinIO en desarrollo, perfil `s3` de `deploy/docker-compose.yml`): `Bucket` es obligatorio y debe existir (lo crea el despliegue, no la aplicación); `Region` es obligatoria salvo que haya `ServiceUrl` (URL absoluta `http` o `https` de un servicio compatible, sin usuario, contraseña ni consulta), y en ese caso se firma con `us-east-1` si falta; `ForcePathStyle` pone el bucket en la ruta de la URL, como piden MinIO y la mayoría de los compatibles; `ServerSideEncryption` (activo por omisión) guarda cada objeto con SSE-S3 (AES-256 con llaves del servicio; en MinIO exige `MINIO_KMS_SECRET_KEY`); `SignedUrlMaxMinutes` (de 1 a 10080, 7 días) es la vigencia máxima de una URL prefirmada de descarga. Cada archivo de `document_files` guarda en `storage_provider` el proveedor donde quedó.
+- Credenciales de S3: no hay llaves en `appsettings`. El cliente usa la cadena estándar de AWS: variables `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY`, perfil de `~/.aws` o el rol de la instancia o de la tarea (lo recomendado en la nube, con permisos `s3:PutObject`, `s3:GetObject` y `s3:DeleteObject` solo sobre el bucket). Con MinIO local se usan esas mismas variables con el usuario de MinIO.
+- `Pdf` (solo el Worker; ADR-04): `GotenbergUrl` es la dirección de Gotenberg (`http://gotenberg:3000` dentro de la red de contenedores) y `TimeoutSeconds` el plazo de una conversión, que debe ser menor que `Outbox:HandlerTimeoutSeconds` (se valida al arrancar). A Gotenberg solo se le manda el HTML del documento, su hoja de estilos y la imagen del QR; nunca secretos.
 - Secretos (cadena de conexión, llave de JWT, llave maestra local, credenciales SMTP por defecto) **nunca** van en `appsettings`; el arranque falla (`ValidateOnStart`) si falta alguno.
 - Llave de JWT: asimétrica (RS256/ES256) con rotación; la pública se expone en `/.well-known/jwks.json` si se necesita.
 - Archivos de ejemplo `appsettings.Development.json` y `.env.example` se versionan sin secretos.
@@ -417,7 +460,7 @@ Módulos del panel de la fase 5:
 | `Dian.Tests` | CUFE, firma, UBL contra fixtures | Sin red |
 | `Golden.Tests` | JSON de entrada → XML y CUFE idénticos al PHP | Comparación byte a byte (ADR-27); fixtures en `backend/tests/golden/<tipo>/<caso>/{input.json,expected.xml,expected.cufe}` |
 | `Integration.Tests` | EF + Dapper + cola con Testcontainers en PostgreSQL (fase 2) y en los 3 motores desde la fase 6 | Matriz de proveedor en CI desde la fase 6 |
-| `Contract.Tests` | Colección Postman (Newman) contra el Api levantado | Tokens propios; falla ante cambios de contrato |
+| `Contract.Tests` | Colección Postman oficial (copia limpia en el repo, sin credenciales) reproducida en orden por .NET, sin Newman ni Node: la API con `WebApplicationFactory`, PostgreSQL de Testcontainers, el Worker en el mismo proceso y la DIAN falsa. Revisa el código 2xx y las claves del primer nivel de las respuestas de ejemplo del PHP (`Category=Contract`) | Tokens propios; falla ante cambios de contrato y ante una diferencia que no esté en `KnownDeviations` (lista única, con el motivo de cada una) |
 | `Architecture.Tests` | Reglas de la sección 1, aislamiento de módulos, consultas Dapper con `company_id`, ausencia de secretos en logs | NetArchTest |
 | Seguridad | Aislamiento entre empresas por entidad, API keys revocadas, propiedad por NIT | En `Integration.Tests` |
 
@@ -430,7 +473,7 @@ Cobertura mínima exigida en CI: `Domain` y `Dian` 90 %, `Application` 80 %; los
 - Imágenes: `Dockerfile.api`, `Dockerfile.worker`, `Dockerfile.web` (Nginx con el build de Angular), multi-etapa, usuario no root, sin secretos en capas.
 - `docker-compose.yml` para desarrollo: Postgres, SQL Server, MySQL (perfiles), Azurite/MinIO para blobs, MailHog para correo, Api, Worker y web.
 - CI (GitHub Actions): restaurar → compilar con `TreatWarningsAsErrors` → pruebas unitarias → integración (PostgreSQL; matriz de motores desde la fase 6) → golden → contract → análisis de vulnerabilidades → imágenes.
-- Migraciones se aplican con `ImpiFact.Migrator migrate` como paso previo al despliegue (job de Kubernetes, tarea ECS, job de Cloud Run o contenedor de inicio en Azure Container Apps); el mismo comando sincroniza los catálogos DIAN. `ImpiFact.Migrator create-platform-key <nombre>` crea la primera API key de plataforma de una instalación nueva.
+- Migraciones se aplican con `ImpiFact.Migrator migrate` como paso previo al despliegue (job de Kubernetes, tarea ECS, job de Cloud Run o contenedor de inicio en Azure Container Apps); el mismo comando sincroniza los catálogos DIAN. `ImpiFact.Migrator create-platform-key <nombre>` crea la primera API key de plataforma de una instalación nueva. Solo en desarrollo, `ImpiFact.Migrator seed-demo` crea una empresa de prueba lista para emitir en habilitación (resolución SETP de pruebas y certificado autofirmado, que la DIAN rechaza) y muestra una API key de esa empresa; fuera de Development exige `--force`.
 
 | Necesidad | Azure | AWS | GCP |
 | --- | --- | --- | --- |
@@ -447,6 +490,7 @@ Las implementaciones de `IBlobStorage` y `ICertificateStore` usan la identidad d
 
 | ID | Decisión | Resolución |
 | --- | --- | --- |
+| ADR-04 | Generación del PDF (representación gráfica), abierto en el PRD (17-nov) | Plantillas HTML con Handlebars.Net (MIT; escapa el HTML por defecto, porque nombres, descripciones y notas son texto del usuario) portadas de la plantilla 1 de ApiDian (factura, nota crédito y nota débito: mismo contenido, sin buscar igualdad de píxeles), convertidas a PDF por Gotenberg (contenedor aparte con Chromium, MIT; `POST /forms/chromium/convert/html`) y QR con QRCoder (MIT). El modelo imprimible (`DocumentPdfModel`) y el puerto `IPdfRenderer` viven en Application y no saben del motor. Se descartó QuestPDF: su licencia gratuita depende de los ingresos de la organización que lo usa y excluye al sector público y a las empresas que cotizan en bolsa, así que no sirve para un producto que instalan otras empresas. Gotenberg se fija a una versión exacta (`8.39.0-chromium`) en el compose y en las pruebas. Ojo: Handlebars.Net 2.4 no escapa el HTML de una parte compartida llamada sola en su línea con sangría (`    {{> parte}}`); las plantillas llaman las partes sin sangría y el cargador rechaza las que la tengan |
 | ADR-09 | SOAP: cliente `WCF (System.ServiceModel) o sobre manual con HttpClient` | Spike en la fase 1b: cliente WCF (System.ServiceModel) frente a sobre SOAP manual; gana el que logre aceptación de la DIAN. Ambos van detrás de IDianClient |
 | ADR-10 | Casos de uso: handlers propios con decoradores (Scrutor) | Aprobado (sin MediatR) |
 | ADR-11 | Minimal API agrupada por módulo frente a controladores | Minimal API |
@@ -530,6 +574,7 @@ Cada tarea es un PR con pruebas. Entre paréntesis, la puerta de salida de la fa
 2. Variantes de factura: exportación, contingencia, AIU, mandato, transporte.
 3. Documento soporte y su nota de ajuste.
 4. Eventos RADIAN y lotes.
+5. Cierre de la referencia PHP: se borran las rutas heredadas (`/api/ubl2.1/...` y demás), que ya no aparecían en la documentación OpenAPI.
 
 **Fases 5, 6 y 8** como en el PRD; se desglosan al cerrar la fase 4.
 
@@ -577,7 +622,7 @@ Cada tarea es un PR con pruebas. Entre paréntesis, la puerta de salida de la fa
 - **Fase 0, tareas nuevas:** `docs/php-rules.md` (inventario de reglas por tipo de documento); levantar el PHP de referencia con su `Dockerfile` y correr `composer install` dentro del contenedor (la máquina de desarrollo no tiene PHP ni Composer) y, si falla, definir el plan B de fixtures; consulta regulatoria sobre proveedor tecnológico; decidir el nombre del producto y los namespaces.
 - **Fase 1 dividida:** **1a** sin DIAN (UBL, CUFE, firma con certificado de prueba, golden tests) y **1b** con certificado y `testSetId` reales (SOAP y aceptación). La 1a se hace antes de la fase 2; la 1b cuando haya credenciales.
 - **Fase 2:** agregar `data_protection_keys`, `HybridCache` y la prueba de llaves compartidas.
-- **Contract tests:** en la fase 4 solo se ejecutan las peticiones de la primera entrega (carpetas 01 a 06, 09 y 10, sin documento soporte, contingencia ni lotes); en la fase 7 se suman la 07, la 08 y esas peticiones. Nunca se ejecutan `payroll`, `payroll-adjust-note`, `eqdoc`, `send-email-employee` ni las carpetas 11 a 14.
+- **Contract tests:** en la fase 4 solo se ejecutan las peticiones de la primera entrega (carpetas 01 a 06, 09 y 10, sin documento soporte, contingencia ni lotes); en la fase 7 se suman la 07, la 08 y esas peticiones. Nunca se ejecutan `payroll`, `payroll-adjust-note`, `eqdoc`, `send-email-employee` ni las carpetas 11 a 14. La prueba escribe una tabla por carpeta con las solicitudes que pasan, las diferencias conocidas y las que quedan fuera de la fase.
 - **Criterios de aceptación del modelo:** las pruebas de los tres motores se exigen en la fase 6; en la fase 2 solo PostgreSQL.
 
 ### 19.6 ADR nuevos

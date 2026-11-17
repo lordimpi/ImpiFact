@@ -1,0 +1,36 @@
+{{!-- Líneas del documento. La columna «%» (porcentaje del descuento) solo va en la factura, como en ApiDian. --}}
+<table class="grid">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Código</th>
+            <th>Descripción</th>
+            <th>Cantidad</th>
+            <th>UM</th>
+            <th>Val. Unit</th>
+            <th>IVA/IC</th>
+            <th>Dcto</th>
+            {{#if Labels.ShowDiscountPercent}}<th>%</th>{{/if}}
+            <th>Val. Item</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{#each Document.Lines}}
+        <tr>
+            <td>{{Position}}</td>
+            <td>{{Code}}</td>
+            <td>
+                {{Description}}
+                {{#if Notes}}<p class="line-notes">{{Notes}}</p>{{/if}}
+            </td>
+            <td class="num">{{Quantity}}</td>
+            <td class="num">{{UnitMeasure}}</td>
+            <td class="num">{{UnitPrice}}</td>
+            <td class="num">{{UnitTax}}</td>
+            <td class="num">{{UnitDiscount}}</td>
+            {{#if @root.Labels.ShowDiscountPercent}}<td class="num">{{DiscountPercent}}</td>{{/if}}
+            <td class="num">{{Total}}</td>
+        </tr>
+        {{/each}}
+    </tbody>
+</table>

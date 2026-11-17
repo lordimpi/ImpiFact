@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using ImpiFact.Infrastructure.Options;
 using Microsoft.Extensions.Options;
 
@@ -5,10 +6,11 @@ namespace ImpiFact.Infrastructure.Storage;
 
 /// <summary>
 /// Validación de <see cref="StorageOptions"/> que corre al arrancar, junto con sus atributos. Con <c>Local</c> exige
-/// una carpeta raíz con ruta absoluta que se pueda crear y escribir; si no, la aplicación no arranca. Los
-/// proveedores de nube todavía no existen: elegirlos también detiene el arranque.
+/// una carpeta raíz con ruta absoluta que se pueda crear y escribir; con <c>S3</c>, un bucket con nombre válido,
+/// una región (o una URL de servicio compatible) y una vigencia máxima de URL prefirmada dentro del rango; si no, la
+/// aplicación no arranca. Los demás proveedores de nube todavía no existen: elegirlos también detiene el arranque.
 /// </summary>
-internal sealed class StorageOptionsValidator(IEnumerable<ReservedDirectory> reserved) : IValidateOptions<StorageOptions>
+internal sealed partial class StorageOptionsValidator(IEnumerable<ReservedDirectory> reserved) : IValidateOptions<StorageOptions>
 {
     public ValidateOptionsResult Validate(string? name, StorageOptions options)
     {
@@ -18,12 +20,22 @@ internal sealed class StorageOptionsValidator(IEnumerable<ReservedDirectory> res
             return ValidateOptionsResult.Skip;
         }
 
+        if (string.Equals(options.Provider, StorageOptions.S3Provider, StringComparison.Ordinal))
+        {
+            return ValidateS3(options.S3);
+        }
+
         if (!string.Equals(options.Provider, StorageOptions.LocalProvider, StringComparison.Ordinal))
         {
             return ValidateOptionsResult.Fail(
-                $"Storage provider '{options.Provider}' is not available yet; use '{StorageOptions.LocalProvider}'.");
+                $"Storage provider '{options.Provider}' is not available yet; use '{StorageOptions.LocalProvider}' or '{StorageOptions.S3Provider}'.");
         }
 
+        return ValidateLocal(options);
+    }
+
+    private ValidateOptionsResult ValidateLocal(StorageOptions options)
+    {
         var root = options.Local.Root;
         if (string.IsNullOrWhiteSpace(root))
         {
@@ -55,6 +67,64 @@ internal sealed class StorageOptionsValidator(IEnumerable<ReservedDirectory> res
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail($"Storage:Local:Root '{root}' cannot be created or written.");
     }
+
+    private static ValidateOptionsResult ValidateS3(S3StorageOptions s3)
+    {
+        if (string.IsNullOrWhiteSpace(s3.Bucket))
+        {
+            return ValidateOptionsResult.Fail("Storage:S3:Bucket is required when Storage:Provider is S3.");
+        }
+
+        if (!BucketName().IsMatch(s3.Bucket) || s3.Bucket.Contains("..", StringComparison.Ordinal))
+        {
+            return ValidateOptionsResult.Fail(
+                $"Storage:S3:Bucket '{s3.Bucket}' is not a valid S3 bucket name: use 3 to 63 lower-case letters, digits, '.' or '-'.");
+        }
+
+        var hasServiceUrl = !string.IsNullOrWhiteSpace(s3.ServiceUrl);
+        if (hasServiceUrl && !IsValidServiceUrl(s3.ServiceUrl))
+        {
+            return ValidateOptionsResult.Fail(
+                $"Storage:S3:ServiceUrl '{s3.ServiceUrl}' must be an absolute http or https URL without user information, query or fragment.");
+        }
+
+        if (string.IsNullOrWhiteSpace(s3.Region))
+        {
+            if (!hasServiceUrl)
+            {
+                return ValidateOptionsResult.Fail("Storage:S3:Region is required when Storage:S3:ServiceUrl is not set.");
+            }
+        }
+        else if (!RegionName().IsMatch(s3.Region))
+        {
+            return ValidateOptionsResult.Fail($"Storage:S3:Region '{s3.Region}' is not a valid AWS region, for example 'us-east-1'.");
+        }
+
+        if (s3.SignedUrlMaxMinutes is < 1 or > S3StorageOptions.SignedUrlLimitMinutes)
+        {
+            return ValidateOptionsResult.Fail(
+                $"Storage:S3:SignedUrlMaxMinutes must be between 1 and {S3StorageOptions.SignedUrlLimitMinutes}.");
+        }
+
+        return ValidateOptionsResult.Success;
+    }
+
+    // Sin usuario ni contraseña en la URL: las credenciales salen de la cadena estándar de AWS, nunca de la configuración.
+    private static bool IsValidServiceUrl(string value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var url)
+        && (url.Scheme == Uri.UriSchemeHttp || url.Scheme == Uri.UriSchemeHttps)
+        && url.UserInfo.Length == 0
+        && url.Query.Length == 0
+        && url.Fragment.Length == 0;
+
+    // Reglas de nombres de bucket de AWS: de 3 a 63 caracteres, minúsculas, dígitos, «.» o «-», y empieza y termina
+    // con letra o dígito.
+    [GeneratedRegex(@"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]\z", RegexOptions.CultureInvariant)]
+    private static partial Regex BucketName();
+
+    // Forma de una región de AWS: «us-east-1», «sa-east-1», «us-gov-west-1».
+    [GeneratedRegex(@"^[a-z]{2}(?:-[a-z]+)+-[0-9]+\z", RegexOptions.CultureInvariant)]
+    private static partial Regex RegionName();
 
     // Se comparan sin distinguir mayúsculas: en Windows y macOS «A» y «a» son la misma carpeta.
     private static bool Overlap(string first, string second)

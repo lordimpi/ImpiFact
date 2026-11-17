@@ -37,4 +37,13 @@ public static class OutboxMessageTypes
     public const string SendEmail = "SendEmail";
 
     public const string RenderPdf = "RenderPdf";
+
+    /// <summary>Enviar por correo a la empresa un aviso de las tareas programadas (por ejemplo, el certificado por vencer).</summary>
+    public const string SendNoticeEmail = "SendNoticeEmail";
+
+    /// <summary>Generar otra revisión del PDF de un documento aceptado (ruta <c>regeneratepdf</c>), sin enviar correo.</summary>
+    public const string RegeneratePdf = "RegeneratePdf";
+
+    /// <summary>Armar y firmar otra revisión del AttachedDocument de un documento aceptado (ruta <c>regenerate-attached-document</c>).</summary>
+    public const string RegenerateAttachedDocument = "RegenerateAttachedDocument";
 }

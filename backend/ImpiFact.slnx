@@ -7,10 +7,12 @@
     <Project Path="src/ImpiFact.Infrastructure/ImpiFact.Infrastructure.csproj" />
     <Project Path="src/ImpiFact.Infrastructure.Postgres/ImpiFact.Infrastructure.Postgres.csproj" />
     <Project Path="src/ImpiFact.Migrator/ImpiFact.Migrator.csproj" />
+    <Project Path="src/ImpiFact.Worker/ImpiFact.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ImpiFact.Application.Tests/ImpiFact.Application.Tests.csproj" />
     <Project Path="tests/ImpiFact.Architecture.Tests/ImpiFact.Architecture.Tests.csproj" />
+    <Project Path="tests/ImpiFact.Contract.Tests/ImpiFact.Contract.Tests.csproj" />
     <Project Path="tests/ImpiFact.Dian.Tests/ImpiFact.Dian.Tests.csproj" />
     <Project Path="tests/ImpiFact.Domain.Tests/ImpiFact.Domain.Tests.csproj" />
     <Project Path="tests/ImpiFact.Golden.Tests/ImpiFact.Golden.Tests.csproj" />

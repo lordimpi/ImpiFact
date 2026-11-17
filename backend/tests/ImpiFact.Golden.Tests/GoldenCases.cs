@@ -17,11 +17,20 @@ public static class GoldenCases
     /// <summary>Carpetas de casos de tests/golden/debit-note.</summary>
     public static IReadOnlyList<string> DebitNotes() => Of("debit-note");
 
-    private static List<string> Of(string documentType)
+    /// <summary>
+    /// Carpetas de casos de tests/golden/attached-document (AttachedDocument: el contenedor electrónico que se
+    /// entrega al comprador). Su XML esperado se llama expected-attached-document.xml y no expected.xml, para
+    /// que las pruebas de facturas y notas que recorren todo tests/golden no lo tomen como uno de sus casos.
+    /// </summary>
+    public static IReadOnlyList<string> AttachedDocuments() => Of("attached-document", AttachedDocumentExpectedFile);
+
+    public const string AttachedDocumentExpectedFile = "expected-attached-document.xml";
+
+    private static List<string> Of(string documentType, string expectedFile = "expected.xml")
     {
         var typeRoot = Path.Combine(FindGoldenRoot(), documentType);
         return Directory.EnumerateDirectories(typeRoot)
-            .Where(dir => File.Exists(Path.Combine(dir, "input.json")) && File.Exists(Path.Combine(dir, "expected.xml")))
+            .Where(dir => File.Exists(Path.Combine(dir, "input.json")) && File.Exists(Path.Combine(dir, expectedFile)))
             .OrderBy(dir => dir, StringComparer.Ordinal)
             .ToList();
     }

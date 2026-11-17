@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
+using ImpiFact.Api.OpenApi;
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Features.Identity.ApiKeys;
 using ImpiFact.Application.Features.Identity.Sessions;
@@ -25,22 +26,63 @@ internal sealed class IdentityEndpoints : IEndpointModule
         // cuenta (Arquitectura detallada, sección 11). Solo partes públicas.
         endpoints.MapGet("/.well-known/jwks.json", (JwtSigningKeys keys) => TypedResults.Ok(new { keys = keys.PublicJsonWebKeys() }))
             .AllowAnonymous()
-            .WithTags("Identity");
+            .WithTags(ApiTags.Identity)
+            .ExcludeFromDescription();
 
         var auth = endpoints.MapGroup("/api/v1/auth")
-            .WithTags("Identity")
+            .WithTags(ApiTags.Identity)
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitingExtensions.LoginPolicy)
             .AddEndpointFilter(NoStore);
-        auth.MapPost("/login", LoginAsync);
-        auth.MapPost("/refresh", RefreshAsync);
+        auth.MapPost("/login", LoginAsync)
+            .Produces<SessionTokens>()
+            .WithRequestExamples(ExampleBodies.Login)
+            .WithSummary("Iniciar sesión en el panel")
+            .WithDescription(
+                "Recibe `email` y `password` (y, si quiere, `company_id`, la empresa con la que va a trabajar) y entrega un " +
+                "`access_token` (JWT de vida corta) y un `refresh_token`. El `access_token` se usa como credencial Bearer. " +
+                "Un correo desconocido, una contraseña equivocada o un usuario inactivo o bloqueado responden el mismo 401 " +
+                "(`identity.invalid_credentials`); una empresa a la que el usuario no pertenece responde 403 " +
+                "(`identity.company_not_allowed`). Tiene un límite estricto de intentos por minuto y por IP (429).");
+        auth.MapPost("/refresh", RefreshAsync)
+            .Produces<SessionTokens>()
+            .WithRequestExamples(ExampleBodies.Refresh)
+            .WithSummary("Renovar la sesión")
+            .WithDescription(
+                "Cambia un `refresh_token` vigente por un `access_token` y un `refresh_token` nuevos; el usado queda revocado. " +
+                "Con `company_id` cambia la empresa activa del token. Un token vencido, revocado o desconocido responde 401 " +
+                "(`identity.invalid_refresh_token`); presentar uno ya revocado revoca todas las sesiones del usuario. Comparte el " +
+                "límite de intentos del inicio de sesión.");
 
-        var apiKeys = endpoints.MapGroup("/api/v1/api-keys").WithTags("Identity").RequireAuthorization(IdentityPolicies.ManageCredentials);
-        apiKeys.MapPost("/", CreateApiKeyAsync).AddEndpointFilter(NoStore);
-        apiKeys.MapDelete("/{id:guid}", RevokeApiKeyAsync);
+        var apiKeys = endpoints.MapGroup("/api/v1/api-keys").WithTags(ApiTags.Identity).RequireAuthorization(IdentityPolicies.ManageCredentials);
+        apiKeys.MapPost("/", CreateApiKeyAsync).AddEndpointFilter(NoStore)
+            .Produces<CreatedApiKey>(StatusCodes.Status201Created)
+            .WithRequestExamples(ExampleBodies.ApiKey)
+            .WithSummary("Crear una API key")
+            .WithDescription(
+                "Crea una llave de acceso para una integración, con `name`, `scopes` y, si quiere, `expires_at`. Con una " +
+                "credencial de empresa la llave es de esa empresa y solo puede llevar alcances que la credencial ya tiene " +
+                "(nunca `platform:*`); con una credencial de plataforma es una llave de plataforma y solo lleva `platform:*`. " +
+                "El texto completo de la llave (`key`) se muestra solo en esta respuesta. Alcances no permitidos: 403 " +
+                "(`api_key.scope_not_allowed`).");
+        apiKeys.MapDelete("/{id:guid}", RevokeApiKeyAsync)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithSummary("Revocar una API key")
+            .WithDescription(
+                "Revoca la llave con ese `id`; revocarla otra vez no cambia nada. Una empresa solo revoca sus propias llaves " +
+                "(una de otra empresa responde 404, `api_key.not_found`); la plataforma puede revocar cualquiera. Las demás " +
+                "instancias de la API dejan de aceptarla en máximo 60 segundos.");
 
-        endpoints.MapGroup("/api/v1/users").WithTags("Identity").RequireAuthorization(IdentityPolicies.ManageCredentials)
-            .MapPost("/", CreateUserAsync);
+        endpoints.MapGroup("/api/v1/users").WithTags(ApiTags.Identity).RequireAuthorization(IdentityPolicies.ManageCredentials)
+            .MapPost("/", CreateUserAsync)
+            .Produces<CreatedUser>(StatusCodes.Status201Created)
+            .WithRequestExamples(ExampleBodies.User)
+            .WithSummary("Crear un usuario del panel")
+            .WithDescription(
+                "Crea un usuario con `email`, `password` (al menos 10 caracteres), `name`, `role` y, si quiere, `phone`. El dueño (`owner`) de una " +
+                "empresa, con su sesión del panel, crea usuarios de su empresa con rol `owner` o `seller`; la plataforma " +
+                "crea administradores de plataforma (`platform_admin`). Las API keys de empresa no crean usuarios. Correo " +
+                "repetido: 409 (`user.email_taken`); rol no permitido: 403 (`user.role_not_allowed`).");
     }
 
     private static async Task<IResult> LoginAsync(

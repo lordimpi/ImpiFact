@@ -4,9 +4,11 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Features.Companies;
 using ImpiFact.Domain.Identity;
+using ImpiFact.Infrastructure.Dian;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Tenancy;
+using ImpiFact.Integration.Tests.DianSend;
 using ImpiFact.Integration.Tests.Identity;
 using ImpiFact.Integration.Tests.Persistence;
 using ImpiFact.Integration.Tests.Protection;
@@ -81,7 +83,24 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
 
     public string CertificateDirectory => _protection.CertificateDirectory;
 
+    /// <summary>
+    /// Llave maestra, carpeta de certificados y carpeta de archivos de esta API, para que otro host (por ejemplo el
+    /// Worker de las pruebas de contrato) lea lo que la API guardó.
+    /// </summary>
+    public IReadOnlyDictionary<string, string?> SharedSettings => new Dictionary<string, string?>(_protection.LocalAesGcmSettings())
+    {
+        ["Storage:Local:Root"] = StorageRoot,
+    };
+
+    private string StorageRoot => Path.Combine(_protection.Root, "storage");
+
     public FixedClock Clock { get; } = new(CompaniesHost.Now);
+
+    /// <summary>
+    /// DIAN falsa como manejador final del cliente de la DIAN: ninguna prueba de la API llama a la DIAN real. Sin
+    /// respuestas en cola, una llamada falla la prueba.
+    /// </summary>
+    public FakeDian Dian { get; } = new();
 
     /// <summary>Todo lo que la API escribe en los registros, para revisar que no filtre secretos.</summary>
     internal CapturingLoggerProvider Logs { get; } = new();
@@ -127,15 +146,19 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
         builder.UseSetting("Database:ConnectionString", connectionString);
         builder.UseSetting("Secrets:LocalAesGcm:MasterKeyFile", _protection.MasterKeyFile);
         builder.UseSetting("Secrets:LocalAesGcm:CertificateDirectory", _protection.CertificateDirectory);
-        builder.UseSetting("Storage:Local:Root", Path.Combine(_protection.Root, "storage"));
+        builder.UseSetting("Storage:Local:Root", StorageRoot);
         builder.UseSetting("Jwt:SigningKey", _signingKey.ExportPkcs8PrivateKeyPem());
         builder.UseSetting("RateLimit:PermitPerMinutePerKey", "10000");
         builder.UseSetting("RateLimit:PermitPerMinutePerIp", "10000");
         builder.UseSetting("Logging:LogLevel:Default", "Trace");
+        builder.UseSetting("Resilience:BaseDelaySeconds", "0.01");
         builder.ConfigureLogging(logging => logging.AddProvider(Logs));
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<IClock>(Clock);
+            services.AddHttpClient(DianSoapClient.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => Dian)
+                .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
         });
     }
 
@@ -146,6 +169,7 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
         {
             _signingKey.Dispose();
             _protection.Dispose();
+            Dian.Dispose();
         }
     }
 }

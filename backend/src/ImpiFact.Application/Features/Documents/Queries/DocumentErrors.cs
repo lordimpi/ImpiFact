@@ -20,4 +20,26 @@ public static class DocumentErrors
         "document.not_found",
         "No se encontró el documento.",
         ErrorType.NotFound);
+
+    /// <summary>El documento existe pero no tiene guardado el archivo pedido.</summary>
+    public static readonly Error FileNotFound = new(
+        "document.file_not_found",
+        "No se encontró el archivo del documento.",
+        ErrorType.NotFound);
+
+    /// <summary>Texto del PHP (<c>download</c>) cuando el archivo pedido por nombre no existe.</summary>
+    public static Error FileNotFoundNamed(string file) => new(
+        "document.file_not_found",
+        $"No se encontro el archivo: {file}",
+        ErrorType.NotFound);
+
+    /// <summary>
+    /// La operación (descargar el XML validado, regenerar el PDF o el AttachedDocument, reenviar el correo) solo vale
+    /// para documentos que la DIAN (la autoridad tributaria de Colombia) aceptó, como el PHP, que solo buscaba
+    /// documentos con <c>state_document_id = 1</c>.
+    /// </summary>
+    public static Error NotAccepted(string fullNumber) => new(
+        "document.not_accepted",
+        $"El documento {fullNumber} no ha sido aceptado por la DIAN.",
+        ErrorType.Conflict);
 }

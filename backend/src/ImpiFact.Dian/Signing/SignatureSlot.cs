@@ -5,7 +5,7 @@ namespace ImpiFact.Dian.Signing;
 /// <summary>
 /// Ubica en el texto del XML el lugar reservado para la firma: el ext:ExtensionContent vacío del segundo
 /// ext:UBLExtension (ruta /*/ext:UBLExtensions/ext:UBLExtension[2]/ext:ExtensionContent, Anexo Técnico
-/// 002, sección 13).
+/// 002, sección 13), o el de la única extensión cuando el documento tiene una sola.
 /// </summary>
 /// <remarks>
 /// ext:UBLExtension es el bloque del XML donde van las extensiones: el primero lleva los datos propios de
@@ -33,11 +33,18 @@ internal sealed class SignatureSlot
     /// <summary>
     /// Busca el lugar reservado para la firma; falla si no existe o si ya tiene contenido.
     /// </summary>
+    /// <remarks>
+    /// Un documento con un solo ext:UBLExtension (el AttachedDocument, contenedor electrónico que se entrega
+    /// al comprador) no tiene extensiones de la DIAN: si el ext:ExtensionContent de esa única extensión está
+    /// vacío, ese es el lugar de la firma, como en la plantilla 89 de ApiDian (la implementación de
+    /// referencia en PHP).
+    /// </remarks>
     public static SignatureSlot Find(string xml)
     {
         using var reader = XmlReader.Create(new StringReader(xml), XmlSigner.SafeReaderSettings);
         var lineInfo = (IXmlLineInfo)reader;
         var extensionCount = 0;
+        SignatureSlot? emptyFirstSlot = null;
         while (reader.Read())
         {
             if (reader.NodeType != XmlNodeType.Element || reader.NamespaceURI != ExtNs)
@@ -56,9 +63,20 @@ internal sealed class SignatureSlot
                 EnsureEmpty(reader);
                 return slot;
             }
+            else if (reader is { Depth: 3, LocalName: "ExtensionContent" } && extensionCount == 1)
+            {
+                var slot = Locate(xml, reader.Name, lineInfo.LineNumber, lineInfo.LinePosition);
+                emptyFirstSlot = IsEmpty(reader) ? slot : null;
+            }
         }
 
-        throw new InvalidOperationException($"The document has no {SlotPath} to hold the signature.");
+        if (extensionCount == 1 && emptyFirstSlot is not null)
+        {
+            return emptyFirstSlot;
+        }
+
+        throw new InvalidOperationException(
+            $"The document has no {SlotPath} (or a single, empty ext:UBLExtension) to hold the signature.");
     }
 
     /// <summary>
@@ -123,18 +141,27 @@ internal sealed class SignatureSlot
 
     private static void EnsureEmpty(XmlReader reader)
     {
+        if (!IsEmpty(reader))
+        {
+            throw new InvalidOperationException($"{SlotPath} must be empty before signing.");
+        }
+    }
+
+    // Lee el elemento actual hasta su cierre e indica si solo tiene espacios en blanco.
+    private static bool IsEmpty(XmlReader reader)
+    {
         if (reader.IsEmptyElement)
         {
-            return;
+            return true;
         }
 
         var depth = reader.Depth;
+        var empty = true;
         while (reader.Read() && reader.Depth > depth)
         {
-            if (reader.NodeType is not (XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace))
-            {
-                throw new InvalidOperationException($"{SlotPath} must be empty before signing.");
-            }
+            empty &= reader.NodeType is XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace;
         }
+
+        return empty;
     }
 }

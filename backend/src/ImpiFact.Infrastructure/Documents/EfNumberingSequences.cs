@@ -18,9 +18,12 @@ namespace ImpiFact.Infrastructure.Documents;
 internal sealed class EfNumberingSequences(ImpiFactDbContext db, INumberingSql sql, ITenantContext tenant, IClock clock)
     : INumberingSequences
 {
-    public async Task OpenForResolutionAsync(Guid companyId, Guid resolutionId, long firstNumber, CancellationToken ct)
+    public Task OpenForResolutionAsync(Guid companyId, Guid resolutionId, long firstNumber, CancellationToken ct) =>
+        OpenAsync(companyId, NumberingScope.ForResolution(resolutionId), firstNumber, ct);
+
+    public async Task OpenAsync(Guid companyId, string scopeKey, long firstNumber, CancellationToken ct)
     {
-        var scopeKey = NumberingScope.ForResolution(resolutionId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(scopeKey);
         var sequence = db.Set<NumberingSequence>().Local
                 .FirstOrDefault(row => row.CompanyId == companyId && row.ScopeKey == scopeKey)
             ?? await db.Set<NumberingSequence>()

@@ -138,12 +138,13 @@ Campos en este orden (IC:763-783): `success`, `message`, `send_email_success`, `
 - `send_email_success` y `send_email_date_time` usan `?? ` sobre un booleano y no reflejan si el correo salió (IC:766-767). **Bug del PHP.**
 - Si la DIAN responde HTML, `responseStore` recibe 12 argumentos de 13 y falla con `ArgumentCountError` (IC:525, 612). **Bug del PHP.**
 - `set de pruebas`: sin `success`, con `urlinvoiceattached = "Attachment-…"` (IC:1087-1102).
+- **ImpiFact:** `urlinvoicexml` y `urlinvoicepdf` con el nombre del PHP (`FES-`, `NCS-` o `NDS-` más el número completo) y `urlinvoiceattached` siempre como `Attachment-{número}.xml`, porque la respuesta es inmediata (decisión C5 de la fase 4) y el nombre DIAN del AttachedDocument se decide al enviarlo; la ruta `download` entiende los tres. Sin `send_email_success`, `send_email_date_time`, `reqfe`, `rptafe` ni `attacheddocument` (el envío, el correo y el AttachedDocument ocurren después, en el Worker) ni `whatsapp_response` (Enterprise).
 
 ### 3.9 Efectos secundarios
 
 1. PDF con mPDF, generado antes de la respuesta de la DIAN; el QR es la URL del catálogo (`catalogo-vpfe[-hab].dian.gov.co/document/searchqr?documentkey=…`) más el CUFE (DT:372-443).
 2. Correo solo si `sendmail` y el documento quedó en estado 1; no se envía al consumidor final salvo con `email_pos_customer`; copias a `sendmailtome` y `email_cc_list`. Los errores solo quedan en el log (IC:668-690).
-3. Cuota del plan solo en `store`, contando documentos en estado 1. El `switch` no tiene `break` y la cuota no se aplica cuando existe `absolut_start_plan_date` (IC:225-270; DT:1543-1561). **Bug del PHP.**
+3. Cuota del plan solo en `store`, contando documentos en estado 1. El `switch` no tiene `break` y la cuota no se aplica cuando existe `absolut_start_plan_date` (IC:225-270; DT:1543-1561). **Bug del PHP.** ImpiFact (fase 4): mismas reglas y mensajes (plan inactivo; mensual al mes y anual al año; usados contra la cantidad del plan por familia en `plan_quotas`) también en las notas, contando en `plan_usage` al aceptar; sin plan contratado no hay límites; el set de pruebas no revisa ni cuenta; no existe el «plan mixto» (`absolut_plan_documents`).
 4. `ActualizarTablas` modifica catálogos en cada petición: borra responsabilidades y operaciones y renombra impuestos (DT:1290-1411). **Bug del PHP**; ImpiFact usa catálogos sembrados y versionados.
 5. `preeliminar-view` genera solo el PDF, con el CUFE vacío, y lo escribe en la misma ruta que la factura real, así que puede sobrescribirla (IC:41-188). **Bug del PHP.**
 
@@ -162,7 +163,7 @@ Los dos controladores son copias casi idénticas. Se listan solo las diferencias
 
 ### 4.2 Referencia a la factura y discrepancia
 
-1. La factura original no se busca en la base: se copian `number`, `uuid` e `issue_date` a `BillingReference` (`TPL/_billing_reference.blade.php:1-14`). **Mejora** en ImpiFact: validar que exista, sea de la empresa y esté aceptada.
+1. La factura original no se busca en la base: se copian `number`, `uuid` e `issue_date` a `BillingReference` (`TPL/_billing_reference.blade.php:1-14`). **Mejora** en ImpiFact (fase 4): si el CUFE es de un documento de la empresa, ese documento debe estar aceptado por la DIAN (si no, 422 `document.reference_not_accepted`); un CUFE desconocido se acepta sin enlace, como en el PHP, y el set de pruebas no exige la aceptación.
 2. `schemeName` del UUID referenciado: `CUFE-SHA384` por defecto (`app/BillingReference.php:62-65`).
 3. Se admiten notas sin referencia (sin `billing_reference`, el bloque se omite).
 4. `DiscrepancyResponse/Description` sale del **catálogo** por código, no del campo `discrepancyresponsedescription` del request, que se ignora (`TPL/_discrepancy_response.blade.php:15-31`). **Conservar.**
@@ -217,9 +218,14 @@ Los dos controladores son copias casi idénticas. Se listan solo las diferencias
 
 ### 5.4 Consultas
 
-1. `status/document/{trackId}` y `status/zip/{trackId}`: consultan a la DIAN; si es válido, arman el AttachedDocument, pasan el documento a estado 1 y pueden enviar el correo (`StateController.php:37-436, 442-844`).
+1. `status/document/{trackId}` y `status/zip/{trackId}`: consultan a la DIAN; si es válido, arman el AttachedDocument, pasan el documento a estado 1 y pueden enviar el correo (`StateController.php:37-436, 442-844`). **ImpiFact:** la API no llama a la DIAN; responde con la última respuesta que guardó el Worker (que ya arma el AttachedDocument y encola el correo al aceptar). `reqzip` siempre es nulo porque no se guardan los sobres enviados; el segmento `GuardarEn` (carpeta del servidor) se ignora. Como el PHP, la respuesta lleva `certificate_days_left` y `attacheddocument` (el AttachedDocument en base64, nulo mientras no exista).
 2. `information/{nit}/{desde}/{hasta}` y `total_documents`: públicas; `information` devuelve los documentos en estado 1 de los tipos 1, 4, 5 y 15 (la variante paginada, de 100 en 100); `total_documents` solo cuenta, y cuenta 8 tipos: 1, 4, 5, 11, 13, 15, 26 y 25 (`ResumeController.php:24-232`).
 3. `next-consecutive` y `current_number`: misma regla que la sección 3.4.
+4. `xml/document/{trackId}`: el PHP pide el XML a la DIAN con GetXmlByDocumentKey (`XmlDocumentController.php`). **ImpiFact:** devuelve el XML firmado guardado con la misma forma (`Code` 100, `XmlBytesBase64`), solo de documentos aceptados.
+5. `download/{nit}/{archivo}/{type_response?}`: pública en el PHP, con `BASE64`, `INLINE` o descarga; `Attachment-` y `ZipAttachm-` se traducen al nombre del AttachedDocument (`DownloadController.php:154`, `Utils.php:12`). **ImpiFact:** exige `documents:read` y el NIT de la credencial; un archivo que no existe responde 404 con el mismo texto («No se encontro el archivo: …»).
+6. `regeneratepdf`: el PHP consulta GetStatus a la DIAN para validar el CUFE y regenera el PDF en la solicitud, con el cuerpo de una factura en la variante sin ruta (`RegeneratePDFController.php`). **ImpiFact:** no consulta a la DIAN (el estado guardado ya dice si fue aceptado), encola `RegeneratePdf` con los datos guardados del documento y del cuerpo solo lee `cufe`, `prefix` y `number`; responde sin `filebase64` (el PDF se descarga después).
+7. `send-email`: el PHP envía en la solicitud a `alternate_email` o al cliente, con `email_cc_list` (`SendEmailController.php:34-125`). **ImpiFact:** encola `SendEmail` con los destinatarios de la solicitud original; `alternate_email`, `email_cc_list`, `only_send_to_cc_list` y `base64graphicrepresentation` se aceptan y se ignoran, y una solicitud emitida sin `sendmail` responde 422.
+8. `numbering-range`: GetNumberingRange con el NIT de la empresa como `accountCode` y `accountCodeT` y el `IDSoftware` del cuerpo (`NumberingRangeController.php`). **ImpiFact:** igual, más los rangos leídos del sobre (`numbering_ranges`).
 
 ## 6. Respuestas a los [verificar] del modelo de datos
 

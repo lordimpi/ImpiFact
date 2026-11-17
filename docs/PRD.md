@@ -333,7 +333,7 @@ El esquema original tiene 134 migraciones y unos 40 catálogos y tablas de negoc
 
 ## 9. Diseño de API
 
-La v1 de .NET conserva las rutas y el JSON del API actual bajo `/api/ubl2.1/`. Así la colección Postman oficial sirve como regresión y los integradores no cambian nada. La v2 (rutas limpias, REST estricto) se diseña después de terminar la migración.
+La v1 de .NET conserva las rutas y el JSON del API actual bajo `/api/ubl2.1/`. Así la colección Postman oficial sirve como regresión y los integradores no cambian nada. Esas rutas no aparecen en la documentación OpenAPI (solo se documenta `/api/v1`) y se borran en la fase 7, con el cierre de la referencia PHP. La v2 (rutas limpias, REST estricto) se diseña después de terminar la migración.
 
 **Inventario de rutas del origen** (`routes/api.php`, 439 líneas; el panel web tiene otras 164)
 
@@ -358,7 +358,7 @@ La v1 de .NET conserva las rutas y el JSON del API actual bajo `/api/ubl2.1/`. A
 
 - Los controladores se reemplazan por endpoints *Minimal API* delgados (ADR-11) que llaman a un caso de uso (`IHandler<TIn, TOut>`). Un handler por tipo de documento, no uno por ruta.
 - Las variantes con `testSetId` se resuelven con el mismo handler y el ambiente de la empresa, sin duplicar código.
-- Versionado por ruta: `/api/v1/...` es la ruta canónica que usa el panel. Las rutas heredadas (`/api/ubl2.1/...` y demás) se publican como alias para los contract tests.
+- Versionado por ruta: `/api/v1/...` es la ruta canónica que usa el panel. Las rutas heredadas (`/api/ubl2.1/...` y demás) se publican como alias para los contract tests; quedan fuera de la documentación OpenAPI y se borran en la fase 7.
 - OpenAPI nativo de .NET 10 y Scalar como documentación, como en tu proyecto de referencia.
 - Autenticación: API key con hash por empresa para integradores y JWT con refresh para el panel Angular.
 - `signdocument`, `senddocument`, `statusdocument` y `statuszip` estaban abiertas en el repo analizado, y el PHP de octubre de 2026 ya las protege. En .NET exigen API key (ADR-06); no hay clientes legados que dependan de ellas.
@@ -485,7 +485,7 @@ Cada fase termina en una puerta de salida medible. No se pasa a la siguiente sin
 | 4. Operación | Estados, Worker con reintentos, PDF, correo, almacenamiento, planes y consumo | Peticiones Postman de la primera entrega en verde (sección 13, revisión #9) |
 | 5. Panel Angular | Propietario, vendedor y cliente; configuración; paso a producción | Un flujo completo de alta de empresa y emisión sin usar el panel PHP |
 | 6. Endurecimiento | SQL Server, MySQL, Key Vault, Secrets Manager y Secret Manager, observabilidad, pruebas de carga | Mismo despliegue en Azure, AWS y GCP |
-| 7. Paridad y salida | Piloto con una empresa real usando la primera entrega; después, el resto de Community: exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes y eventos RADIAN; cierre de la referencia PHP | Una empresa emite en producción con .NET; golden de cada variante y colección Postman Community completa en verde |
+| 7. Paridad y salida | Piloto con una empresa real usando la primera entrega; después, el resto de Community: exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes y eventos RADIAN; cierre de la referencia PHP y borrado de las rutas heredadas (`/api/ubl2.1/...` y demás) | Una empresa emite en producción con .NET; golden de cada variante y colección Postman Community completa en verde |
 | 8. Enterprise | Nómina, POS, RIPS, extractor de compras, roles avanzados, app móvil | Se planifica en un PRD aparte |
 
 ```mermaid
@@ -502,6 +502,10 @@ flowchart LR
 **Estado al 17-nov-2026.** Fase 2 cerrada: solución por capas (Domain, Application, Dian, Infrastructure, Infrastructure.Postgres, Api, Migrator), modelo completo en PostgreSQL con su migración inicial y los 29 catálogos sincronizados desde los JSON del PHP, Identity (login, renovación con detección de reuso, API keys, usuarios, alcances por rol) y Company (empresa, ambientes, software, certificado cifrado, resoluciones, con los alias del Postman). La puerta de salida se cumple: pruebas de arquitectura (capas, módulos, controlador de PostgreSQL, Dapper con `company_id`) y de aislamiento por empresa en verde, 591 pruebas y CI en verde. Quedan para la fase siguiente: bloqueo de cuenta por intentos fallidos, límite explícito del tamaño del certificado y cierre de sesiones al cambiar clave o rol.
 
 **Estado al 17-nov-2026.** Fase 3 cerrada: emisión de factura nacional, nota crédito y nota débito por las rutas del Postman y `/api/v1` (validación, totales con las reglas del Anexo Técnico v1.9, consecutivo atómico, firma, almacenamiento, idempotencia y envío encolado para el Worker), y consultas (`information`, `total_documents`, `current_number`, listado, detalle y por CUFE). La puerta de salida se cumple: los 14 casos golden pasan por la API real con el XML idéntico al PHP byte a byte y el mismo CUFE/CUDE; 1.053 pruebas y CI en verde. El envío a la DIAN es de la fase 4 (Worker) y la 1b (certificado y `testSetId`).
+
+**Estado al 17-nov-2026.** Fase 1b cerrada: con el certificado real, la DIAN autorizó en habilitación una factura firmada por .NET (SETP-990000001, «Procesado Correctamente») y dio por aceptado el set de pruebas; quedan validados contra la DIAN el sobre SOAP con WS-Security, el ZIP, el XML UBL, el CUFE y la firma XAdES. El software sigue en habilitación: no se registró fecha de salida a producción.
+
+**Estado al 17-nov-2026.** Fase 4 cerrada: Worker con bandeja de salida (reintentos, bloqueo entre instancias, reconsulta de estados sin confirmar y reconciliación de la regla 90), envío SOAP a la DIAN, AttachedDocument, PDF con plantillas HTML y Gotenberg, correo por empresa, almacenamiento local o S3, planes y consumo, rutas de utilidades (estado, descargas, regenerar PDF y AttachedDocument, reenvío de correo, rangos de numeración), tareas diarias (limpieza y avisos de vencimiento de certificado y resolución), documentación OpenAPI en español con ejemplos listos y el comando `seed-demo`. La puerta de salida se cumple: las 91 peticiones Postman de la primera entrega pasan contra el Api (28 iguales al PHP y 63 con diferencias conocidas y listadas, ninguna falla); 1.669 pruebas en verde. Pasan a la fase 5, en su versión `/api/v1` para el panel: lista de documentos con filtros, clientes (incluida la consulta `GetAcquirer` de la DIAN), siguiente consecutivo, logo y plantillas, vista previa del PDF antes de emitir, reenvío al cliente, unir PDF, borrar empresa, varias formas de pago en una factura y anticipos.
 
 **Estrategia de pruebas**
 
@@ -548,13 +552,13 @@ flowchart LR
 | ADR-01 | Monolito modular | Sí o microservicios | Sí, monolito modular (acordado) |
 | ADR-02 | Envío a la DIAN | Sincrónico o asíncrono con Worker | Resuelto: asíncrono con `?wait=true` opcional (ADR-13) |
 | ADR-03 | Cola de trabajos | Outbox propio o Hangfire | Resuelto: outbox propio sobre la BD; sin Redis ni broker en la v1 (ADR-22) |
-| ADR-04 | Generación de PDF | QuestPDF, DinkToPdf, plantillas HTML | Probar QuestPDF con la plantilla actual; revisar su licencia |
+| ADR-04 | Generación de PDF | QuestPDF, DinkToPdf, plantillas HTML | Cerrado (17-nov): plantillas HTML (Handlebars.Net) convertidas por Gotenberg; QuestPDF se descarta por su licencia según ingresos de quien la usa («Arquitectura detallada», ADR-04) |
 | ADR-05 | Almacenamiento de certificados | Key Vault y equivalentes o llave maestra local | Ambas detrás de `ICertificateStore` |
 | ADR-06 | Rutas públicas del PHP | Mantenerlas públicas o exigir API key | Resuelto: exigir API key |
 | ADR-07 | Migración de datos existentes | Empezar limpio o importar desde MySQL | Resuelto: empezar limpio, sin migración de datos |
 | ADR-08 | Proveedor de MySQL | Pomelo u Oracle | Por verificar para .NET 10 |
 
-**Índice de ADR.** 01 a 08 y 22 están en este documento; 09 a 14 y 22 a 28, en «Arquitectura detallada» (sección 15 y sección 19.6); 15 a 21, en «Arquitectura frontend» (sección 15). Siguen abiertos: ADR-04 (PDF), ADR-08 (MySQL), ADR-09 (SOAP, spike), ADR-17 (Optimus UI, spike) y ADR-18 (i18n).
+**Índice de ADR.** 01 a 08 y 22 están en este documento; 09 a 14 y 22 a 28, en «Arquitectura detallada» (sección 15 y sección 19.6); 15 a 21, en «Arquitectura frontend» (sección 15). Siguen abiertos: ADR-08 (MySQL), ADR-09 (SOAP, spike), ADR-17 (Optimus UI, spike) y ADR-18 (i18n).
 
 **Preguntas (respondidas el 13-nov-2026; ver «Decisiones confirmadas»)**
 
@@ -582,7 +586,7 @@ flowchart LR
 - **Origen de paridad:** repo público github.com/facturalatam/apidian (Community; licencia por confirmar, ver riesgos) + colección Postman como referencia de contrato. Lo Enterprise de la colección (nómina, RIPS, extractor, WhatsApp) queda fuera de la fase Community.
 - **Datos:** sin migración de datos existentes; arranque desde cero (esquema nuevo, seeders de catálogos DIAN).
 - **Modelo comercial:** reventa con desarrollo propio y estándares de calidad nuevos → multi-empresa desde el día 1, planes/consumo y licencia propia.
-- **Clientes legados:** ninguno; no hay obligación de compatibilidad con las rutas públicas del PHP. Se conservan las rutas `/api/ubl2.1/*` solo como contrato de referencia y para los contract tests, no como promesa a terceros; las rutas sin autenticación (sign/send/status) se cierran.
+- **Clientes legados:** ninguno; no hay obligación de compatibilidad con las rutas públicas del PHP. Se conservan las rutas `/api/ubl2.1/*` solo como contrato de referencia y para los contract tests, no como promesa a terceros: no se documentan en OpenAPI y se borran en la fase 7; las rutas sin autenticación (sign/send/status) se cierran.
 - **Equipo:** una sola persona → la primera entrega se recorta a factura, notas crédito/débito, resoluciones, certificado, ambiente y consultas, contra habilitación DIAN. Confirmado el 14-nov: son las fases 3 y 4; el resto de Community pasa a la fase 7.
 - **Licencia del repositorio ImpiFact (14-nov):** se creó con Apache 2.0 de forma provisional. Hay que cambiarla por una licencia propia antes de vender o de publicar el código, porque Apache 2.0 permite a cualquiera usarlo y revenderlo.
 - **WhatsApp (14-nov):** Enterprise (fase 8). Sale de la fase 4, de los contract tests y de la migración inicial.
@@ -607,7 +611,7 @@ Revisión de todo el documento (PRD, anexo, modelo de datos, arquitectura y fron
 | 10 | **Nombre del producto: ImpiFact.** Para un producto propio y revendible conviene nombre, namespaces y marca propios antes de crear el repo (renombrar después es costoso) y sin usar la marca FacturaLatam. | Media | Corregido (14-nov). Nombre elegido: ImpiFact. Namespaces `ImpiFact.*` y repo impifact. Pendiente: verificar dominio y marca en la SIC. |
 | 11 | **Faltaban requisitos operativos:** llaves de Data Protection compartidas entre instancias, copias de seguridad y recuperación, retención de XML y protección de datos personales. | Media | Corregido en la pestaña de arquitectura, sección 19. |
 | 12 | **Alcance grande para una persona.** Tres motores, panel, Worker y multi-empresa. | Media | Mitigado: PostgreSQL primero, fase 1 dividida en 1a (sin DIAN) y 1b (con certificado), Enterprise fuera. Si hay que recortar, el panel Angular es lo primero que se simplifica. |
-| 13 | **Decisiones que siguen abiertas:** ADR-04 (PDF y licencia de QuestPDF), ADR-08 (proveedor MySQL), ADR-09 (SOAP, spike), ADR-17 (Optimus UI, spike), ADR-18 (i18n). | Baja | Abierto, cada una con su punto de resolución. |
+| 13 | **Decisiones que siguen abiertas:** ADR-08 (proveedor MySQL), ADR-09 (SOAP, spike), ADR-17 (Optimus UI, spike), ADR-18 (i18n). | Baja | Abierto, cada una con su punto de resolución. |
 | 14 | **Licencia del origen ambigua.** `LICENSE` dice MIT y `composer.json` declara LGPL-3.0; la licencia de `torresoftware` no se ha revisado. Importa para revender. | Alta | Abierto. `torresoftware` es LGPL-3.0 (confirmado el 14-nov): ImpiFact implementa las fórmulas y la firma desde el anexo técnico de la DIAN y usa la librería solo como referencia de comportamiento, sin traducir su código. Falta confirmar la licencia de ApiDian (MIT o LGPL-3.0). |
 | 15 | **Correcciones sin propagar.** Varias correcciones marcadas como hechas seguían contradichas en otras secciones: reglas de dependencia, consecutivo, estados, índice único, motores por fase, numeración de fases, versionado de rutas, estado de los ADR y referencias entre archivos. Se recuperaron los dos diagramas perdidos al exportar. | Media | Corregido (14-nov, segunda pasada) en los cinco documentos. |
 | 16 | **Alcance de la primera entrega.** La decisión del 13-nov recorta la «fase 1» a factura, notas, resoluciones, certificado, ambiente y consultas, pero las fases 3 y 4 incluyen exportación, contingencia, documento soporte, eventos RADIAN y lotes. | Alta | Resuelto (14-nov): entrega corta. Fases 3 y 4 con factura, notas, resoluciones, certificado, ambiente y consultas; el resto de Community, en la fase 7. |

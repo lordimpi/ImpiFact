@@ -1,7 +1,13 @@
 using FluentValidation;
+using ImpiFact.Application.Abstractions.Billing;
 using ImpiFact.Application.Abstractions.Handlers;
+using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Application.Behaviors;
+using ImpiFact.Application.Features.Billing;
+using ImpiFact.Application.Features.Documents.Delivery;
+using ImpiFact.Application.Features.Documents.Email;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ImpiFact.Application;
 
@@ -27,10 +33,35 @@ public static class ApplicationServiceCollectionExtensions
             .AsImplementedInterfaces()
             .WithScopedLifetime());
 
+        // Cuota del plan que consultan la emisión y el envío a la DIAN (módulo Documents) sin conocer Billing.
+        services.TryAddScoped<IPlanGate, PlanGate>();
+
         services.TryDecorate(typeof(IHandler<,>), typeof(TransactionDecorator<,>));
         services.TryDecorate(typeof(IHandler<,>), typeof(TenantDecorator<,>));
         services.TryDecorate(typeof(IHandler<,>), typeof(ValidationDecorator<,>));
         services.TryDecorate(typeof(IHandler<,>), typeof(LoggingDecorator<,>));
+        return services;
+    }
+
+    /// <summary>
+    /// Registra los handlers de la bandeja de salida (outbox: <see cref="IOutboxMessageHandler"/>) de Application, con
+    /// ámbito por mensaje, y sus piezas comunes. Solo los usa el Worker: la API no los registra, porque no procesa la
+    /// bandeja y sus dependencias (el cliente de la DIAN, el almacén de archivos) piden configuración que no necesita.
+    /// </summary>
+    public static IServiceCollection AddOutboxHandlers(this IServiceCollection services)
+    {
+        services.Scan(scan => scan
+            .FromAssemblies(typeof(ApplicationServiceCollectionExtensions).Assembly)
+            .AddClasses(classes => classes.AssignableTo<IOutboxMessageHandler>(), publicOnly: false)
+            .As<IOutboxMessageHandler>()
+            .WithScopedLifetime());
+
+        // Piezas comunes de los handlers que hablan con la DIAN (envío y consulta de estado).
+        services.TryAddScoped<DianDelivery>();
+        services.TryAddScoped<Features.Documents.Pdf.DocumentPdfModelBuilder>();
+
+        // Elige el servidor de correo de la empresa o el de la plataforma para el correo del documento (SendEmail).
+        services.TryAddScoped<MailServerSelector>();
         return services;
     }
 

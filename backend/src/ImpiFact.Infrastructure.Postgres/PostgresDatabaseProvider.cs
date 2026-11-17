@@ -1,7 +1,10 @@
 using ImpiFact.Application.Abstractions.Persistence;
+using ImpiFact.Infrastructure.Billing;
 using ImpiFact.Infrastructure.Documents;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
+using ImpiFact.Infrastructure.Platform.Outbox;
+using ImpiFact.Infrastructure.Platform.Scheduling;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +30,9 @@ public sealed class PostgresDatabaseProvider : IDatabaseProvider
             NpgsqlDataSource.Create(serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString));
         services.TryAddSingleton<IReadConnectionFactory, NpgsqlReadConnectionFactory>();
         services.TryAddSingleton<INumberingSql, PostgresNumberingSql>();
+        services.TryAddSingleton<IOutboxQueueSql, PostgresOutboxQueueSql>();
+        services.TryAddSingleton<IScheduledJobLockSql, PostgresScheduledJobLockSql>();
+        services.TryAddSingleton<IPlanUsageSql, PostgresPlanUsageSql>();
     }
 
     public void ConfigureDbContext(IServiceProvider services, DbContextOptionsBuilder options) =>

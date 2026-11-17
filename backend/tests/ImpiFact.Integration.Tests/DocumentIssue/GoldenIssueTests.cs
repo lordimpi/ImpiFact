@@ -95,7 +95,18 @@ public sealed partial class GoldenIssueTests
     {
         var content = new ByteArrayContent(File.ReadAllBytes(Path.Combine(caseDir, "input.json")));
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-        return await Golden.Client.PostAsync($"/api/ubl2.1/{route}", content);
+        var response = await Golden.Client.PostAsync($"/api/ubl2.1/{route}", content);
+        if (route == "invoice" && response.IsSuccessStatusCode)
+        {
+            // Desde la fase 4 una nota exige que su factura ya esté aceptada por la DIAN. Aquí no hay DIAN ni Worker, así
+            // que la factura emitida se da por aceptada, como si el Worker ya la hubiera enviado.
+            await using var scope = DocumentIssueHost.Api.OpenScope(null, null, ActorType.System);
+            await scope.Db.Set<Document>().IgnoreQueryFilters()
+                .Where(row => row.CompanyId == Golden.CompanyId && row.DocumentTypeId == 1 && row.Status == DocumentStatus.Queued)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(row => row.Status, DocumentStatus.Accepted));
+        }
+
+        return response;
     }
 
     internal static async Task<string> StoredSignedXmlAsync(Guid documentId)

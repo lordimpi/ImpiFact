@@ -1,0 +1,17 @@
+{
+  "kind": "invoice",
+  "type_document_id": 1,
+  "prefix": "SETP",
+  "number": 990000777,
+  "cufe": "4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a4d3c2b1a",
+  "now": "2026-11-17 08:00:09",
+  "customer": {
+    "identification_number": "1020304050",
+    "type_document_identification_id": 3,
+    "type_organization_id": 2,
+    "type_regime_id": 2,
+    "type_liability_id": 117,
+    "name": "PERSONA NATURAL & HIJOS <PRUEBA>",
+    "email": "natural@example.com"
+  }
+}

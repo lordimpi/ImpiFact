@@ -1,15 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Adaptadores: persistencia, almacenamiento, secretos, correo y PDF. -->
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="Dapper" />
+    <PackageReference Include="Handlebars.Net" />
+    <PackageReference Include="MailKit" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <PackageReference Include="Microsoft.Extensions.Identity.Core" />
     <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+    <PackageReference Include="QRCoder" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ImpiFact.Application\ImpiFact.Application.csproj" />
@@ -22,5 +27,7 @@
   <ItemGroup>
     <!-- Semillas de catálogos: viajan dentro del ensamblado con un nombre fijo, «Seed/<tabla>.json». -->
     <EmbeddedResource Include="Seed\*.json" LogicalName="Seed/%(Filename)%(Extension)" />
+    <!-- Plantillas HTML del PDF (representación gráfica), con un nombre fijo: «Pdf/Templates/<archivo>». -->
+    <EmbeddedResource Include="Pdf\Templates\*" LogicalName="Pdf/Templates/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

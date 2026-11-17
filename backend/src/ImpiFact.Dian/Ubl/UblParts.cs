@@ -19,8 +19,8 @@ internal static class UblParts
     public const string IcaCode = "03";
     public const string IncCode = "04";
 
-    private const string DianAgencyId = "195";
-    private const string DianAgencyName = "CO, DIAN (Dirección de Impuestos y Aduanas Nacionales)";
+    public const string DianAgencyId = "195";
+    public const string DianAgencyName = "CO, DIAN (Dirección de Impuestos y Aduanas Nacionales)";
     private const string AuthorizationProviderNit = "800197268";
 
     // La plantilla de las partes deja saltos de línea y espacios de su propia indentación dentro del texto de

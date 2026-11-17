@@ -28,6 +28,24 @@ public sealed class ApiDocumentationTests
     }
 
     [Test]
+    public async Task Scalar_loads_its_configuration_module_with_the_halloween_theme()
+    {
+        using var factory = new IdentityApiFactory("Development");
+        using var client = factory.CreateClient();
+
+        var page = await client.GetStringAsync("/scalar");
+        using var module = await client.GetAsync("/scalar-config.js");
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(page, Does.Contain("scalar-config.js"));
+            Assert.That(module.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(module.Content.Headers.ContentType?.MediaType, Is.EqualTo("text/javascript"));
+            Assert.That(await module.Content.ReadAsStringAsync(), Does.Contain("theme: 'halloween'"));
+        });
+    }
+
+    [Test]
     public async Task Scalar_and_the_openapi_document_do_not_exist_in_production()
     {
         using var factory = new IdentityApiFactory("Production");

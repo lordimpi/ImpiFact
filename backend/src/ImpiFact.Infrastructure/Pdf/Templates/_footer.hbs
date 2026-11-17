@@ -1,0 +1,8 @@
+{{!-- Pie: número, CUFE o CUDE, modo de operación, texto legal y nota de pie. --}}
+<footer>
+    <p>{{Labels.FooterTitle}} No: {{Document.Prefix}} - {{Document.Number}} - Fecha y Hora de Generación: {{Document.IssueDate}} - {{Document.IssueTime}}</p>
+    <p>{{Document.UuidLabel}}: <span class="uuid">{{Document.Uuid}}</span></p>
+    <p>Modo de operación: {{Document.SoftwareMode}}</p>
+    {{#if Labels.LegalText}}<p>{{Labels.LegalText}}</p>{{/if}}
+    {{#if Document.FootNote}}<p><strong>{{Document.FootNote}}</strong></p>{{/if}}
+</footer>

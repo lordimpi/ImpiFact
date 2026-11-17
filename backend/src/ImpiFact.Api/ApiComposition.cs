@@ -4,6 +4,8 @@ using ImpiFact.Api.Documents;
 using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
 using ImpiFact.Api.Identity;
+using ImpiFact.Api.OpenApi;
+using ImpiFact.Api.Plans;
 using ImpiFact.Application;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Identity;
@@ -11,7 +13,6 @@ using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Postgres;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.HttpOverrides;
-using Scalar.AspNetCore;
 
 namespace ImpiFact.Api;
 
@@ -36,6 +37,10 @@ internal static class ApiComposition
         services.AddProblemDetails(options =>
             options.CustomizeProblemDetails = context => LegacyProblemFields.Apply(context.ProblemDetails, context.HttpContext));
         services.AddExceptionHandler<CredentialStoreUnavailableHandler>();
+        services.AddExceptionHandler<InvalidRequestBodyHandler>();
+        // Las rutas mínimas lanzan BadHttpRequestException ante un cuerpo ilegible en todos los ambientes (por defecto
+        // solo en Development), así InvalidRequestBodyHandler responde siempre con el mismo formato.
+        services.Configure<Microsoft.AspNetCore.Routing.RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
 
         // Detrás de un proxy o ingress: la IP y el esquema reales vienen en X-Forwarded-For y X-Forwarded-Proto. Por
         // defecto solo se confía en la propia máquina (loopback); cada despliegue agrega sus proxies en la sección
@@ -66,12 +71,14 @@ internal static class ApiComposition
         services.AddApiRateLimiting();
         services.AddBearerAuthentication();
         services.AddScopeAuthorization();
-        services.AddOpenApi();
+        services.AddImpiFactOpenApi();
 
         services.AddSingleton<IEndpointModule, IdentityEndpoints>();
         services.AddSingleton<IEndpointModule, CompanyEndpoints>();
         services.AddSingleton<IEndpointModule, DocumentQueryEndpoints>();
         services.AddSingleton<IEndpointModule, DocumentIssueEndpoints>();
+        services.AddSingleton<IEndpointModule, DocumentUtilityEndpoints>();
+        services.AddSingleton<IEndpointModule, PlanEndpoints>();
         return builder;
     }
 
@@ -103,11 +110,12 @@ internal static class ApiComposition
         // Prueba de vida del proceso: responde 200 mientras la API esté arriba (Arquitectura, sección 13).
         app.MapHealthChecks("/health/live").AllowAnonymous();
 
-        // Documentación OpenAPI y Scalar en /scalar solo en desarrollo y staging (sección 9.3).
+        // Documentación OpenAPI y Scalar en /scalar solo en desarrollo y staging (sección 9.3). Solo describe las rutas
+        // /api/v1, en español (OpenApiDocumentation).
         if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
         {
             app.MapOpenApi().AllowAnonymous();
-            app.MapScalarApiReference().AllowAnonymous();
+            app.MapImpiFactApiReference().AllowAnonymous();
         }
 
         foreach (var module in app.Services.GetServices<IEndpointModule>())
