@@ -11,5 +11,84 @@
   "home": {
     "title": "Panel de ImpiFact",
     "description": "Facturación electrónica para la DIAN. El panel se está construyendo."
+  },
+  "ui": {
+    "close": "Cerrar",
+    "retry": "Reintentar",
+    "paginator": {
+      "navigation": "Paginación",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "page": "Página {page}"
+    }
+  },
+  "devUi": {
+    "title": "Vitrina de componentes",
+    "description": "Página solo para desarrollo: cada componente de ui en cada estado.",
+    "lastEvent": "Último evento",
+    "noEvent": "ninguno",
+    "theme": {
+      "label": "Tema",
+      "system": "Sistema",
+      "light": "Claro",
+      "dark": "Oscuro"
+    },
+    "buttons": {
+      "title": "Botones",
+      "primary": "Guardar",
+      "secondary": "Cancelar",
+      "danger": "Anular",
+      "text": "Ver detalle",
+      "disabled": "No disponible",
+      "loading": "Guardando"
+    },
+    "fields": {
+      "title": "Campos",
+      "nit": "NIT",
+      "nitHint": "Sin dígito de verificación",
+      "name": "Razón social",
+      "nameError": "La razón social es obligatoria",
+      "email": "Correo electrónico"
+    },
+    "states": {
+      "title": "Estados",
+      "emptyTitle": "Aún no hay clientes",
+      "emptyDescription": "Cree el primero para poder facturarle.",
+      "emptyAction": "Nuevo cliente",
+      "loading": "Cargando clientes",
+      "errorTitle": "No se pudieron cargar los clientes",
+      "errorDescription": "Revise su conexión e intente de nuevo."
+    },
+    "table": {
+      "title": "Tabla",
+      "caption": "Documentos emitidos",
+      "loadingCaption": "Documentos emitidos, cargando",
+      "emptyCaption": "Documentos emitidos, sin resultados",
+      "errorCaption": "Documentos emitidos, con error",
+      "number": "Número",
+      "customer": "Cliente",
+      "filterCustomer": "Filtrar por cliente",
+      "status": "Estado",
+      "filterStatus": "Filtrar por estado",
+      "total": "Total",
+      "loading": "Cargando documentos",
+      "emptyTitle": "No hay documentos",
+      "emptyDescription": "Cambie los filtros o emita un documento.",
+      "errorTitle": "No se pudieron cargar los documentos",
+      "errorDescription": "Revise su conexión e intente de nuevo."
+    },
+    "paginator": {
+      "title": "Paginador",
+      "cursor": "Con cursor",
+      "cursorNav": "Paginación con cursor"
+    },
+    "dialog": {
+      "title": "Diálogo",
+      "open": "Abrir diálogo",
+      "header": "Anular factura",
+      "body": "La factura quedará anulada con una nota crédito. Esta acción no se puede deshacer.",
+      "confirm": "Anular",
+      "cancel": "Cancelar"
+    }
   }
 }
