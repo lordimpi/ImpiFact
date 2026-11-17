@@ -1,0 +1,68 @@
+# Integración continua del panel Angular (docs/Arquitectura frontend.md, secciones 11, 12 y 18).
+# Solo corre cuando cambia algo de web/ o este mismo archivo (CI filtrado por ruta, ADR-28).
+name: web
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ["web/**", ".github/workflows/web.yml"]
+  pull_request:
+    branches: [main, develop]
+    paths: ["web/**", ".github/workflows/web.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # ESLint (incluye las fronteras entre librerías) y formato con Prettier.
+      - name: Lint
+        run: npm run lint
+
+      # Unitarias con Vitest (ejecutor por defecto de Angular CLI) en todos los proyectos.
+      - name: Unit tests
+        run: npm test
+
+      # Falla si se superan los presupuestos de bundle de angular.json.
+      - name: Build
+        run: npm run build
+
+      # Las librerías siguen compilando por separado con ng-packagr.
+      - name: Build libraries
+        run: npm run build:libs
+
+      # Prueba de humo E2E (de extremo a extremo) con Playwright contra ng serve.
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E smoke
+        run: npm run e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report
+          retention-days: 7

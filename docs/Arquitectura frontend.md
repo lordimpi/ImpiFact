@@ -39,7 +39,7 @@ web/
 ├─ eslint.config.js  tsconfig.base.json  package.json
 ```
 
-Reglas de dependencia (se hacen cumplir con `eslint-plugin-boundaries` o `no-restricted-imports`):
+Reglas de dependencia (se hacen cumplir con `eslint-plugin-boundaries` en `web/eslint.config.js`; un *feature* nuevo queda cubierto por el patrón `projects/feature-*` sin tocar la configuración):
 
 | Desde | Puede importar | No puede importar |
 | --- | --- | --- |
@@ -163,7 +163,7 @@ Paginación y orden en el servidor (por clave `issued_at, id`), filtros por fech
 
 | Nivel | Herramienta | Qué cubre |
 | --- | --- | --- |
-| Unitarias | Ejecutor por defecto de la CLI vigente + *Testing Library* | Servicios de estado, validadores, *pipes*, componentes de presentación |
+| Unitarias | Ejecutor por defecto de la CLI vigente (Vitest en Angular 22) + *Testing Library* | Servicios de estado, validadores, *pipes*, componentes de presentación |
 | Componentes | Testing Library con selectores por rol y etiqueta | Interacción de formularios y tablas |
 | E2E | Playwright | Login, selección de empresa, alta de empresa, emisión de factura (contra Api con DIAN simulada), descarga de PDF, revocar API key |
 | Contrato | Regeneración del cliente en CI | Falla si el OpenAPI cambia sin actualizar `projects/api` |
