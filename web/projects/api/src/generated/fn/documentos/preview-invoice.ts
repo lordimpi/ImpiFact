@@ -174,6 +174,60 @@ export interface PreviewInvoice$Params {
  */
 'duration_measure'?: (boolean | number | string | null);
 }> | null);
+'prepaid_payment'?: {
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'idpayment'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'paidamount'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'receiveddate'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'paiddate'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'instructionid'?: (boolean | number | string | null);
+};
+'prepaid_payments'?: (Array<{
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'idpayment'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'paidamount'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'receiveddate'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'paiddate'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'instructionid'?: (boolean | number | string | null);
+}> | null);
 'allowance_charges'?: (Array<{
 
 /**

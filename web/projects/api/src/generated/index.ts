@@ -224,6 +224,10 @@ export type { IssueTestSetDebitNote$Params as IssueTestSetDebitNote$Params } fro
 export { issueTestSetDebitNote as issueTestSetDebitNote } from './fn/documentos/issue-test-set-debit-note';
 export type { PreviewInvoice$Params as PreviewInvoice$Params } from './fn/documentos/preview-invoice';
 export { previewInvoice as previewInvoice } from './fn/documentos/preview-invoice';
+export type { PreviewCreditNote$Params as PreviewCreditNote$Params } from './fn/documentos/preview-credit-note';
+export { previewCreditNote as previewCreditNote } from './fn/documentos/preview-credit-note';
+export type { PreviewDebitNote$Params as PreviewDebitNote$Params } from './fn/documentos/preview-debit-note';
+export { previewDebitNote as previewDebitNote } from './fn/documentos/preview-debit-note';
 export type { CalculateDocumentTotals$Params as CalculateDocumentTotals$Params } from './fn/documentos/calculate-document-totals';
 export { calculateDocumentTotals as calculateDocumentTotals } from './fn/documentos/calculate-document-totals';
 export type { GetDocumentDianStatus$Params as GetDocumentDianStatus$Params } from './fn/documentos/get-document-dian-status';
