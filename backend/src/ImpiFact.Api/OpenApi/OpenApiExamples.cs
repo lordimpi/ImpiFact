@@ -117,6 +117,8 @@ internal static class OpenApiExamples
         "hasta" => "2026-11-30",
         "page" => 1,
         "unread" => true,
+        "name" when relativePath.Contains("catalogs/", StringComparison.Ordinal) => "municipalities",
+        "q" when relativePath.Contains("catalogs/", StringComparison.Ordinal) => "bogota",
         "X-Client" => "panel",
         _ => null,
     };

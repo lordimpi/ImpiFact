@@ -413,6 +413,16 @@ Maestros del panel (`/clientes` y `/productos`, Arquitectura frontend sección 7
 - Desactivar no usa `deleted_at`: el índice único de `customers` y de `items` incluye las filas con borrado lógico, así que una fila oculta impediría crear otra igual sin que el panel pudiera verla ni reactivarla.
 - Por confirmar con la DIAN real: los nombres de los campos de la respuesta de GetAcquirer (`StatusCode`, `Message`, `ReceiverName`, `ReceiverEmail`; el lector no depende del espacio de nombres) y que `identificationType` sea el código DIAN del tipo y no el id que mandaba el PHP.
 
+### 9.8 Catálogos de la DIAN (fase 5)
+
+`GET /api/v1/catalogs/{name}` (`listCatalog`) publica los catálogos sembrados que usan los formularios del panel, con cualquier credencial (usuario o API key, sin alcance ni empresa activa): son iguales para todas las empresas.
+
+- Nombres: `identification-types`, `organization-types`, `regimes`, `liabilities`, `municipalities`, `departments`, `countries`, `unit-measures`, `taxes`, `payment-forms`, `payment-methods`, `document-types`, `currencies`, `item-identification-types`, `credit-note-discrepancy-responses` y `debit-note-discrepancy-responses` (`CatalogDefinitions`). Otro nombre responde 404 `catalog.not_found`.
+- Respuesta `{name, version, items, next_cursor}`; cada fila `{id, code, name, is_active}` más `department_id` (municipios), `country_id` (departamentos) o `description` (impuestos). Orden por `id`; solo filas activas salvo `include_inactive=true`.
+- `q` (hasta 100 caracteres, sin caracteres de control) busca dentro del código o del nombre sin distinguir mayúsculas ni tildes. El caso de uso lee el catálogo completo (el más largo tiene unas 1.100 filas) y filtra en memoria, porque PostgreSQL no compara sin tildes sin la extensión `unaccent`.
+- `municipalities` y `unit-measures` se paginan por cursor (el id de la última fila, opaco para el cliente; `limit` 50 por defecto y 200 como máximo); los demás salen completos y `next_cursor` es nulo.
+- Caché: `version` son los primeros 16 bytes del SHA-256 de todas las filas del catálogo (también las inactivas) y de la forma de la respuesta; es el `ETag` fuerte de la respuesta (el cuerpo de una URL solo depende de esa versión y de sus parámetros) y `If-None-Match` igual responde 304 sin cuerpo. `Cache-Control: public, max-age=3600`: los datos no son de ninguna empresa. Un cambio del sincronizador de catálogos o de `is_active` cambia la versión.
+
 ## 10. Panel Angular (`web/`)
 
 - Angular (última versión estable), componentes *standalone*, `signals`, control flow nativo (`@if`, `@for`), `provideRouter` con rutas perezosas por `feature`.

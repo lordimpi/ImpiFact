@@ -1,6 +1,7 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Infrastructure.Billing;
+using ImpiFact.Infrastructure.Catalogs;
 using ImpiFact.Infrastructure.Companies;
 using ImpiFact.Infrastructure.Dashboard;
 using ImpiFact.Infrastructure.Dian;
@@ -60,6 +61,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddPlatform();
         services.AddNotificationInbox();
         services.AddMasters();
+        services.AddCatalogReads();
         services.AddDashboardReads();
         services.AddDianWebService(configuration);
         services.AddReads();

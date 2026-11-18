@@ -20,6 +20,8 @@ public static class ApiTags
     public const string Masters = "Clientes y productos";
     public const string Dashboard = "Tablero";
 
+    public const string Catalogs = "Catálogos";
+
     /// <summary>Descripción de cada sección, en el orden en que se muestran.</summary>
     public static IReadOnlyList<(string Name, string Description)> Descriptions { get; } =
     [
@@ -46,5 +48,9 @@ public static class ApiTags
         (Dashboard,
             "Resumen del tablero del panel: documentos por estado y por mes, consumo del plan, certificado de firma y " +
             "resoluciones por agotarse de la empresa activa."),
+        (Catalogs,
+            "Catálogos de la DIAN para las listas de los formularios: tipos de identificación y de organización, regímenes, " +
+            "responsabilidades fiscales, municipios, departamentos, países, unidades de medida, impuestos, formas y medios de " +
+            "pago, tipos de documento y monedas. Son los mismos para todas las empresas y se pueden guardar en caché."),
     ];
 }
