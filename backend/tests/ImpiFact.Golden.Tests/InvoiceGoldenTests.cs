@@ -140,6 +140,46 @@ public sealed class InvoiceGoldenTests
         Assert.That(xml, Does.Not.Contain("PrepaidPayment"));
     }
 
+    // Como _payment_means.blade.php: un cac:PaymentMeans por forma de pago, con cbc:PaymentID igual a su índice desde 0;
+    // _payment_terms.blade.php solo usa la primera ($paymentForm[0]).
+    [Test]
+    public void Each_payment_form_is_one_payment_means_and_the_terms_use_the_first()
+    {
+        var invoice = GoldenInvoice("global-charge-credit-payment");
+        invoice = invoice with
+        {
+            Payments = [invoice.Payments[0], new PaymentTerms("2", "10", null, 15)],
+        };
+
+        var xml = InvoiceUblBuilder.Build(invoice).Xml;
+
+        Assert.That(xml, Does.Contain(
+            "  <cac:PaymentMeans>\n" +
+            "    <cbc:ID>2</cbc:ID>\n" +
+            "    <cbc:PaymentMeansCode>30</cbc:PaymentMeansCode>\n" +
+            "    <cbc:PaymentDueDate>2026-12-14</cbc:PaymentDueDate>\n" +
+            "    <cbc:PaymentID>0</cbc:PaymentID>\n" +
+            "  </cac:PaymentMeans>\n" +
+            "  <cac:PaymentMeans>\n" +
+            "    <cbc:ID>2</cbc:ID>\n" +
+            "    <cbc:PaymentMeansCode>10</cbc:PaymentMeansCode>\n" +
+            "    <cbc:PaymentDueDate>" + invoice.IssueDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) + "</cbc:PaymentDueDate>\n" +
+            "    <cbc:PaymentID>1</cbc:PaymentID>\n" +
+            "  </cac:PaymentMeans>\n" +
+            "  <cac:PaymentTerms>\n" +
+            "    <cbc:ReferenceEventCode>2</cbc:ReferenceEventCode>\n" +
+            "    <cac:SettlementPeriod>\n" +
+            "      <cbc:DurationMeasure unitCode=\"DAY\">30</cbc:DurationMeasure>\n"));
+    }
+
+    [Test]
+    public void An_invoice_needs_at_least_one_payment_form()
+    {
+        var invoice = GoldenInvoice("global-charge-credit-payment") with { Payments = [] };
+
+        Assert.Throws<ArgumentException>(() => InvoiceUblBuilder.Build(invoice));
+    }
+
     private static SalesInvoice GoldenInvoice(string name)
     {
         var caseDir = GoldenCases.Invoices().Single(dir => Path.GetFileName(dir) == name);

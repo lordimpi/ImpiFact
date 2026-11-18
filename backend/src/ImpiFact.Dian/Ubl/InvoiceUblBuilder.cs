@@ -67,8 +67,8 @@ public static class InvoiceUblBuilder
         root.Add("cbc:LineCountNumeric", invoice.Lines.Count.ToString(CultureInfo.InvariantCulture));
         root.Add(Party("cac:AccountingSupplierParty", invoice.Supplier, isSupplier: true, invoice.Resolution.Prefix));
         root.Add(Party("cac:AccountingCustomerParty", invoice.Customer, isSupplier: false, invoice.Resolution.Prefix));
-        root.Add(PaymentMeans(invoice.Payment, invoice.IssueDate));
-        root.Add(PaymentTerms(invoice.Payment));
+        AddPaymentMeans(root, invoice.Payments, invoice.IssueDate, nameof(invoice));
+        root.Add(PaymentTerms(invoice.Payments[0]));
 
         // Los anticipos van en la moneda del documento, como en ApiDian y la regla FBD04 del anexo.
         foreach (var prepaid in invoice.PrepaidPayments)

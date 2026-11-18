@@ -134,7 +134,7 @@ public static class NoteUblBuilder
 
     private static void AddPaymentAndExchangeRate(UblElement root, SalesNote note)
     {
-        root.Add(PaymentMeans(note.Payment, note.IssueDate));
+        AddPaymentMeans(root, note.Payments, note.IssueDate, nameof(note));
         if (PaymentExchangeRate(note.ForeignCurrency, note.LocalCurrencyCode) is { } exchangeRate)
         {
             root.Add(exchangeRate);

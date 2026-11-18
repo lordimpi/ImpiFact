@@ -49,7 +49,7 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             ForeignCurrency = MapForeignCurrency(request),
             Supplier = MapSupplier(),
             Customer = MapCustomer(request.GetProperty("customer")),
-            Payment = MapPayment(request.GetProperty("payment_form")),
+            Payments = MapPayments(request.GetProperty("payment_form")),
             AllowanceCharges = MapList(request, "allowance_charges", MapAllowanceCharge),
             TaxSubtotals = MapList(request, "tax_totals", MapTaxSubtotal),
             WithholdingSubtotals = MapList(request, "with_holding_tax_total", MapTaxSubtotal),
@@ -126,6 +126,10 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             municipality.Code, municipality.Name, department.Name, department.Code,
             addressLine, country.Code, country.Name, language.Code);
     }
+
+    /// <summary>Como el PHP: <c>payment_form</c> es un objeto suelto o una lista de formas de pago.</summary>
+    internal IReadOnlyList<PaymentTerms> MapPayments(JsonElement payment) =>
+        payment.ValueKind == JsonValueKind.Array ? payment.EnumerateArray().Select(MapPayment).ToList() : [MapPayment(payment)];
 
     internal PaymentTerms MapPayment(JsonElement payment)
     {

@@ -55,7 +55,11 @@ public sealed record SalesInvoice
 
     public required InvoiceParty Customer { get; init; }
 
-    public required PaymentTerms Payment { get; init; }
+    /// <summary>
+    /// Formas de pago, al menos una: cada una es un cac:PaymentMeans (con cbc:PaymentID desde 0) y cac:PaymentTerms
+    /// usa la primera, como ApiDian.
+    /// </summary>
+    public required IReadOnlyList<PaymentTerms> Payments { get; init; }
 
     /// <summary>
     /// Anticipos ya recibidos; cada uno es un cac:PrepaidPayment (grupo FBD del anexo técnico de la DIAN). Su suma va en
@@ -172,7 +176,7 @@ public sealed record PartyAddress(
     string CountryName,
     string LanguageCode);
 
-/// <summary>Forma de pago (contado/crédito) y medio de pago.</summary>
+/// <summary>Forma de pago (contado/crédito) y medio de pago de una entrada de cac:PaymentMeans.</summary>
 public sealed record PaymentTerms(string FormCode, string MethodCode, DateOnly? DueDate, int? DurationDays);
 
 /// <summary>

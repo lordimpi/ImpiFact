@@ -136,7 +136,9 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
     private const string InvoiceText =
         "Emite una factura electrónica de venta. El cuerpo sigue el contrato de ApiDian: `customer` (comprador), " +
         "`invoice_lines`, `legal_monetary_totals`, `tax_totals`, `payment_form` y, si quiere, `number`, `prefix`, " +
-        "`resolution_number`, `date` y `time` (hora de Colombia; sin ellas, la fecha y hora actuales). Los anticipos ya " +
+        "`resolution_number`, `date` y `time` (hora de Colombia; sin ellas, la fecha y hora actuales). `payment_form` es " +
+        "una forma de pago (objeto) o varias (lista); cada una va en el XML como un medio de pago, y sin `payment_form` se " +
+        "usa contado en efectivo. Los anticipos ya " +
         "recibidos van en `prepaid_payment` (uno) o `prepaid_payments` (varios), cada uno con `idpayment`, `paidamount` y " +
         "`receiveddate` (`yyyy-MM-dd`) obligatorios y `paiddate` e `instructionid` opcionales; su suma va en " +
         "`legal_monetary_totals.pre_paid_amount` (obligatorio con `prepaid_payment`) y no se resta de `payable_amount`, " +
@@ -145,12 +147,14 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
     private const string CreditNoteText =
         "Emite una nota crédito, que corrige o anula total o parcialmente una factura. El cuerpo sigue el contrato de " +
         "ApiDian: `billing_reference` (número, CUFE y fecha de la factura), `discrepancyresponsecode`, `customer`, " +
-        "`credit_note_lines`, `legal_monetary_totals` y `tax_totals`.";
+        "`credit_note_lines`, `legal_monetary_totals`, `tax_totals` y, si quiere, `payment_form` (una forma de pago o una " +
+        "lista). Las notas no llevan anticipos.";
 
     private const string DebitNoteText =
         "Emite una nota débito, que agrega cargos a una factura. El cuerpo sigue el contrato de ApiDian: " +
         "`billing_reference` (número, CUFE y fecha de la factura), `discrepancyresponsecode`, `customer`, " +
-        "`debit_note_lines`, `requested_monetary_totals` y `tax_totals`.";
+        "`debit_note_lines`, `requested_monetary_totals`, `tax_totals` y, si quiere, `payment_form` (una forma de pago o " +
+        "una lista). Las notas no llevan anticipos.";
 
     /// <summary>
     /// El cuerpo se lee a mano (su resumen identifica la solicitud repetida), así que su forma, sus ejemplos (los casos

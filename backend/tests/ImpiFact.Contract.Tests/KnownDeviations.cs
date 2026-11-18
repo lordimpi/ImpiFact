@@ -43,11 +43,7 @@ public static class KnownDeviations
             "La solicitud de la colección no trae qty_docs_radian ni qty_docs_ds, que PlanRequest.php exige: el PHP también la " +
             "rechaza, con HTTP 500 (php-rules 3.1.11); ImpiFact responde 422 con el detalle por campo."),
 
-        // Emisión: variantes del cuerpo que ImpiFact todavía no modela (cambian el XML y sus casos golden).
-        KnownDeviation.StatusCode("Factura con varios metodos de pago", 422,
-            Todo + "payment_form como lista (varios medios de pago, varios cac:PaymentMeans) no está soportado; solo un objeto."),
-        KnownDeviation.StatusCode("Factura de una linea con descuento global", 422,
-            Todo + "el cuerpo de la colección es el mismo de «Factura con varios metodos de pago» (payment_form como lista)."),
+        // Emisión: rutas del PHP que ImpiFact todavía no tiene.
         KnownDeviation.StatusCode("Vista previa del PDF de la factura (sin enviar a la DIAN)", 404,
             Todo + "POST invoice/preeliminar-view (vista previa del PDF sin emitir, RF-02) no existe."),
 

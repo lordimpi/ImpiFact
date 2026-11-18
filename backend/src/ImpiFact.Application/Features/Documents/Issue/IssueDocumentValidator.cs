@@ -13,8 +13,7 @@ namespace ImpiFact.Application.Features.Documents.Issue;
 /// <remarks>
 /// Diferencias con el PHP, a propósito: <c>number</c> es opcional (supuesto B2: sin número, lo asigna el
 /// consecutivo); los campos de <c>tax_totals</c> son obligatorios siempre (el PHP los pedía solo con
-/// <c>allowance_charges</c>, un error); se admite una sola forma de pago, porque el XML de la primera entrega lleva un
-/// solo medio de pago; y los textos tienen el largo máximo de sus columnas, para no fallar al guardar.
+/// <c>allowance_charges</c>, un error); y los textos tienen el largo máximo de sus columnas, para no fallar al guardar.
 /// </remarks>
 internal static class IssueDocumentRules
 {
@@ -140,15 +139,10 @@ internal static class IssueDocumentRules
             return;
         }
 
-        if (forms.Count > 1)
-        {
-            check.Fail("payment_form", $"{IssueMessages.Attribute("payment_form")} no debe tener más de 1 elementos.");
-            return;
-        }
-
+        // Varias formas de pago, como el PHP: cada una es un cac:PaymentMeans del XML.
         foreach (var (form, index) in forms.Select((form, index) => (form, index)))
         {
-            var path = forms.Count == 1 && index == 0 ? "payment_form" : $"payment_form.{index}";
+            var path = forms.Count == 1 ? "payment_form" : $"payment_form.{index}";
             var formId = check.Integer($"{path}.payment_form_id", form.PaymentFormId);
             check.Integer($"{path}.payment_method_id", form.PaymentMethodId);
             var due = check.Date($"{path}.payment_due_date", form.PaymentDueDate);
