@@ -35,6 +35,11 @@
       "unexpected": "No se pudo guardar. Intente de nuevo.",
       "loadTitle": "No se pudieron cargar los datos",
       "loadDescription": "Revise su conexión e intente de nuevo."
+    },
+    "catalog": {
+      "loading": "Cargando la lista…",
+      "error": "No se pudo cargar la lista.",
+      "retry": "Reintentar"
     }
   },
   "customers": {
@@ -75,7 +80,10 @@
       "liability": "Responsabilidad fiscal",
       "address": "Dirección",
       "municipality": "Municipio",
-      "municipalityHint": "Capitales de departamento por ahora.",
+      "municipalitySearch": "Buscar municipio",
+      "municipalitySearchHint": "Escriba el nombre o el código DANE y elija el municipio en la lista.",
+      "municipalityNone": "Ningún municipio coincide con la búsqueda.",
+      "municipalityMore": "Cargar más municipios",
       "email": "Correo para recibir facturas",
       "phone": "Teléfono",
       "merchantRegistration": "Matrícula mercantil",
@@ -124,6 +132,10 @@
       "name": "Nombre",
       "descriptionField": "Descripción",
       "unitMeasure": "Unidad de medida",
+      "unitMeasureSearch": "Buscar unidad de medida",
+      "unitMeasureSearchHint": "Escriba el nombre o el código (por ejemplo, KGM) y elija la unidad en la lista.",
+      "unitMeasureNone": "Ninguna unidad coincide con la búsqueda.",
+      "unitMeasureMore": "Cargar más unidades",
       "unitPrice": "Precio unitario sin impuestos",
       "unitPriceHint": "Use punto para los decimales, hasta 6. Por ejemplo 12500.50.",
       "tax": "Impuesto",

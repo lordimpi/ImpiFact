@@ -167,6 +167,23 @@ test('deactivates a customer only after confirming', async ({ page }) => {
   expect(masters.calls('POST', `/api/v1/customers/${CUSTOMER.id}/deactivate`)).toHaveLength(1);
 });
 
+test('the product unit measure comes from the DIAN catalog, page by page', async ({ page }) => {
+  await signInAt(page, '/productos/nuevo');
+
+  const unit = page.getByRole('combobox', { name: 'Unidad de medida', exact: true });
+  await expect(unit).toHaveValue('70');
+  await expect(unit.locator('option', { hasText: 'kilogramo (KGM)' })).toHaveCount(1);
+  await expect(unit.locator('option', { hasText: 'litro (LTR)' })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Impuesto' })).not.toContainText('ReteIVA');
+  expect(await seriousViolations(page)).toEqual([]);
+
+  await page.getByRole('button', { name: 'Cargar más unidades' }).click();
+  await expect(unit.locator('option', { hasText: 'litro (LTR)' })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Cargar más unidades' })).toHaveCount(0);
+  await unit.selectOption('821');
+  await expect(unit).toHaveValue('821');
+});
+
 for (const theme of ['light', 'dark'] as const) {
   test(`the product list and form have no serious accessibility violations (${theme})`, async ({
     page,

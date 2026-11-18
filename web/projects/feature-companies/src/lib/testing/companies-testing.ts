@@ -15,6 +15,7 @@ import { render, waitFor } from '@testing-library/angular';
 import { of } from 'rxjs';
 import companiesEsCO from '../../i18n/es-CO.json';
 import { companiesRoutes } from '../companies.routes';
+import { catalogFixtures, catalogRequests } from './catalog-fixtures';
 
 /*
  * Ayudas de prueba del feature (solo las usan los archivos .spec.ts; no se exportan en la API pública).
@@ -78,6 +79,7 @@ export async function renderCompaniesRoute(url: string, options: RenderOptions =
     whenLoaded: vi.fn(async () => undefined),
   };
   const confirmLeave = vi.fn(() => options.confirmLeave ?? true);
+  catalogRequests.length = 0;
   await render('<router-outlet />', {
     imports: [RouterOutlet],
     providers: [
@@ -90,7 +92,8 @@ export async function renderCompaniesRoute(url: string, options: RenderOptions =
         ],
         withComponentInputBinding(),
       ),
-      provideHttpClient(withInterceptors([errorInterceptor])),
+      // Los catálogos los contesta `catalogFixtures`; el resto del Api, `HttpTestingController`.
+      provideHttpClient(withInterceptors([catalogFixtures, errorInterceptor])),
       provideHttpClientTesting(),
       provideTransloco({
         config: {

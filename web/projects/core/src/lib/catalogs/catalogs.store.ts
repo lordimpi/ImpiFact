@@ -108,6 +108,12 @@ export function catalogLabel(name: CatalogName, item: Omit<CatalogItem, 'id'>): 
   }
 }
 
+/** «Medellín (Antioquia)»: el municipio con su departamento, si ya se conoce. */
+export function municipalityLabel(item: CatalogItem, departments: readonly CatalogItem[]): string {
+  const department = departments.find((row) => row.id === item.departmentId);
+  return department ? `${item.name} (${department.name})` : item.name;
+}
+
 /** Opciones de un catálogo con su nombre visible (`catalogLabel`). */
 export function catalogOptions(name: CatalogName, items: readonly CatalogItem[]): CatalogOption[] {
   return items.map((item) => ({ id: item.id, name: catalogLabel(name, item) }));

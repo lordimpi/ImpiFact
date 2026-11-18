@@ -12,7 +12,16 @@ import {
 import { FormField, submit } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import { Api, ProductResponse, createProduct, getProduct, updateProduct } from '@impifact/api';
-import { AppError, HasUnsavedChanges, SKIP_ERROR_TOAST, ToastStore } from '@impifact/core';
+import {
+  AppError,
+  CatalogsStore,
+  HasUnsavedChanges,
+  SKIP_ERROR_TOAST,
+  ToastStore,
+  catalogOptions,
+  catalogSearch,
+  optionsWith,
+} from '@impifact/core';
 import {
   ButtonComponent,
   ErrorStateComponent,
@@ -20,6 +29,8 @@ import {
   InputDirective,
   LoadingComponent,
   PageTitleComponent,
+  SearchSelectComponent,
+  SearchSelectLabels,
   SelectDirective,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -36,7 +47,7 @@ import {
   productModel,
 } from '../forms/product.form';
 import { mastersText, provideMastersI18n } from '../masters-i18n';
-import { TAXES, UNIT_MEASURES, optionsWith } from '../models/catalogs';
+import { WITHHOLDING_TAXES } from '../models/catalogs';
 
 /** Errores de guardar y de cargar se muestran en la página, no en un aviso flotante. */
 const IN_FORM = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
@@ -65,6 +76,7 @@ const AMOUNT_FIELDS: readonly (keyof ProductModel)[] = [
     InputDirective,
     LoadingComponent,
     PageTitleComponent,
+    SearchSelectComponent,
     SelectDirective,
   ],
   providers: [provideMastersI18n()],
@@ -95,11 +107,33 @@ export class ProductFormPage implements HasUnsavedChanges {
   protected readonly showPercent = computed(() => hasPercent(this.model().tax_id));
   protected readonly showPerUnit = computed(() => hasPerUnit(this.model().tax_id));
 
+  // Catálogos de la DIAN en el Api: la unidad se busca en el servidor (son 1.093) y los impuestos llegan enteros.
+  private readonly catalogs = inject(CatalogsStore);
   private readonly other = (id: number) => this.text('common.otherOption', { id });
-  protected readonly unitMeasures = computed(() =>
-    optionsWith(UNIT_MEASURES, this.model().unit_measure_id, this.other),
+  protected readonly unitMeasures = catalogSearch('unit-measures', {
+    current: () => this.model().unit_measure_id,
+    otherName: this.other,
+  });
+  protected readonly unitMeasureLabels: SearchSelectLabels = {
+    search: this.text('products.form.unitMeasureSearch'),
+    hint: this.text('products.form.unitMeasureSearchHint'),
+    loading: this.text('common.catalog.loading'),
+    error: this.text('common.catalog.error'),
+    empty: this.text('products.form.unitMeasureNone'),
+    more: this.text('products.form.unitMeasureMore'),
+    retry: this.text('common.catalog.retry'),
+  };
+  private readonly taxItems = this.catalogs.items('taxes');
+  protected readonly taxes = computed(() =>
+    optionsWith(
+      catalogOptions(
+        'taxes',
+        this.taxItems().filter((item) => !WITHHOLDING_TAXES.includes(item.id)),
+      ),
+      this.model().tax_id,
+      this.other,
+    ),
   );
-  protected readonly taxes = computed(() => optionsWith(TAXES, this.model().tax_id, this.other));
 
   /** Mensaje bajo cada campo, por nombre del campo. */
   protected readonly errors = computed(() => {

@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { ToastStore } from '@impifact/core';
 import { fireEvent, screen, waitFor } from '@testing-library/angular';
 import { CompanySetupStore } from '../state/company-setup.store';
+import { catalogRequests } from '../testing/catalog-fixtures';
 import { expectRequest, problem, renderCompaniesRoute } from '../testing/companies-testing';
 
 const field = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement;
@@ -11,11 +12,18 @@ const choose = (label: RegExp, value: string) => {
   fireEvent.change(select, { target: { value } });
   fireEvent.input(select, { target: { value } });
 };
+const optionTexts = (label: RegExp) =>
+  Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((option) =>
+    option.textContent?.trim(),
+  );
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 
 async function open() {
   const rendered = await renderCompaniesRoute('/empresas/company-1/datos');
   await screen.findByRole('heading', { level: 2, name: 'Datos de la empresa' });
+  // Las listas salen de los catálogos del Api.
+  await screen.findByRole('checkbox', { name: 'O-13 Gran contribuyente' });
+  await waitFor(() => expect(optionTexts(/^Municipio/)).toContain('Bogotá, D.C. (Bogotá)'));
   return rendered;
 }
 
@@ -31,6 +39,18 @@ function fillAll() {
 }
 
 describe('CompanyDataPage', () => {
+  it('fills the lists from the DIAN catalogs and searches municipalities on the server', async () => {
+    await open();
+    expect(optionTexts(/^Régimen/)).toContain('Responsable de IVA');
+    expect(screen.getByRole('checkbox', { name: 'R-99-PN No aplica – Otros' })).toBeTruthy();
+
+    fireEvent.input(screen.getByLabelText(/^Buscar municipio/), { target: { value: 'medel' } });
+    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('medel'));
+    await waitFor(() =>
+      expect(optionTexts(/^Municipio/)).toEqual(['Seleccione una opción', 'Medellín (Antioquia)']),
+    );
+  });
+
   it('starts with the business name the API knows and explains that the rest is not readable', async () => {
     await open();
 

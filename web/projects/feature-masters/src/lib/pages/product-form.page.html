@@ -57,17 +57,28 @@
           <textarea uiInput rows="3" [formField]="productForm.description"></textarea>
         </ui-field>
 
-        <ui-field
-          [label]="'masters.products.form.unitMeasure' | transloco"
-          [error]="errors().unit_measure_id"
-          required
+        <ui-search-select
+          [labels]="unitMeasureLabels"
+          [term]="unitMeasures.state().term"
+          [status]="unitMeasures.state().status"
+          [hasMore]="unitMeasures.hasMore()"
+          [empty]="unitMeasures.state().items.length === 0"
+          (termChange)="unitMeasures.search($event)"
+          (loadMore)="unitMeasures.loadMore()"
+          (retry)="unitMeasures.retry()"
         >
-          <select uiSelect [formField]="productForm.unit_measure_id">
-            @for (option of unitMeasures(); track option.id) {
-              <option [value]="'' + option.id">{{ option.name }}</option>
-            }
-          </select>
-        </ui-field>
+          <ui-field
+            [label]="'masters.products.form.unitMeasure' | transloco"
+            [error]="errors().unit_measure_id"
+            required
+          >
+            <select uiSelect [formField]="productForm.unit_measure_id">
+              @for (option of unitMeasures.options(); track option.id) {
+                <option [value]="'' + option.id">{{ option.name }}</option>
+              }
+            </select>
+          </ui-field>
+        </ui-search-select>
 
         <ui-field
           [label]="'masters.products.form.unitPrice' | transloco"

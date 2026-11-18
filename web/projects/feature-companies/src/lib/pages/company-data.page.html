@@ -73,7 +73,7 @@
       <p id="company-liabilities-hint" class="companies-lead">
         {{ 'companies.data.liabilitiesHint' | transloco }}
       </p>
-      @for (option of liabilities; track option.id) {
+      @for (option of liabilities(); track option.id) {
         <label class="companies-check">
           <input
             type="checkbox"
@@ -88,18 +88,29 @@
       </p>
     </fieldset>
 
-    <ui-field
-      [label]="'companies.data.municipality' | transloco"
-      [error]="errors().municipality_id"
-      required
+    <ui-search-select
+      [labels]="municipalityLabels"
+      [term]="municipalities.state().term"
+      [status]="municipalities.state().status"
+      [hasMore]="municipalities.hasMore()"
+      [empty]="municipalities.state().items.length === 0"
+      (termChange)="municipalities.search($event)"
+      (loadMore)="municipalities.loadMore()"
+      (retry)="municipalities.retry()"
     >
-      <select uiSelect [formField]="companyForm.municipality_id">
-        <option value="">{{ 'companies.common.noneOption' | transloco }}</option>
-        @for (option of municipalities(); track option.id) {
-          <option [value]="'' + option.id">{{ option.name }}</option>
-        }
-      </select>
-    </ui-field>
+      <ui-field
+        [label]="'companies.data.municipality' | transloco"
+        [error]="errors().municipality_id"
+        required
+      >
+        <select uiSelect [formField]="companyForm.municipality_id">
+          <option value="">{{ 'companies.common.noneOption' | transloco }}</option>
+          @for (option of municipalities.options(); track option.id) {
+            <option [value]="'' + option.id">{{ option.name }}</option>
+          }
+        </select>
+      </ui-field>
+    </ui-search-select>
 
     <ui-field [label]="'companies.data.address' | transloco" [error]="errors().address" required>
       <input uiInput type="text" autocomplete="street-address" [formField]="companyForm.address" />

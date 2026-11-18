@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CustomerResponse } from '@impifact/api';
-import { ToastStore } from '@impifact/core';
+import { CatalogsStore, ToastStore } from '@impifact/core';
 import {
   ButtonComponent,
   PageTitleComponent,
@@ -13,7 +13,7 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { ConfirmDialogComponent } from '../components/confirm-dialog.component';
 import { MasterListToolbarComponent } from '../components/master-list-toolbar.component';
 import { mastersText, provideMastersI18n } from '../masters-i18n';
-import { IDENTIFICATION_TYPES, NIT_IDENTIFICATION_TYPE } from '../models/catalogs';
+import { NIT_IDENTIFICATION_TYPE } from '../models/catalogs';
 import { CustomersStore } from '../state/customers.store';
 import { bindFiltersToUrl } from '../state/master-list-url';
 import { listLabels, toolbarLabels } from './list-labels';
@@ -43,6 +43,8 @@ export class CustomerListPage {
   protected readonly store = inject(CustomersStore);
   private readonly transloco = inject(TranslocoService);
   private readonly toasts = inject(ToastStore);
+  /** Tipos de identificación del catálogo de la DIAN, para el nombre en cada fila. */
+  private readonly identificationTypes = inject(CatalogsStore).items('identification-types');
 
   /** Búsqueda en la URL (`?q=`). */
   readonly q = input<string>();
@@ -84,7 +86,7 @@ export class CustomerListPage {
   /** «NIT 900123456-8» o «Cédula de ciudadanía 1020304050». */
   protected identification(row: CustomerResponse): string {
     const type = Number(row.type_document_identification_id);
-    const name = IDENTIFICATION_TYPES.find((option) => option.id === type)?.name ?? '';
+    const name = this.identificationTypes().find((item) => item.id === type)?.name ?? '';
     const dv = type === NIT_IDENTIFICATION_TYPE && row.dv ? `-${row.dv}` : '';
     return `${name} ${row.identification_number ?? ''}${dv}`.trim();
   }

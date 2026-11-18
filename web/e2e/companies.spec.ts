@@ -59,7 +59,13 @@ test('the company data form shows a server field error and then saves', async ({
   await page.getByLabel('Tipo de organización').selectOption('1');
   await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
   await page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }).check();
-  await page.getByLabel('Municipio').selectOption('149');
+  // El municipio se busca en el Api: la primera página no trae Bogotá.
+  const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
+  await expect(municipality.locator('option', { hasText: 'Medellín (Antioquia)' })).toHaveCount(1);
+  await page.getByRole('searchbox', { name: 'Buscar municipio' }).fill('bogo');
+  await expect(municipality.locator('option', { hasText: 'Bogotá, D.C. (Bogotá)' })).toHaveCount(1);
+  await expect(municipality.locator('option', { hasText: 'Medellín' })).toHaveCount(0);
+  await municipality.selectOption('149');
   await page.getByLabel('Dirección').fill('Calle 1 # 2-3');
   await page.getByLabel('Teléfono').fill('6011234567');
   await page.getByLabel('Correo electrónico').fill('facturas@acme.test');

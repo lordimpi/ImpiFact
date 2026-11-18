@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { ToastStore } from '@impifact/core';
 import { fireEvent, screen, waitFor } from '@testing-library/angular';
+import { catalogRequests } from '../testing/catalog-fixtures';
 import { expectRequest, problem, renderMastersRoute } from '../testing/masters-testing';
 
 const field = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement;
@@ -10,6 +11,11 @@ const choose = (label: RegExp, value: string) => {
   fireEvent.change(select, { target: { value } });
   fireEvent.input(select, { target: { value } });
 };
+/** Textos de las opciones de una lista (más rápido que buscar cada `option` por su rol). */
+const optionTexts = (label: RegExp) =>
+  Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((option) =>
+    option.textContent?.trim(),
+  );
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 const toastTexts = () =>
   TestBed.inject(ToastStore)
@@ -19,6 +25,9 @@ const toastTexts = () =>
 async function openNew() {
   const rendered = await renderMastersRoute('/clientes/nuevo');
   await screen.findByRole('heading', { level: 1, name: 'Nuevo cliente' });
+  // Las listas salen de los catálogos del Api.
+  await waitFor(() => expect(optionTexts(/^Tipo de identificación/)).toContain('NIT'));
+  await waitFor(() => expect(optionTexts(/^Municipio/)).toContain('Bogotá, D.C. (Bogotá)'));
   return rendered;
 }
 
@@ -28,6 +37,29 @@ function fillNit() {
 }
 
 describe('CustomerFormPage', () => {
+  it('fills the lists from the DIAN catalogs and searches municipalities on the server', async () => {
+    await openNew();
+    const names = catalogRequests.map((request) => request.url.replace('/api/v1/catalogs/', ''));
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'identification-types',
+        'organization-types',
+        'regimes',
+        'liabilities',
+        'departments',
+        'municipalities',
+      ]),
+    );
+    expect(optionTexts(/^Responsabilidad fiscal/)).toContain('O-13 Gran contribuyente');
+    expect(optionTexts(/^Municipio/)).toContain('Medellín (Antioquia)');
+
+    fireEvent.input(screen.getByLabelText(/^Buscar municipio/), { target: { value: 'bogo' } });
+    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('bogo'));
+    await waitFor(() =>
+      expect(optionTexts(/^Municipio/)).toEqual(['Sin seleccionar', 'Bogotá, D.C. (Bogotá)']),
+    );
+  });
+
   it('shows the check digit only for a NIT', async () => {
     await openNew();
 

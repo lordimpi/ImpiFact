@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { ToastStore } from '@impifact/core';
 import { fireEvent, screen, waitFor } from '@testing-library/angular';
+import { catalogRequests } from '../testing/catalog-fixtures';
 import { expectRequest, problem, renderMastersRoute } from '../testing/masters-testing';
 
 const field = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement;
@@ -10,6 +11,10 @@ const choose = (label: RegExp, value: string) => {
   fireEvent.change(select, { target: { value } });
   fireEvent.input(select, { target: { value } });
 };
+const optionTexts = (label: RegExp) =>
+  Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((option) =>
+    option.textContent?.trim(),
+  );
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 const toastTexts = () =>
   TestBed.inject(ToastStore)
@@ -23,6 +28,24 @@ async function openNew() {
 }
 
 describe('ProductFormPage', () => {
+  it('lists the catalog taxes without withholdings and searches unit measures on the server', async () => {
+    await openNew();
+    await waitFor(() =>
+      expect(optionTexts(/^Impuesto/)).toContain('IVA (Impuesto sobre la Ventas)'),
+    );
+    expect(optionTexts(/^Impuesto/).join()).not.toContain('ReteIVA');
+    await waitFor(() => expect(optionTexts(/^Unidad de medida/)).toContain('unidad (94)'));
+
+    fireEvent.input(screen.getByLabelText(/^Buscar unidad de medida/), {
+      target: { value: 'kgm' },
+    });
+    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('kgm'));
+    // La unidad elegida sigue en la lista aunque la búsqueda no la traiga.
+    await waitFor(() =>
+      expect(optionTexts(/^Unidad de medida/)).toEqual(['kilogramo (KGM)', 'unidad (94)']),
+    );
+  });
+
   it('starts with the unit measure and marks the required fields', async () => {
     const { http } = await openNew();
     expect((screen.getByLabelText(/^Unidad de medida/) as HTMLSelectElement).value).toBe('70');

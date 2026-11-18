@@ -1,7 +1,24 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormField, submit } from '@angular/forms/signals';
-import { AppError, HasUnsavedChanges, ToastStore } from '@impifact/core';
-import { ButtonComponent, FieldComponent, InputDirective, SelectDirective } from '@impifact/ui';
+import {
+  AppError,
+  CatalogsStore,
+  HasUnsavedChanges,
+  SmallCatalogName,
+  ToastStore,
+  catalogOptions,
+  catalogSearch,
+  municipalityLabel,
+  optionsWith,
+} from '@impifact/core';
+import {
+  ButtonComponent,
+  FieldComponent,
+  InputDirective,
+  SearchSelectComponent,
+  SearchSelectLabels,
+  SelectDirective,
+} from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { companiesText, provideCompaniesI18n } from '../companies-i18n';
 import {
@@ -13,14 +30,6 @@ import {
   emptyCompany,
 } from '../forms/company.form';
 import { fieldMessage, serverFieldErrors } from '../forms/form-messages';
-import {
-  IDENTIFICATION_TYPES,
-  LIABILITIES,
-  MUNICIPALITIES,
-  ORGANIZATION_TYPES,
-  REGIMES,
-  optionsWith,
-} from '../models/catalogs';
 import { CompanySetupStore } from '../state/company-setup.store';
 
 /**
@@ -36,6 +45,7 @@ import { CompanySetupStore } from '../state/company-setup.store';
     ButtonComponent,
     FieldComponent,
     InputDirective,
+    SearchSelectComponent,
     SelectDirective,
   ],
   providers: [provideCompaniesI18n()],
@@ -54,20 +64,41 @@ export class CompanyDataPage implements HasUnsavedChanges {
   protected readonly submitting = computed(() => this.companyForm().submitting());
 
   protected readonly liabilityIds = computed(() => new Set(this.model().type_liability_ids));
-  protected readonly liabilities = LIABILITIES;
+  // Listas de los catálogos de la DIAN en el Api; el municipio se busca en el servidor (son 1.122).
+  private readonly catalogs = inject(CatalogsStore);
   private readonly other = (id: number) => this.text('common.otherOption', { id });
-  protected readonly identificationTypes = computed(() =>
-    optionsWith(IDENTIFICATION_TYPES, this.model().type_document_identification_id, this.other),
+  private readonly catalogField = (name: SmallCatalogName, current: () => string) => {
+    const items = this.catalogs.items(name);
+    return computed(() => optionsWith(catalogOptions(name, items()), current(), this.other));
+  };
+  private readonly liabilityItems = this.catalogs.items('liabilities');
+  protected readonly liabilities = computed(() =>
+    catalogOptions('liabilities', this.liabilityItems()),
   );
-  protected readonly organizationTypes = computed(() =>
-    optionsWith(ORGANIZATION_TYPES, this.model().type_organization_id, this.other),
+  protected readonly identificationTypes = this.catalogField(
+    'identification-types',
+    () => this.model().type_document_identification_id,
   );
-  protected readonly regimes = computed(() =>
-    optionsWith(REGIMES, this.model().type_regime_id, this.other),
+  protected readonly organizationTypes = this.catalogField(
+    'organization-types',
+    () => this.model().type_organization_id,
   );
-  protected readonly municipalities = computed(() =>
-    optionsWith(MUNICIPALITIES, this.model().municipality_id, this.other),
-  );
+  protected readonly regimes = this.catalogField('regimes', () => this.model().type_regime_id);
+  private readonly departments = this.catalogs.items('departments');
+  protected readonly municipalities = catalogSearch('municipalities', {
+    current: () => this.model().municipality_id,
+    otherName: this.other,
+    format: (item) => municipalityLabel(item, this.departments()),
+  });
+  protected readonly municipalityLabels: SearchSelectLabels = {
+    search: this.text('data.municipalitySearch'),
+    hint: this.text('data.municipalitySearchHint'),
+    loading: this.text('common.catalog.loading'),
+    error: this.text('common.catalog.error'),
+    empty: this.text('data.municipalityNone'),
+    more: this.text('data.municipalityMore'),
+    retry: this.text('common.retry'),
+  };
 
   protected readonly errors = computed(() => {
     const translate = (key: string, params?: Record<string, unknown>) => this.text(key, params);

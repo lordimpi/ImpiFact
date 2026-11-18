@@ -141,18 +141,28 @@
           </select>
         </ui-field>
 
-        <ui-field
-          [label]="'masters.customers.form.municipality' | transloco"
-          [hint]="'masters.customers.form.municipalityHint' | transloco"
-          [error]="errors().municipality_id"
+        <ui-search-select
+          [labels]="municipalityLabels"
+          [term]="municipalities.state().term"
+          [status]="municipalities.state().status"
+          [hasMore]="municipalities.hasMore()"
+          [empty]="municipalities.state().items.length === 0"
+          (termChange)="municipalities.search($event)"
+          (loadMore)="municipalities.loadMore()"
+          (retry)="municipalities.retry()"
         >
-          <select uiSelect [formField]="customerForm.municipality_id">
-            <option value="">{{ 'masters.common.noneOption' | transloco }}</option>
-            @for (option of municipalities(); track option.id) {
-              <option [value]="'' + option.id">{{ option.name }}</option>
-            }
-          </select>
-        </ui-field>
+          <ui-field
+            [label]="'masters.customers.form.municipality' | transloco"
+            [error]="errors().municipality_id"
+          >
+            <select uiSelect [formField]="customerForm.municipality_id">
+              <option value="">{{ 'masters.common.noneOption' | transloco }}</option>
+              @for (option of municipalities.options(); track option.id) {
+                <option [value]="'' + option.id">{{ option.name }}</option>
+              }
+            </select>
+          </ui-field>
+        </ui-search-select>
 
         <ui-field [label]="'masters.customers.form.address' | transloco" [error]="errors().address">
           <input

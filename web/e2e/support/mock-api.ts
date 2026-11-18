@@ -1,4 +1,5 @@
 import { Page, Route } from '@playwright/test';
+import { mockCatalogs } from './mock-catalogs';
 
 /*
  * Api simulada con `page.route` para las pruebas E2E (de extremo a extremo) del panel: no hace falta el backend en
@@ -158,6 +159,8 @@ export async function mockApi(page: Page, options: MockApiOptions = {}): Promise
   await page.route('**/api/v1/dashboard/summary', (route) =>
     route.fulfill({ json: EMPTY_DASHBOARD }),
   );
+  // Catálogos de la DIAN que piden los formularios (empresa, clientes, productos y notas).
+  await mockCatalogs(page);
 
   return { calls, hasSession: () => session !== null };
 }

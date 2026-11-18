@@ -20,6 +20,10 @@
       "dianUnavailable": "La DIAN no responde en este momento. Intente de nuevo en unos minutos.",
       "noCertificate": "La empresa no tiene un certificado activo. Cárguelo en la sección Certificado.",
       "certificateExpired": "El certificado de la empresa venció. Cargue uno vigente en la sección Certificado."
+    },
+    "catalog": {
+      "loading": "Cargando la lista…",
+      "error": "No se pudo cargar la lista."
     }
   },
   "layout": {
@@ -48,6 +52,10 @@
     "liabilities": "Responsabilidades fiscales",
     "liabilitiesHint": "Marque al menos una.",
     "municipality": "Municipio",
+    "municipalitySearch": "Buscar municipio",
+    "municipalitySearchHint": "Escriba el nombre o el código DANE y elija el municipio en la lista.",
+    "municipalityNone": "Ningún municipio coincide con la búsqueda.",
+    "municipalityMore": "Cargar más municipios",
     "address": "Dirección",
     "phone": "Teléfono",
     "phoneHint": "Entre 7 y 10 dígitos, sin espacios.",
