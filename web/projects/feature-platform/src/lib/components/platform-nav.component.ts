@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
 
-/** Enlaces entre las secciones de la plataforma (planes y asignación de planes). */
+/** Enlaces entre las secciones de la plataforma (planes y empresas). */
 @Component({
   selector: 'feat-platform-nav',
   imports: [RouterLink, RouterLinkActive, TranslocoPipe],

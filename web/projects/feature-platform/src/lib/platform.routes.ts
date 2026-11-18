@@ -31,7 +31,7 @@ export const platformRoutes: Routes = [
       },
       {
         path: 'empresas',
-        loadComponent: () => loadFeature().then((m) => m.AssignPlanPage),
+        loadComponent: () => loadFeature().then((m) => m.PlatformCompaniesPage),
       },
     ],
   },

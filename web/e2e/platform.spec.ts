@@ -11,12 +11,44 @@ const PLANS = [
 
 const asPlatformAdmin = { companies: [], roles: ['platform_admin'], scopes: ['platform:*'] };
 
-test('assigns a plan to a company by its NIT', async ({ page }) => {
+const COMPANIES = [
+  {
+    id: 'c-1',
+    name: 'Acme SAS',
+    nit: '900123456',
+    dv: '7',
+    email: 'facturas@acme.test',
+    is_active: true,
+    plan_id: 1,
+    plan_name: 'Pyme 300',
+  },
+  {
+    id: 'c-2',
+    name: 'Beta Ltda',
+    nit: '800111222',
+    dv: '3',
+    email: 'beta@beta.test',
+    is_active: true,
+    plan_id: null,
+    plan_name: null,
+  },
+];
+
+test('assigns a plan to a company picked from the searchable list', async ({ page }) => {
   await signInAt(page, '/plataforma/empresas', asPlatformAdmin);
   const assigned: { url: string; body: unknown }[] = [];
+  const searches: (string | null)[] = [];
   await page.route('**/api/v1/plans', (route) =>
     route.fulfill({ json: { success: true, data: PLANS } }),
   );
+  await page.route(/\/api\/v1\/platform\/companies(\?|$)/, (route) => {
+    const search = new URL(route.request().url()).searchParams.get('search');
+    searches.push(search);
+    const items = COMPANIES.filter(
+      (company) => !search || company.name.toLowerCase().includes(search.toLowerCase()),
+    );
+    return route.fulfill({ json: { items, next_cursor: null } });
+  });
   await page.route('**/api/v1/companies/*/plan', (route) => {
     assigned.push({ url: route.request().url(), body: route.request().postDataJSON() });
     return route.fulfill({
@@ -30,18 +62,29 @@ test('assigns a plan to a company by its NIT', async ({ page }) => {
   await page.reload();
 
   await expect(
-    page.getByRole('heading', { level: 1, name: 'Asignar plan a una empresa' }),
+    page.getByRole('heading', { level: 1, name: 'Empresas de la plataforma' }),
   ).toBeVisible();
-  await expect(page.getByRole('option', { name: 'Anual 5000' })).toBeAttached();
+  const table = page.getByRole('table', { name: 'Empresas de la plataforma' });
+  await expect(table.getByText('Pyme 300')).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 
-  await page.getByLabel(/NIT de la empresa/).fill('900123456');
-  await page.getByRole('combobox', { name: 'Plan' }).selectOption('2');
-  await page.getByRole('button', { name: 'Asignar plan' }).click();
+  await page.getByRole('searchbox', { name: 'Buscar empresa' }).fill('beta');
+  await expect(table.getByText('Acme SAS')).toHaveCount(0);
+  expect(searches.at(-1)).toBe('beta');
 
-  await expect(page.getByText(/Se asignó el plan Anual 5000 a la empresa 900123456/)).toBeVisible();
+  await page.getByRole('button', { name: 'Asignar plan a Beta Ltda' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Asignar plan a Beta Ltda' });
+  await expect(dialog.getByRole('option', { name: 'Anual 5000' })).toBeAttached();
+  expect(await seriousViolations(page)).toEqual([]);
+  await dialog.getByRole('combobox', { name: 'Plan' }).selectOption('2');
+  await dialog.getByRole('button', { name: 'Asignar plan' }).click();
+
+  await expect(
+    page.getByText(/Se asignó el plan Anual 5000 a Beta Ltda \(NIT 800111222\)/),
+  ).toBeVisible();
+  await expect(table.getByText('Anual 5000')).toBeVisible();
   expect(assigned).toHaveLength(1);
-  expect(assigned[0]!.url).toContain('/api/v1/companies/900123456/plan');
+  expect(assigned[0]!.url).toContain('/api/v1/companies/800111222/plan');
   expect(assigned[0]!.body).toEqual({ plan_id: 2 });
 });
 

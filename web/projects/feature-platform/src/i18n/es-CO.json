@@ -20,7 +20,7 @@
   "nav": {
     "label": "Secciones de la plataforma",
     "plans": "Planes",
-    "companies": "Asignar plan a una empresa"
+    "companies": "Empresas"
   },
   "periods": {
     "1": "Mensual",
@@ -86,23 +86,39 @@
     "inactive": "Inactiva",
     "loading": "Cargando empresas",
     "emptyTitle": "Ninguna empresa tiene este plan",
-    "emptyDescription": "Asígnelo desde «Asignar plan a una empresa».",
+    "emptyDescription": "Asígnelo desde «Empresas».",
     "errorTitle": "No se pudieron cargar las empresas",
     "errorDescription": "Revise su conexión e intente de nuevo.",
     "notFound": "El plan no existe."
   },
   "assign": {
-    "title": "Asignar plan a una empresa",
+    "title": "Asignar plan a {{ name }}",
     "description": "El plan empieza ahora y queda activo; los que la empresa tenía activos se desactivan. Asignar el mismo plan otra vez lo renueva: el periodo empieza de nuevo y el consumo vuelve a cero.",
-    "noCompanyList": "El Api todavía no lista las empresas de la plataforma: escriba el NIT de la empresa.",
-    "nit": "NIT de la empresa",
-    "nitHint": "Sin dígito de verificación, solo números.",
     "plan": "Plan",
     "choosePlan": "Elija un plan",
     "submit": "Asignar plan",
-    "done": "Se asignó el plan {{ plan }} a la empresa {{ nit }}; empezó el {{ date }}.",
-    "companyNotFound": "No hay una empresa con ese NIT.",
+    "done": "Se asignó el plan {{ plan }} a {{ name }} (NIT {{ nit }}); empezó el {{ date }}.",
+    "companyNotFound": "La empresa ya no existe.",
     "planNotFound": "El plan ya no existe.",
     "plansError": "No se pudieron cargar los planes."
+  },
+  "companies": {
+    "title": "Empresas de la plataforma",
+    "description": "Busque una empresa por razón social o NIT y asígnele un plan desde su fila.",
+    "search": "Buscar empresa",
+    "searchHint": "Escriba parte de la razón social o del NIT; la búsqueda se hace en el servidor.",
+    "caption": "Empresas de la plataforma",
+    "name": "Razón social",
+    "nit": "NIT",
+    "email": "Correo",
+    "plan": "Plan actual",
+    "status": "Estado",
+    "noPlan": "Sin plan",
+    "active": "Activa",
+    "inactive": "Inactiva",
+    "more": "Cargar más empresas",
+    "empty": "La plataforma aún no tiene empresas",
+    "noMatch": "Ninguna empresa coincide con la búsqueda",
+    "loadError": "No se pudieron consultar las empresas"
   }
 }

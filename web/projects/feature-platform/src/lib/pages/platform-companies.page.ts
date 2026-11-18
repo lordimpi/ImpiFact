@@ -1,14 +1,19 @@
 import { HttpContext } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormField, submit } from '@angular/forms/signals';
-import { Api, assignCompanyPlan } from '@impifact/api';
+import { Api, PlatformCompanyItem, assignCompanyPlan } from '@impifact/api';
 import { AppError, SKIP_ERROR_TOAST } from '@impifact/core';
 import {
   ButtonComponent,
+  DialogComponent,
   FieldComponent,
   InputDirective,
   PageTitleComponent,
   SelectDirective,
+  TableCellDirective,
+  TableComponent,
+  UiTableColumn,
+  UiTableLabels,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -21,6 +26,7 @@ import {
   serverFieldErrors,
 } from '../forms/platform.forms';
 import { platformText, providePlatformI18n } from '../platform-i18n';
+import { PlatformCompaniesStore } from '../state/platform-companies.store';
 import { PlatformPlansStore } from '../state/platform-plans.store';
 
 const DATE = new Intl.DateTimeFormat('es-CO', {
@@ -30,33 +36,45 @@ const DATE = new Intl.DateTimeFormat('es-CO', {
   timeZone: 'America/Bogota',
 });
 
-const ASSIGN_FIELDS: readonly (keyof AssignModel & string)[] = ['nit', 'plan_id'];
+const ASSIGN_FIELDS: readonly (keyof AssignModel & string)[] = ['plan_id'];
 
 /**
- * Página `/plataforma/empresas`: asigna un plan a una empresa por su NIT (`assignCompanyPlan`). El Api aún no lista
- * las empresas de la plataforma, así que se escribe el NIT; los planes salen del store del feature.
+ * Página `/plataforma/empresas`: las empresas de la plataforma con su plan actual (`listPlatformCompanies`), con
+ * búsqueda en el servidor por nombre o NIT y «Cargar más» por cursor. Desde cada fila se asigna un plan
+ * (`assignCompanyPlan`) en un diálogo: la empresa se elige en la lista, ya no se escribe su NIT. Los planes salen del
+ * store del feature.
  */
 @Component({
-  selector: 'feat-assign-plan-page',
+  selector: 'feat-platform-companies-page',
   imports: [
     FormField,
     TranslocoPipe,
     ButtonComponent,
+    DialogComponent,
     FieldComponent,
     InputDirective,
     PageTitleComponent,
     SelectDirective,
+    TableComponent,
+    TableCellDirective,
     PlatformNavComponent,
   ],
-  providers: [providePlatformI18n()],
+  providers: [providePlatformI18n(), PlatformCompaniesStore],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './assign-plan.page.html',
+  templateUrl: './platform-companies.page.html',
   styleUrl: './platform-page.css',
 })
-export class AssignPlanPage {
+export class PlatformCompaniesPage {
   protected readonly store = inject(PlatformPlansStore);
+  protected readonly companies = inject(PlatformCompaniesStore);
   private readonly api = inject(Api);
   private readonly transloco = inject(TranslocoService);
+
+  /** Texto escrito en la búsqueda (la consulta al Api sale tras una pausa). */
+  protected readonly query = signal('');
+  /** Empresa a la que se le asigna un plan (diálogo abierto). */
+  protected readonly selected = signal<PlatformCompanyItem | null>(null);
+  protected readonly dialogOpen = signal(false);
 
   private readonly model = signal<AssignModel>(emptyAssign());
   protected readonly assignForm = createAssignForm(this.model);
@@ -66,20 +84,66 @@ export class AssignPlanPage {
 
   protected readonly errors = computed(() => {
     const translate = (key: string, params?: Record<string, unknown>) => this.text(key, params);
-    return {
-      nit: fieldMessage(this.assignForm.nit(), translate),
-      plan_id: fieldMessage(this.assignForm.plan_id(), translate),
-    };
+    return { plan_id: fieldMessage(this.assignForm.plan_id(), translate) };
   });
+
+  protected readonly columns = computed<UiTableColumn[]>(() => [
+    { key: 'name', header: this.text('companies.name') },
+    { key: 'nit', header: this.text('companies.nit') },
+    { key: 'email', header: this.text('companies.email') },
+    { key: 'plan', header: this.text('companies.plan') },
+    { key: 'active', header: this.text('companies.status') },
+    { key: 'actions', header: this.text('common.actions') },
+  ]);
+  protected readonly tableLabels = computed<UiTableLabels>(() => ({
+    loading: this.text('common.loading'),
+    emptyTitle: this.text(this.companies.term() ? 'companies.noMatch' : 'companies.empty'),
+    errorTitle: this.text('companies.loadError'),
+    retry: this.text('common.retry'),
+    paginator: {
+      navigation: this.text('common.paginator.navigation'),
+      previous: this.text('common.paginator.previous'),
+      next: this.text('common.paginator.next'),
+      page: this.text('common.paginator.page'),
+    },
+  }));
+  protected readonly dialogTitle = computed(() =>
+    this.text('assign.title', { name: this.selected()?.name ?? '' }),
+  );
+
+  protected readonly trackById = (_: number, row: PlatformCompanyItem) => row.id;
 
   constructor() {
     if (!this.store.loaded()) {
       void this.store.load();
     }
+    this.companies.load();
+  }
+
+  protected onSearch(term: string): void {
+    this.query.set(term);
+    this.companies.search(term);
+  }
+
+  protected rowText(key: string, row: PlatformCompanyItem): string {
+    return this.text(key, { name: row.name ?? '' });
+  }
+
+  protected openAssign(row: PlatformCompanyItem): void {
+    this.selected.set(row);
+    // El plan empieza vacío: elegir otra vez el actual lo renueva, y eso debe ser una decisión explícita.
+    this.model.set({ nit: row.nit ?? '', plan_id: '' });
+    this.assignForm().reset();
+    this.generalError.set(null);
+    this.dialogOpen.set(true);
   }
 
   protected async onSubmit(event: Event): Promise<void> {
     event.preventDefault();
+    const company = this.selected();
+    if (!company) {
+      return;
+    }
     this.generalError.set(null);
     this.done.set(null);
     await submit(this.assignForm, {
@@ -95,9 +159,14 @@ export class AssignPlanPage {
           );
           const plan =
             result.plan?.name ??
-            this.store.plans().find((item) => String(item.id) === plan_id)?.name;
+            this.store.plans().find((item) => String(item.id) === plan_id)?.name ??
+            plan_id;
           const start = result.start_plan_date ? DATE.format(new Date(result.start_plan_date)) : '';
-          this.done.set(this.text('assign.done', { plan: plan ?? plan_id, nit, date: start }));
+          this.companies.setPlan(company.id ?? '', Number(plan_id), plan);
+          this.done.set(
+            this.text('assign.done', { plan, name: company.name ?? '', nit, date: start }),
+          );
+          this.dialogOpen.set(false);
         } catch (error) {
           return this.showError(error);
         }
