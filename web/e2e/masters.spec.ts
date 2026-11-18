@@ -1,9 +1,34 @@
 import { Page, expect, test } from '@playwright/test';
-import { seriousViolations } from './support/axe';
+import { seriousViolations, seriousViolationsInBothThemes } from './support/axe';
+import { CRITICAL } from './support/critical';
 import { CUSTOMER, PRODUCT, mockMasters, problem } from './support/mock-masters';
 import { COMPANIES, USER, mockApi } from './support/mock-api';
 
 // Clientes y productos (feature-masters) contra la Api simulada: con una sola empresa, queda activa al entrar.
+
+/** Totales que devuelve el Api simulado para la factura del cliente nuevo (el panel no calcula). */
+const SUBTOTAL = {
+  tax_id: 1,
+  percent: '19.00',
+  tax_amount: '285000.00',
+  taxable_amount: '1500000.00',
+};
+const CALCULATION = {
+  allowance_charges: [],
+  lines: [
+    { allowance_charges: [], line_extension_amount: '1500000.00', tax_subtotals: [SUBTOTAL] },
+  ],
+  tax_totals: [{ tax_id: 1, tax_amount: '285000.00', tax_subtotals: [SUBTOTAL] }],
+  legal_monetary_totals: {
+    line_extension_amount: '1500000.00',
+    tax_exclusive_amount: '1500000.00',
+    tax_inclusive_amount: '1785000.00',
+    allowance_total_amount: '0.00',
+    charge_total_amount: '0.00',
+    pre_paid_amount: '0.00',
+    payable_amount: '1785000.00',
+  },
+};
 
 async function signInAt(page: Page, path: string) {
   await mockApi(page, { companies: [COMPANIES[0]!] });
@@ -147,6 +172,125 @@ test('prefills the customer from the DIAN acquirer lookup', async ({ page }) => 
   });
   expect(await seriousViolations(page)).toEqual([]);
 });
+
+// Flujo crítico 5 de 5: cliente nuevo con los datos de la DIAN y su uso en una factura.
+test(
+  'creates a customer from the DIAN lookup and issues an invoice to it',
+  CRITICAL,
+  async ({ page }) => {
+    const created = {
+      ...CUSTOMER,
+      id: '6a1f0000-0000-4000-8000-000000000077',
+      identification_number: '901555777',
+      dv: '3',
+      name: 'NUEVO CLIENTE DIAN SAS',
+      email: 'fe@nuevo.test',
+    };
+    const customers: (typeof CUSTOMER)[] = [];
+    const issued: unknown[] = [];
+    const masters = await signInAt(page, '/clientes');
+    masters.respond('GET', '/api/v1/customers', (_, route) =>
+      route.fulfill({ json: { items: customers, next_cursor: null } }),
+    );
+    masters.respond('GET', '/api/v1/customers/lookup', (_, route) =>
+      route.fulfill({ json: { found: true, name: created.name, email: created.email } }),
+    );
+    masters.respond('POST', '/api/v1/customers', (_, route) => {
+      customers.push(created);
+      return route.fulfill({ status: 201, json: created });
+    });
+    masters.respond('GET', `/api/v1/customers/${created.id}`, (_, route) =>
+      route.fulfill({ json: created }),
+    );
+    await page.route('**/api/v1/documents/**', (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname === '/api/v1/documents/calculate') {
+        return route.fulfill({ json: CALCULATION });
+      }
+      if (url.pathname === '/api/v1/documents/invoices') {
+        issued.push(route.request().postDataJSON());
+        return route.fulfill({
+          status: 201,
+          json: {
+            message: 'Documento recibido',
+            QRStr: '',
+            urlinvoiceattached: '',
+            urlinvoicepdf: '',
+            urlinvoicexml: '',
+            document: { id: 'doc-77', full_number: 'SETP990000077', status: 'Queued' },
+          },
+        });
+      }
+      return route.fulfill({
+        json: {
+          id: 'doc-77',
+          kind: 'invoice',
+          full_number: 'SETP990000077',
+          issue_date: '2026-11-18',
+          issue_time: '09:00:00',
+          status: 'Accepted',
+          email_status: 'Sent',
+          cufe: 'cufe-77',
+          customer: created,
+          totals: CALCULATION.legal_monetary_totals,
+          lines: [],
+          taxes: [],
+        },
+      });
+    });
+
+    await expect(page.getByRole('heading', { level: 1, name: 'Clientes' })).toBeVisible();
+    expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+    await page.getByRole('link', { name: 'Nuevo cliente' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Nuevo cliente' })).toBeVisible();
+    await page.getByRole('combobox', { name: 'Tipo de identificación' }).selectOption('6');
+    await page.getByRole('textbox', { name: 'Número de identificación' }).fill('901555777');
+    await page.getByRole('button', { name: 'Buscar en la DIAN' }).click();
+    await expect(page.getByRole('status')).toContainText(
+      'La DIAN tiene registrado a NUEVO CLIENTE DIAN SAS.',
+    );
+    await page.getByRole('textbox', { name: 'Dígito de verificación (DV)' }).fill('3');
+    expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+    await page.getByRole('button', { name: 'Guardar' }).click();
+
+    await expect(page).toHaveURL('/clientes');
+    await expect(page.getByText('Cliente guardado.')).toBeVisible();
+    await expect(
+      page.getByRole('table', { name: 'Clientes' }).getByText('NUEVO CLIENTE DIAN SAS'),
+    ).toBeVisible();
+    expect(masters.calls('POST', '/api/v1/customers').at(-1)!.body).toMatchObject({
+      type_document_identification_id: 6,
+      identification_number: '901555777',
+      dv: '3',
+      name: 'NUEVO CLIENTE DIAN SAS',
+      email: 'fe@nuevo.test',
+    });
+
+    await page.getByRole('link', { name: 'Documentos' }).click();
+    await page.getByRole('link', { name: 'Emitir factura' }).click();
+    await page.getByLabel('Buscar cliente').fill('901555');
+    await page.getByRole('button', { name: /Elegir NUEVO CLIENTE DIAN SAS/ }).click();
+    await expect(page.getByText('Cliente elegido')).toBeVisible();
+    await page.getByLabel('Agregar un producto').fill('café');
+    await page.getByRole('button', { name: /Agregar Café molido 500 g/ }).click();
+    await expect(page.getByTestId('payable')).toContainText('1.785.000,00');
+    await page.getByRole('button', { name: 'Emitir factura' }).click();
+
+    await expect(page).toHaveURL('/documentos/doc-77');
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Factura SETP990000077' }),
+    ).toBeVisible();
+    expect(issued).toHaveLength(1);
+    expect(issued[0]).toMatchObject({
+      customer: {
+        identification_number: '901555777',
+        dv: '3',
+        name: 'NUEVO CLIENTE DIAN SAS',
+        email: 'fe@nuevo.test',
+      },
+    });
+  },
+);
 
 test('deactivates a customer only after confirming', async ({ page }) => {
   const masters = await signInAt(page, '/clientes');

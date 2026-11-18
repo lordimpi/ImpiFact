@@ -1,5 +1,6 @@
 import { Page, Request, expect, test } from '@playwright/test';
-import { seriousViolations } from './support/axe';
+import { seriousViolations, seriousViolationsInBothThemes } from './support/axe';
+import { CRITICAL } from './support/critical';
 import { COMPANIES, USER, mockApi } from './support/mock-api';
 
 // Lista, detalle con seguimiento del estado, emisión de factura con vista previa y notas crédito y débito
@@ -85,6 +86,7 @@ interface DocumentsApi {
   calculateBodies: unknown[];
   issueRequests: Request[];
   noteRequests: Request[];
+  fileRequests: Request[];
   detailCalls: () => number;
   /** Respuesta de la vista previa: el PDF o el conversor caído (503). */
   preview: 'pdf' | 'unavailable';
@@ -106,6 +108,7 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
     calculateBodies: [],
     issueRequests: [],
     noteRequests: [],
+    fileRequests: [],
     detailCalls: () => detailCalls,
     preview: 'pdf',
   };
@@ -192,6 +195,18 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
           code: 'document.reference_not_accepted',
           message: 'La factura referenciada no está aceptada por la DIAN.',
         }),
+      });
+    }
+    if (/^\/api\/v1\/documents\/[^/]+\/files\/pdf$/.test(url.pathname)) {
+      api.fileRequests.push(request);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        headers: {
+          'Content-Disposition': 'attachment; filename="SETP990000009.pdf"',
+          'Access-Control-Expose-Headers': 'Content-Disposition',
+        },
+        body: '%PDF-1.7\n%%EOF',
       });
     }
     if (url.pathname === '/api/v1/documents/doc-1') {
@@ -283,56 +298,72 @@ test('downloads the CSV export with the token, not with a plain link', async ({ 
   expect((await download).suggestedFilename()).toBe('documentos-2026-11.csv');
 });
 
-test('issues an invoice with the server totals and follows its DIAN status', async ({ page }) => {
-  const api = await mockDocuments(page);
-  await logIn(page);
-  await page.goto('/documentos/nuevo');
-  await expect(page.getByRole('heading', { level: 1, name: 'Emitir factura' })).toBeVisible();
+// Flujo crítico 3 de 5: emisión con totales del servidor, seguimiento del estado hasta Aceptado y descarga del PDF.
+test(
+  'issues an invoice with the server totals, follows its DIAN status and downloads the PDF',
+  CRITICAL,
+  async ({ page }) => {
+    const api = await mockDocuments(page);
+    await logIn(page);
+    await page.getByRole('link', { name: 'Documentos' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Documentos' })).toBeVisible();
+    expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+    await page.getByRole('link', { name: 'Emitir factura' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Emitir factura' })).toBeVisible();
 
-  await page.getByLabel('Buscar cliente').fill('golden');
-  await page.getByRole('button', { name: /Elegir CLIENTE DE PRUEBA GOLDEN SAS/ }).click();
-  await expect(page.getByText('Cliente elegido')).toBeVisible();
-  await page.getByLabel('Agregar un producto').fill('serv');
-  await page.getByRole('button', { name: /Agregar Servicio de consultoría/ }).click();
+    await page.getByLabel('Buscar cliente').fill('golden');
+    await page.getByRole('button', { name: /Elegir CLIENTE DE PRUEBA GOLDEN SAS/ }).click();
+    await expect(page.getByText('Cliente elegido')).toBeVisible();
+    await page.getByLabel('Agregar un producto').fill('serv');
+    await page.getByRole('button', { name: /Agregar Servicio de consultoría/ }).click();
 
-  await expect(page.getByTestId('payable')).toContainText('1.785.000,00');
-  expect(api.calculateBodies.at(-1)).toEqual({
-    lines: [
-      {
-        quantity: 1,
-        unit_price: 1500000,
-        free_of_charge: false,
-        taxes: [{ tax_id: 1, percent: 19 }],
-      },
-    ],
-  });
-  expect(await seriousViolations(page)).toEqual([]);
+    await expect(page.getByTestId('payable')).toContainText('1.785.000,00');
+    expect(api.calculateBodies.at(-1)).toEqual({
+      lines: [
+        {
+          quantity: 1,
+          unit_price: 1500000,
+          free_of_charge: false,
+          taxes: [{ tax_id: 1, percent: 19 }],
+        },
+      ],
+    });
+    expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
-  await page.getByRole('button', { name: 'Emitir factura' }).click();
+    await page.getByRole('button', { name: 'Emitir factura' }).click();
 
-  await expect(page).toHaveURL('/documentos/doc-9');
-  const issue = api.issueRequests[0]!;
-  expect(issue.headers()['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
-  const body = issue.postDataJSON();
-  expect(body.legal_monetary_totals).toEqual(TOTALS);
-  expect(body.tax_totals).toEqual([SUBTOTAL]);
-  expect(body.invoice_lines[0].line_extension_amount).toBe('1500000.00');
-  expect(body.invoice_lines[0].tax_totals).toEqual([SUBTOTAL]);
+    await expect(page).toHaveURL('/documentos/doc-9');
+    const issue = api.issueRequests[0]!;
+    expect(issue.headers()['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+    const body = issue.postDataJSON();
+    expect(body.legal_monetary_totals).toEqual(TOTALS);
+    expect(body.tax_totals).toEqual([SUBTOTAL]);
+    expect(body.invoice_lines[0].line_extension_amount).toBe('1500000.00');
+    expect(body.invoice_lines[0].tax_totals).toEqual([SUBTOTAL]);
 
-  // El detalle consulta con retroceso (2 s, 4 s) hasta el estado final.
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Factura SETP990000009' }),
-  ).toBeVisible();
-  await expect(page.getByText('Consultando el estado en la DIAN…')).toBeVisible();
-  await expect(page.getByText('Aceptado', { exact: true })).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText('Consultando el estado en la DIAN…')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'PDF', exact: true })).toBeVisible();
-  const callsWhenAccepted = api.detailCalls();
-  await page.waitForTimeout(3_000);
-  expect(api.detailCalls()).toBe(callsWhenAccepted);
+    // El detalle consulta con retroceso (2 s, 4 s) hasta el estado final.
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Factura SETP990000009' }),
+    ).toBeVisible();
+    await expect(page.getByText('Consultando el estado en la DIAN…')).toBeVisible();
+    await expect(page.getByText('Aceptado', { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('Consultando el estado en la DIAN…')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'PDF', exact: true })).toBeVisible();
+    const callsWhenAccepted = api.detailCalls();
+    await page.waitForTimeout(3_000);
+    expect(api.detailCalls()).toBe(callsWhenAccepted);
+    expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
-  expect(await seriousViolations(page)).toEqual([]);
-});
+    // El PDF se pide con el token (no con un enlace directo) y se guarda con el nombre que manda el Api.
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'PDF', exact: true }).click();
+    expect((await download).suggestedFilename()).toBe('SETP990000009.pdf');
+    expect(api.fileRequests.map((request) => new URL(request.url()).pathname)).toEqual([
+      '/api/v1/documents/doc-9/files/pdf',
+    ]);
+    expect(api.fileRequests[0]!.headers()['authorization']).toMatch(/^Bearer /);
+  },
+);
 
 test('previews the invoice PDF in a new tab and explains when the PDF service is down', async ({
   page,
@@ -370,11 +401,21 @@ test('previews the invoice PDF in a new tab and explains when the PDF service is
   expect(await seriousViolations(page)).toEqual([]);
 });
 
-test('issues a credit note for the invoice of the link with its lines', async ({ page }) => {
+// Flujo crítico 4 de 5: desde el detalle de una factura aceptada, nota crédito con sus líneas y totales del servidor.
+test('issues a credit note from an accepted invoice with its lines', CRITICAL, async ({ page }) => {
   const api = await mockDocuments(page);
   await logIn(page);
-  await page.goto('/documentos/nota-credito?factura=doc-1');
+  await page.getByRole('link', { name: 'Documentos' }).click();
+  await page.getByRole('link', { name: 'SETP990000001', exact: true }).click();
+  await expect(page).toHaveURL('/documentos/doc-1');
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Factura SETP990000001' }),
+  ).toBeVisible();
+  await expect(page.getByText('Aceptado', { exact: true })).toBeVisible();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+  await page.getByRole('link', { name: 'Emitir nota crédito' }).click();
 
+  await expect(page).toHaveURL('/documentos/nota-credito?factura=doc-1');
   await expect(page.getByRole('heading', { level: 1, name: 'Emitir nota crédito' })).toBeVisible();
   await expect(page.getByText('SETP990000001')).toBeVisible();
   const line = page.getByRole('group', { name: 'Línea 1' });
@@ -384,12 +425,13 @@ test('issues a credit note for the invoice of the link with its lines', async ({
   await page
     .getByLabel('Concepto de la corrección')
     .selectOption({ label: 'Anulación de factura electrónica' });
-  expect(await seriousViolations(page)).toEqual([]);
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
   await page.getByRole('button', { name: 'Emitir nota crédito' }).click();
 
   await expect(page).toHaveURL('/documentos/note-1');
   await expect(page.getByRole('heading', { level: 1, name: 'Nota crédito NC1' })).toBeVisible();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
   const note = api.noteRequests[0]!;
   expect(note.headers()['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
   expect(note.postDataJSON()).toMatchObject({

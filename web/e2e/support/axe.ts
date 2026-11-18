@@ -15,3 +15,29 @@ export async function seriousViolations(page: Page) {
       targets: violation.nodes.map((node) => node.target.join(' ')),
     }));
 }
+
+/**
+ * Violaciones graves o críticas de la página en modo claro y en modo oscuro (sigue `prefers-color-scheme`).
+ * Al terminar quita la emulación del esquema de color. Uso: `toEqual({ light: [], dark: [] })`.
+ */
+export async function seriousViolationsInBothThemes(page: Page) {
+  const light = await violationsIn(page, 'light');
+  const dark = await violationsIn(page, 'dark');
+  await page.emulateMedia({ colorScheme: null });
+  return { light, dark };
+}
+
+async function violationsIn(page: Page, colorScheme: 'light' | 'dark') {
+  await page.emulateMedia({ colorScheme });
+  // Espera a que el navegador pinte con el esquema nuevo y terminen las transiciones de color (los botones de
+  // Optimus UI animan el fondo y el texto): medido a mitad de la transición, el contraste sale falso.
+  await page.evaluate(async () => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    // Las animaciones sin fin (esqueletos de carga, indicadores) no se esperan; una cancelada cuenta como terminada.
+    const finite = document
+      .getAnimations()
+      .filter((animation) => animation.effect?.getTiming().iterations !== Infinity);
+    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+  });
+  return seriousViolations(page);
+}

@@ -1,5 +1,6 @@
 import { Page, expect, test } from '@playwright/test';
-import { seriousViolations } from './support/axe';
+import { seriousViolations, seriousViolationsInBothThemes } from './support/axe';
+import { CRITICAL } from './support/critical';
 import { COMPANIES, USER, mockApi } from './support/mock-api';
 
 // Inicio de sesión, selección de empresa, cierre de sesión e inactividad (feature-auth) contra la Api simulada.
@@ -13,18 +14,23 @@ async function logIn(page: Page, password = USER.password) {
 // El propietario (rol por defecto de la Api simulada) entra en `/` al tablero.
 const homeHeading = (page: Page) => page.getByRole('heading', { level: 1, name: 'Tablero' });
 
-test('logs in, chooses a company and lands on the home page', async ({ page }) => {
+// Flujo crítico 1 de 5 (docs/Arquitectura frontend.md, sección 12): login, selección de empresa y tablero.
+test('logs in, chooses a company and lands on the home page', CRITICAL, async ({ page }) => {
   const api = await mockApi(page);
   await page.goto('/login');
+  await expect(page.getByRole('heading', { level: 1, name: 'Iniciar sesión' })).toBeVisible();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
   await logIn(page);
 
   await expect(page).toHaveURL('/empresas/seleccionar');
   await expect(page.getByRole('heading', { level: 1, name: 'Seleccionar empresa' })).toBeVisible();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
   await page.getByRole('button', { name: 'Trabajar con Beta Ltda' }).click();
 
   await expect(page).toHaveURL('/');
   await expect(homeHeading(page)).toBeVisible();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
   expect(api.calls.login).toEqual([
     { email: USER.email, password: USER.password, company_id: null },
   ]);
