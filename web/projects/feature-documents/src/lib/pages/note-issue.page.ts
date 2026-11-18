@@ -19,6 +19,8 @@ import {
   issueCreditNote,
   issueDebitNote,
   listDocuments,
+  previewCreditNote,
+  previewDebitNote,
 } from '@impifact/api';
 import {
   AppError,
@@ -58,6 +60,7 @@ import {
 } from '../forms/note.form';
 import { filesAvailable } from '../models/document-status';
 import { debouncedSearch } from '../state/debounced-search';
+import { DocumentActions, previewProblem } from '../state/document-actions';
 import { serverTotals } from '../state/server-totals';
 
 /** Estados con la factura aceptada por la DIAN: los únicos que admite una nota. */
@@ -79,10 +82,8 @@ type OriginalState =
  * de la empresa o llega en el enlace (`?factura=<id>`, desde el detalle). La crédito empieza con las líneas de la
  * factura; la débito, con una línea libre. Los totales siempre vienen de `calculateDocumentTotals` y «Emitir» manda
  * la `Idempotency-Key` creada al abrir el formulario. El Api rechaza una nota cuya factura no esté aceptada
- * (`document.reference_not_accepted`) y la página muestra ese error.
- *
- * TODO(B10): sumar «Vista previa» cuando el cliente generado tenga la vista previa de las notas (se construye en el
- * backend); hoy solo existe `previewInvoice`.
+ * (`document.reference_not_accepted`) y la página muestra ese error. «Vista previa» manda el mismo cuerpo a
+ * `previewCreditNote` o `previewDebitNote` y abre el PDF sin número ni CUDE (no revisa que la factura esté aceptada).
  */
 @Component({
   selector: 'feat-note-issue-page',
@@ -100,7 +101,7 @@ type OriginalState =
     SearchPickerComponent,
     TotalsPanelComponent,
   ],
-  providers: [provideDocumentsI18n()],
+  providers: [provideDocumentsI18n(), DocumentActions],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './note-issue.page.html',
   styleUrls: ['./documents-page.css', './invoice-issue.page.css'],
@@ -111,6 +112,7 @@ export class NoteIssuePage implements HasUnsavedChanges {
   private readonly toasts = inject(ToastStore);
   private readonly transloco = inject(TranslocoService);
   private readonly catalogs = inject(CatalogsStore);
+  private readonly actions = inject(DocumentActions);
 
   /** Tipo de nota, de los datos de la ruta. */
   readonly kind = input<NoteKind>('credit');
@@ -125,6 +127,8 @@ export class NoteIssuePage implements HasUnsavedChanges {
   protected readonly original = signal<OriginalState>({ status: 'none' });
   protected readonly submitting = signal(false);
   protected readonly issueError = signal<{ message: string; details: string[] } | null>(null);
+  protected readonly previewing = signal(false);
+  protected readonly previewError = signal<string | null>(null);
   private issued = false;
 
   protected readonly originalDocument = computed(() => {
@@ -289,6 +293,32 @@ export class NoteIssuePage implements HasUnsavedChanges {
     } finally {
       this.submitting.set(false);
     }
+  }
+
+  /** Abre el PDF que tendría la nota (sin emitirla); un 503 es el conversor de PDF caído. */
+  protected async preview(): Promise<void> {
+    const original = this.originalDocument();
+    const calculated = this.calculated();
+    if (!this.canIssue() || this.previewing() || !original || !calculated) {
+      return;
+    }
+    this.previewing.set(true);
+    this.previewError.set(null);
+    this.issueError.set(null);
+    const kind = this.kind();
+    const body = buildNoteBody(kind, this.noteForm().value(), original, calculated);
+    const path = kind === 'credit' ? previewCreditNote.PATH : previewDebitNote.PATH;
+    const result = await this.actions.openPreview(path, body);
+    this.previewing.set(false);
+    if (result.ok) {
+      return;
+    }
+    const problem = previewProblem(result.error);
+    this.issueError.set(problem.validation);
+    this.previewError.set(
+      problem.notice &&
+        ('key' in problem.notice ? this.text(problem.notice.key) : problem.notice.message),
+    );
   }
 
   /** Carga la factura con sus líneas; la crédito empieza con ellas, la débito con una línea libre. */

@@ -44,7 +44,7 @@ import {
   emptyLine,
   lineFromProduct,
 } from '../forms/invoice.form';
-import { DocumentActions } from '../state/document-actions';
+import { DocumentActions, previewProblem } from '../state/document-actions';
 import { debouncedSearch } from '../state/debounced-search';
 import { serverTotals } from '../state/server-totals';
 
@@ -258,19 +258,12 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
     if (result.ok) {
       return;
     }
-    const error = result.error;
-    if (error instanceof AppError && error.hasFieldErrors) {
-      this.issueError.set({
-        message: error.message,
-        details: Object.values(error.fieldErrors).flat(),
-      });
-    } else if (error instanceof AppError && error.status === 503) {
-      this.previewError.set(this.text('issue.previewUnavailable'));
-    } else {
-      this.previewError.set(
-        error instanceof AppError ? error.message : this.text('issue.previewFailed'),
-      );
-    }
+    const problem = previewProblem(result.error);
+    this.issueError.set(problem.validation);
+    this.previewError.set(
+      problem.notice &&
+        ('key' in problem.notice ? this.text(problem.notice.key) : problem.notice.message),
+    );
   }
 
   private pickerLabels(kind: 'customer' | 'product'): PickerLabels {

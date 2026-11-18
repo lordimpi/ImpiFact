@@ -147,6 +147,16 @@
       @if (!canIssue() && !submitting()) {
         <p class="doc-muted">{{ 'documents.note.notReady' | transloco }}</p>
       }
+      @if (previewError(); as message) {
+        <p class="doc-error" role="alert">{{ message }}</p>
+      }
+      <ui-button
+        variant="secondary"
+        [label]="'documents.issue.preview' | transloco"
+        [loading]="previewing()"
+        [disabled]="!canIssue() || previewing()"
+        (pressed)="preview()"
+      />
       <ui-button
         type="submit"
         [label]="

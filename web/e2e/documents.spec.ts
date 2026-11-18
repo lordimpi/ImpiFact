@@ -380,7 +380,7 @@ test('issues a credit note for the invoice of the link with its lines', async ({
   const line = page.getByRole('group', { name: 'Línea 1' });
   await expect(line.getByLabel('Código')).toHaveValue('SERV01');
   await expect(page.getByTestId('payable')).toContainText('1.785.000,00');
-  await expect(page.getByRole('button', { name: 'Vista previa' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Vista previa' })).toBeVisible();
   await page
     .getByLabel('Concepto de la corrección')
     .selectOption({ label: 'Anulación de factura electrónica' });

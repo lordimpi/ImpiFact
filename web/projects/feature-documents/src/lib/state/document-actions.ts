@@ -31,6 +31,31 @@ export type DocumentFileKind = 'xml' | 'pdf' | 'attached-document' | 'zip';
 /** Resultado de abrir una vista previa: el error del Api (ya como `AppError`) si no se pudo. */
 export type PreviewResult = { ok: true } | { ok: false; error: unknown };
 
+/** Cómo mostrar un error de la vista previa: junto a los totales (errores por campo) o como aviso de la vista previa. */
+export interface PreviewProblem {
+  /** Validación del cuerpo, igual que al emitir. */
+  validation: { message: string; details: string[] } | null;
+  /** Clave del texto (`documents.*`) o mensaje del Api para el aviso bajo el botón. */
+  notice: { key: string } | { message: string } | null;
+}
+
+/** Un 503 es el conversor de PDF caído; un 422 con campos, el cuerpo no válido; lo demás, el mensaje del Api. */
+export function previewProblem(error: unknown): PreviewProblem {
+  if (error instanceof AppError && error.hasFieldErrors) {
+    return {
+      validation: { message: error.message, details: Object.values(error.fieldErrors).flat() },
+      notice: null,
+    };
+  }
+  if (error instanceof AppError && error.status === 503) {
+    return { validation: null, notice: { key: 'issue.previewUnavailable' } };
+  }
+  return {
+    validation: null,
+    notice: error instanceof AppError ? { message: error.message } : { key: 'issue.previewFailed' },
+  };
+}
+
 /** Tiempo que la pestaña de la vista previa tiene para leer el PDF antes de liberar su URL temporal. */
 const PREVIEW_URL_LIFETIME_MS = 60_000;
 

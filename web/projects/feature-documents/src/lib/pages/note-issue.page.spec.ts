@@ -117,8 +117,10 @@ describe('NoteIssuePage', () => {
         await screen.findByRole('heading', { level: 1, name: 'Emitir nota crédito' }),
       ).toBeTruthy();
       await answerConcepts(http, 'credit');
-      // Las notas aún no tienen vista previa en el Api.
-      expect(screen.queryByRole('button', { name: 'Vista previa' })).toBeNull();
+      // Sin factura ni totales todavía no hay vista previa.
+      expect(
+        (screen.getByRole('button', { name: 'Vista previa' }) as HTMLButtonElement).disabled,
+      ).toBe(true);
 
       fireEvent.input(screen.getByLabelText(/Buscar factura/), { target: { value: '990000001' } });
       const search = await waitFor(() => http.expectOne((r) => r.url === '/api/v1/documents'));
@@ -221,6 +223,81 @@ describe('NoteIssuePage', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toContain('La factura referenciada no está aceptada por la DIAN.');
+  });
+
+  describe('preview', () => {
+    let tab: { location: { href: string }; close: ReturnType<typeof vi.fn> };
+
+    beforeEach(() => {
+      tab = { location: { href: '' }, close: vi.fn() };
+      vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+      URL.createObjectURL = vi.fn(() => 'blob:note');
+      URL.revokeObjectURL = vi.fn();
+    });
+
+    afterEach(() => vi.restoreAllMocks());
+
+    async function readyNote(kind: 'credit' | 'debit') {
+      const path = kind === 'credit' ? 'nota-credito' : 'nota-debito';
+      const rendered = await renderDocumentsRoute(`/documentos/${path}?factura=doc-1`);
+      await answerConcepts(rendered.http, kind);
+      (await waitFor(() => rendered.http.expectOne('/api/v1/documents/doc-1'))).flush(DETAIL);
+      if (kind === 'debit') {
+        fireEvent.click(
+          await screen.findByRole('button', { name: 'Copiar las líneas de la factura' }),
+        );
+      }
+      (await waitFor(() => rendered.http.expectOne(isCalculate))).flush(CALCULATION);
+      await screen.findByTestId('payable');
+      choose(/^Concepto de la corrección/, '1');
+      return rendered;
+    }
+
+    it('opens the PDF of the credit note in a new tab without issuing it', async () => {
+      const { http } = await readyNote('credit');
+      const button = screen.getByRole('button', { name: 'Vista previa' }) as HTMLButtonElement;
+      await waitFor(() => expect(button.disabled).toBe(false));
+
+      fireEvent.click(button);
+      const preview = await waitFor(() => http.expectOne('/api/v1/documents/credit-notes/preview'));
+      expect(preview.request.responseType).toBe('blob');
+      expect(preview.request.body).toMatchObject({
+        type_document_id: 4,
+        discrepancyresponsecode: 1,
+        legal_monetary_totals: CALCULATION.legal_monetary_totals,
+      });
+      preview.flush(new Blob(['%PDF-1.7'], { type: 'application/pdf' }));
+
+      await waitFor(() => expect(tab.location.href).toBe('blob:note'));
+      http.expectNone('/api/v1/documents/credit-notes');
+    });
+
+    it('sends the debit note body to its own preview and explains a 503', async () => {
+      const { http } = await readyNote('debit');
+      const button = screen.getByRole('button', { name: 'Vista previa' }) as HTMLButtonElement;
+      await waitFor(() => expect(button.disabled).toBe(false));
+
+      fireEvent.click(button);
+      const preview = await waitFor(() => http.expectOne('/api/v1/documents/debit-notes/preview'));
+      expect(preview.request.body).toMatchObject({
+        type_document_id: 5,
+        requested_monetary_totals: CALCULATION.legal_monetary_totals,
+      });
+      preview.flush(
+        new Blob(
+          [JSON.stringify({ status: 503, code: 'pdf.unavailable', message: 'No responde.' })],
+          { type: 'application/problem+json' },
+        ),
+        { status: 503, statusText: 'Service Unavailable' },
+      );
+
+      expect(
+        await screen.findByText(
+          'El servicio que genera el PDF no está disponible en este momento. Intente de nuevo en unos minutos.',
+        ),
+      ).toBeTruthy();
+      expect(tab.close).toHaveBeenCalled();
+    });
   });
 
   it('warns when the invoice of the link is not accepted yet', async () => {
