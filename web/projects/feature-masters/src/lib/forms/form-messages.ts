@@ -14,6 +14,7 @@ const CLIENT_ERROR_KEYS: Partial<Record<string, string>> = {
   maxLength: 'common.errors.maxLength',
   email: 'common.errors.email',
   pattern: 'common.errors.pattern',
+  digits: 'common.errors.digits',
 };
 
 /**

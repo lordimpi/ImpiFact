@@ -24,13 +24,13 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  ComboboxComponent,
+  ComboboxLabels,
   ErrorStateComponent,
   FieldComponent,
   InputDirective,
   LoadingComponent,
   PageTitleComponent,
-  SearchSelectComponent,
-  SearchSelectLabels,
   SelectDirective,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -71,12 +71,12 @@ const AMOUNT_FIELDS: readonly (keyof ProductModel)[] = [
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    ComboboxComponent,
     ErrorStateComponent,
     FieldComponent,
     InputDirective,
     LoadingComponent,
     PageTitleComponent,
-    SearchSelectComponent,
     SelectDirective,
   ],
   providers: [provideMastersI18n()],
@@ -114,13 +114,10 @@ export class ProductFormPage implements HasUnsavedChanges {
     current: () => this.model().unit_measure_id,
     otherName: this.other,
   });
-  protected readonly unitMeasureLabels: SearchSelectLabels = {
-    search: this.text('products.form.unitMeasureSearch'),
-    hint: this.text('products.form.unitMeasureSearchHint'),
+  protected readonly unitMeasureLabels: ComboboxLabels = {
     loading: this.text('common.catalog.loading'),
     error: this.text('common.catalog.error'),
     empty: this.text('products.form.unitMeasureNone'),
-    more: this.text('products.form.unitMeasureMore'),
     retry: this.text('common.catalog.retry'),
   };
   private readonly taxItems = this.catalogs.items('taxes');

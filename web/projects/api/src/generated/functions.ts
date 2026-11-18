@@ -41,6 +41,8 @@ export type { AssignCompanyPlan$Params as AssignCompanyPlan$Params } from './fn/
 export { assignCompanyPlan as assignCompanyPlan } from './fn/planes/assign-company-plan';
 export type { ListPlans$Params as ListPlans$Params } from './fn/planes/list-plans';
 export { listPlans as listPlans } from './fn/planes/list-plans';
+export type { CreatePlan$Params as CreatePlan$Params } from './fn/planes/create-plan';
+export { createPlan as createPlan } from './fn/planes/create-plan';
 export type { GetPlan$Params as GetPlan$Params } from './fn/planes/get-plan';
 export { getPlan as getPlan } from './fn/planes/get-plan';
 export type { SavePlan$Params as SavePlan$Params } from './fn/planes/save-plan';

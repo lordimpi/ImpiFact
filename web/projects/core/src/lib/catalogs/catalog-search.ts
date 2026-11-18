@@ -28,7 +28,13 @@ export interface CatalogSearchState {
   term: string;
   items: readonly CatalogItem[];
   nextCursor: string | null;
-  status: 'loading' | 'ready' | 'error';
+  /** `idle`: todavía no se busca porque falta el filtro (por ejemplo, el departamento). */
+  status: 'idle' | 'loading' | 'ready' | 'error';
+}
+
+/** Filtro de la búsqueda: el departamento de los municipios. */
+export interface CatalogSearchFilter {
+  departmentId?: number | null;
 }
 
 export interface CatalogSearchOptions {
@@ -38,13 +44,18 @@ export interface CatalogSearchOptions {
   otherName: (id: number) => string;
   /** Texto de cada fila; por defecto `catalogLabel`. Puede leer signals (por ejemplo, los departamentos). */
   format?: (item: CatalogItem) => string;
+  /**
+   * Filtro del servidor; puede leer signals. `null` deja la lista vacía y sin pedir nada hasta que haya filtro. Al
+   * cambiar, la búsqueda empieza de nuevo sin texto.
+   */
+  filter?: () => CatalogSearchFilter | null;
 }
 
 export interface CatalogSearch {
   state: Signal<CatalogSearchState>;
   /** Opciones del `<select>`: los resultados y, al final, el valor actual si no está entre ellos. */
   options: Signal<readonly CatalogOption[]>;
-  /** Si el servidor tiene más filas para la búsqueda actual («Cargar más»). */
+  /** Si el servidor tiene más filas para la búsqueda actual (la lista las pide al llegar al final). */
   hasMore: Signal<boolean>;
   search(term: string): void;
   loadMore(): void;
@@ -58,8 +69,9 @@ interface SearchRequest {
 }
 
 /**
- * Búsqueda en un catálogo largo (municipios o unidades de medida) para un `<select>`: muestra la primera página al
- * abrir, busca en el servidor con `q` tras una pausa y suma páginas con el cursor. El valor guardado no se pierde
+ * Búsqueda en un catálogo largo (municipios o unidades de medida) para un combobox (`ui-combobox`): muestra la
+ * primera página al abrir, busca en el servidor con `q` tras una pausa, suma páginas con el cursor y puede filtrar
+ * en el servidor (los municipios de un departamento). El valor guardado no se pierde
  * aunque la búsqueda no lo traiga: su nombre se resuelve una vez (`CatalogsStore.find`). Debe llamarse en un
  * contexto de inyección (inicializador de un campo del componente).
  */
@@ -91,9 +103,16 @@ export function catalogSearch(
   const typed = new Subject<string>();
   const direct = new Subject<SearchRequest>();
 
+  const filterOf = () => (options.filter ? untracked(options.filter) : {});
+
   const fetch = (request: SearchRequest): Observable<CatalogSearchState> => {
     const before = untracked(state);
-    return from(store.page(name, { q: request.term, cursor: request.cursor })).pipe(
+    const filter = filterOf();
+    if (filter === null) {
+      return of<CatalogSearchState>({ term: '', items: [], nextCursor: null, status: 'idle' });
+    }
+    const query = { q: request.term, cursor: request.cursor, departmentId: filter.departmentId };
+    return from(store.page(name, query)).pipe(
       map((page): CatalogSearchState => ({
         term: request.term,
         items: request.append ? [...before.items, ...page.items] : page.items,
@@ -126,6 +145,19 @@ export function catalogSearch(
       state.set(next);
       remember(next.items);
     });
+
+  // Un filtro nuevo (otro departamento) empieza la búsqueda de cero; el filtro inicial ya lo usó `startWith`.
+  if (options.filter) {
+    const filter = options.filter;
+    let previous = JSON.stringify(untracked(filter));
+    effect(() => {
+      const key = JSON.stringify(filter());
+      if (key !== previous) {
+        previous = key;
+        untracked(() => direct.next({ term: '', cursor: null, append: false }));
+      }
+    });
+  }
 
   // Si el valor actual no está entre las filas conocidas, se busca su nombre una sola vez.
   const resolving = new Set<number>();
@@ -163,7 +195,7 @@ export function catalogSearch(
     },
     retry: () => {
       const { term, nextCursor, items } = untracked(state);
-      // Si falló «Cargar más», se repite esa página; si no, la búsqueda entera.
+      // Si falló la página siguiente, se repite esa página; si no, la búsqueda entera.
       const append = items.length > 0 && nextCursor !== null;
       direct.next({ term, cursor: append ? nextCursor : null, append });
     },

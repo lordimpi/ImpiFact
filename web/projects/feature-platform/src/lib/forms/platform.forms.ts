@@ -3,13 +3,14 @@ import {
   FieldTree,
   ValidationError,
   form,
+  hidden,
   maxLength,
   pattern,
   readonly,
   required,
 } from '@angular/forms/signals';
 import { AppError } from '@impifact/core';
-import { StorePlanCommand } from '@impifact/api';
+import { CreatePlanCommand, StorePlanCommand } from '@impifact/api';
 import { PlatformPlan } from '../state/platform-plans.store';
 
 /*
@@ -52,9 +53,10 @@ export const QUANTITY_FIELDS = [
   'qty_docs_ds',
 ] as const;
 
-export function emptyPlan(id: number): PlanModel {
+/** Plan nuevo: sin id, que lo asigna el Api al crearlo (`createPlan`). */
+export function emptyPlan(): PlanModel {
   return {
-    id: String(id),
+    id: '',
     name: '',
     period: '1',
     qty_docs_invoice: '',
@@ -82,13 +84,17 @@ export function planModel(plan: PlatformPlan): PlanModel {
   };
 }
 
-/** `editing` dice si el plan ya existe: entonces su id no se cambia (es la dirección del `PUT`). */
+/**
+ * `editing` dice si el plan ya existe: entonces su id se muestra sin poder cambiarlo (es la dirección del `PUT`). Al
+ * crear, el id no existe todavía: lo asigna el Api.
+ */
 export function createPlanForm(
   model: WritableSignal<PlanModel>,
   editing: () => boolean,
 ): FieldTree<PlanModel> {
   return form(model, (path) => {
-    readonly(path.id, { when: () => editing() });
+    hidden(path.id, { when: () => !editing() });
+    readonly(path.id);
     required(path.id);
     pattern(path.id, WHOLE_NUMBER);
     required(path.name);
@@ -103,9 +109,14 @@ export function createPlanForm(
 
 const optionalNumber = (value: string) => (value.trim() === '' ? null : Number(value));
 
+/** Cuerpo de `savePlan` (`PUT /plans/{id}`), para cambiar un plan que ya existe. */
 export function planCommand(model: PlanModel): StorePlanCommand {
+  return { id: Number(model.id), ...newPlanCommand(model) };
+}
+
+/** Cuerpo de `createPlan` (`POST /plans`): sin id, que lo asigna el Api. */
+export function newPlanCommand(model: PlanModel): CreatePlanCommand {
   return {
-    id: Number(model.id),
     name: model.name.trim(),
     period: Number(model.period),
     qty_docs_invoice: optionalNumber(model.qty_docs_invoice),

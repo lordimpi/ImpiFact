@@ -35,6 +35,7 @@
 
         <ui-field
           [label]="'masters.customers.form.identificationType' | transloco"
+          [help]="'masters.customers.form.help.identificationType' | transloco"
           [error]="errors().type_document_identification_id"
           required
         >
@@ -49,6 +50,7 @@
         <ui-field
           [label]="'masters.customers.form.identificationNumber' | transloco"
           [hint]="'masters.customers.form.identificationHint' | transloco"
+          [help]="'masters.customers.form.help.identificationNumber' | transloco"
           [error]="errors().identification_number"
           required
         >
@@ -56,6 +58,7 @@
             uiInput
             type="text"
             autocomplete="off"
+            [uiDigitsOnly]="numericIdentification()"
             [formField]="customerForm.identification_number"
           />
         </ui-field>
@@ -64,14 +67,14 @@
           <ui-field
             [label]="'masters.customers.form.dv' | transloco"
             [hint]="'masters.customers.form.dvHint' | transloco"
+            [help]="'masters.customers.form.help.dv' | transloco"
             [error]="errors().dv"
-            required
           >
             <input
               uiInput
               type="text"
-              inputmode="numeric"
               autocomplete="off"
+              tabindex="-1"
               [formField]="customerForm.dv"
             />
           </ui-field>
@@ -99,6 +102,7 @@
         <ui-field
           class="masters-form__wide"
           [label]="'masters.customers.form.name' | transloco"
+          [help]="'masters.customers.form.help.name' | transloco"
           [error]="errors().name"
           required
         >
@@ -107,6 +111,7 @@
 
         <ui-field
           [label]="'masters.customers.form.organization' | transloco"
+          [help]="'masters.customers.form.help.organization' | transloco"
           [error]="errors().type_organization_id"
         >
           <select uiSelect [formField]="customerForm.type_organization_id">
@@ -119,6 +124,7 @@
 
         <ui-field
           [label]="'masters.customers.form.regime' | transloco"
+          [help]="'masters.customers.form.help.regime' | transloco"
           [error]="errors().type_regime_id"
         >
           <select uiSelect [formField]="customerForm.type_regime_id">
@@ -131,6 +137,7 @@
 
         <ui-field
           [label]="'masters.customers.form.liability' | transloco"
+          [help]="'masters.customers.form.help.liability' | transloco"
           [error]="errors().type_liability_id"
         >
           <select uiSelect [formField]="customerForm.type_liability_id">
@@ -141,30 +148,49 @@
           </select>
         </ui-field>
 
-        <ui-search-select
-          [labels]="municipalityLabels"
-          [term]="municipalities.state().term"
-          [status]="municipalities.state().status"
-          [hasMore]="municipalities.hasMore()"
-          [empty]="municipalities.state().items.length === 0"
-          (termChange)="municipalities.search($event)"
-          (loadMore)="municipalities.loadMore()"
-          (retry)="municipalities.retry()"
+        <ui-field
+          [label]="'masters.customers.form.department' | transloco"
+          [help]="'masters.customers.form.help.department' | transloco"
         >
-          <ui-field
-            [label]="'masters.customers.form.municipality' | transloco"
-            [error]="errors().municipality_id"
+          <select
+            uiSelect
+            [value]="location.department()"
+            (change)="location.selectDepartment($any($event.target).value)"
           >
-            <select uiSelect [formField]="customerForm.municipality_id">
-              <option value="">{{ 'masters.common.noneOption' | transloco }}</option>
-              @for (option of municipalities.options(); track option.id) {
-                <option [value]="'' + option.id">{{ option.name }}</option>
-              }
-            </select>
-          </ui-field>
-        </ui-search-select>
+            <option value="">{{ 'masters.common.noneOption' | transloco }}</option>
+            @for (option of location.departments(); track option.id) {
+              <option
+                [value]="'' + option.id"
+                [selected]="'' + option.id === location.department()"
+              >
+                {{ option.name }}
+              </option>
+            }
+          </select>
+        </ui-field>
 
-        <ui-field [label]="'masters.customers.form.address' | transloco" [error]="errors().address">
+        <ui-field
+          [label]="'masters.customers.form.municipality' | transloco"
+          [help]="'masters.customers.form.help.municipality' | transloco"
+          [error]="errors().municipality_id"
+        >
+          <ui-combobox
+            [formField]="customerForm.municipality_id"
+            [options]="municipalities.options()"
+            [status]="municipalities.state().status"
+            [hasMore]="municipalities.hasMore()"
+            [labels]="municipalityLabels"
+            (termChange)="municipalities.search($event)"
+            (loadMore)="municipalities.loadMore()"
+            (retry)="municipalities.retry()"
+          />
+        </ui-field>
+
+        <ui-field
+          [label]="'masters.customers.form.address' | transloco"
+          [help]="'masters.customers.form.help.address' | transloco"
+          [error]="errors().address"
+        >
           <input
             uiInput
             type="text"
@@ -173,16 +199,31 @@
           />
         </ui-field>
 
-        <ui-field [label]="'masters.customers.form.email' | transloco" [error]="errors().email">
+        <ui-field
+          [label]="'masters.customers.form.email' | transloco"
+          [help]="'masters.customers.form.help.email' | transloco"
+          [error]="errors().email"
+        >
           <input uiInput type="email" autocomplete="email" [formField]="customerForm.email" />
         </ui-field>
 
-        <ui-field [label]="'masters.customers.form.phone' | transloco" [error]="errors().phone">
-          <input uiInput type="tel" autocomplete="tel" [formField]="customerForm.phone" />
+        <ui-field
+          [label]="'masters.customers.form.phone' | transloco"
+          [help]="'masters.customers.form.help.phone' | transloco"
+          [error]="errors().phone"
+        >
+          <input
+            uiInput
+            uiDigitsOnly
+            type="tel"
+            autocomplete="tel"
+            [formField]="customerForm.phone"
+          />
         </ui-field>
 
         <ui-field
           [label]="'masters.customers.form.merchantRegistration' | transloco"
+          [help]="'masters.customers.form.help.merchantRegistration' | transloco"
           [error]="errors().merchant_registration"
         >
           <input

@@ -5,24 +5,22 @@ import {
   form,
   maxLength,
   pattern,
+  readonly,
   required,
   validate,
 } from '@angular/forms/signals';
 import { CreateCompanyCommand } from '@impifact/api';
+import { NIT_IDENTIFICATION_TYPE_ID } from '@impifact/core';
 
 /*
  * Formulario del alta de una empresa (`createCompany`) con Signal Forms. Los nombres del modelo son los del JSON del
- * Api, así sus errores por campo caen en su campo. Solo valida forma: el dígito de verificación, los catálogos y el
- * correo repetido los valida el Api (el cliente no hace cálculos fiscales). El NIT y el DV van en la ruta
- * (`POST /api/v1/companies/{nit}/{dv}`), no en el cuerpo.
+ * Api, así sus errores por campo caen en su campo. Solo valida forma; los catálogos y el correo repetido los valida el
+ * Api. El dígito de verificación (DV) no se escribe: la página lo calcula del NIT (`syncCheckDigit` de core) y el
+ * Api lo vuelve a revisar. El NIT y el DV van en la ruta (`POST /api/v1/companies/{nit}/{dv}`), no en el cuerpo.
  */
-
-/** Tipo de identificación NIT en la semilla del backend, el de casi todas las empresas. */
-export const NIT_IDENTIFICATION_TYPE = 6;
 
 /** Largo máximo de un NIT para el Api. */
 const NIT_PATTERN = /^\d{1,15}$/;
-const DV_PATTERN = /^\d$/;
 const PHONE_PATTERN = /^\d{7,10}$/;
 
 export interface NewCompanyModel {
@@ -61,7 +59,7 @@ export function emptyNewCompany(): NewCompanyModel {
     nit: '',
     dv: '',
     business_name: '',
-    type_document_identification_id: String(NIT_IDENTIFICATION_TYPE),
+    type_document_identification_id: String(NIT_IDENTIFICATION_TYPE_ID),
     type_organization_id: '',
     type_regime_id: '',
     type_liability_ids: [],
@@ -80,8 +78,7 @@ export function createNewCompanyForm(
   return form(model, (path) => {
     required(path.nit);
     pattern(path.nit, NIT_PATTERN);
-    required(path.dv);
-    pattern(path.dv, DV_PATTERN);
+    readonly(path.dv);
     required(path.business_name);
     maxLength(path.business_name, 255);
     required(path.type_document_identification_id);

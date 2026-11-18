@@ -27,19 +27,21 @@ import {
   SmallCatalogName,
   ToastStore,
   catalogOptions,
-  catalogSearch,
-  municipalityLabel,
+  isNumericIdentificationType,
+  municipalityPicker,
   optionsWith,
+  syncCheckDigit,
 } from '@impifact/core';
 import {
   ButtonComponent,
+  ComboboxComponent,
+  ComboboxLabels,
+  DigitsOnlyDirective,
   ErrorStateComponent,
   FieldComponent,
   InputDirective,
   LoadingComponent,
   PageTitleComponent,
-  SearchSelectComponent,
-  SearchSelectLabels,
   SelectDirective,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -68,8 +70,10 @@ const IN_FORM = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 
 /**
  * Alta (`/clientes/nuevo`) y edición (`/clientes/:id`) de un cliente. «Buscar en la DIAN» consulta el adquiriente
- * con la identificación escrita y llena el nombre y el correo registrados allá. Los errores por campo del Api se
- * muestran junto a cada campo; salir con cambios sin guardar pide confirmación.
+ * con la identificación escrita y llena el nombre y el correo registrados allá. Con NIT o cédula el número solo admite
+ * dígitos y el DV del NIT se calcula solo; el municipio se elige después del departamento y cada campo explica qué
+ * poner en su tooltip. Los errores por campo del Api se muestran junto a cada campo; salir con cambios sin guardar
+ * pide confirmación.
  */
 @Component({
   selector: 'feat-customer-form-page',
@@ -78,12 +82,13 @@ const IN_FORM = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    ComboboxComponent,
+    DigitsOnlyDirective,
     ErrorStateComponent,
     FieldComponent,
     InputDirective,
     LoadingComponent,
     PageTitleComponent,
-    SearchSelectComponent,
     SelectDirective,
   ],
   providers: [provideMastersI18n()],
@@ -116,6 +121,10 @@ export class CustomerFormPage implements HasUnsavedChanges {
   private saved = false;
 
   protected readonly isNit = computed(() => isNit(this.model().type_document_identification_id));
+  /** NIT, cédula y demás documentos colombianos: el número solo lleva dígitos. */
+  protected readonly numericIdentification = computed(() =>
+    isNumericIdentificationType(this.model().type_document_identification_id),
+  );
   protected readonly isEdit = computed(() => !!this.id());
 
   // Listas de los catálogos de la DIAN en el Api; el municipio se busca en el servidor (son 1.122).
@@ -138,19 +147,17 @@ export class CustomerFormPage implements HasUnsavedChanges {
     'liabilities',
     () => this.model().type_liability_id,
   );
-  private readonly departments = this.catalogs.items('departments');
-  protected readonly municipalities = catalogSearch('municipalities', {
+  protected readonly location = municipalityPicker({
     current: () => this.model().municipality_id,
     otherName: this.other,
-    format: (item) => municipalityLabel(item, this.departments()),
+    clear: () => this.model.update((current) => ({ ...current, municipality_id: '' })),
   });
-  protected readonly municipalityLabels: SearchSelectLabels = {
-    search: this.text('customers.form.municipalitySearch'),
-    hint: this.text('customers.form.municipalitySearchHint'),
+  protected readonly municipalities = this.location.municipalities;
+  protected readonly municipalityLabels: ComboboxLabels = {
+    idle: this.text('customers.form.municipalityIdle'),
     loading: this.text('common.catalog.loading'),
     error: this.text('common.catalog.error'),
     empty: this.text('customers.form.municipalityNone'),
-    more: this.text('customers.form.municipalityMore'),
     retry: this.text('common.catalog.retry'),
   };
 
@@ -163,6 +170,10 @@ export class CustomerFormPage implements HasUnsavedChanges {
   });
 
   constructor() {
+    // El DV no se escribe: sale del número cuando el documento es NIT.
+    syncCheckDigit(this.model, (current) =>
+      isNit(current.type_document_identification_id) ? current.identification_number : null,
+    );
     effect(() => {
       const id = this.id();
       if (id) {
@@ -287,7 +298,20 @@ export class CustomerFormPage implements HasUnsavedChanges {
       this.generalError.set(this.text('common.errors.unexpected'));
       return undefined;
     }
-    const onFields = serverFieldErrors(this.customerForm, CUSTOMER_FIELDS, error);
+    const onFields = serverFieldErrors(
+      this.customerForm,
+      CUSTOMER_FIELDS.filter((name) => name !== 'dv'),
+      error,
+    );
+    // El DV sale del número y es de solo lectura: si el Api lo rechaza, lo que hay que corregir es el número.
+    const dv = error.fieldErrors['dv']?.[0];
+    if (dv) {
+      onFields.push({
+        kind: 'server',
+        message: dv,
+        fieldTree: this.customerForm.identification_number as never,
+      });
+    }
     if (onFields.length === 0) {
       this.generalError.set(
         error.code === 'customer.duplicate' ? this.text('customers.form.duplicate') : error.message,

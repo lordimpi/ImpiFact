@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/angular';
+import { fireEvent, render, screen } from '@testing-library/angular';
+import { UI_TEXTS } from '../i18n/ui-texts';
 import { FieldComponent } from './field.component';
 import { InputDirective } from './input.directive';
 
@@ -41,6 +42,75 @@ describe('FieldComponent', () => {
 
     expect(input.getAttribute('aria-required')).toBe('true');
     expect(screen.getByRole('textbox', { name: 'Razón social' })).toBe(input);
+  });
+
+  describe('help', () => {
+    const HELP = 'Número de Identificación Tributaria, sin el dígito de verificación.';
+
+    async function renderHelp(providers: unknown[] = []) {
+      await render(`<ui-field label="NIT" [help]="help"><input uiInput /></ui-field>`, {
+        imports: [FieldComponent, InputDirective],
+        componentProperties: { help: HELP },
+        providers: providers as never[],
+      });
+      return {
+        input: screen.getByRole('textbox', { name: 'NIT' }),
+        button: screen.getByRole('button'),
+        tooltip: screen.getByRole('tooltip', { hidden: true }),
+      };
+    }
+
+    it('describes the control with the help text, also while the tooltip is closed', async () => {
+      const { input, button, tooltip } = await renderHelp();
+
+      expect(tooltip.textContent?.trim()).toBe(HELP);
+      expect((input.getAttribute('aria-describedby') ?? '').split(' ')).toContain(tooltip.id);
+      expect(button.getAttribute('aria-describedby')).toBe(tooltip.id);
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+      expect(button.getAttribute('type')).toBe('button');
+    });
+
+    it('names the info button from the translated texts', async () => {
+      const { button } = await renderHelp([
+        { provide: UI_TEXTS, useValue: { fieldHelp: (label: string) => `Ayuda sobre ${label}` } },
+      ]);
+
+      expect(screen.getByRole('button', { name: 'Ayuda sobre NIT' })).toBe(button);
+      // El nombre del botón no es una etiqueta: buscar el campo por «NIT» no lo encuentra.
+      expect(screen.getAllByLabelText(/NIT/)).toEqual([screen.getByRole('textbox')]);
+    });
+
+    it('opens on keyboard focus and on hover, and Escape closes it', async () => {
+      const { button, tooltip } = await renderHelp();
+
+      fireEvent.focus(button);
+      expect(button.getAttribute('aria-expanded')).toBe('true');
+      expect(tooltip.classList).toContain('ui-help__tooltip--open');
+
+      fireEvent.keyDown(button, { key: 'Escape' });
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+
+      fireEvent.blur(button);
+      fireEvent.mouseEnter(button);
+      expect(button.getAttribute('aria-expanded')).toBe('true');
+      fireEvent.mouseLeave(button);
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('toggles on tap for touch screens', async () => {
+      const { button } = await renderHelp();
+
+      fireEvent.click(button);
+      expect(button.getAttribute('aria-expanded')).toBe('true');
+      fireEvent.click(button);
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('shows no info button without help', async () => {
+      await renderField('label="NIT"');
+
+      expect(screen.queryByRole('button')).toBeNull();
+    });
   });
 
   it('gives each field its own control id', async () => {

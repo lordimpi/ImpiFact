@@ -4,13 +4,16 @@
  * Los design tokens (variables de diseño) están en styles/tokens.css.
  */
 export * from './lib/button/button.component';
+export * from './lib/combobox/combobox.component';
 export * from './lib/dialog/dialog.component';
+export * from './lib/field/digits-only.directive';
 export * from './lib/field/field.component';
 export * from './lib/field/input.directive';
 export * from './lib/field/select.directive';
+export * from './lib/help/help.component';
+export * from './lib/i18n/ui-texts';
 export * from './lib/meter/meter.component';
 export * from './lib/page-title/page-title.component';
-export * from './lib/search-select/search-select.component';
 export * from './lib/paginator/pagination';
 export * from './lib/paginator/paginator.component';
 export * from './lib/states/empty-state.component';

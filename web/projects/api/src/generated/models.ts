@@ -34,6 +34,7 @@ export type { CreateCompanyCommand } from './models/create-company-command';
 export type { CreateCustomerCommand } from './models/create-customer-command';
 export type { CreatedApiKey } from './models/created-api-key';
 export type { CreatedUser } from './models/created-user';
+export type { CreatePlanCommand } from './models/create-plan-command';
 export type { CreateProductCommand } from './models/create-product-command';
 export type { CreateUserBody } from './models/create-user-body';
 export type { CurrentNumberResponse } from './models/current-number-response';

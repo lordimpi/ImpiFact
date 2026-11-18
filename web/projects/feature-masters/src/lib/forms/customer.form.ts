@@ -6,16 +6,19 @@ import {
   hidden,
   maxLength,
   pattern,
+  readonly,
   required,
+  validate,
 } from '@angular/forms/signals';
 import { CreateCustomerCommand, CustomerResponse } from '@impifact/api';
-import { NIT_IDENTIFICATION_TYPE } from '../models/catalogs';
+import { isNitType, isNumericIdentificationType } from '@impifact/core';
 import { asText, catalogId, optionalText } from './form-messages';
 
 /*
  * Formulario del cliente con Signal Forms (`@angular/forms/signals`, estable desde Angular 22). Los nombres del
- * modelo son los del JSON del Api, así los errores por campo del servidor caen en su campo. Solo valida forma; el
- * dígito de verificación (DV) del NIT lo comprueba el Api y su error se muestra junto al campo.
+ * modelo son los del JSON del Api, así los errores por campo del servidor caen en su campo. Solo valida forma. Con
+ * NIT o cédula el número lleva solo dígitos; el dígito de verificación (DV) del NIT no se escribe: la página lo
+ * calcula del número (`syncCheckDigit` de core) y el Api lo vuelve a comprobar.
  */
 export interface CustomerModel {
   type_document_identification_id: string;
@@ -66,7 +69,9 @@ export function emptyCustomer(): CustomerModel {
   };
 }
 
-export const isNit = (type: string) => type === String(NIT_IDENTIFICATION_TYPE);
+export const isNit = isNitType;
+
+const DIGITS = /^\d*$/;
 
 /** Crea el formulario; debe llamarse en un contexto de inyección (inicializador de un campo del componente). */
 export function createCustomerForm(
@@ -77,12 +82,18 @@ export function createCustomerForm(
     required(path.identification_number);
     pattern(path.identification_number, /^[A-Za-z0-9]+$/);
     maxLength(path.identification_number, 15);
-    // El DV solo existe con NIT: oculto, no valida ni cuenta como cambio.
+    // NIT, cédula y demás documentos colombianos: solo dígitos (el pasaporte puede llevar letras).
+    validate(path.identification_number, ({ value, valueOf }) =>
+      isNumericIdentificationType(valueOf(path.type_document_identification_id)) &&
+      !DIGITS.test(value())
+        ? { kind: 'digits' }
+        : undefined,
+    );
+    // El DV solo existe con NIT (oculto, no cuenta como cambio) y se calcula del número: es de solo lectura.
     hidden(path.dv, {
       when: ({ valueOf }) => !isNit(valueOf(path.type_document_identification_id)),
     });
-    required(path.dv);
-    pattern(path.dv, /^\d$/);
+    readonly(path.dv);
     required(path.name);
     maxLength(path.name, 255);
     maxLength(path.address, 255);

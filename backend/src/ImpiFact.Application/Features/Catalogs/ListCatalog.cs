@@ -15,7 +15,9 @@ namespace ImpiFact.Application.Features.Catalogs;
 /// <param name="Cursor">El <c>next_cursor</c> de la página anterior; solo en los catálogos paginados.</param>
 /// <param name="Limit">Filas por página en los catálogos paginados: 50 si no llega, máximo 200.</param>
 /// <param name="IncludeInactive"><c>true</c> para incluir las filas inactivas; por defecto solo las activas.</param>
-public sealed record ListCatalogQuery(string Name, string? Q, string? Cursor, int? Limit, string? IncludeInactive) : ICompanyOptional;
+/// <param name="DepartmentId">Id del departamento (catálogo <c>departments</c>); solo filtra <c>municipalities</c>.</param>
+public sealed record ListCatalogQuery(
+    string Name, string? Q, string? Cursor, int? Limit, string? IncludeInactive, string? DepartmentId = null) : ICompanyOptional;
 
 /// <summary>Una página de un catálogo.</summary>
 public sealed record CatalogListResponse
@@ -90,6 +92,11 @@ internal sealed class ListCatalogQueryValidator : AbstractValidator<ListCatalogQ
         RuleFor(query => query.IncludeInactive)
             .Must(text => CatalogPaging.TryFlag(text, out _)).WithMessage("include inactive es inválido.")
             .OverridePropertyName("include_inactive");
+        RuleFor(query => query.DepartmentId)
+            .Must(text => CatalogPaging.TryDepartment(text, out _)).WithMessage("department id debe ser un número entero mayor que 0.")
+            .Must((query, text) => text is null || query.Name == CatalogPaging.MunicipalitiesName)
+            .WithMessage($"department id solo aplica al catálogo {CatalogPaging.MunicipalitiesName}.")
+            .OverridePropertyName("department_id");
     }
 }
 
@@ -111,6 +118,11 @@ internal sealed class ListCatalogHandler(ICatalogRows rows) : IHandler<ListCatal
         CatalogPaging.TryFlag(request.IncludeInactive, out var includeInactive);
         var term = string.IsNullOrWhiteSpace(request.Q) ? null : CatalogPaging.Fold(request.Q.Trim());
         IEnumerable<CatalogRow> matches = all.Where(row => includeInactive || row.IsActive);
+        if (CatalogPaging.TryDepartment(request.DepartmentId, out var departmentId) && departmentId is { } department)
+        {
+            matches = matches.Where(row => row.DepartmentId == department);
+        }
+
         if (term is not null)
         {
             matches = matches.Where(row => CatalogPaging.Fold(row.Code).Contains(term, StringComparison.Ordinal)
@@ -160,6 +172,9 @@ internal static class CatalogPaging
 
     public const int MaxSearchLength = 100;
 
+    /// <summary>Único catálogo que se filtra por departamento.</summary>
+    public const string MunicipalitiesName = "municipalities";
+
     /// <summary>Forma de la respuesta; si cambia, cambia la versión y los ETag guardados dejan de servir.</summary>
     private const string Format = "catalog-v1";
 
@@ -197,6 +212,24 @@ internal static class CatalogPaging
             default:
                 return false;
         }
+    }
+
+    /// <summary>Lee <c>department_id</c>: vacío es sin filtro; si llega, un entero mayor que 0.</summary>
+    public static bool TryDepartment(string? text, out int? departmentId)
+    {
+        departmentId = null;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return true;
+        }
+
+        if (!int.TryParse(text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var value) || value < 1)
+        {
+            return false;
+        }
+
+        departmentId = value;
+        return true;
     }
 
     /// <summary>El texto en minúsculas y sin tildes ni diéresis (la «ñ» queda como «n»), para comparar.</summary>

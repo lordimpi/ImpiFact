@@ -108,12 +108,6 @@ export function catalogLabel(name: CatalogName, item: Omit<CatalogItem, 'id'>): 
   }
 }
 
-/** «Medellín (Antioquia)»: el municipio con su departamento, si ya se conoce. */
-export function municipalityLabel(item: CatalogItem, departments: readonly CatalogItem[]): string {
-  const department = departments.find((row) => row.id === item.departmentId);
-  return department ? `${item.name} (${department.name})` : item.name;
-}
-
 /** Opciones de un catálogo con su nombre visible (`catalogLabel`). */
 export function catalogOptions(name: CatalogName, items: readonly CatalogItem[]): CatalogOption[] {
   return items.map((item) => ({ id: item.id, name: catalogLabel(name, item) }));
@@ -177,7 +171,7 @@ function writeSaved(name: CatalogName, saved: SavedCatalog): void {
  * Catálogos de la DIAN (NgRx SignalStore). `load` e `items` dan un catálogo corto entero: se pide una vez por sesión
  * y la copia queda en `sessionStorage` con su versión; al recargar la página se vuelve a pedir con `If-None-Match` y
  * un 304 (sin cambios) reutiliza la copia. `page` busca en un catálogo largo y `find` resuelve el nombre de un id ya
- * guardado. Los errores no abren aviso: el formulario sigue con el id que tenga («Otro (id N)»).
+ * guardado; los municipios se pueden pedir solo de un departamento (`departmentId`). Los errores no abren aviso: el formulario sigue con el id que tenga («Otro (id N)»).
  */
 export const CatalogsStore = signalStore(
   { providedIn: 'root' },
@@ -231,11 +225,12 @@ export const CatalogsStore = signalStore(
 
     function page(
       name: PagedCatalogName,
-      query: { q?: string; cursor?: string | null } = {},
+      query: { q?: string; cursor?: string | null; departmentId?: number | null } = {},
     ): Promise<CatalogPage> {
       const q = query.q?.trim() ?? '';
       const cursor = query.cursor ?? null;
-      const key = JSON.stringify([name, q, cursor]);
+      const departmentId = query.departmentId ?? null;
+      const key = JSON.stringify([name, q, cursor, departmentId]);
       const cached = pages.get(key);
       if (cached) {
         return cached;
@@ -243,6 +238,7 @@ export const CatalogsStore = signalStore(
       let params = new HttpParams().set('limit', CATALOG_PAGE_SIZE);
       if (q) params = params.set('q', q);
       if (cursor) params = params.set('cursor', cursor);
+      if (departmentId !== null) params = params.set('department_id', departmentId);
       const request = firstValueFrom(
         http.get<CatalogListResponse>(urlOf(name), { params, context: silent() }),
       ).then((body): CatalogPage => ({

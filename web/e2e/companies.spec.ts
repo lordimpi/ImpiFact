@@ -70,22 +70,25 @@ test('the company data form shows a server field error and then saves', async ({
   await page.getByLabel('Tipo de organización').selectOption('1');
   await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
   await page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }).check();
-  // El municipio se busca en el Api: la primera página no trae Bogotá.
+  // Primero el departamento; luego el municipio se busca en el Api entre los de ese departamento.
   const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
-  await expect(municipality.locator('option', { hasText: 'Medellín (Antioquia)' })).toHaveCount(1);
-  await page.getByRole('searchbox', { name: 'Buscar municipio' }).fill('bogo');
-  await expect(municipality.locator('option', { hasText: 'Bogotá, D.C. (Bogotá)' })).toHaveCount(1);
-  await expect(municipality.locator('option', { hasText: 'Medellín' })).toHaveCount(0);
-  await municipality.selectOption('149');
+  await expect(page.getByText('Seleccione primero el departamento.')).toBeVisible();
+  await page.getByLabel('Departamento').selectOption('11');
+  await municipality.fill('popa');
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveText(['Popayán']);
+  await page.getByRole('option', { name: 'Popayán' }).click();
+  await expect(municipality).toHaveValue('Popayán');
   await page.getByLabel('Dirección').fill('Calle 1 # 2-3');
-  await page.getByLabel('Teléfono').fill('6011234567');
+  // El teléfono solo admite dígitos.
+  await page.getByLabel('Teléfono').pressSequentially('601-123 4567');
+  await expect(page.getByLabel('Teléfono')).toHaveValue('6011234567');
   await page.getByLabel('Correo electrónico').fill('facturas@acme.test');
   await page.getByLabel('Matrícula mercantil').fill('12345-67');
   await page.getByRole('button', { name: 'Guardar' }).click();
 
   await expect(page.getByText('El email ya está en uso por otra empresa.')).toBeVisible();
   await expect(page.getByLabel('Correo electrónico')).toHaveAttribute('aria-invalid', 'true');
-  expect(bodies[0]).toMatchObject({ type_liability_ids: [7], municipality_id: 149 });
+  expect(bodies[0]).toMatchObject({ type_liability_ids: [7], municipality_id: 362 });
 
   await page.getByLabel('Correo electrónico').fill('otra@acme.test');
   await page.getByRole('button', { name: 'Guardar' }).click();
@@ -118,6 +121,27 @@ test('the company data form starts with the data the API has saved', async ({ pa
   await expect(page.getByLabel('Dirección')).toHaveValue('Calle 1 # 2-3');
   await expect(page.getByLabel('Correo electrónico')).toHaveValue('facturas@acme.test');
   await expect(page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' })).toBeChecked();
+  // El departamento sale del municipio guardado.
+  await expect(page.getByLabel('Departamento')).toHaveValue('4');
+  await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+    'Bogotá, D.C.',
+  );
+});
+
+test('every company field explains what to write in a tooltip', async ({ page }) => {
+  await signInAt(page, '/empresa');
+  await expect(page).toHaveURL(`/empresas/${COMPANY}/datos`);
+
+  const help = page.getByRole('button', { name: 'Ayuda sobre Matrícula mercantil' });
+  await help.focus();
+  const tooltip = page.getByRole('tooltip').filter({ hasText: 'Cámara de Comercio' });
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toContainText('escriba 0000000-00');
+  await page.keyboard.press('Escape');
+  await expect(tooltip).toBeHidden();
+  await expect(page.getByLabel('Matrícula mercantil')).toHaveAccessibleDescription(
+    /Cámara de Comercio/,
+  );
 });
 
 test('the software screen never shows the PIN and keeps it when left empty', async ({ page }) => {

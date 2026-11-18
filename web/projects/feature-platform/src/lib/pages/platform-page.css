@@ -45,6 +45,8 @@
 }
 
 .platform-fieldset {
+  /* Contenedor del tooltip de ayuda (ui-help) de la leyenda. */
+  position: relative;
   margin: 0;
   padding: var(--if-space-3);
   border: 1px solid var(--if-color-border);
@@ -53,6 +55,12 @@
 
 .platform-fieldset legend {
   font-weight: var(--if-font-weight-medium);
+}
+
+/* Casilla con su botón de ayuda al lado (fuera de la etiqueta, para que tocarlo no marque la casilla). */
+.platform-check--help {
+  position: relative;
+  align-items: center;
 }
 
 .platform-check {

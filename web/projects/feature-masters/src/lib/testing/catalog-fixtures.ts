@@ -70,8 +70,10 @@ export const catalogFixtures: HttpInterceptorFn = (request, next) => {
   catalogRequests.push(request);
   const name = request.url.slice(PREFIX.length);
   const q = plain(request.params.get('q') ?? '');
+  const department = request.params.get('department_id');
   const items = (CATALOGS[name] ?? [])
     .filter((row) => !q || plain(`${row.code} ${row.name}`).includes(q))
+    .filter((row) => department === null || String(row['department_id']) === department)
     .map((row) => ({ ...row, is_active: true }));
   return of(
     new HttpResponse({

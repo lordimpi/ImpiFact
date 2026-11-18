@@ -50,11 +50,10 @@
     "regime": "Régimen",
     "liabilities": "Responsabilidades fiscales",
     "liabilitiesHint": "Marque al menos una.",
+    "department": "Departamento",
     "municipality": "Municipio",
-    "municipalitySearch": "Buscar municipio",
-    "municipalitySearchHint": "Escriba el nombre o el código DANE y elija el municipio en la lista.",
+    "municipalityIdle": "Seleccione primero el departamento.",
     "municipalityNone": "Ningún municipio coincide con la búsqueda.",
-    "municipalityMore": "Cargar más municipios",
     "address": "Dirección",
     "phone": "Teléfono",
     "phoneHint": "Entre 7 y 10 dígitos, sin espacios.",
@@ -63,7 +62,20 @@
     "merchantRegistrationHint": "Si no tiene, escriba 0000000-00.",
     "phoneFormat": "Escriba solo dígitos, entre 7 y 10.",
     "liabilitiesRequired": "Marque al menos una responsabilidad.",
-    "loadError": "No se pudieron consultar los datos de la empresa."
+    "loadError": "No se pudieron consultar los datos de la empresa.",
+    "help": {
+      "businessName": "Persona jurídica: el nombre de la sociedad tal como aparece en el RUT. Persona natural: su nombre completo tal como aparece en el RUT (por ejemplo, ACUÑA OBANDO SANTIAGO).",
+      "identificationType": "Documento con el que la empresa está inscrita en el RUT. Las sociedades y casi todas las personas naturales que facturan usan NIT.",
+      "organization": "Casilla 24 del RUT (tipo de contribuyente). Persona jurídica: una sociedad (SAS, LTDA, SA…) o una entidad. Persona natural: una persona que factura a su propio nombre.",
+      "regime": "Responsabilidad frente al IVA según el RUT. «Responsable de IVA» si cobra IVA en sus ventas; «No responsable de IVA» si no lo cobra.",
+      "liabilities": "Responsabilidades de la casilla 53 del RUT que pide la factura electrónica: gran contribuyente (O-13), autorretenedor (O-15), agente de retención en el impuesto sobre las ventas (O-23) o régimen simple de tributación (O-47). Si no tiene ninguna de ellas, marque «R-99-PN No aplica – Otros».",
+      "department": "Departamento del domicilio fiscal de la empresa, el de la dirección del RUT. Elíjalo primero: luego la lista de municipios muestra solo los de ese departamento.",
+      "municipality": "Municipio del domicilio fiscal. Escriba parte del nombre o el código DANE para buscarlo entre los municipios del departamento elegido y elíjalo en la lista.",
+      "address": "Dirección del domicilio fiscal tal como aparece en el RUT; sale en los documentos electrónicos que emita.",
+      "phone": "Teléfono de contacto de la empresa, fijo o celular: solo dígitos, entre 7 y 10, sin espacios ni indicativo del país (por ejemplo, 6028201234 o 3001234567).",
+      "email": "Correo de contacto de la empresa. Sale en los documentos electrónicos como correo del emisor.",
+      "merchantRegistration": "Número de inscripción de la empresa en el registro mercantil de la Cámara de Comercio; aparece en el certificado de existencia y representación legal o en el de matrícula mercantil. Es obligatorio: si la empresa no está inscrita en la Cámara de Comercio (por ejemplo, una persona natural sin establecimiento de comercio), escriba 0000000-00."
+    }
   },
   "environments": {
     "title": "Ambientes",

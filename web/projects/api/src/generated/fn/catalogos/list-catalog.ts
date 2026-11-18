@@ -15,6 +15,7 @@ export interface ListCatalog$Params {
   cursor?: string;
   limit?: (number | string);
   include_inactive?: string;
+  department_id?: string;
 }
 
 export function listCatalog(http: HttpClient, rootUrl: string, params: ListCatalog$Params, context?: HttpContext): Observable<StrictHttpResponse<CatalogListResponse>> {
@@ -25,6 +26,7 @@ export function listCatalog(http: HttpClient, rootUrl: string, params: ListCatal
     rb.query('cursor', params.cursor, {});
     rb.query('limit', params.limit, {});
     rb.query('include_inactive', params.include_inactive, {});
+    rb.query('department_id', params.department_id, {});
   }
 
   return http.request(

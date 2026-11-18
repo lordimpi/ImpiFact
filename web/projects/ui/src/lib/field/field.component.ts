@@ -6,29 +6,38 @@ import {
   computed,
   input,
 } from '@angular/core';
+import { HelpComponent } from '../help/help.component';
 
 let nextId = 0;
 
 /**
  * Campo de formulario: etiqueta, ayuda y error alrededor de un control proyectado con la directiva `uiInput`.
- * La directiva toma de aquí el id, `aria-describedby`, `aria-invalid` y `aria-required`.
+ * La directiva toma de aquí el id, `aria-describedby`, `aria-invalid` y `aria-required`. Con `help`, junto a la
+ * etiqueta aparece un botón de información (`ui-help`) con un tooltip que explica el campo; ese texto describe
+ * también al control (`aria-describedby`), así un lector de pantalla lo lee aunque el tooltip esté cerrado.
  * Los textos llegan ya traducidos. Las validaciones de negocio no viven aquí: solo se muestra el error recibido.
  *
  * Uso: `<ui-field [label]="..." [error]="..."><input uiInput formControlName="nit" /></ui-field>`
  */
 @Component({
   selector: 'ui-field',
+  imports: [HelpComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // Sin encapsulación para dar estilo al control proyectado; las clases llevan el prefijo ui-field.
   encapsulation: ViewEncapsulation.None,
   template: `
     <div class="ui-field" [class.ui-field--invalid]="!!error()">
-      <label class="ui-field__label" [attr.for]="controlId">
-        {{ label() }}
-        @if (required()) {
-          <span class="ui-field__required" aria-hidden="true">*</span>
+      <div class="ui-field__head">
+        <label class="ui-field__label" [id]="labelId" [attr.for]="controlId">
+          {{ label() }}
+          @if (required()) {
+            <span class="ui-field__required" aria-hidden="true">*</span>
+          }
+        </label>
+        @if (help(); as help) {
+          <ui-help [text]="help" [label]="label()" [tooltipId]="helpId" />
         }
-      </label>
+      </div>
       <ng-content />
       @if (hint()) {
         <p class="ui-field__hint" [id]="hintId">{{ hint() }}</p>
@@ -40,10 +49,16 @@ let nextId = 0;
   `,
   styles: `
     .ui-field {
+      position: relative;
       display: flex;
       flex-direction: column;
       gap: var(--if-space-1);
       margin-block-end: var(--if-space-3);
+    }
+    .ui-field__head {
+      display: flex;
+      align-items: center;
+      gap: var(--if-space-2);
     }
     .ui-field__label {
       font-weight: var(--if-font-weight-medium);
@@ -90,14 +105,22 @@ export class FieldComponent {
   /** Mensaje de error; si existe, el control queda marcado como inválido. */
   readonly error = input<string | null>();
   readonly required = input(false, { transform: booleanAttribute });
+  /** Explicación del campo (ya traducida) para el tooltip del botón de información. */
+  readonly help = input<string | null>();
 
   readonly controlId = `ui-field-${nextId++}`;
+  readonly labelId = `${this.controlId}-label`;
   readonly hintId = `${this.controlId}-hint`;
   readonly errorId = `${this.controlId}-error`;
+  readonly helpId = `${this.controlId}-help`;
 
-  /** Ids que describen el control: ayuda y error, en ese orden. */
+  /** Ids que describen el control: explicación, ayuda y error, en ese orden. */
   readonly describedBy = computed(() => {
-    const ids = [this.hint() ? this.hintId : null, this.error() ? this.errorId : null];
+    const ids = [
+      this.help() ? this.helpId : null,
+      this.hint() ? this.hintId : null,
+      this.error() ? this.errorId : null,
+    ];
     const value = ids.filter((id) => id !== null).join(' ');
     return value || null;
   });

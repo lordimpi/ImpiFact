@@ -5,7 +5,9 @@ import { AppError, ToastStore } from '@impifact/core';
 import {
   ButtonComponent,
   DialogComponent,
+  DigitsOnlyDirective,
   FieldComponent,
+  HelpComponent,
   InputDirective,
   PageTitleComponent,
   SelectDirective,
@@ -24,6 +26,7 @@ import {
   createPlanForm,
   emptyPlan,
   fieldMessage,
+  newPlanCommand,
   planCommand,
   planModel,
   serverFieldErrors,
@@ -35,9 +38,9 @@ const NUMBER = new Intl.NumberFormat('es-CO');
 
 /**
  * Página `/plataforma/planes`: los planes de la plataforma (el Api los da todos juntos, sin paginar) y un diálogo
- * para crear o editar uno con `savePlan` (`PUT /plans/{id}`, crea o actualiza). Al crear se propone el siguiente id
- * libre; al editar, el id no cambia. Los errores por campo del Api (por ejemplo, el nombre repetido) aparecen junto
- * a su campo.
+ * para crear uno con `createPlan` (`POST /plans`; el Api le asigna el id, no se pide) o editarlo con `savePlan`
+ * (`PUT /plans/{id}`; el id se muestra sin poder cambiarlo). Cada campo tiene un ejemplo y un tooltip que explica qué
+ * poner. Los errores por campo del Api (por ejemplo, el nombre repetido) aparecen junto a su campo.
  */
 @Component({
   selector: 'feat-platform-plans-page',
@@ -47,7 +50,9 @@ const NUMBER = new Intl.NumberFormat('es-CO');
     TranslocoPipe,
     ButtonComponent,
     DialogComponent,
+    DigitsOnlyDirective,
     FieldComponent,
+    HelpComponent,
     InputDirective,
     PageTitleComponent,
     SelectDirective,
@@ -71,7 +76,7 @@ export class PlatformPlansPage {
   /** Plan que se edita; `null` al crear uno nuevo. */
   protected readonly editing = signal<PlatformPlan | null>(null);
   protected readonly dialogOpen = signal(false);
-  private readonly model = signal<PlanModel>(emptyPlan(1));
+  private readonly model = signal<PlanModel>(emptyPlan());
   protected readonly planForm = createPlanForm(this.model, () => this.editing() !== null);
   protected readonly submitting = computed(() => this.planForm().submitting());
   protected readonly generalError = signal<string | null>(null);
@@ -137,7 +142,7 @@ export class PlatformPlansPage {
   }
 
   protected openNew(): void {
-    this.open(null, emptyPlan(this.store.nextId()));
+    this.open(null, emptyPlan());
   }
 
   protected openEdit(plan: PlatformPlan): void {
@@ -156,9 +161,13 @@ export class PlatformPlansPage {
     this.generalError.set(null);
     await submit(this.planForm, {
       action: async () => {
-        const body = planCommand(this.model());
+        const model = this.model();
         try {
-          await this.store.save(Number(body.id), body);
+          if (this.editing()) {
+            await this.store.save(Number(model.id), planCommand(model));
+          } else {
+            await this.store.create(newPlanCommand(model));
+          }
         } catch (error) {
           return this.showError(error);
         }

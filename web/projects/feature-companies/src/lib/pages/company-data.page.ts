@@ -7,18 +7,19 @@ import {
   SmallCatalogName,
   ToastStore,
   catalogOptions,
-  catalogSearch,
-  municipalityLabel,
+  municipalityPicker,
   optionsWith,
 } from '@impifact/core';
 import {
   ButtonComponent,
+  ComboboxComponent,
+  ComboboxLabels,
+  DigitsOnlyDirective,
   ErrorStateComponent,
   FieldComponent,
+  HelpComponent,
   InputDirective,
   LoadingComponent,
-  SearchSelectComponent,
-  SearchSelectLabels,
   SelectDirective,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -36,8 +37,9 @@ import { CompanySetupStore } from '../state/company-setup.store';
 
 /**
  * Datos de la empresa (`/empresas/:id/datos`): razón social, ubicación y responsabilidades fiscales. Al abrir se leen
- * del Api (`getCompany`) y llenan el formulario; esa misma forma es la que se envía al guardar. Los errores por campo
- * del Api se muestran junto a cada campo.
+ * del Api (`getCompany`) y llenan el formulario; esa misma forma es la que se envía al guardar. El teléfono solo admite
+ * dígitos, el municipio se elige después del departamento (el departamento sale del municipio guardado) y cada campo
+ * explica qué poner en su tooltip. Los errores por campo del Api se muestran junto a cada campo.
  */
 @Component({
   selector: 'feat-company-data-page',
@@ -45,11 +47,13 @@ import { CompanySetupStore } from '../state/company-setup.store';
     FormField,
     TranslocoPipe,
     ButtonComponent,
+    ComboboxComponent,
+    DigitsOnlyDirective,
     ErrorStateComponent,
     FieldComponent,
+    HelpComponent,
     InputDirective,
     LoadingComponent,
-    SearchSelectComponent,
     SelectDirective,
   ],
   providers: [provideCompaniesI18n()],
@@ -88,19 +92,17 @@ export class CompanyDataPage implements HasUnsavedChanges {
     () => this.model().type_organization_id,
   );
   protected readonly regimes = this.catalogField('regimes', () => this.model().type_regime_id);
-  private readonly departments = this.catalogs.items('departments');
-  protected readonly municipalities = catalogSearch('municipalities', {
+  protected readonly location = municipalityPicker({
     current: () => this.model().municipality_id,
     otherName: this.other,
-    format: (item) => municipalityLabel(item, this.departments()),
+    clear: () => this.model.update((current) => ({ ...current, municipality_id: '' })),
   });
-  protected readonly municipalityLabels: SearchSelectLabels = {
-    search: this.text('data.municipalitySearch'),
-    hint: this.text('data.municipalitySearchHint'),
+  protected readonly municipalities = this.location.municipalities;
+  protected readonly municipalityLabels: ComboboxLabels = {
+    idle: this.text('data.municipalityIdle'),
     loading: this.text('common.catalog.loading'),
     error: this.text('common.catalog.error'),
     empty: this.text('data.municipalityNone'),
-    more: this.text('data.municipalityMore'),
     retry: this.text('common.retry'),
   };
 

@@ -57,28 +57,23 @@
           <textarea uiInput rows="3" [formField]="productForm.description"></textarea>
         </ui-field>
 
-        <ui-search-select
-          [labels]="unitMeasureLabels"
-          [term]="unitMeasures.state().term"
-          [status]="unitMeasures.state().status"
-          [hasMore]="unitMeasures.hasMore()"
-          [empty]="unitMeasures.state().items.length === 0"
-          (termChange)="unitMeasures.search($event)"
-          (loadMore)="unitMeasures.loadMore()"
-          (retry)="unitMeasures.retry()"
+        <ui-field
+          [label]="'masters.products.form.unitMeasure' | transloco"
+          [hint]="'masters.products.form.unitMeasureHint' | transloco"
+          [error]="errors().unit_measure_id"
+          required
         >
-          <ui-field
-            [label]="'masters.products.form.unitMeasure' | transloco"
-            [error]="errors().unit_measure_id"
-            required
-          >
-            <select uiSelect [formField]="productForm.unit_measure_id">
-              @for (option of unitMeasures.options(); track option.id) {
-                <option [value]="'' + option.id">{{ option.name }}</option>
-              }
-            </select>
-          </ui-field>
-        </ui-search-select>
+          <ui-combobox
+            [formField]="productForm.unit_measure_id"
+            [options]="unitMeasures.options()"
+            [status]="unitMeasures.state().status"
+            [hasMore]="unitMeasures.hasMore()"
+            [labels]="unitMeasureLabels"
+            (termChange)="unitMeasures.search($event)"
+            (loadMore)="unitMeasures.loadMore()"
+            (retry)="unitMeasures.retry()"
+          />
+        </ui-field>
 
         <ui-field
           [label]="'masters.products.form.unitPrice' | transloco"

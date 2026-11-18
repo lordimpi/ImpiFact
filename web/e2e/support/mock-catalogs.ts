@@ -2,8 +2,8 @@ import { Page } from '@playwright/test';
 
 /*
  * Catálogos de la DIAN simulados (`GET /api/v1/catalogs/{nombre}`) con algunas filas reales de la semilla del
- * backend. Como el Api, buscan con `q` sin tildes en el código o el nombre, paginan por cursor los dos catálogos
- * largos (municipios y unidades de medida) y responden 304 a un `If-None-Match` con la versión vigente.
+ * backend. Como el Api, buscan con `q` sin tildes en el código o el nombre, filtran los municipios por
+ * `department_id`, paginan por cursor los dos catálogos largos (municipios y unidades de medida) y responden 304 a un `If-None-Match` con la versión vigente.
  */
 
 type Row = Record<string, unknown> & { id: number; code: string; name: string };
@@ -30,12 +30,16 @@ export const CATALOG_ROWS: Record<string, Row[]> = {
   departments: [
     { id: 2, code: '05', name: 'Antioquia', country_id: 46 },
     { id: 4, code: '11', name: 'Bogotá', country_id: 46 },
+    { id: 11, code: '19', name: 'Cauca', country_id: 46 },
     { id: 31, code: '76', name: 'Valle del Cauca', country_id: 46 },
   ],
   municipalities: [
     { id: 1, code: '05001', name: 'Medellín', department_id: 2 },
     { id: 2, code: '05002', name: 'Abejorral', department_id: 2 },
     { id: 149, code: '11001', name: 'Bogotá, D.C.', department_id: 4 },
+    { id: 362, code: '19001', name: 'Popayán', department_id: 11 },
+    { id: 363, code: '19022', name: 'Almaguer', department_id: 11 },
+    { id: 364, code: '19050', name: 'Argelia', department_id: 11 },
     { id: 1006, code: '76001', name: 'Cali', department_id: 31 },
   ],
   'unit-measures': [
@@ -71,7 +75,7 @@ export const CATALOG_ROWS: Record<string, Row[]> = {
 
 /** Catálogos que el Api pagina por cursor. */
 const PAGED = new Set(['municipalities', 'unit-measures']);
-/** Filas por página de los catálogos largos en la simulación (pocas, para probar «Cargar más»). */
+/** Filas por página de los catálogos largos en la simulación (pocas, para probar la página siguiente). */
 export const MOCK_CATALOG_PAGE_SIZE = 2;
 const VERSION = 'e2e-v1';
 
@@ -93,8 +97,10 @@ export async function mockCatalogs(page: Page): Promise<void> {
       return route.fulfill({ status: 304 });
     }
     const q = plain(url.searchParams.get('q') ?? '');
+    const department = url.searchParams.get('department_id');
     const matching = rows
       .filter((row) => !q || plain(`${row.code} ${row.name}`).includes(q))
+      .filter((row) => department === null || String(row['department_id']) === department)
       .map((row) => ({ ...row, is_active: true }));
     let items = matching;
     let next: string | null = null;

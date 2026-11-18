@@ -47,13 +47,13 @@ describe('PlatformPlansPage', () => {
     ).toBe('/plataforma/planes/1');
   });
 
-  it('creates a plan with the next free id', async () => {
+  it('creates a plan without asking for an id: the API assigns it', async () => {
     const { http } = await renderPlatformRoute('/plataforma/planes');
     (await expectRequest(http, isList)).flush({ success: true, data: PLANS });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Nuevo plan' }));
     const dialog = await screen.findByRole('dialog', { name: 'Nuevo plan' });
-    expect((within(dialog).getByLabelText(/Id del plan/) as HTMLInputElement).value).toBe('3');
+    expect(within(dialog).queryByLabelText(/Id del plan/)).toBeNull();
     fireEvent.input(within(dialog).getByLabelText(/^Nombre/), { target: { value: 'Micro 50' } });
     // Signal Forms lee el evento `input` del <select>; el navegador manda también `change`.
     const period = within(dialog).getByLabelText(/Periodo/);
@@ -64,10 +64,11 @@ describe('PlatformPlansPage', () => {
     });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar' }));
 
-    const save = await expectRequest(http, '/api/v1/plans/3');
-    expect(save.request.method).toBe('PUT');
+    const save = await expectRequest(
+      http,
+      (request) => request.method === 'POST' && request.url === '/api/v1/plans',
+    );
     expect(save.request.body).toEqual({
-      id: 3,
       name: 'Micro 50',
       period: 3,
       qty_docs_invoice: 50,
@@ -77,10 +78,36 @@ describe('PlatformPlansPage', () => {
       state: true,
       observations: null,
     });
-    save.flush({ success: true, plan: { id: 3, name: 'Micro 50' } });
+    save.flush(
+      { success: true, plan: { id: 3, name: 'Micro 50' } },
+      { status: 201, statusText: 'Created' },
+    );
 
     await expectRequest(http, isList);
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('explains every plan field with a placeholder and a tooltip', async () => {
+    const { http } = await renderPlatformRoute('/plataforma/planes');
+    (await expectRequest(http, isList)).flush({ success: true, data: PLANS });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Nuevo plan' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Nuevo plan' });
+
+    const name = within(dialog).getByLabelText(/^Nombre/) as HTMLInputElement;
+    const invoices = within(dialog).getByLabelText('Facturas y notas') as HTMLInputElement;
+    expect(name.placeholder).toBe('Por ejemplo, Mensual 100');
+    expect(invoices.placeholder).toBe('Por ejemplo, 100');
+    const help = document.getElementById(
+      (invoices.getAttribute('aria-describedby') ?? '').split(' ')[0]!,
+    );
+    expect(help?.getAttribute('role')).toBe('tooltip');
+    expect(help?.textContent).toContain('en cada periodo del plan');
+    expect(help?.textContent).toContain('0 = no puede emitir facturas ni notas');
+    expect(
+      within(dialog).getByText(/0 = la empresa no puede emitir documentos de esa familia/),
+    ).toBeTruthy();
+    expect(within(dialog).getAllByRole('tooltip', { hidden: true }).length).toBe(9);
   });
 
   it('edits a plan and shows a repeated name next to the field', async () => {
@@ -89,11 +116,15 @@ describe('PlatformPlansPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Editar el plan Anual 5000' }));
     const dialog = await screen.findByRole('dialog', { name: 'Editar el plan Anual 5000' });
+    const id = within(dialog).getByLabelText(/Id del plan/) as HTMLInputElement;
+    expect(id.value).toBe('2');
+    expect(id.readOnly).toBe(true);
     expect((within(dialog).getByLabelText(/Periodo/) as HTMLSelectElement).value).toBe('2');
     expect((within(dialog).getByLabelText('Plan activo') as HTMLInputElement).checked).toBe(false);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar' }));
 
     const save = await expectRequest(http, '/api/v1/plans/2');
+    expect(save.request.method).toBe('PUT');
     expect(save.request.body).toMatchObject({ id: 2, name: 'Anual 5000', state: false });
     const { body, options } = problem(422, 'validation.failed', 'Datos no válidos.', {
       name: ['El nombre ya existe.'],

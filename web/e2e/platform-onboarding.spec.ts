@@ -53,7 +53,7 @@ test('creates a company, shows its key once, creates its owner and the owner sig
       id: COMPANY_ID,
       name: body['business_name'],
       nit: '901234567',
-      dv: '1',
+      dv: '7',
       email: body['email'],
       is_active: true,
       plan_id: null,
@@ -69,7 +69,7 @@ test('creates a company, shows its key once, creates its owner and the owner sig
         company: {
           id: COMPANY_ID,
           identification_number: '901234567',
-          dv: '1',
+          dv: '7',
           business_name: body['business_name'],
           environments: [],
         },
@@ -103,16 +103,20 @@ test('creates a company, shows its key once, creates its owner and the owner sig
   await expect(page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 
-  await page.getByRole('textbox', { name: /^NIT/ }).fill('901234567');
-  await page.getByLabel('Dígito de verificación').fill('1');
+  // El NIT solo admite dígitos y el DV se calcula solo.
+  await page.getByRole('textbox', { name: /^NIT/ }).pressSequentially('901.234.567');
+  await expect(page.getByRole('textbox', { name: /^NIT/ })).toHaveValue('901234567');
+  await expect(page.getByLabel('Dígito de verificación')).toHaveValue('7');
   await page.getByLabel('Razón social').fill('Nueva Empresa SAS');
   await page.getByLabel('Tipo de organización').selectOption('1');
   await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
   await page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }).check();
+  // Primero el departamento; el municipio se busca entre los suyos y se elige en la lista.
+  await page.getByLabel('Departamento').selectOption('11');
   const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
-  await page.getByLabel('Buscar municipio').fill('bogo');
-  await expect(municipality.getByRole('option', { name: 'Bogotá, D.C. (Bogotá)' })).toBeAttached();
-  await municipality.selectOption('149');
+  await municipality.fill('popa');
+  await page.getByRole('option', { name: 'Popayán' }).click();
+  await expect(municipality).toHaveValue('Popayán');
   await page.getByLabel('Dirección').fill('Calle 10 # 20-30');
   await page.getByLabel('Teléfono').fill('6017654321');
   await page.getByLabel('Correo electrónico').fill('facturas@nueva.test');
@@ -123,12 +127,12 @@ test('creates a company, shows its key once, creates its owner and the owner sig
   const keyDialog = page.getByRole('dialog', { name: 'Copie la llave de la empresa' });
   await expect(keyDialog.getByText(TOKEN)).toBeVisible();
   expect(created).toHaveLength(1);
-  expect(created[0]!.url).toContain('/api/v1/companies/901234567/1');
+  expect(created[0]!.url).toContain('/api/v1/companies/901234567/7');
   expect(created[0]!.body).toMatchObject({
     business_name: 'Nueva Empresa SAS',
     type_document_identification_id: 6,
     type_liability_ids: [7],
-    municipality_id: 149,
+    municipality_id: 362,
   });
   expect(await seriousViolations(page)).toEqual([]);
   await keyDialog.getByRole('button', { name: 'Copiar llave' }).click();
@@ -138,7 +142,7 @@ test('creates a company, shows its key once, creates its owner and the owner sig
   await expect(keyDialog).toHaveCount(0);
   await expect(page.locator('body')).not.toContainText(TOKEN);
   await expect(
-    page.getByText(/Se creó la empresa Nueva Empresa SAS \(NIT 901234567-1\)/),
+    page.getByText(/Se creó la empresa Nueva Empresa SAS \(NIT 901234567-7\)/),
   ).toBeVisible();
 
   // 3. Enseguida se crea el dueño.
@@ -171,7 +175,7 @@ test('creates a company, shows its key once, creates its owner and the owner sig
   await page.getByRole('link', { name: 'Volver a las empresas' }).click();
   const table = page.getByRole('table', { name: 'Empresas de la plataforma' });
   await expect(table.getByText('Nueva Empresa SAS')).toBeVisible();
-  await expect(table.getByText('901234567-1')).toBeVisible();
+  await expect(table.getByText('901234567-7')).toBeVisible();
 
   // 5. El dueño inicia sesión con lo que se creó (la Api simulada solo conoce a ese usuario).
   const isOwner = (route: Route) => {
@@ -198,7 +202,7 @@ test('creates a company, shows its key once, creates its owner and the owner sig
                 id: COMPANY_ID,
                 name: 'Nueva Empresa SAS',
                 nit: '901234567',
-                dv: '1',
+                dv: '7',
                 roles: ['owner'],
                 is_active: true,
               },
