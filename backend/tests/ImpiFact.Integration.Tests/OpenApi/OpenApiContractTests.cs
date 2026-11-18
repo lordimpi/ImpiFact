@@ -60,6 +60,7 @@ public sealed class OpenApiContractTests
     [TestCase("POST /api/v1/api-keys", "createApiKey")]
     [TestCase("DELETE /api/v1/api-keys/{id}", "revokeApiKey")]
     [TestCase("POST /api/v1/users", "createUser")]
+    [TestCase("GET /api/v1/me/companies", "listMyCompanies")]
     [TestCase("POST /api/v1/companies/{nit}/{dv}", "createCompany")]
     [TestCase("PUT /api/v1/companies/{nit}/{dv}", "updateCompany")]
     [TestCase("PUT /api/v1/companies/{nit}/environment", "setCompanyEnvironment")]

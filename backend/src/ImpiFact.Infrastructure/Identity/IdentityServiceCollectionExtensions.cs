@@ -54,6 +54,7 @@ public static class IdentityServiceCollectionExtensions
         services.TryAddScoped<IApiKeyStore, EfApiKeyStore>();
         services.TryAddScoped<IRefreshTokenStore, EfRefreshTokenStore>();
         services.TryAddScoped<IUserStore, EfUserStore>();
+        services.TryAddScoped<IUserCompanyReads, EfUserCompanyReads>();
         services.TryAddSingleton<IPasswordHasher, AspNetPasswordHasher>();
         return services;
     }

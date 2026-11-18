@@ -6,6 +6,7 @@ using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Results;
 using ImpiFact.Application.Features.Identity;
 using ImpiFact.Application.Features.Identity.ApiKeys;
+using ImpiFact.Application.Features.Identity.Me;
 using ImpiFact.Application.Features.Identity.Sessions;
 using ImpiFact.Application.Features.Identity.Users;
 using ImpiFact.Infrastructure.Identity;
@@ -93,6 +94,20 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "Revoca la llave con ese `id`; revocarla otra vez no cambia nada. Una empresa solo revoca sus propias llaves " +
                 "(una de otra empresa responde 404, `api_key.not_found`); la plataforma puede revocar cualquiera. Las demás " +
                 "instancias de la API dejan de aceptarla en máximo 60 segundos.");
+
+        // Cualquier credencial autenticada (la política por defecto): cada una ve solo lo suyo.
+        endpoints.MapGroup("/api/v1/me").WithTags(ApiTags.Identity).RequireAuthorization()
+            .MapGet("/companies", ListMyCompaniesAsync)
+            .Produces<MyCompanies>()
+            .WithOperationId("listMyCompanies")
+            .WithSummary("Listar mis empresas")
+            .WithDescription(
+                "Devuelve en `items` las empresas a las que puede entrar quien llama, ordenadas por razón social: `id`, `name` " +
+                "(razón social), `nit`, `dv`, `roles` (los roles de quien llama en esa empresa, por ejemplo `owner` o `seller`) e " +
+                "`is_active`. Es lo que muestra el selector de empresa del panel antes de renovar la sesión con `company_id`; no " +
+                "necesita empresa activa y la empresa activa no reduce la lista. Un usuario del panel ve las empresas donde tiene " +
+                "un rol (un `platform_admin` sin empresas recibe la lista vacía); una API key de empresa ve solo su empresa, sin " +
+                "roles; una de plataforma, la lista vacía. No se pagina: un usuario pertenece a pocas empresas.");
 
         endpoints.MapGroup("/api/v1/users").WithTags(ApiTags.Identity).RequireAuthorization(IdentityPolicies.ManageCredentials)
             .MapPost("/", CreateUserAsync)
@@ -217,6 +232,10 @@ internal sealed class IdentityEndpoints : IEndpointModule
         (await handler.HandleAsync(
             new CreateUserCommand(body.Email ?? "", body.Password ?? "", body.Name ?? "", body.Phone, body.Role ?? ""), ct))
         .ToHttpResult(created => TypedResults.Created($"/api/v1/users/{created.Id}", created));
+
+    private static async Task<IResult> ListMyCompaniesAsync(
+        [FromServices] IHandler<ListMyCompaniesQuery, MyCompanies> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(new ListMyCompaniesQuery(), ct)).ToHttpResult();
 
     private static string? ClientIp(HttpContext context) => context.Connection.RemoteIpAddress?.ToString();
 
