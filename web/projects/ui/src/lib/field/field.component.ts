@@ -104,6 +104,11 @@ let nextId = 0;
       flex: 1;
       padding-inline-end: calc(var(--if-control-min-height) + var(--if-space-1));
     }
+    /* Edge pone su propio botón de mostrar la contraseña; con el nuestro sobraría (se verían dos ojos). */
+    .ui-password > .ui-field__control::-ms-reveal,
+    .ui-password > .ui-field__control::-ms-clear {
+      display: none;
+    }
     .ui-password__toggle {
       position: absolute;
       inset-block: 0;
