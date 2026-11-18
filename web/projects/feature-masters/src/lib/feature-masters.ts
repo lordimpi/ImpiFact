@@ -4,4 +4,5 @@
  */
 export { CustomerFormPage } from './pages/customer-form.page';
 export { CustomerListPage } from './pages/customer-list.page';
+export { ProductFormPage } from './pages/product-form.page';
 export { ProductListPage } from './pages/product-list.page';

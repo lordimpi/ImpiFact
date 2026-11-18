@@ -41,4 +41,16 @@ export const mastersRoutes: Routes = [
     ...access,
     loadComponent: () => loadFeature().then((m) => m.ProductListPage),
   },
+  {
+    path: 'productos/nuevo',
+    ...access,
+    canDeactivate: [unsavedChangesGuard],
+    loadComponent: () => loadFeature().then((m) => m.ProductFormPage),
+  },
+  {
+    path: 'productos/:id',
+    ...access,
+    canDeactivate: [unsavedChangesGuard],
+    loadComponent: () => loadFeature().then((m) => m.ProductFormPage),
+  },
 ];
