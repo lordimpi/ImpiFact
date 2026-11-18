@@ -5,10 +5,12 @@ using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Features.Companies;
 using ImpiFact.Domain.Identity;
 using ImpiFact.Infrastructure.Dian;
+using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.DianSend;
+using ImpiFact.Integration.Tests.DocumentIssue;
 using ImpiFact.Integration.Tests.Identity;
 using ImpiFact.Integration.Tests.Persistence;
 using ImpiFact.Integration.Tests.Protection;
@@ -102,6 +104,9 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
     /// </summary>
     public FakeDian Dian { get; } = new();
 
+    /// <summary>Gotenberg falso para la vista previa del PDF: ninguna prueba de la API llama a un Gotenberg real.</summary>
+    public FakeGotenberg Gotenberg { get; } = new();
+
     /// <summary>Todo lo que la API escribe en los registros, para revisar que no filtre secretos.</summary>
     internal CapturingLoggerProvider Logs { get; } = new();
 
@@ -159,6 +164,9 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
             services.AddHttpClient(DianSoapClient.HttpClientName)
                 .ConfigurePrimaryHttpMessageHandler(() => Dian)
                 .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
+            services.AddHttpClient<GotenbergClient>()
+                .ConfigurePrimaryHttpMessageHandler(() => Gotenberg)
+                .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
         });
     }
 
@@ -170,6 +178,7 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
             _signingKey.Dispose();
             _protection.Dispose();
             Dian.Dispose();
+            Gotenberg.Dispose();
         }
     }
 }

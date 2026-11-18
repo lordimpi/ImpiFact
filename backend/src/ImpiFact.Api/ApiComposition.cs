@@ -14,6 +14,7 @@ using ImpiFact.Application;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Infrastructure.Options;
+using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.Postgres;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -36,6 +37,8 @@ internal static class ApiComposition
         services.AddApplication();
         services.AddValidatedOptions<RateLimitOptions>(configuration, RateLimitOptions.SectionName);
         services.AddValidatedOptions<CorsOriginsOptions>(configuration, CorsOriginsOptions.SectionName);
+        // Vista previa del PDF de la factura (POST /api/v1/documents/invoices/preview): Gotenberg desde la sección «Pdf».
+        services.AddPdfRendering(configuration);
 
         services.AddHealthChecks();
         services.AddProblemDetails(options =>

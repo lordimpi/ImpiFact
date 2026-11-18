@@ -117,6 +117,19 @@ public sealed class DocumentHtmlTests
     }
 
     [Test]
+    public void A_preview_carries_the_draft_mark_and_a_document_does_not()
+    {
+        var preview = templates.Render(PdfSamples.Invoice() with { IsPreview = true });
+        var issued = templates.Render(PdfSamples.Invoice());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(preview, Does.Contain("<div class=\"preview-mark\">VISTA PREVIA - SIN VALIDEZ</div>"));
+            Assert.That(issued, Does.Not.Contain("preview-mark\">"));
+        });
+    }
+
+    [Test]
     public void The_logo_travels_as_a_file_named_by_its_type()
     {
         Assert.Multiple(() =>

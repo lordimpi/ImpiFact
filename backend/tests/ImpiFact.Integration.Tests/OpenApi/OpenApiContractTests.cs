@@ -89,6 +89,7 @@ public sealed class OpenApiContractTests
     [TestCase("GET /api/v1/documents/{id}", "getDocument")]
     [TestCase("GET /api/v1/documents/by-cufe/{cufe}", "getDocumentByCufe")]
     [TestCase("POST /api/v1/documents/invoices", "issueInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/preview", "previewInvoice")]
     [TestCase("POST /api/v1/documents/invoices/test-set/{testSetId}", "issueTestSetInvoice")]
     [TestCase("POST /api/v1/documents/credit-notes", "issueCreditNote")]
     [TestCase("POST /api/v1/documents/credit-notes/test-set/{testSetId}", "issueTestSetCreditNote")]

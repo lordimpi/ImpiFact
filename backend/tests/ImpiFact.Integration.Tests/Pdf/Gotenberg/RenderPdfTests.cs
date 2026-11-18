@@ -28,6 +28,7 @@ public sealed class RenderPdfTests
         yield return new TestCaseData(
                 PdfSamples.Invoice() with { Logo = new PdfImage(Companies.CompanyLogoApiTests.Png, "image/png") }, "invoice-with-logo.pdf")
             .SetArgDisplayNames("invoice-with-logo");
+        yield return new TestCaseData(PdfSamples.Invoice() with { IsPreview = true }, "invoice-preview.pdf").SetArgDisplayNames("invoice-preview");
     }
 
     [TestCaseSource(nameof(Samples))]

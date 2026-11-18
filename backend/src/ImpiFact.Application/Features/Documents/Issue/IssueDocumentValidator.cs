@@ -26,10 +26,9 @@ internal static class IssueDocumentRules
 
     public const string FinalConsumer = "222222222222";
 
-    public static void Validate(IssueSpec spec, IIssueDocumentCommand command, Action<string, string> fail)
+    public static void Validate(IssueSpec spec, IssueDocumentBody body, Action<string, string> fail)
     {
         var check = new Checker(fail);
-        var body = command.Body;
 
         if (check.RequiredInteger("type_document_id", body.TypeDocumentId) is { } typeId && typeId != spec.DocumentTypeId)
         {
@@ -532,19 +531,19 @@ internal sealed class IssueInvoiceCommandValidator : AbstractValidator<IssueInvo
 {
     public IssueInvoiceCommandValidator() =>
         RuleFor(command => command).Custom((command, context) =>
-            IssueDocumentRules.Validate(IssueSpec.Invoice, command, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+            IssueDocumentRules.Validate(IssueSpec.Invoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
 }
 
 internal sealed class IssueCreditNoteCommandValidator : AbstractValidator<IssueCreditNoteCommand>
 {
     public IssueCreditNoteCommandValidator() =>
         RuleFor(command => command).Custom((command, context) =>
-            IssueDocumentRules.Validate(IssueSpec.CreditNote, command, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+            IssueDocumentRules.Validate(IssueSpec.CreditNote, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
 }
 
 internal sealed class IssueDebitNoteCommandValidator : AbstractValidator<IssueDebitNoteCommand>
 {
     public IssueDebitNoteCommandValidator() =>
         RuleFor(command => command).Custom((command, context) =>
-            IssueDocumentRules.Validate(IssueSpec.DebitNote, command, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+            IssueDocumentRules.Validate(IssueSpec.DebitNote, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
 }

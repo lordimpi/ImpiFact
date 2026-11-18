@@ -5,13 +5,15 @@ using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Features.Documents.Calculate;
 using ImpiFact.Application.Features.Documents.Issue;
+using ImpiFact.Application.Features.Documents.Preview;
 using Microsoft.OpenApi;
 
 namespace ImpiFact.Api.Documents;
 
 /// <summary>
 /// Emisión de factura, nota crédito y nota débito (Arquitectura detallada, sección 7; anexo A.1 a A.3) y el cálculo de
-/// sus totales antes de emitir (<c>POST /api/v1/documents/calculate</c>). Todas piden el alcance
+/// sus totales antes de emitir (<c>POST /api/v1/documents/calculate</c>) y la vista previa del PDF de la factura
+/// (<c>POST /api/v1/documents/invoices/preview</c>). Todas piden el alcance
 /// <c>documents:write</c>; la empresa es siempre la de la credencial, porque el cuerpo heredado no trae el NIT del
 /// emisor. Las rutas heredadas <c>/api/ubl2.1/...</c> y sus variantes con <c>{testSetId}</c> (set de pruebas de
 /// habilitación) usan el mismo caso de uso que las canónicas de <c>/api/v1/documents</c>. El encabezado
@@ -85,6 +87,11 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
             .WithSummary("Emitir una nota débito del set de pruebas")
             .WithDescription(DebitNoteText + TestSetRules + IssueRules);
 
+        Issue(canonical.MapPost("/invoices/preview", PreviewInvoice), OpenApiExamples.Invoices, producesPdf: true)
+            .WithOperationId("previewInvoice")
+            .WithSummary("Ver la vista previa del PDF de una factura")
+            .WithDescription(PreviewText);
+
         canonical.MapPost("/calculate", Calculate)
             .Produces<DocumentTotalsCalculation>()
             .WithOperationId("calculateDocumentTotals")
@@ -110,6 +117,22 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         "`documents:write`, porque es parte de emitir, y una credencial de empresa. Datos inválidos: 422 " +
         "(`validation.failed`, con `errors` por campo, por ejemplo `lines[0].taxes[0].percent`).";
 
+    /// <summary>
+    /// Por qué la vista previa pide <c>documents:write</c>: es parte de emitir (el botón «Vista previa» del formulario de
+    /// emisión) y recibe los datos de un documento que todavía no existe.
+    /// </summary>
+    private const string PreviewText =
+        "Genera el PDF que tendría la factura con el mismo cuerpo de `issueInvoice`, sin emitirla (el " +
+        "`invoice/preeliminar-view` de ApiDian). Revisa lo mismo que la emisión, salvo lo que solo sirve para firmar y " +
+        "enviar: forma del cuerpo, empresa activa (403 `company.inactive`), resolución activa del tipo y el prefijo, " +
+        "catálogos y totales con las reglas de la DIAN (422 `validation.failed`, con `errors` por campo). No pide " +
+        "certificado ni software, no toma número del consecutivo, no calcula el CUFE, no guarda nada, no consume el plan " +
+        "y no llama a la DIAN; ignora `Idempotency-Key`. El PDF lleva la marca «VISTA PREVIA - SIN VALIDEZ», el número " +
+        "`{prefijo} - BORRADOR`, «VISTA PREVIA - SIN CUFE» en lugar del CUFE, un QR de muestra y el logo de la empresa " +
+        "si tiene. Responde `application/pdf` para abrir en el navegador (`Content-Disposition: inline`, " +
+        "`Cache-Control: no-store`). Si el conversor de PDF no responde: 503 (`pdf.unavailable`, reintente después de " +
+        "`Retry-After`). Pide `documents:write`.";
+
     private const string InvoiceText =
         "Emite una factura electrónica de venta. El cuerpo sigue el contrato de ApiDian: `customer` (comprador), " +
         "`invoice_lines`, `legal_monetary_totals`, `tax_totals`, `payment_form` y, si quiere, `number`, `prefix`, " +
@@ -131,8 +154,9 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
     /// OpenAPI. El cuerpo se agrega solo al documento: con <c>Accepts</c> la ruta exigiría el tipo de contenido JSON y
     /// respondería 415 antes de revisar la credencial.
     /// </summary>
-    private static RouteHandlerBuilder Issue(RouteHandlerBuilder route, IReadOnlyList<RequestExample> examples) => route
-        .Produces<IssueDocumentResponse>()
+    /// <param name="producesPdf">Verdadero en la vista previa, que responde el PDF y no la respuesta de la emisión.</param>
+    private static RouteHandlerBuilder Issue(RouteHandlerBuilder route, IReadOnlyList<RequestExample> examples, bool producesPdf = false) =>
+        (producesPdf ? route.Produces(StatusCodes.Status200OK, contentType: "application/pdf") : route.Produces<IssueDocumentResponse>())
         .AddOpenApiOperationTransformer(async (operation, context, ct) => operation.RequestBody = new OpenApiRequestBody
         {
             Required = true,
@@ -149,6 +173,28 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
     private static async Task<IResult> Calculate(
         CalculateDocumentTotalsRequest body, IHandler<CalculateDocumentTotalsRequest, DocumentTotalsCalculation> handler, CancellationToken ct) =>
         (await handler.HandleAsync(body, ct)).ToHttpResult();
+
+    private static async Task<IResult> PreviewInvoice(
+        HttpRequest request, HttpResponse response, IHandler<PreviewInvoiceQuery, byte[]> handler, CancellationToken ct)
+    {
+        using var buffer = new MemoryStream();
+        await request.Body.CopyToAsync(buffer, ct);
+        if (!IssueDocumentJson.TryParse(buffer.ToArray(), out var body))
+        {
+            return IssueErrors.InvalidJson.ToHttpResult();
+        }
+
+        var result = await handler.HandleAsync(new PreviewInvoiceQuery(body!), ct);
+        if (!result.IsSuccess)
+        {
+            return result.ToHttpResult();
+        }
+
+        // Se abre en el navegador, no se descarga, y no se guarda en ninguna caché: es un borrador.
+        response.Headers.CacheControl = "no-store";
+        response.Headers.ContentDisposition = "inline; filename=\"vista-previa.pdf\"";
+        return TypedResults.File(result.Value, "application/pdf");
+    }
 
     private static Task<IResult> Invoice(
         HttpRequest request, string? testSetId, IHandler<IssueInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>

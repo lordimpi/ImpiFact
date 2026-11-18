@@ -33,6 +33,10 @@ public enum PdfDocumentKind
 /// <param name="AmountInWords">Total a pagar en letras, como el «SON:» del PHP.</param>
 /// <param name="SoftwareMode">Modo de operación y software que generó el documento.</param>
 /// <param name="Logo">Logo de la empresa emisora; nulo si no tiene.</param>
+/// <param name="IsPreview">
+/// Verdadero en la vista previa antes de emitir (<c>POST /api/v1/documents/invoices/preview</c>): el PDF lleva la marca
+/// «VISTA PREVIA - SIN VALIDEZ» y el número, el CUFE y el QR son textos de muestra, no los de un documento emitido.
+/// </param>
 public sealed record DocumentPdfModel(
     PdfDocumentKind Kind,
     string Prefix,
@@ -60,7 +64,8 @@ public sealed record DocumentPdfModel(
     string? HeadNote,
     string? FootNote,
     string SoftwareMode,
-    PdfImage? Logo = null);
+    PdfImage? Logo = null,
+    bool IsPreview = false);
 
 /// <summary>Imagen que acompaña al HTML del PDF, por ejemplo el logo (<c>image/png</c> o <c>image/jpeg</c>).</summary>
 public sealed record PdfImage(byte[] Content, string ContentType);

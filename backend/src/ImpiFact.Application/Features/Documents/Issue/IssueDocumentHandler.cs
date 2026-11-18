@@ -93,7 +93,7 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
                 : IssueErrors.IdempotencyKeyReused;
         }
 
-        var resolution = SelectResolution(issuer, body);
+        var resolution = IssueChecks.SelectResolution(spec, issuer, body);
         if (!resolution.IsSuccess)
         {
             return resolution.Error;
@@ -112,7 +112,7 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             return refused;
         }
 
-        var catalogs = await LoadCatalogsAsync(issuer, body, ct);
+        var catalogs = await IssueChecks.LoadCatalogsAsync(spec, ports.Catalogs, issuer, body, ct);
         if (!catalogs.IsSuccess)
         {
             return catalogs.Error;
@@ -125,10 +125,7 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         }
 
         var now = ports.Clock.UtcNow;
-        var issueDate = body.Date is { } date && date.Text.Length > 0 ? LegacyDocumentMapper.Date(date) : ColombiaTime.Today(now);
-        var issueTime = body.Time is { } time && time.Text.Length > 0
-            ? TimeOnly.ParseExact(time.Text, "HH:mm:ss", CultureInfo.InvariantCulture)
-            : ColombiaTime.Now(now);
+        var (issueDate, issueTime) = IssueChecks.IssueMoment(body, now);
 
         var reference = await FindReferenceAsync(companyId, body, request.TestSetId, ct);
         if (!reference.IsSuccess)
@@ -219,35 +216,6 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
 
     private static (string Xml, string Uuid) Unpack(NoteUblResult result) => (result.Xml, result.Cude);
 
-    /// <summary>
-    /// Resolución del tipo en el ambiente actual (la lectura ya filtró ambos), activa y con el prefijo que traiga la
-    /// solicitud. Como el PHP, el número de resolución solo sirve para elegir entre varias, y es obligatorio cuando
-    /// quedan varias. Una resolución de factura sin clave técnica o sin vigencia no sirve para emitir.
-    /// </summary>
-    private Result<IssuerResolution> SelectResolution(IssuerContext issuer, IssueDocumentBody body)
-    {
-        var candidates = issuer.Resolutions.Where(resolution => resolution.IsActive).ToList();
-        if (body.Prefix is { } prefix && prefix.Text.Length > 0)
-        {
-            candidates = candidates.Where(resolution => (resolution.Prefix ?? "") == prefix.Text).ToList();
-        }
-
-        if (candidates.Count > 1 && body.ResolutionNumber is { } number && number.Text.Length > 0)
-        {
-            candidates = candidates.Where(resolution => (resolution.ResolutionNumber ?? "") == number.Text).ToList();
-        }
-
-        if (candidates.Count == 0
-            || (spec.Kind == IssueKind.Invoice && candidates[0] is { TechnicalKey: null } or { ValidFrom: null } or { ValidTo: null }))
-        {
-            return Error.Validation([new FieldError("type_document_id", IssueMessages.ResolutionNotConfigured)]);
-        }
-
-        return candidates.Count == 1
-            ? candidates[0]
-            : Error.Validation([new FieldError("resolution_number", IssueMessages.Required("resolution_number"))]);
-    }
-
     private Result<bool> CheckSetup(IssuerContext issuer)
     {
         if (issuer.Certificate is not { } certificate)
@@ -274,21 +242,6 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
 
     private int CertificateDaysLeft(IssuerCertificate certificate) =>
         ColombiaTime.DaysLeft(ColombiaTime.Today(certificate.NotAfter), ports.Clock.UtcNow);
-
-    private async Task<Result<IReadOnlyDictionary<CatalogKey, CatalogItem>>> LoadCatalogsAsync(
-        IssuerContext issuer, IssueDocumentBody body, CancellationToken ct)
-    {
-        var needs = CatalogNeeds.Collect(spec, body, issuer);
-        var found = await ports.Catalogs.FindAsync(needs.Select(need => need.Key).Distinct().ToList(), ct);
-        var errors = needs
-            .Where(need => !found.ContainsKey(need.Key))
-            .Select(need => need.Field)
-            .Distinct(StringComparer.Ordinal)
-            .Select(field => new FieldError(field, IssueMessages.Invalid(field)))
-            .Concat(CatalogNeeds.FixedValueGaps(spec, body))
-            .ToList();
-        return errors.Count > 0 ? Error.Validation(errors) : Result<IReadOnlyDictionary<CatalogKey, CatalogItem>>.Ok(found);
-    }
 
     /// <summary>
     /// Supuesto B2. Con <c>number</c>: debe estar en el rango y la vigencia (se revisa antes de reservarlo, así un
@@ -412,6 +365,68 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
     }
 
     private sealed record TakenNumber(long Number, StoredDocument? Existing);
+}
+
+/// <summary>
+/// Revisiones de la emisión que no toman número ni guardan nada: las usan la emisión y la vista previa del PDF
+/// (<c>POST /api/v1/documents/invoices/preview</c>), así las dos rechazan lo mismo con los mismos mensajes.
+/// </summary>
+internal static class IssueChecks
+{
+    /// <summary>
+    /// Resolución del tipo en el ambiente actual (la lectura ya filtró ambos), activa y con el prefijo que traiga la
+    /// solicitud. Como el PHP, el número de resolución solo sirve para elegir entre varias, y es obligatorio cuando
+    /// quedan varias. Una resolución de factura sin clave técnica o sin vigencia no sirve para emitir.
+    /// </summary>
+    public static Result<IssuerResolution> SelectResolution(IssueSpec spec, IssuerContext issuer, IssueDocumentBody body)
+    {
+        var candidates = issuer.Resolutions.Where(resolution => resolution.IsActive).ToList();
+        if (body.Prefix is { } prefix && prefix.Text.Length > 0)
+        {
+            candidates = candidates.Where(resolution => (resolution.Prefix ?? "") == prefix.Text).ToList();
+        }
+
+        if (candidates.Count > 1 && body.ResolutionNumber is { } number && number.Text.Length > 0)
+        {
+            candidates = candidates.Where(resolution => (resolution.ResolutionNumber ?? "") == number.Text).ToList();
+        }
+
+        if (candidates.Count == 0
+            || (spec.Kind == IssueKind.Invoice && candidates[0] is { TechnicalKey: null } or { ValidFrom: null } or { ValidTo: null }))
+        {
+            return Error.Validation([new FieldError("type_document_id", IssueMessages.ResolutionNotConfigured)]);
+        }
+
+        return candidates.Count == 1
+            ? candidates[0]
+            : Error.Validation([new FieldError("resolution_number", IssueMessages.Required("resolution_number"))]);
+    }
+
+    /// <summary>
+    /// Catálogos que la solicitud y la empresa necesitan; un id que no existe es un error de validación del campo que lo
+    /// trajo, con los valores fijos que exigen algunos impuestos.
+    /// </summary>
+    public static async Task<Result<IReadOnlyDictionary<CatalogKey, CatalogItem>>> LoadCatalogsAsync(
+        IssueSpec spec, IDocumentCatalogs catalogs, IssuerContext issuer, IssueDocumentBody body, CancellationToken ct)
+    {
+        var needs = CatalogNeeds.Collect(spec, body, issuer);
+        var found = await catalogs.FindAsync(needs.Select(need => need.Key).Distinct().ToList(), ct);
+        var errors = needs
+            .Where(need => !found.ContainsKey(need.Key))
+            .Select(need => need.Field)
+            .Distinct(StringComparer.Ordinal)
+            .Select(field => new FieldError(field, IssueMessages.Invalid(field)))
+            .Concat(CatalogNeeds.FixedValueGaps(spec, body))
+            .ToList();
+        return errors.Count > 0 ? Error.Validation(errors) : Result<IReadOnlyDictionary<CatalogKey, CatalogItem>>.Ok(found);
+    }
+
+    /// <summary>Fecha y hora de emisión en Colombia: las de la solicitud (<c>date</c>, <c>time</c>) o las actuales.</summary>
+    public static (DateOnly Date, TimeOnly Time) IssueMoment(IssueDocumentBody body, DateTimeOffset now) =>
+        (body.Date is { } date && date.Text.Length > 0 ? LegacyDocumentMapper.Date(date) : ColombiaTime.Today(now),
+            body.Time is { } time && time.Text.Length > 0
+                ? TimeOnly.ParseExact(time.Text, "HH:mm:ss", CultureInfo.InvariantCulture)
+                : ColombiaTime.Now(now));
 }
 
 internal sealed class IssueInvoiceHandler(
