@@ -114,7 +114,7 @@ public sealed record AllowanceChargeInput(bool IsCharge, decimal Amount);
 
 /// <summary>Un anticipo.</summary>
 /// <param name="PaidAmount"><c>paidamount</c>: valor pagado por anticipado.</param>
-public sealed record PrepaidPaymentInput(decimal PaidAmount);
+public sealed record PrepaidPaymentInput(decimal PaidAmount, string? Field = null);
 
 /// <summary>Una línea del documento.</summary>
 public sealed record TotalsLineInput

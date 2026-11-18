@@ -140,7 +140,7 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             },
             TaxTotals = (body.TaxTotals ?? []).Select(TotalsTax).ToList(),
             AllowanceCharges = (body.AllowanceCharges ?? []).Select(TotalsCharge).ToList(),
-            PrepaidPayments = PrepaidPaymentsOf(spec, body).Select(prepaid => new PrepaidPaymentInput(prepaid.Body.PaidAmount!.Value.Decimal)).ToList(),
+            PrepaidPayments = PrepaidPaymentsOf(spec, body).Select(prepaid => new PrepaidPaymentInput(prepaid.Body.PaidAmount!.Value.Decimal, prepaid.Path)).ToList(),
             Lines = (spec.LinesOf(body) ?? []).Select(line => new TotalsLineInput
             {
                 Quantity = line.InvoicedQuantity!.Value.Decimal,

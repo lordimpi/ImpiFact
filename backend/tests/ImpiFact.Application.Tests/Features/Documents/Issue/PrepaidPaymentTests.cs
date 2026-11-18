@@ -193,6 +193,23 @@ public sealed class PrepaidPaymentTests
         Assert.That(result.Error.Fields, Does.Contain(new FieldError(field, message)), string.Join(" | ", result.Error.Fields));
     }
 
+    [Test]
+    public async Task A_negative_prepaid_amount_is_reported_on_its_own_path()
+    {
+        using var harness = IssueHarness.Create();
+        var input = WithPrepaid(json =>
+        {
+            json["prepaid_payment"] = JsonNode.Parse(Single);
+            json["prepaid_payments"] = JsonNode.Parse("""[{"idpayment":"N","paidamount":"-5000","receiveddate":"2026-11-03"}]""");
+            Totals(json)["pre_paid_amount"] = "95000.00";
+        });
+
+        var result = await harness.IssueAsync("invoice", input);
+
+        Assert.That(result.IsSuccess, Is.False);
+        Assert.That(result.Error.Fields.Select(f => f.Field), Does.Contain("prepaid_payments.0.paidamount"), Describe(result));
+    }
+
     private static string Describe(Result<IssueDocumentResponse> result) =>
         result.IsSuccess ? "" : $"{result.Error.Code}: {result.Error.Message} {string.Join(" | ", result.Error.Fields)}";
 }
