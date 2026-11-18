@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, companyGuard, roleGuard } from '@impifact/core';
+import { authGuard, companyGuard, roleGuard, unsavedChangesGuard } from '@impifact/core';
 import { mastersTextsResolver } from './masters-i18n';
 
 /*
@@ -23,6 +23,18 @@ export const mastersRoutes: Routes = [
     path: 'clientes',
     ...access,
     loadComponent: () => loadFeature().then((m) => m.CustomerListPage),
+  },
+  {
+    path: 'clientes/nuevo',
+    ...access,
+    canDeactivate: [unsavedChangesGuard],
+    loadComponent: () => loadFeature().then((m) => m.CustomerFormPage),
+  },
+  {
+    path: 'clientes/:id',
+    ...access,
+    canDeactivate: [unsavedChangesGuard],
+    loadComponent: () => loadFeature().then((m) => m.CustomerFormPage),
   },
   {
     path: 'productos',
