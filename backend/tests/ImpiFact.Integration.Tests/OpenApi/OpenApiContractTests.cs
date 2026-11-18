@@ -78,6 +78,7 @@ public sealed class OpenApiContractTests
     [TestCase("GET /api/v1/companies/{nit}/software", "getCompanySoftware")]
     [TestCase("GET /api/v1/companies/{nit}/resolutions", "listCompanyResolutions")]
     [TestCase("GET /api/v1/companies/{nit}/setup-status", "getCompanySetupStatus")]
+    [TestCase("GET /api/v1/platform/companies", "listPlatformCompanies")]
     [TestCase("PUT /api/v1/companies/{nit}/plan", "assignCompanyPlan")]
     [TestCase("PUT /api/v1/companies/{nit}/logo", "saveCompanyLogo")]
     [TestCase("GET /api/v1/companies/{nit}/logo", "getCompanyLogo")]

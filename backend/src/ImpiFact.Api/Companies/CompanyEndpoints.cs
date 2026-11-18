@@ -7,6 +7,7 @@ using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Features.Companies.CreateCompany;
 using ImpiFact.Application.Features.Companies.ListCertificates;
+using ImpiFact.Application.Features.Companies.ListPlatformCompanies;
 using ImpiFact.Application.Features.Companies.Logo;
 using ImpiFact.Application.Features.Companies;
 using ImpiFact.Application.Features.Companies.NumberingRange;
@@ -227,6 +228,25 @@ internal sealed class CompanyEndpoints : IEndpointModule
             .WithDescription(
                 "Borra el logo y responde 204 sin cuerpo, también si la empresa no tenía. Los PDF que se generen después " +
                 "salen sin logo; los ya generados no cambian." + OwnNit);
+
+        // Todas las empresas, para la pantalla de la plataforma: operación de plataforma, fuera del grupo de la empresa.
+        endpoints.MapGet("/api/v1/platform/companies", (
+                [FromQuery(Name = "search")] string? search,
+                [FromQuery(Name = "cursor")] string? cursor,
+                [FromQuery(Name = "limit")] int? limit,
+                IHandler<ListPlatformCompaniesQuery, PlatformCompanyListResponse> handler,
+                CancellationToken ct) => Read(new ListPlatformCompaniesQuery(search, cursor, limit), handler, ct))
+            .WithTags(ApiTags.Companies)
+            .RequireAuthorization(ApiScopes.Platform)
+            .Produces<PlatformCompanyListResponse>()
+            .WithOperationId("listPlatformCompanies")
+            .WithSummary("Listar las empresas de la plataforma")
+            .WithDescription(
+                "Devuelve en `items` las empresas de la plataforma ordenadas por razón social (sin distinguir mayúsculas): " +
+                "`id`, `name`, `nit`, `dv`, `email`, `is_active` y el plan vigente (`plan_id` y `plan_name`, nulos si no tiene " +
+                "plan). `search` busca el texto dentro del NIT o de la razón social, sin distinguir mayúsculas (hasta 100 " +
+                "caracteres). Pagina por cursor: `limit` (20 por defecto, máximo 100) y `cursor` con el `next_cursor` de la " +
+                "página anterior (nulo en la última). Pide `platform:*` sin empresa.");
 
         // Única consulta en vivo a la DIAN desde la API (rangos de numeración autorizados).
         canonical.MapGet("/{nit}/numbering-ranges", (string nit, [FromQuery(Name = "software_id")] string? softwareId,
