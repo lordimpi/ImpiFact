@@ -103,6 +103,52 @@ describe('catalogSearch', () => {
     expect(search.options().map((option) => option.name)).toEqual(['Municipio 1', 'Municipio 149']);
   });
 
+  it('waits for a department and then searches only its municipalities', async () => {
+    const department = signal<number | null>(null);
+    const search = runInInjectionContext(TestBed.inject(Injector), () =>
+      catalogSearch('municipalities', {
+        current: () => '',
+        otherName: (id) => `Otro (id ${id})`,
+        filter: () => (department() === null ? null : { departmentId: department() }),
+      }),
+    );
+    TestBed.tick();
+    await settle();
+    expect(pending()).toEqual([]);
+    expect(search.state().status).toBe('idle');
+    expect(search.options()).toEqual([]);
+
+    department.set(11);
+    TestBed.tick();
+    await settle();
+    const [cauca] = pending();
+    expect(cauca!.request.params.get('department_id')).toBe('11');
+    expect(cauca!.request.params.has('q')).toBe(false);
+    cauca!.flush(page([362, 363], 'c2'));
+    await settle();
+    expect(search.options().map((option) => option.id)).toEqual([362, 363]);
+
+    search.search('popa');
+    await vi.advanceTimersByTimeAsync(CATALOG_SEARCH_DEBOUNCE_MS);
+    const [typed] = pending();
+    expect(typed!.request.params.get('department_id')).toBe('11');
+    expect(typed!.request.params.get('q')).toBe('popa');
+    typed!.flush(page([362], null));
+    await settle();
+
+    // Otro departamento empieza una búsqueda nueva, sin el texto anterior.
+    department.set(5);
+    TestBed.tick();
+    await settle();
+    const [bogota] = pending();
+    expect(bogota!.request.params.get('department_id')).toBe('5');
+    expect(bogota!.request.params.has('q')).toBe(false);
+    expect(search.state().term).toBe('');
+    bogota!.flush(page([149], null));
+    await settle();
+    expect(search.options().map((option) => option.id)).toEqual([149]);
+  });
+
   it('reports a failed search and retries it', async () => {
     const { search } = create();
     await settle();
