@@ -6,6 +6,8 @@ node_modules/
 coverage/
 playwright-report/
 test-results/
+.lighthouseci/
+lighthouse-reports/
 package-lock.json
 # Cliente de API generado y el OpenAPI del que sale (npm run api:generate): no se editan a mano.
 projects/api/src/generated/

@@ -48,3 +48,7 @@ Thumbs.db
 /test-results
 /blob-report
 /playwright/.cache
+
+# Lighthouse CI (informes de npm run lighthouse)
+/.lighthouseci
+/lighthouse-reports

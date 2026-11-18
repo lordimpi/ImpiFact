@@ -75,3 +75,42 @@ jobs:
           name: playwright-report
           path: web/playwright-report
           retention-days: 7
+
+  # Lighthouse CI sobre el build de producción servido en local (sin Api): la página /login, 3 corridas, mediana.
+  # Escritorio (lighthouserc.json) exige rendimiento >= 0,9 y accesibilidad >= 0,95. Móvil con 4G lento simulado
+  # (lighthouserc.mobile.json) solo avisa del rendimiento y del LCP mientras no llegue a la meta de la sección 11.
+  # No bloquea al principio (continue-on-error): el puntaje depende de la CPU del runner compartido y todavía no hay
+  # una línea base medida en GitHub Actions; se quita cuando varias corridas seguidas den resultados estables.
+  lighthouse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Usa el Google Chrome que trae la imagen del runner.
+      - name: Lighthouse CI
+        run: npm run lighthouse
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: web/lighthouse-reports
+          retention-days: 7
