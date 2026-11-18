@@ -228,8 +228,7 @@ public sealed class DocumentTotalsCalculatorTests
     /// La propiedad central, con muchos borradores al azar (semilla fija, para que la prueba sea repetible): precios con
     /// hasta 4 decimales, cantidades fraccionarias, descuentos y cargos por valor y por porcentaje, IVA, INC, bolsas,
     /// descuentos y cargos globales y anticipos. Lo calculado, llevado a la emisión, pasa la validación de la DIAN en los
-    /// tres tipos de documento. Los anticipos se prueban aparte (<see cref="CalculationSamples.ValidateWithPrepaid"/>)
-    /// porque la emisión todavía no recibe su lista.
+    /// tres tipos de documento, con y sin anticipos (<see cref="CalculationSamples.ValidateWithPrepaid"/>).
     /// </summary>
     [Test]
     public void Random_drafts_always_pass_the_issue_totals_validation_in_every_document_type()

@@ -69,6 +69,13 @@ public static class InvoiceUblBuilder
         root.Add(Party("cac:AccountingCustomerParty", invoice.Customer, isSupplier: false, invoice.Resolution.Prefix));
         root.Add(PaymentMeans(invoice.Payment, invoice.IssueDate));
         root.Add(PaymentTerms(invoice.Payment));
+
+        // Los anticipos van en la moneda del documento, como en ApiDian y la regla FBD04 del anexo.
+        foreach (var prepaid in invoice.PrepaidPayments)
+        {
+            root.Add(PrepaidPayment(prepaid, invoice.ForeignCurrency?.CurrencyCode ?? invoice.LocalCurrencyCode));
+        }
+
         AddAllowanceCharges(root, invoice.AllowanceCharges, invoice.LocalCurrencyCode);
         if (PaymentExchangeRate(invoice.ForeignCurrency, invoice.LocalCurrencyCode) is { } exchangeRate)
         {
@@ -116,6 +123,31 @@ public static class InvoiceUblBuilder
             .Add(new UblElement("cac:SettlementPeriod")
                 .Add(new UblElement("cbc:DurationMeasure", (payment.DurationDays ?? 0).ToString(CultureInfo.InvariantCulture))
                     .Attr("unitCode", "DAY")));
+
+    /// <summary>
+    /// cac:PrepaidPayment con el orden de las plantillas de ApiDian (<c>_prepaid_payment.blade.php</c>) y del anexo
+    /// técnico 1.9 (grupo FBD). ApiDian escribe cbc:PaidDate siempre, aunque esté vacío, y en la lista
+    /// <c>prepaid_payments</c> pone el mismo ID como schemeID; aquí cbc:PaidDate se omite si no llega y cbc:ID va sin
+    /// atributos, como lo pide el anexo fuera del sector salud (php-rules, sección 3.2).
+    /// </summary>
+    private static UblElement PrepaidPayment(PrepaidPayment prepaid, string currency)
+    {
+        var element = new UblElement("cac:PrepaidPayment")
+            .Add("cbc:ID", prepaid.Id)
+            .Add(Amount("cbc:PaidAmount", prepaid.PaidAmount, currency))
+            .Add("cbc:ReceivedDate", Date(prepaid.ReceivedDate));
+        if (prepaid.PaidDate is { } paidDate)
+        {
+            element.Add("cbc:PaidDate", Date(paidDate));
+        }
+
+        if (prepaid.InstructionId is not null)
+        {
+            element.Add("cbc:InstructionID", prepaid.InstructionId);
+        }
+
+        return element;
+    }
 
     private static UblElement Line(int number, InvoiceLine line, string currency)
     {

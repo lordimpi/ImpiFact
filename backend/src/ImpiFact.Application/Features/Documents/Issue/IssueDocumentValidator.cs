@@ -56,6 +56,7 @@ internal static class IssueDocumentRules
 
         ValidateCustomer(spec, check, body.Customer);
         ValidatePayment(check, body);
+        ValidatePrepaidPayments(spec, check, body);
         ValidateAllowanceCharges(check, "allowance_charges", body.AllowanceCharges, isLine: false);
         ValidateTaxes(check, "tax_totals", body.TaxTotals);
         ValidateWithholdings(check, body.WithHoldingTaxTotal);
@@ -172,6 +173,39 @@ internal static class IssueDocumentRules
                     check.Fail($"{path}.duration_measure", IssueMessages.RequiredIf($"{path}.duration_measure", $"{path}.payment_form_id", "2"));
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Anticipos de la factura (<c>prepaid_payment</c> y <c>prepaid_payments</c>). El PHP los dejaba todos opcionales y
+    /// escribía elementos vacíos que la DIAN rechaza; aquí el ID, el valor y la fecha de recibido son obligatorios
+    /// (reglas FBD02, FBD03 y FBD05 del anexo técnico). Como el PHP, <c>pre_paid_amount</c> es obligatorio cuando
+    /// llega <c>prepaid_payment</c> (<c>required_with</c>).
+    /// </summary>
+    private static void ValidatePrepaidPayments(IssueSpec spec, Checker check, IssueDocumentBody body)
+    {
+        foreach (var (path, prepaid) in LegacyDocumentMapper.PrepaidPaymentsOf(spec, body))
+        {
+            check.RequiredText($"{path}.idpayment", prepaid.IdPayment, 150);
+            check.RequiredDecimal($"{path}.paidamount", prepaid.PaidAmount);
+            if (LegacyScalar.IsMissing(prepaid.ReceivedDate))
+            {
+                check.Fail($"{path}.receiveddate", IssueMessages.Required($"{path}.receiveddate"));
+            }
+            else
+            {
+                check.Date($"{path}.receiveddate", prepaid.ReceivedDate);
+            }
+
+            check.Date($"{path}.paiddate", prepaid.PaidDate);
+            check.Text($"{path}.instructionid", prepaid.InstructionId, 500);
+        }
+
+        if (spec.Kind == IssueKind.Invoice && body.PrepaidPayment is { IsEmpty: false }
+            && spec.TotalsOf(body) is { } totals && LegacyScalar.IsMissing(totals.PrePaidAmount))
+        {
+            var field = $"{spec.TotalsField}.pre_paid_amount";
+            check.Fail(field, IssueMessages.RequiredWith(field, "prepaid_payment"));
         }
     }
 

@@ -139,20 +139,33 @@ internal static class CalculationSamples
     }
 
     /// <summary>
-    /// Como <see cref="ValidateAsIssued"/>, pero con los anticipos del borrador. La emisión todavía no lee la lista de
-    /// anticipos de la solicitud (queda para la tarea de anticipos de la fase 5), así que hoy rechaza cualquier
-    /// <c>pre_paid_amount</c> distinto de cero con la regla AU12; aquí se agregan al documento que revisa el validador
-    /// para probar que el total de anticipos calculado cumple esa regla.
+    /// Como <see cref="ValidateAsIssued"/>, pero con los anticipos del borrador. En la factura van en
+    /// <c>prepaid_payments</c> del cuerpo heredado, como los lee la emisión. Las notas no llevan anticipos (sus
+    /// plantillas del PHP no los escriben y la emisión no los lee): para probar igual que el total calculado cumple la
+    /// regla AU12 de la nota débito, se agregan al documento que revisa el validador.
     /// </summary>
     public static Result<TotalsDocument> ValidateWithPrepaid(
         CalculateDocumentTotalsRequest request, DocumentTotalsCalculation calculation, IssueSpec spec)
     {
+        var prepaid = request.PrepaidPayments ?? [];
         var body = LegacyBody(request, calculation, spec);
-        Assert.That(IssueDocumentJson.TryParse(Encoding.UTF8.GetBytes(body.ToJsonString()), out var parsed), Is.True);
-        var document = LegacyDocumentMapper.MapTotalsDocument(spec, parsed!) with
+        if (spec.Kind == IssueKind.Invoice)
         {
-            PrepaidPayments = (request.PrepaidPayments ?? []).Select(payment => new PrepaidPaymentInput(payment.PaidAmount!.Value)).ToList(),
-        };
+            body["prepaid_payments"] = new JsonArray(prepaid.Select((payment, index) => (JsonNode)new JsonObject
+            {
+                ["idpayment"] = $"ANT-{index + 1}",
+                ["paidamount"] = payment.PaidAmount!.Value.ToString(Invariant),
+                ["receiveddate"] = "2026-11-01",
+            }).ToArray());
+        }
+
+        Assert.That(IssueDocumentJson.TryParse(Encoding.UTF8.GetBytes(body.ToJsonString()), out var parsed), Is.True);
+        var document = LegacyDocumentMapper.MapTotalsDocument(spec, parsed!);
+        if (spec.Kind != IssueKind.Invoice)
+        {
+            document = document with { PrepaidPayments = prepaid.Select(payment => new PrepaidPaymentInput(payment.PaidAmount!.Value)).ToList() };
+        }
+
         return DianTotalsValidator.Validate(document);
     }
 

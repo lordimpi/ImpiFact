@@ -34,6 +34,11 @@ public static class KnownDeviations
             "Eventos RADIAN (RF-10): fase 7."),
         KnownDeviation.StatusCode("Descargar un documento recibido", 404,
             "Documentos recibidos de proveedores (recepción RADIAN, RF-10): fase 7."),
+        KnownDeviation.StatusCode("Factura con anticipo (pago previo)", 422,
+            "El anticipo ya se escribe (cac:PrepaidPayment) y cuadra con pre_paid_amount (regla FAU12), pero el ejemplo resta el " +
+            "anticipo del valor a pagar (900000.00 = 1000000.00 − 100000.00). La regla FAU14 del anexo técnico 1.9 no lo resta " +
+            "(total con impuestos − descuentos + cargos), así que la DIAN la rechazaría: ImpiFact responde 422 en " +
+            "legal_monetary_totals.payable_amount (php-rules, sección 8)."),
         KnownDeviation.StatusCode("Modificar un plan", 422,
             "La solicitud de la colección no trae qty_docs_radian ni qty_docs_ds, que PlanRequest.php exige: el PHP también la " +
             "rechaza, con HTTP 500 (php-rules 3.1.11); ImpiFact responde 422 con el detalle por campo."),
@@ -43,8 +48,6 @@ public static class KnownDeviations
             Todo + "payment_form como lista (varios medios de pago, varios cac:PaymentMeans) no está soportado; solo un objeto."),
         KnownDeviation.StatusCode("Factura de una linea con descuento global", 422,
             Todo + "el cuerpo de la colección es el mismo de «Factura con varios metodos de pago» (payment_form como lista)."),
-        KnownDeviation.StatusCode("Factura con anticipo (pago previo)", 422,
-            Todo + "prepaid_payment (anticipos, cac:PrepaidPayment) no está modelado, así que la regla AU12 rechaza pre_paid_amount."),
         KnownDeviation.StatusCode("Vista previa del PDF de la factura (sin enviar a la DIAN)", 404,
             Todo + "POST invoice/preeliminar-view (vista previa del PDF sin emitir, RF-02) no existe."),
 

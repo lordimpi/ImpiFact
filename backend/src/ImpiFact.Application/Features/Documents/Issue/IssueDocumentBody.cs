@@ -60,6 +60,17 @@ public sealed record IssueDocumentBody
     [JsonConverter(typeof(ObjectOrListConverter<PaymentFormBody>))]
     public List<PaymentFormBody>? PaymentForm { get; init; }
 
+    /// <summary>
+    /// Un anticipo suelto (<c>prepaid_payment</c>), como en el PHP. Solo lo usa la factura: las plantillas de las notas
+    /// no escriben anticipos.
+    /// </summary>
+    [JsonPropertyName("prepaid_payment")]
+    public PrepaidPaymentBody? PrepaidPayment { get; init; }
+
+    /// <summary>Varios anticipos (<c>prepaid_payments</c>); van después de <c>prepaid_payment</c>. Solo en la factura.</summary>
+    [JsonPropertyName("prepaid_payments")]
+    public List<PrepaidPaymentBody>? PrepaidPayments { get; init; }
+
     [JsonPropertyName("allowance_charges")]
     public List<AllowanceChargeBody>? AllowanceCharges { get; init; }
 
@@ -163,6 +174,36 @@ public sealed record PaymentFormBody
 
     [JsonPropertyName("duration_measure")]
     public LegacyScalar? DurationMeasure { get; init; }
+}
+
+/// <summary>Un anticipo ya recibido (cac:PrepaidPayment del XML), con los nombres del contrato del PHP.</summary>
+public sealed record PrepaidPaymentBody
+{
+    /// <summary>Identificación del pago (cbc:ID).</summary>
+    [JsonPropertyName("idpayment")]
+    public LegacyScalar? IdPayment { get; init; }
+
+    /// <summary>Valor pagado por anticipado (cbc:PaidAmount).</summary>
+    [JsonPropertyName("paidamount")]
+    public LegacyScalar? PaidAmount { get; init; }
+
+    /// <summary>Fecha <c>yyyy-MM-dd</c> en que se recibió el pago (cbc:ReceivedDate).</summary>
+    [JsonPropertyName("receiveddate")]
+    public LegacyScalar? ReceivedDate { get; init; }
+
+    /// <summary>Fecha <c>yyyy-MM-dd</c> en que se hizo el pago (cbc:PaidDate); opcional.</summary>
+    [JsonPropertyName("paiddate")]
+    public LegacyScalar? PaidDate { get; init; }
+
+    /// <summary>Instrucciones relativas al pago (cbc:InstructionID); opcional.</summary>
+    [JsonPropertyName("instructionid")]
+    public LegacyScalar? InstructionId { get; init; }
+
+    /// <summary>
+    /// Verdadero si no trae ningún campo. El PHP descarta un <c>prepaid_payment</c> vacío (<c>if($request->prepaid_payment)</c>).
+    /// </summary>
+    [JsonIgnore]
+    public bool IsEmpty => IdPayment is null && PaidAmount is null && ReceivedDate is null && PaidDate is null && InstructionId is null;
 }
 
 /// <summary>Descuento o cargo, de la cabecera o de una línea.</summary>

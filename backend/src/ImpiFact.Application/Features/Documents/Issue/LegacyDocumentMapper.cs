@@ -79,6 +79,7 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             Supplier = MapSupplier(frame.Issuer),
             Customer = MapCustomer(body.Customer!),
             Payment = MapPayment(body),
+            PrepaidPayments = PrepaidPaymentsOf(frame.Spec, body).Select(prepaid => MapPrepaidPayment(prepaid.Body)).ToList(),
             AllowanceCharges = MapAll(body.AllowanceCharges, MapAllowanceCharge),
             TaxSubtotals = MapAll(body.TaxTotals, MapTaxSubtotal),
             WithholdingSubtotals = MapAll(body.WithHoldingTaxTotal, MapTaxSubtotal),
@@ -139,6 +140,7 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             },
             TaxTotals = (body.TaxTotals ?? []).Select(TotalsTax).ToList(),
             AllowanceCharges = (body.AllowanceCharges ?? []).Select(TotalsCharge).ToList(),
+            PrepaidPayments = PrepaidPaymentsOf(spec, body).Select(prepaid => new PrepaidPaymentInput(prepaid.Body.PaidAmount!.Value.Decimal)).ToList(),
             Lines = (spec.LinesOf(body) ?? []).Select(line => new TotalsLineInput
             {
                 Quantity = line.InvoicedQuantity!.Value.Decimal,
@@ -149,6 +151,28 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
                 TaxTotals = (line.TaxTotals ?? []).Select(TotalsTax).ToList(),
             }).ToList(),
         };
+    }
+
+    /// <summary>
+    /// Anticipos que van en el XML, en el orden de la plantilla del PHP (<c>01.blade.php</c>): primero
+    /// <c>prepaid_payment</c> si no está vacío y luego cada <c>prepaid_payments</c>, con la ruta JSON de cada uno para
+    /// los errores. Las notas no llevan anticipos: sus plantillas no los escriben.
+    /// </summary>
+    public static IReadOnlyList<(string Path, PrepaidPaymentBody Body)> PrepaidPaymentsOf(IssueSpec spec, IssueDocumentBody body)
+    {
+        if (spec.Kind != IssueKind.Invoice)
+        {
+            return [];
+        }
+
+        var prepaid = new List<(string, PrepaidPaymentBody)>();
+        if (body.PrepaidPayment is { IsEmpty: false } single)
+        {
+            prepaid.Add(("prepaid_payment", single));
+        }
+
+        prepaid.AddRange((body.PrepaidPayments ?? []).Select((item, index) => ($"prepaid_payments.{index}", item)));
+        return prepaid;
     }
 
     /// <summary>Operación de la solicitud o la que el PHP usa por defecto en cada tipo.</summary>
@@ -258,6 +282,13 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             dueDate,
             duration);
     }
+
+    private static PrepaidPayment MapPrepaidPayment(PrepaidPaymentBody prepaid) => new(
+        PhpText.Clean(prepaid.IdPayment!.Value.Text),
+        prepaid.PaidAmount!.Value.Decimal,
+        Date(prepaid.ReceivedDate!.Value),
+        LegacyScalar.IsMissing(prepaid.PaidDate) ? null : Date(prepaid.PaidDate!.Value),
+        prepaid.InstructionId is { Text.Length: > 0 } instruction ? PhpText.Clean(instruction.Text) : null);
 
     private AllowanceCharge MapAllowanceCharge(AllowanceChargeBody item)
     {

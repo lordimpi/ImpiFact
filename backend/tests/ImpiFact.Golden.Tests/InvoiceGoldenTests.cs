@@ -72,6 +72,91 @@ public sealed class InvoiceGoldenTests
         Assert.That(xml, Does.Contain("</cbc:InvoiceTypeCode>\n  <cbc:Note>Entrega en bodega</cbc:Note>\n  <cbc:DocumentCurrencyCode>"));
     }
 
+    // No hay caso golden de ApiDian con anticipos: lo esperado sale de las plantillas del PHP
+    // (01.blade.php incluye _prepaid_payment y luego _prepaid_payments justo después de cac:PaymentTerms y antes de
+    // cac:AllowanceCharge; _legal_monetary_total escribe cbc:PrepaidAmount antes de cbc:PayableAmount) y del anexo
+    // técnico 1.9 (grupo FBD: ID, PaidAmount, ReceivedDate, PaidDate e InstructionID, en ese orden).
+    [Test]
+    public void Prepaid_payments_go_after_the_payment_terms_with_the_php_layout()
+    {
+        var invoice = Prepaid(GoldenInvoice("global-charge-credit-payment"));
+
+        var xml = InvoiceUblBuilder.Build(invoice).Xml;
+
+        Assert.That(xml, Does.Contain(
+            "  </cac:PaymentTerms>\n" +
+            "  <cac:PrepaidPayment>\n" +
+            "    <cbc:ID>A3123856</cbc:ID>\n" +
+            "    <cbc:PaidAmount currencyID=\"COP\">100000.00</cbc:PaidAmount>\n" +
+            "    <cbc:ReceivedDate>2020-03-01</cbc:ReceivedDate>\n" +
+            "    <cbc:PaidDate>2020-03-05</cbc:PaidDate>\n" +
+            "    <cbc:InstructionID>PRUEBA DE PREPAGO RECIBIDO</cbc:InstructionID>\n" +
+            "  </cac:PrepaidPayment>\n" +
+            "  <cac:PrepaidPayment>\n" +
+            "    <cbc:ID>B-2</cbc:ID>\n" +
+            "    <cbc:PaidAmount currencyID=\"COP\">15022.50</cbc:PaidAmount>\n" +
+            "    <cbc:ReceivedDate>2020-03-02</cbc:ReceivedDate>\n" +
+            "  </cac:PrepaidPayment>\n" +
+            "  <cac:AllowanceCharge>\n"));
+        Assert.That(xml, Does.Contain(
+            "    <cbc:PrepaidAmount currencyID=\"COP\">115022.50</cbc:PrepaidAmount>\n" +
+            "    <cbc:PayableAmount currencyID=\"COP\">1615022.50</cbc:PayableAmount>\n"));
+    }
+
+    // Anexo técnico 1.9, sección del CUFE: entra ValTot (cbc:PayableAmount), no los anticipos; el valor a pagar no
+    // cambia con ellos (regla FAU14), así que el CUFE es el mismo con o sin anticipos.
+    [Test]
+    public void Prepaid_payments_do_not_change_the_cufe()
+    {
+        var invoice = GoldenInvoice("global-charge-credit-payment");
+
+        var plain = InvoiceUblBuilder.Build(invoice);
+        var prepaid = InvoiceUblBuilder.Build(Prepaid(invoice));
+
+        Assert.That(prepaid.Cufe, Is.EqualTo(plain.Cufe));
+    }
+
+    // Como las retenciones (php-rules, sección 3.2, ítem 6) y la regla FBD04 del anexo: el anticipo va en la moneda
+    // del documento (cbc:DocumentCurrencyCode), la extranjera si la hay.
+    [Test]
+    public void Prepaid_payments_use_the_document_currency()
+    {
+        var invoice = Prepaid(GoldenInvoice("global-charge-credit-payment")) with
+        {
+            ForeignCurrency = new ForeignCurrency("USD", 4000m, new DateOnly(2020, 3, 1)),
+        };
+
+        var xml = InvoiceUblBuilder.Build(invoice).Xml;
+
+        Assert.That(xml, Does.Contain("<cbc:PaidAmount currencyID=\"USD\">100000.00</cbc:PaidAmount>"));
+        Assert.That(xml, Does.Contain("<cbc:PrepaidAmount currencyID=\"COP\">115022.50</cbc:PrepaidAmount>"));
+    }
+
+    [Test]
+    public void An_invoice_without_prepaid_payments_writes_no_prepaid_payment()
+    {
+        var xml = InvoiceUblBuilder.Build(GoldenInvoice("global-charge-credit-payment")).Xml;
+
+        Assert.That(xml, Does.Not.Contain("PrepaidPayment"));
+    }
+
+    private static SalesInvoice GoldenInvoice(string name)
+    {
+        var caseDir = GoldenCases.Invoices().Single(dir => Path.GetFileName(dir) == name);
+        using var input = JsonDocument.Parse(File.ReadAllText(Path.Combine(caseDir, "input.json"), Encoding.UTF8));
+        return new ApiDianInvoiceAdapter(Catalog).Map(input.RootElement);
+    }
+
+    private static SalesInvoice Prepaid(SalesInvoice invoice) => invoice with
+    {
+        PrepaidPayments =
+        [
+            new PrepaidPayment("A3123856", 100000m, new DateOnly(2020, 3, 1), new DateOnly(2020, 3, 5), "PRUEBA DE PREPAGO RECIBIDO"),
+            new PrepaidPayment("B-2", 15022.5m, new DateOnly(2020, 3, 2), null, null),
+        ],
+        Totals = invoice.Totals with { PrepaidAmount = 115022.5m },
+    };
+
     private static InvoiceUblResult Build(string caseDir)
     {
         using var input = JsonDocument.Parse(File.ReadAllText(Path.Combine(caseDir, "input.json"), Encoding.UTF8));

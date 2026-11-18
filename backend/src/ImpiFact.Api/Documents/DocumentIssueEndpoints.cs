@@ -136,7 +136,11 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
     private const string InvoiceText =
         "Emite una factura electrónica de venta. El cuerpo sigue el contrato de ApiDian: `customer` (comprador), " +
         "`invoice_lines`, `legal_monetary_totals`, `tax_totals`, `payment_form` y, si quiere, `number`, `prefix`, " +
-        "`resolution_number`, `date` y `time` (hora de Colombia; sin ellas, la fecha y hora actuales).";
+        "`resolution_number`, `date` y `time` (hora de Colombia; sin ellas, la fecha y hora actuales). Los anticipos ya " +
+        "recibidos van en `prepaid_payment` (uno) o `prepaid_payments` (varios), cada uno con `idpayment`, `paidamount` y " +
+        "`receiveddate` (`yyyy-MM-dd`) obligatorios y `paiddate` e `instructionid` opcionales; su suma va en " +
+        "`legal_monetary_totals.pre_paid_amount` (obligatorio con `prepaid_payment`) y no se resta de `payable_amount`, " +
+        "como lo pide la regla FAU14 de la DIAN.";
 
     private const string CreditNoteText =
         "Emite una nota crédito, que corrige o anula total o parcialmente una factura. El cuerpo sigue el contrato de " +
