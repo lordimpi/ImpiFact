@@ -6,6 +6,9 @@
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <!-- El arranque espera la configuración y los textos comunes: se piden junto con main.js, no después. -->
+    <link rel="preload" href="config.json" as="fetch" crossorigin />
+    <link rel="preload" href="i18n/es-CO.json" as="fetch" crossorigin />
   </head>
   <body>
     <app-root></app-root>

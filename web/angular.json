@@ -93,6 +93,12 @@
                 },
                 {
                   "type": "bundle",
+                  "name": "feature-auth-inactivity",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
                   "name": "feature-masters",
                   "maximumWarning": "200kB",
                   "maximumError": "250kB"

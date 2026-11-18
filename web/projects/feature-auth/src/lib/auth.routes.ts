@@ -33,7 +33,8 @@ export const authRoutes: Routes = [
 
 /**
  * Carga el diálogo de inactividad (con sus textos ya cargados aparte, ver `loadAuthTexts`). El shell lo pide la
- * primera vez que `InactivityMonitor` avisa, así el diálogo no pesa en el bundle inicial.
+ * primera vez que `InactivityMonitor` avisa, así el diálogo no pesa en el bundle inicial ni en el del login: va en su
+ * propio chunk, `feature-auth-inactivity`.
  */
 export const loadInactivityWarning = (): Promise<Type<unknown>> =>
-  loadFeature().then((m) => m.InactivityWarningComponent);
+  import('./feature-auth-inactivity').then((m) => m.InactivityWarningComponent);
