@@ -59,6 +59,7 @@ public sealed class OpenApiContractTests
     [TestCase("POST /api/v1/auth/logout", "logout")]
     [TestCase("POST /api/v1/api-keys", "createApiKey")]
     [TestCase("DELETE /api/v1/api-keys/{id}", "revokeApiKey")]
+    [TestCase("GET /api/v1/api-keys", "listApiKeys")]
     [TestCase("POST /api/v1/users", "createUser")]
     [TestCase("GET /api/v1/me/companies", "listMyCompanies")]
     [TestCase("POST /api/v1/auth/password-reset/request", "requestPasswordReset")]

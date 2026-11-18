@@ -13,7 +13,7 @@ public static class IdentityServiceCollectionExtensions
 {
     /// <summary>
     /// Registra las piezas de autenticación que no dependen de ASP.NET Core: API keys (generador, búsqueda con
-    /// caché de 60 segundos, registro de uso en segundo plano), llaves y emisor de JWT (JSON Web Token) y tokens de
+    /// caché de 60 segundos, registro de uso en segundo plano, listado para el panel), llaves y emisor de JWT (JSON Web Token) y tokens de
     /// renovación. Se llama después de <c>AddInfrastructure</c>, que registra sus opciones. Solo la usa la API: el
     /// Migrator no firma tokens y no necesita la llave.
     /// </summary>
@@ -32,6 +32,7 @@ public static class IdentityServiceCollectionExtensions
         services.TryAddSingleton<ApiKeyCache>();
         services.TryAddSingleton<IApiKeyCacheInvalidator>(serviceProvider => serviceProvider.GetRequiredService<ApiKeyCache>());
         services.TryAddSingleton<ApiKeyUsageRecorder>();
+        services.TryAddScoped<IApiKeyReads, EfApiKeyReads>();
         services.AddHostedService<ApiKeyUsageWriter>();
         services.TryAddScoped(serviceProvider => new ApiKeyAuthenticator(
             serviceProvider.GetRequiredService<IApiKeyStore>(),

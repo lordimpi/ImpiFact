@@ -113,6 +113,17 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "(nunca `platform:*`); con una credencial de plataforma es una llave de plataforma y solo lleva `platform:*`. " +
                 "El texto completo de la llave (`key`) se muestra solo en esta respuesta. Alcances no permitidos: 403 " +
                 "(`api_key.scope_not_allowed`).");
+        apiKeys.MapGet("/", ListApiKeysAsync)
+            .Produces<ApiKeyListResponse>()
+            .WithOperationId("listApiKeys")
+            .WithSummary("Listar las API keys")
+            .WithDescription(
+                "Devuelve en `items` las llaves de la empresa de la credencial (con una credencial de plataforma, las llaves de " +
+                "plataforma), revocadas o no, de la más nueva a la más antigua: `id`, `name`, `key_prefix` (el inicio visible " +
+                "de la llave, para reconocerla), `scopes`, `created_at`, `expires_at`, `last_used_at` (se guarda en segundo " +
+                "plano y puede atrasarse unos segundos), `is_revoked` y `revoked_at`. Nunca trae el texto de la llave: solo se " +
+                "muestra al crearla. Pagina por cursor: `limit` (20 por defecto, máximo 100) y `cursor` con el `next_cursor` de " +
+                "la página anterior (nulo en la última). En una empresa, un usuario del panel debe ser su dueño (`owner`).");
         apiKeys.MapDelete("/{id:guid}", RevokeApiKeyAsync)
             .Produces(StatusCodes.Status204NoContent)
             .WithOperationId("revokeApiKey")
@@ -249,6 +260,13 @@ internal sealed class IdentityEndpoints : IEndpointModule
         CreateApiKeyBody body, [FromServices] IHandler<CreateApiKeyCommand, CreatedApiKey> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new CreateApiKeyCommand(body.Name ?? "", body.Scopes ?? [], body.ExpiresAt), ct))
         .ToHttpResult(created => TypedResults.Created($"/api/v1/api-keys/{created.Id}", created));
+
+    private static async Task<IResult> ListApiKeysAsync(
+        [FromQuery(Name = "cursor")] string? cursor,
+        [FromQuery(Name = "limit")] int? limit,
+        [FromServices] IHandler<ListApiKeysQuery, ApiKeyListResponse> handler,
+        CancellationToken ct) =>
+        (await handler.HandleAsync(new ListApiKeysQuery(cursor, limit), ct)).ToHttpResult();
 
     private static async Task<IResult> RevokeApiKeyAsync(
         Guid id, [FromServices] IHandler<RevokeApiKeyCommand, RevokedApiKey> handler, CancellationToken ct) =>
