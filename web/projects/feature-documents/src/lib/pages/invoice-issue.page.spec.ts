@@ -45,6 +45,9 @@ const CALCULATION = {
   },
 };
 
+/** El flujo completo recorre muchas búsquedas por rol en jsdom; con la suite en paralelo pasa de 5 s. */
+const LONG_FLOW_MS = 15_000;
+
 const isCalculate = (r: { url: string }) => r.url === '/api/v1/documents/calculate';
 
 async function chooseCustomer(http: Awaited<ReturnType<typeof renderDocumentsRoute>>['http']) {
@@ -66,53 +69,57 @@ async function addProduct(http: Awaited<ReturnType<typeof renderDocumentsRoute>>
 }
 
 describe('InvoiceIssuePage', () => {
-  it('takes the totals from the server and issues with them and an Idempotency-Key', async () => {
-    const { http, router } = await renderDocumentsRoute('/documentos/nuevo');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Emitir factura' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Crear un cliente nuevo' }).getAttribute('href')).toBe(
-      '/clientes/nuevo',
-    );
+  it(
+    'takes the totals from the server and issues with them and an Idempotency-Key',
+    async () => {
+      const { http, router } = await renderDocumentsRoute('/documentos/nuevo');
+      expect(await screen.findByRole('heading', { level: 1, name: 'Emitir factura' })).toBeTruthy();
+      expect(
+        screen.getByRole('link', { name: 'Crear un cliente nuevo' }).getAttribute('href'),
+      ).toBe('/clientes/nuevo');
 
-    await chooseCustomer(http);
-    expect(screen.getByText('Cliente elegido')).toBeTruthy();
-    await addProduct(http);
+      await chooseCustomer(http);
+      expect(screen.getByText('Cliente elegido')).toBeTruthy();
+      await addProduct(http);
 
-    const calculate = await waitFor(() => http.expectOne(isCalculate));
-    expect(calculate.request.body).toEqual({
-      lines: [
-        {
-          quantity: 1,
-          unit_price: 1500000,
-          free_of_charge: false,
-          taxes: [{ tax_id: 1, percent: 19 }],
-        },
-      ],
-    });
-    calculate.flush(CALCULATION);
+      const calculate = await waitFor(() => http.expectOne(isCalculate));
+      expect(calculate.request.body).toEqual({
+        lines: [
+          {
+            quantity: 1,
+            unit_price: 1500000,
+            free_of_charge: false,
+            taxes: [{ tax_id: 1, percent: 19 }],
+          },
+        ],
+      });
+      calculate.flush(CALCULATION);
 
-    const payable = await screen.findByTestId('payable');
-    expect(payable.textContent).toMatch(/1\.785\.000,00/);
+      const payable = await screen.findByTestId('payable');
+      expect(payable.textContent).toMatch(/1\.785\.000,00/);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Emitir factura' }));
-    const issue = await waitFor(() => http.expectOne('/api/v1/documents/invoices'));
-    const key = issue.request.context.get(IDEMPOTENCY_KEY);
-    expect(key).toMatch(/^[0-9a-f-]{36}$/);
-    expect(issue.request.body.legal_monetary_totals).toEqual(CALCULATION.legal_monetary_totals);
-    expect(issue.request.body.invoice_lines[0].line_extension_amount).toBe('1500000.00');
-    expect(issue.request.body.invoice_lines[0].tax_totals).toEqual([SUBTOTAL]);
-    expect(issue.request.body.tax_totals).toEqual([SUBTOTAL]);
-    expect(issue.request.body.customer.identification_number).toBe('800000001');
-    issue.flush({
-      message: 'ok',
-      QRStr: '',
-      urlinvoiceattached: '',
-      urlinvoicepdf: '',
-      urlinvoicexml: '',
-      document: { id: 'doc-9', full_number: 'SETP990000009', status: 'Queued' },
-    });
+      fireEvent.click(screen.getByRole('button', { name: 'Emitir factura' }));
+      const issue = await waitFor(() => http.expectOne('/api/v1/documents/invoices'));
+      const key = issue.request.context.get(IDEMPOTENCY_KEY);
+      expect(key).toMatch(/^[0-9a-f-]{36}$/);
+      expect(issue.request.body.legal_monetary_totals).toEqual(CALCULATION.legal_monetary_totals);
+      expect(issue.request.body.invoice_lines[0].line_extension_amount).toBe('1500000.00');
+      expect(issue.request.body.invoice_lines[0].tax_totals).toEqual([SUBTOTAL]);
+      expect(issue.request.body.tax_totals).toEqual([SUBTOTAL]);
+      expect(issue.request.body.customer.identification_number).toBe('800000001');
+      issue.flush({
+        message: 'ok',
+        QRStr: '',
+        urlinvoiceattached: '',
+        urlinvoicepdf: '',
+        urlinvoicexml: '',
+        document: { id: 'doc-9', full_number: 'SETP990000009', status: 'Queued' },
+      });
 
-    await waitFor(() => expect(router.url).toBe('/documentos/doc-9'));
-  });
+      await waitFor(() => expect(router.url).toBe('/documentos/doc-9'));
+    },
+    LONG_FLOW_MS,
+  );
 
   it('recalculates when a line changes and blocks the issue until the totals are current', async () => {
     const { http } = await renderDocumentsRoute('/documentos/nuevo');

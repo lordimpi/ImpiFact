@@ -1,5 +1,13 @@
 import { WritableSignal, signal } from '@angular/core';
-import { FieldTree, applyEach, form, min, required, validate } from '@angular/forms/signals';
+import {
+  FieldTree,
+  SchemaPathTree,
+  applyEach,
+  form,
+  min,
+  required,
+  validate,
+} from '@angular/forms/signals';
 import {
   CalculateDocumentTotalsRequest,
   CalculatedTaxSubtotal,
@@ -118,16 +126,19 @@ export function createInvoiceForm(
       valueOf(path.paymentFormId) === CREDIT_PAYMENT_FORM;
     required(path.paymentDueDate, { when: onCredit });
     required(path.durationDays, { when: onCredit });
-    applyEach(path.lines, (line) => {
-      required(line.code);
-      required(line.description);
-      required(line.unitPrice);
-      min(line.unitPrice, 0);
-      validate(line.quantity, ({ value }) => {
-        const quantity = value();
-        return quantity !== null && quantity > 0 ? undefined : { kind: 'quantity' };
-      });
-    });
+    applyEach(path.lines, lineRules);
+  });
+}
+
+/** Reglas de una línea (las comparten la factura y las notas): código, descripción, precio y cantidad. */
+export function lineRules(line: SchemaPathTree<InvoiceLineModel>): void {
+  required(line.code);
+  required(line.description);
+  required(line.unitPrice);
+  min(line.unitPrice, 0);
+  validate(line.quantity, ({ value }) => {
+    const quantity = value();
+    return quantity !== null && quantity > 0 ? undefined : { kind: 'quantity' };
   });
 }
 
@@ -149,11 +160,18 @@ function isComplete(line: InvoiceLineModel): boolean {
 export function buildCalculationRequest(
   model: InvoiceModel,
 ): CalculateDocumentTotalsRequest | null {
-  if (model.lines.length === 0 || !model.lines.every(isComplete)) {
+  return buildLinesCalculation(model.lines);
+}
+
+/** Lo mismo para cualquier documento con líneas (factura o nota). */
+export function buildLinesCalculation(
+  lines: readonly InvoiceLineModel[],
+): CalculateDocumentTotalsRequest | null {
+  if (lines.length === 0 || !lines.every(isComplete)) {
     return null;
   }
   return {
-    lines: model.lines.map((line) => ({
+    lines: lines.map((line) => ({
       quantity: line.quantity,
       unit_price: line.unitPrice,
       free_of_charge: false,
@@ -164,7 +182,7 @@ export function buildCalculationRequest(
 
 type IssueBody = IssueInvoice$Params['body'];
 
-function taxEntry(tax: CalculatedTaxSubtotal) {
+export function taxEntry(tax: CalculatedTaxSubtotal) {
   const entry: Record<string, number | string> = {
     tax_id: tax.tax_id,
     tax_amount: tax.tax_amount,
@@ -197,6 +215,40 @@ const CUSTOMER_FIELDS = [
   'municipality_id',
 ] as const;
 
+/** Datos del comprador para el cuerpo de la emisión, sin los campos vacíos. */
+export function buyerOf(
+  customer: Partial<Record<(typeof CUSTOMER_FIELDS)[number], number | string | null>>,
+): Record<string, number | string> {
+  const buyer: Record<string, number | string> = {};
+  for (const field of CUSTOMER_FIELDS) {
+    const value = customer[field];
+    if (value !== null && value !== undefined && value !== '') buyer[field] = value;
+  }
+  return buyer;
+}
+
+/** Líneas del cuerpo con el valor y los impuestos que calculó el servidor para cada una. */
+export function linesBody(
+  lines: readonly InvoiceLineModel[],
+  calculation: DocumentTotalsCalculation,
+) {
+  return lines.map((line, index) => {
+    const calculated = calculation.lines[index];
+    return {
+      unit_measure_id: line.unitMeasureId,
+      invoiced_quantity: line.quantity,
+      base_quantity: line.quantity,
+      line_extension_amount: calculated?.line_extension_amount ?? null,
+      free_of_charge_indicator: false,
+      description: line.description,
+      code: line.code,
+      type_item_identification_id: line.typeItemIdentificationId,
+      price_amount: line.unitPrice,
+      tax_totals: (calculated?.tax_subtotals ?? []).map(taxEntry),
+    };
+  });
+}
+
 /**
  * Cuerpo de `issueInvoice`: los datos del formulario y del cliente con los totales, impuestos y valores de línea
  * que calculó el servidor (`calculation`, la respuesta a `buildCalculationRequest(model)`).
@@ -206,11 +258,7 @@ export function buildInvoiceBody(
   customer: CustomerResponse,
   calculation: DocumentTotalsCalculation,
 ): IssueBody {
-  const buyer: Record<string, number | string> = {};
-  for (const field of CUSTOMER_FIELDS) {
-    const value = customer[field];
-    if (value !== null && value !== undefined && value !== '') buyer[field] = value;
-  }
+  const buyer = buyerOf(customer);
 
   const onCredit = model.paymentFormId === CREDIT_PAYMENT_FORM;
   const payment: Record<string, number | string> = {
@@ -228,21 +276,7 @@ export function buildInvoiceBody(
     payment_form: [payment],
     legal_monetary_totals: calculation.legal_monetary_totals,
     tax_totals: calculation.tax_totals.flatMap((total) => total.tax_subtotals.map(taxEntry)),
-    invoice_lines: model.lines.map((line, index) => {
-      const calculated = calculation.lines[index];
-      return {
-        unit_measure_id: line.unitMeasureId,
-        invoiced_quantity: line.quantity,
-        base_quantity: line.quantity,
-        line_extension_amount: calculated?.line_extension_amount ?? null,
-        free_of_charge_indicator: false,
-        description: line.description,
-        code: line.code,
-        type_item_identification_id: line.typeItemIdentificationId,
-        price_amount: line.unitPrice,
-        tax_totals: (calculated?.tax_subtotals ?? []).map(taxEntry),
-      };
-    }),
+    invoice_lines: linesBody(model.lines, calculation),
   };
   if (model.notes.trim()) {
     body.notes = model.notes.trim();

@@ -1,13 +1,5 @@
 import { HttpContext } from '@angular/common/http';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  Signal,
-  computed,
-  inject,
-  signal,
-} from '@angular/core';
-import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormField } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import {
@@ -33,17 +25,7 @@ import {
   SelectDirective,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import {
-  Observable,
-  catchError,
-  debounceTime,
-  distinctUntilChanged,
-  firstValueFrom,
-  map,
-  of,
-  startWith,
-  switchMap,
-} from 'rxjs';
+import { firstValueFrom, map } from 'rxjs';
 import { LineFieldsComponent } from '../components/line-fields.component';
 import {
   PickerLabels,
@@ -63,17 +45,9 @@ import {
   lineFromProduct,
 } from '../forms/invoice.form';
 import { DocumentActions } from '../state/document-actions';
+import { debouncedSearch } from '../state/debounced-search';
 import { serverTotals } from '../state/server-totals';
 
-interface SearchState<T> {
-  term: string;
-  items: T[];
-  loading: boolean;
-  error: boolean;
-}
-
-const SEARCH_DEBOUNCE_MS = 250;
-const SEARCH_MIN_LENGTH = 2;
 const SEARCH_LIMIT = 10;
 const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 
@@ -132,12 +106,12 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
   // Búsquedas de clientes y productos en el Api (nunca se descarga la lista completa).
   private readonly customerTerm = signal('');
   private readonly productTerm = signal('');
-  protected readonly customerSearch = this.searchState(this.customerTerm, (term) =>
+  protected readonly customerSearch = debouncedSearch(this.customerTerm, (term) =>
     this.api
       .invoke(listCustomers, { search: term, limit: SEARCH_LIMIT }, silent())
       .pipe(map((page) => page.items ?? [])),
   );
-  protected readonly productSearch = this.searchState(this.productTerm, (term) =>
+  protected readonly productSearch = debouncedSearch(this.productTerm, (term) =>
     this.api
       .invoke(listProducts, { search: term, limit: SEARCH_LIMIT }, silent())
       .pipe(map((page) => page.items ?? [])),
@@ -297,30 +271,6 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
         error instanceof AppError ? error.message : this.text('issue.previewFailed'),
       );
     }
-  }
-
-  /** Estado de una búsqueda con *debounce*; menos de dos letras no consulta. */
-  private searchState<T>(term: Signal<string>, fetch: (term: string) => Observable<T[]>) {
-    const state = signal<SearchState<T>>({ term: '', items: [], loading: false, error: false });
-    toObservable(term)
-      .pipe(
-        debounceTime(SEARCH_DEBOUNCE_MS),
-        map((value) => value.trim()),
-        distinctUntilChanged(),
-        switchMap((value): Observable<SearchState<T>> => {
-          if (value.length < SEARCH_MIN_LENGTH) {
-            return of({ term: value, items: [], loading: false, error: false });
-          }
-          return fetch(value).pipe(
-            map((items) => ({ term: value, items, loading: false, error: false })),
-            catchError(() => of({ term: value, items: [], loading: false, error: true })),
-            startWith({ term: value, items: [], loading: true, error: false }),
-          );
-        }),
-        takeUntilDestroyed(),
-      )
-      .subscribe((value) => state.set(value));
-    return state.asReadonly();
   }
 
   private pickerLabels(kind: 'customer' | 'product'): PickerLabels {
