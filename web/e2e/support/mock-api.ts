@@ -18,6 +18,9 @@ export interface MockApiOptions {
   inactivity?: { warnMinutes: number; logoutMinutes: number };
   /** Empresas del usuario; con una sola, el Api la deja activa al iniciar sesión. */
   companies?: string[];
+  /** Roles y alcances del token (por defecto, propietario con `documents:read` y `documents:write`). */
+  roles?: string[];
+  scopes?: string[];
 }
 
 export interface MockApi {
@@ -32,24 +35,24 @@ function base64Url(value: unknown): string {
 }
 
 /** JWT sin firma válida: el panel no verifica firmas (lo hace el Api). */
-function fakeJwt(companyId: string | null): string {
-  const claims = {
-    sub: 'user-1',
-    role: ['owner'],
-    scope: ['documents:read'],
-    company_id: companyId,
-  };
+function fakeJwt(companyId: string | null, roles: string[], scopes: string[]): string {
+  const claims = { sub: 'user-1', role: roles, scope: scopes, company_id: companyId };
   return `${base64Url({ alg: 'ES256', typ: 'JWT' })}.${base64Url(claims)}.firma`;
 }
 
-function tokens(companyId: string | null, companies: string[]) {
+function tokens(
+  companyId: string | null,
+  companies: string[],
+  roles: string[] = ['owner'],
+  scopes: string[] = ['documents:read', 'documents:write'],
+) {
   return {
-    access_token: fakeJwt(companyId),
+    access_token: fakeJwt(companyId, roles, scopes),
     token_type: 'Bearer',
     expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
     refresh_token_expires_at: new Date(Date.now() + 14 * 86_400_000).toISOString(),
     company_id: companyId,
-    roles: ['owner'],
+    roles,
     companies,
   };
 }
@@ -85,7 +88,9 @@ export async function mockApi(page: Page, options: MockApiOptions = {}): Promise
     }
     // Como el Api: con una sola empresa queda activa; con varias, la persona elige.
     session = { companyId: companies.length === 1 ? companies[0]! : null };
-    return route.fulfill({ json: tokens(session.companyId, companies) });
+    return route.fulfill({
+      json: tokens(session.companyId, companies, options.roles, options.scopes),
+    });
   });
 
   await page.route('**/api/v1/auth/refresh', (route) => {
@@ -100,7 +105,9 @@ export async function mockApi(page: Page, options: MockApiOptions = {}): Promise
       }
       session.companyId = body.company_id;
     }
-    return route.fulfill({ json: tokens(session.companyId, companies) });
+    return route.fulfill({
+      json: tokens(session.companyId, companies, options.roles, options.scopes),
+    });
   });
 
   await page.route('**/api/v1/auth/logout', (route) => {
