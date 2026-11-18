@@ -1,0 +1,121 @@
+<section class="dashboard">
+  <header>
+    <ui-page-title>{{ 'dashboard.title' | transloco }}</ui-page-title>
+    <p class="dashboard-lead">{{ 'dashboard.description' | transloco }}</p>
+  </header>
+
+  @if (summary.isLoading()) {
+    <ui-loading [label]="'dashboard.loading' | transloco" [lines]="6" />
+  } @else if (summary.error()) {
+    <ui-error-state
+      [title]="'dashboard.errorTitle' | transloco"
+      [description]="'dashboard.errorDescription' | transloco"
+      [retryLabel]="'dashboard.retry' | transloco"
+      (retry)="summary.reload()"
+    />
+  } @else {
+    <div class="dashboard-grid">
+      <section class="card" aria-labelledby="dashboard-month">
+        <h2 id="dashboard-month" class="card-title">{{ monthTitle() }}</h2>
+        <p class="card-figure">
+          <span class="card-number">{{ monthTotal() }}</span>
+          <span class="card-caption">{{ 'dashboard.month.total' | transloco }}</span>
+        </p>
+        @if (statuses().length === 0) {
+          <p class="card-muted">{{ 'dashboard.month.empty' | transloco }}</p>
+          @if (canIssue()) {
+            <a class="card-link" routerLink="/documentos/nuevo">{{
+              'dashboard.month.newDocument' | transloco
+            }}</a>
+          }
+        } @else {
+          <ul class="status-list">
+            @for (item of statuses(); track item.status) {
+              <li>
+                <span>{{ item.label }}</span>
+                <span class="status-count">{{ item.count }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="card card--wide" aria-labelledby="dashboard-history">
+        <h2 id="dashboard-history" class="card-title">
+          {{ 'dashboard.history.title' | transloco }}
+        </h2>
+        @if (!hasHistory()) {
+          <p class="card-muted">{{ 'dashboard.history.empty' | transloco }}</p>
+        }
+        <feat-month-chart [bars]="bars()" [labels]="chartLabels()" />
+      </section>
+
+      <section class="card" aria-labelledby="dashboard-plan">
+        <h2 id="dashboard-plan" class="card-title">{{ 'dashboard.plan.title' | transloco }}</h2>
+        @if (plan(); as plan) {
+          <p class="card-strong">{{ plan.name }}</p>
+          <p [class.card-alert]="plan.expired" [class.card-muted]="!plan.expired">
+            {{ planPeriod() }}
+          </p>
+          <ul class="quota-list">
+            @for (quota of quotas(); track quota.kind) {
+              <li>
+                <span class="quota-label">{{ quota.label }}</span>
+                <ui-meter
+                  [label]="quota.label"
+                  [value]="quota.used"
+                  [max]="quota.limit"
+                  [valueText]="quota.text"
+                />
+              </li>
+            }
+          </ul>
+          @if (isOwner()) {
+            <a class="card-link" routerLink="/plan">{{ 'dashboard.plan.details' | transloco }}</a>
+          }
+        } @else {
+          <p class="card-muted">{{ 'dashboard.plan.none' | transloco }}</p>
+        }
+      </section>
+
+      <section class="card" aria-labelledby="dashboard-certificate">
+        <h2 id="dashboard-certificate" class="card-title">
+          {{ 'dashboard.certificate.title' | transloco }}
+        </h2>
+        @if (certificate(); as certificate) {
+          <p [class.card-alert]="certificateWarning()">{{ certificateText() }}</p>
+          @if (certificate.name) {
+            <p class="card-muted">
+              {{ 'dashboard.certificate.name' | transloco: { name: certificate.name } }}
+            </p>
+          }
+          @if (certificateWarning() && !certificate.expired) {
+            <p class="card-muted">{{ 'dashboard.certificate.soon' | transloco }}</p>
+          }
+        } @else {
+          <p class="card-alert">{{ 'dashboard.certificate.none' | transloco }}</p>
+        }
+      </section>
+
+      <section class="card" aria-labelledby="dashboard-resolutions">
+        <h2 id="dashboard-resolutions" class="card-title">
+          {{ 'dashboard.resolutions.title' | transloco }}
+        </h2>
+        @if (resolutions().length === 0) {
+          <p class="card-muted">{{ 'dashboard.resolutions.none' | transloco }}</p>
+        } @else {
+          <ul class="resolution-list">
+            @for (resolution of resolutions(); track resolution.id) {
+              <li>
+                <span class="card-strong">{{ resolution.title }}</span>
+                @for (note of resolution.notes; track note) {
+                  <span class="card-alert">{{ note }}</span>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
+  }
+</section>

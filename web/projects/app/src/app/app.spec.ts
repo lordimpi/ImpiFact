@@ -1,8 +1,16 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, provideRouter, withComponentInputBinding } from '@angular/router';
-import { InactivityMonitor, MyCompaniesStore, SessionStore, ToastStore } from '@impifact/core';
+import {
+  InactivityMonitor,
+  MyCompaniesStore,
+  NotificationsStore,
+  SessionStore,
+  ToastStore,
+} from '@impifact/core';
 import { Translation, TranslocoLoader, provideTransloco } from '@jsverse/transloco';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
 import { of } from 'rxjs';
@@ -19,13 +27,23 @@ class InMemoryLoader implements TranslocoLoader {
 }
 
 /** Sesión y monitor de inactividad falsos: el shell solo lee sus signals y llama a sus métodos. */
-function fakes(options: { authenticated?: boolean; companies?: string[]; roles?: string[] } = {}) {
+function fakes(
+  options: {
+    authenticated?: boolean;
+    companies?: string[];
+    roles?: string[];
+    scopes?: string[];
+  } = {},
+) {
   const isAuthenticated = signal(options.authenticated ?? false);
   const roles = signal(options.roles ?? ['owner']);
+  const scopes = signal(options.scopes ?? []);
   const session = {
     isAuthenticated,
     roles,
+    scopes,
     hasRole: (...wanted: string[]) => wanted.some((role) => roles().includes(role)),
+    hasScope: (scope: string) => scopes().includes(scope),
     user: signal(isAuthenticated() ? { id: 'user-1', email: 'ana@example.test' } : null),
     companyId: signal<string | null>(options.companies?.[0] ?? null),
     companies: signal(options.companies ?? []),
@@ -43,12 +61,22 @@ function fakes(options: { authenticated?: boolean; companies?: string[]; roles?:
   const directory = {
     active: signal<{ id: string; name: string } | null>(null),
   };
-  return { session, monitor, directory };
+  // Campana de avisos de core: el shell solo lee el número sin leer.
+  const notifications = {
+    unreadCount: signal(0),
+    latest: signal([]),
+    loaded: signal(true),
+    error: signal(false),
+    refresh: vi.fn(async () => undefined),
+    markRead: vi.fn(async () => true),
+    markAllRead: vi.fn(async () => 0),
+  };
+  return { session, monitor, directory, notifications };
 }
 
 describe('App shell', () => {
   async function renderShell(options: Parameters<typeof fakes>[0] = {}) {
-    const { session, monitor, directory } = fakes(options);
+    const { session, monitor, directory, notifications } = fakes(options);
     const result = await render(App, {
       providers: [
         provideRouter(routes, withComponentInputBinding()),
@@ -59,9 +87,12 @@ describe('App shell', () => {
         { provide: SessionStore, useValue: session },
         { provide: InactivityMonitor, useValue: monitor },
         { provide: MyCompaniesStore, useValue: directory },
+        { provide: NotificationsStore, useValue: notifications },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     });
-    return { ...result, session, monitor, directory };
+    return { ...result, session, monitor, directory, notifications };
   }
 
   it('renders the layout with texts from the es-CO translations', async () => {
@@ -135,6 +166,48 @@ describe('App shell', () => {
     await waitFor(() => expect(within(nav).queryByRole('link', { name: 'Documentos' })).toBeNull());
   });
 
+  it('shows the notification bell with the unread count to a session that reads notices', async () => {
+    const { notifications } = await renderShell({
+      authenticated: true,
+      companies: ['company-1'],
+      roles: ['seller'],
+      scopes: ['documents:read'],
+    });
+    notifications.unreadCount.set(2);
+
+    expect(await screen.findByRole('button', { name: 'Avisos, 2 sin leer' })).toBeTruthy();
+    const nav = screen.getByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).getByRole('link', { name: 'Avisos' }).getAttribute('href')).toBe(
+      '/notificaciones',
+    );
+  });
+
+  it('shows the API keys and plan entries only to an owner', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['owner'] });
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).getByRole('link', { name: 'Llaves de API' }).getAttribute('href')).toBe(
+      '/llaves-api',
+    );
+    expect(within(nav).getByRole('link', { name: 'Mi plan' }).getAttribute('href')).toBe('/plan');
+    expect(within(nav).queryByRole('link', { name: 'Planes' })).toBeNull();
+  });
+
+  it('shows the platform entries to an administrator with the platform scope', async () => {
+    await renderShell({ authenticated: true, roles: ['platform_admin'], scopes: ['platform:*'] });
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).getByRole('link', { name: 'Planes' }).getAttribute('href')).toBe(
+      '/plataforma/planes',
+    );
+    expect(within(nav).getByRole('link', { name: 'Asignar planes' })).toBeTruthy();
+    expect(within(nav).queryByRole('link', { name: 'Llaves de API' })).toBeNull();
+  });
+
+  it('hides the platform entries from an administrator inside a company', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['platform_admin'] });
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).queryByRole('link', { name: 'Planes' })).toBeNull();
+  });
+
   it('sets the document title from the translations', async () => {
     await renderShell();
     await screen.findByText('ImpiFact');
@@ -168,13 +241,31 @@ describe('App shell', () => {
     expect(await screen.findByText('Código copiado.')).toBeTruthy();
   });
 
-  it('shows the home page on the root route to a signed-in user', async () => {
-    const { navigate } = await renderShell({ authenticated: true, companies: ['company-1'] });
+  it('shows the home page on the root route to a signed-in user without the dashboard', async () => {
+    const { navigate } = await renderShell({
+      authenticated: true,
+      companies: ['company-1'],
+      roles: ['customer'],
+    });
     await navigate('/');
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Panel de ImpiFact' }),
     ).toBeTruthy();
+    TestBed.inject(HttpTestingController).expectNone('/api/v1/dashboard/summary');
+  });
+
+  it('opens the dashboard on the root route to an owner or a seller', async () => {
+    const { navigate } = await renderShell({
+      authenticated: true,
+      companies: ['company-1'],
+      roles: ['seller'],
+    });
+    await navigate('/');
+
+    await waitFor(() =>
+      TestBed.inject(HttpTestingController).expectOne('/api/v1/dashboard/summary'),
+    );
   });
 
   it('sends an anonymous visitor of a protected route to the login and keeps the route', async () => {

@@ -108,14 +108,14 @@ Cambio en el backend, hecho el 17-nov (fase 5, B1): el refresh acepta y emite la
 | --- | --- | --- |
 | `/login`, `/recuperar` | `feature-auth` | público |
 | `/empresas/seleccionar` | `feature-auth` | todos los autenticados |
-| `/` (tablero) | `app` | owner, seller |
+| `/` (tablero) | `feature-dashboard` (los demás roles ven la página de inicio de `app`) | owner, seller |
 | `/empresas/:id/{datos,ambientes,software,certificado,resoluciones}` (`/empresa` lleva a la activa); `correo`, `logo` y `plantilla` esperan su endpoint | `feature-companies` | owner |
 | `/empresas/:id/produccion` (`/empresa/produccion`) | `feature-companies`, chunk `feature-production-wizard` | owner |
 | `/documentos`, `/documentos/nuevo`, `/documentos/:id` | `feature-documents` | owner, seller (`nuevo`: con alcance de emisión) |
 | `/clientes`, `/productos` | `feature-masters` | owner, seller |
 | `/llaves-api` | `feature-api-keys` | owner |
 | `/plan` | `feature-plans` | owner |
-| `/plataforma/{empresas,planes,revendedores}` | `feature-platform` | reseller, platform\_admin |
+| `/plataforma/{empresas,planes,revendedores}` | `feature-platform` (hoy `planes`, `planes/:id` y `empresas`) | platform\_admin con `platform:*` (reseller cuando el Api le dé alcances) |
 | `/notificaciones` | `feature-notifications` | todos |
 | `/portal` (documentos del cliente) | `feature-documents` (vista restringida) | customer |
 
@@ -149,7 +149,7 @@ Panel listo (fase 5, tarea 8): los filtros viven en la URL con nombres en españ
 ## 9. Estado en tiempo real
 
 - Detalle de documento: *polling* con retroceso (2 s, 4 s, 8 s hasta 30 s) mientras el estado sea `Queued`, `Sent` o `Unconfirmed`; se detiene con un estado final o al salir de la pantalla.
-- Notificaciones (campana): *polling* cada 60 s. Si se requiere inmediatez se agrega SSE en el Api (`/api/v1/events`) sin cambiar los componentes, porque ambos alimentan el mismo servicio de `core`.
+- Notificaciones (campana): *polling* cada 60 s con `NotificationsStore` de `core` (hecho en la tarea 9: solo con empresa activa y `documents:read`, se pausa con la pestaña oculta y se detiene al cerrar sesión). Si se requiere inmediatez se agrega SSE en el Api (`/api/v1/events`) sin cambiar los componentes, porque ambos alimentan el mismo servicio de `core`.
 - Todo *polling* se cancela con `takeUntilDestroyed` y se pausa si la pestaña está oculta.
 
 ## 10. Sistema de diseño y UX
@@ -226,6 +226,9 @@ Tareas que el frontend necesita y que se suman al backlog del Api:
 10. ~~Fase 5 (lista movida de la fase 4): logo de la empresa para `/empresas/:id/logo`.~~ Hecho el 18-nov (fase 5, B8): `PUT /api/v1/companies/{nit}/logo` (`saveCompanyLogo`, `config:write`) con `multipart/form-data` y el campo `logo` (PNG o JPEG reconocidos por su contenido, hasta 512 KiB; si no, 422 con `errors.logo`), `GET` (`getCompanyLogo`, `documents:read`, la imagen o 404 `company.logo_not_found`) y `DELETE` (`deleteCompanyLogo`, 204). El logo sale en el encabezado de los PDF que se generen después.
 11. ~~Fase 5 (lista movida de la fase 4): vista previa del PDF antes de emitir (`preeliminar-view`).~~ Hecho el 18-nov (fase 5, B8): `POST /api/v1/documents/invoices/preview` (`previewInvoice`, `documents:write`) con el mismo cuerpo de `issueInvoice` responde el PDF (`application/pdf`, `inline`) con la marca «VISTA PREVIA - SIN VALIDEZ», el número `{prefijo} - BORRADOR` y sin CUFE; no toma consecutivo, no guarda nada y no consume el plan. Errores: 422 como la emisión, 503 `pdf.unavailable` si el conversor no responde. El panel puede pedirlo como `Blob` y abrirlo con `URL.createObjectURL`. Solo factura: la de notas crédito y débito queda pendiente.
 12. Fase 5 (encontrada en la tarea 6): lectura de la configuración de la empresa. El Api solo tiene escrituras para los datos, los ambientes, el software y las resoluciones (`updateCompany`, `setCompanyEnvironment`, `setCompanySoftware`, `saveCompanyResolution`); los certificados sí se listan. Hacen falta, por ejemplo, `GET /api/v1/companies/{nit}` (datos y ambientes por familia), `GET /api/v1/companies/{nit}/software` (sin PIN, con `test_set_id`) y `GET /api/v1/companies/{nit}/resolutions`. Mientras no existan, `feature-companies` recuerda lo que devolvió cada guardado de la sesión: el formulario de datos empieza con la razón social y lo demás vacío, y el asistente de paso a producción marca esos pasos «Sin verificar» (no bloquean). Tampoco hay endpoints para el correo saliente (SMTP) de la empresa ni para el logo y la plantilla del PDF, así que esas pantallas no existen todavía.
+13. Fase 5 (encontrada en la tarea 9): listar las API keys de la empresa (por ejemplo, `GET /api/v1/api-keys` con id, nombre, prefijo, alcances, vencimiento y si está revocada, nunca el texto completo). Mientras no exista, `/llaves-api` muestra solo las llaves creadas en esa sesión del panel.
+14. Fase 5 (encontrada en la tarea 9): listar las empresas de la plataforma con búsqueda y paginación para `/plataforma/empresas`; hoy el plan se asigna escribiendo el NIT. `listPlans` y `listPlanCompanies` devuelven todo sin paginar (aceptable mientras sean pocos).
+15. Fase 5 (encontrada en la tarea 9): alcances y endpoints del revendedor (`reseller` no recibe alcances en `RoleScopes`) y de `/plataforma/revendedores`; mientras no existan, esas pantallas no se ofrecen.
 
 ## 17. Backlog del frontend (fase 5)
 

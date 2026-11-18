@@ -48,6 +48,31 @@
                 "glob": "**/*",
                 "input": "projects/feature-companies/src/i18n",
                 "output": "i18n/companies"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/feature-notifications/src/i18n",
+                "output": "i18n/notifications"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/feature-api-keys/src/i18n",
+                "output": "i18n/apiKeys"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/feature-plans/src/i18n",
+                "output": "i18n/plans"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/feature-dashboard/src/i18n",
+                "output": "i18n/dashboard"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/feature-platform/src/i18n",
+                "output": "i18n/platform"
               }
             ],
             "styles": ["projects/ui/src/styles/tokens.css", "projects/app/src/styles.scss"]
@@ -87,6 +112,36 @@
                 {
                   "type": "bundle",
                   "name": "feature-production-wizard",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "feature-notifications",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "feature-api-keys",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "feature-plans",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "feature-dashboard",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "feature-platform",
                   "maximumWarning": "200kB",
                   "maximumError": "250kB"
                 },
@@ -301,6 +356,136 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/feature-companies/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "feature-notifications": {
+      "projectType": "library",
+      "root": "projects/feature-notifications",
+      "sourceRoot": "projects/feature-notifications/src",
+      "prefix": "feat",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/feature-notifications/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/feature-notifications/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/feature-notifications/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "feature-api-keys": {
+      "projectType": "library",
+      "root": "projects/feature-api-keys",
+      "sourceRoot": "projects/feature-api-keys/src",
+      "prefix": "feat",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/feature-api-keys/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/feature-api-keys/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/feature-api-keys/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "feature-plans": {
+      "projectType": "library",
+      "root": "projects/feature-plans",
+      "sourceRoot": "projects/feature-plans/src",
+      "prefix": "feat",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/feature-plans/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/feature-plans/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/feature-plans/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "feature-dashboard": {
+      "projectType": "library",
+      "root": "projects/feature-dashboard",
+      "sourceRoot": "projects/feature-dashboard/src",
+      "prefix": "feat",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/feature-dashboard/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/feature-dashboard/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/feature-dashboard/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "feature-platform": {
+      "projectType": "library",
+      "root": "projects/feature-platform",
+      "sourceRoot": "projects/feature-platform/src",
+      "prefix": "feat",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/feature-platform/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/feature-platform/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/feature-platform/tsconfig.spec.json"
           }
         }
       }

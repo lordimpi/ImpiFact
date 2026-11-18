@@ -1,0 +1,68 @@
+/* Página del plan: tarjetas apiladas, cómodas en móvil y en escritorio. */
+:host {
+  display: block;
+}
+
+.plan-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-4);
+  max-inline-size: 56rem;
+  margin-inline: auto;
+}
+
+.plan-lead {
+  margin: 0;
+  color: var(--if-color-text-muted);
+}
+
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-3);
+  padding: var(--if-space-4);
+  background: var(--if-color-surface);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-md);
+}
+
+.plan-subtitle {
+  margin: 0;
+  font-size: var(--if-font-size-lg);
+}
+
+.plan-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--if-space-3);
+  margin: 0;
+}
+
+.plan-facts dt {
+  color: var(--if-color-text-muted);
+  font-size: var(--if-font-size-sm);
+}
+
+.plan-facts dd {
+  margin: 0;
+  font-weight: var(--if-font-weight-medium);
+}
+
+.plan-expired {
+  color: var(--if-color-danger);
+}
+
+.plan-quotas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-quota-label {
+  display: block;
+  margin-block-end: var(--if-space-1);
+  font-weight: var(--if-font-weight-medium);
+}

@@ -1,0 +1,154 @@
+<section class="platform-page">
+  <feat-platform-nav />
+  <header class="platform-header">
+    <div>
+      <ui-page-title>{{ 'platform.plans.title' | transloco }}</ui-page-title>
+      <p class="platform-lead">{{ 'platform.plans.description' | transloco }}</p>
+      <p class="platform-lead">{{ 'platform.plans.notPaginated' | transloco }}</p>
+    </div>
+    <ui-button [label]="'platform.plans.new' | transloco" (pressed)="openNew()" />
+  </header>
+
+  <ui-table
+    [caption]="'platform.plans.caption' | transloco"
+    [columns]="columns()"
+    [rows]="store.plans()"
+    [labels]="tableLabels()"
+    [loading]="store.loading()"
+    [error]="store.error() !== null"
+    [trackBy]="trackById"
+    (retry)="store.load()"
+  >
+    <ng-template uiTableCell="period" let-row>{{ periodLabel(row.period) }}</ng-template>
+    <ng-template uiTableCell="qtyInvoice" let-row>{{ quantity(row.qtyInvoice) }}</ng-template>
+    <ng-template uiTableCell="qtyPayroll" let-row>{{ quantity(row.qtyPayroll) }}</ng-template>
+    <ng-template uiTableCell="qtyRadian" let-row>{{ quantity(row.qtyRadian) }}</ng-template>
+    <ng-template uiTableCell="qtyDs" let-row>{{ quantity(row.qtyDs) }}</ng-template>
+    <ng-template uiTableCell="active" let-row>
+      <span class="platform-status" [class.platform-status--inactive]="!row.active">{{
+        (row.active ? 'platform.plans.active' : 'platform.plans.inactive') | transloco
+      }}</span>
+    </ng-template>
+    <ng-template uiTableCell="actions" let-row>
+      <div class="platform-row-actions">
+        <ui-button
+          variant="text"
+          size="small"
+          [label]="'platform.plans.edit' | transloco"
+          [ariaLabel]="rowText('plans.editRow', row)"
+          (pressed)="openEdit(row)"
+        />
+        <a
+          [routerLink]="['/plataforma/planes', row.id]"
+          [attr.aria-label]="rowText('plans.companiesRow', row)"
+          >{{ 'platform.plans.companies' | transloco }}</a
+        >
+      </div>
+    </ng-template>
+  </ui-table>
+
+  <ui-dialog
+    [header]="dialogTitle()"
+    [closeLabel]="'platform.common.close' | transloco"
+    width="40rem"
+    [(visible)]="dialogOpen"
+  >
+    <form
+      class="platform-form"
+      novalidate
+      (submit)="onSubmit($event)"
+      [attr.aria-busy]="submitting() || null"
+    >
+      @if (generalError(); as message) {
+        <p class="platform-message platform-message--error" role="alert">{{ message }}</p>
+      }
+      <div class="platform-form-row">
+        <ui-field
+          [label]="'platform.planForm.id' | transloco"
+          [hint]="'platform.planForm.idHint' | transloco"
+          [error]="errors().id"
+          required
+        >
+          <input uiInput type="text" inputmode="numeric" [formField]="planForm.id" />
+        </ui-field>
+        <ui-field [label]="'platform.planForm.name' | transloco" [error]="errors().name" required>
+          <input uiInput type="text" autocomplete="off" [formField]="planForm.name" />
+        </ui-field>
+        <ui-field
+          [label]="'platform.planForm.period' | transloco"
+          [error]="errors().period"
+          required
+        >
+          <select uiSelect [formField]="planForm.period">
+            @for (period of periods; track period) {
+              <option [value]="'' + period">{{ periodLabel(period) }}</option>
+            }
+          </select>
+        </ui-field>
+      </div>
+
+      <fieldset class="platform-fieldset">
+        <legend>{{ 'platform.planForm.quantities' | transloco }}</legend>
+        <div class="platform-form-row">
+          <ui-field
+            [label]="'platform.planForm.invoice' | transloco"
+            [error]="errors().qty_docs_invoice"
+          >
+            <input
+              uiInput
+              type="text"
+              inputmode="numeric"
+              [formField]="planForm.qty_docs_invoice"
+            />
+          </ui-field>
+          <ui-field
+            [label]="'platform.planForm.payroll' | transloco"
+            [error]="errors().qty_docs_payroll"
+          >
+            <input
+              uiInput
+              type="text"
+              inputmode="numeric"
+              [formField]="planForm.qty_docs_payroll"
+            />
+          </ui-field>
+          <ui-field
+            [label]="'platform.planForm.radian' | transloco"
+            [error]="errors().qty_docs_radian"
+          >
+            <input uiInput type="text" inputmode="numeric" [formField]="planForm.qty_docs_radian" />
+          </ui-field>
+          <ui-field [label]="'platform.planForm.ds' | transloco" [error]="errors().qty_docs_ds">
+            <input uiInput type="text" inputmode="numeric" [formField]="planForm.qty_docs_ds" />
+          </ui-field>
+        </div>
+      </fieldset>
+
+      <ui-field
+        [label]="'platform.planForm.observations' | transloco"
+        [error]="errors().observations"
+      >
+        <textarea uiInput rows="2" [formField]="planForm.observations"></textarea>
+      </ui-field>
+
+      <label class="platform-check">
+        <input type="checkbox" [formField]="planForm.state" />
+        {{ 'platform.planForm.state' | transloco }}
+      </label>
+
+      <!-- Los botones van dentro del formulario para que «Guardar» lo envíe (también con Enter). -->
+      <div class="platform-actions">
+        <ui-button
+          variant="secondary"
+          [label]="'platform.common.cancel' | transloco"
+          (pressed)="dialogOpen.set(false)"
+        />
+        <ui-button
+          type="submit"
+          [label]="'platform.common.save' | transloco"
+          [loading]="submitting()"
+        />
+      </div>
+    </form>
+  </ui-dialog>
+</section>

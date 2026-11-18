@@ -1,0 +1,78 @@
+{
+  "title": "Tablero",
+  "description": "Resumen de la empresa activa: documentos, plan, certificado y resoluciones.",
+  "loading": "Cargando el tablero",
+  "errorTitle": "No se pudo cargar el tablero",
+  "errorDescription": "Revise su conexión e intente de nuevo.",
+  "retry": "Reintentar",
+  "month": {
+    "title": "Documentos de {{ month }}",
+    "total": "Total del mes",
+    "empty": "Aún no hay documentos este mes.",
+    "newDocument": "Emitir una factura"
+  },
+  "history": {
+    "title": "Últimos 12 meses",
+    "chartLabel": "Documentos por mes en los últimos 12 meses. El mes con más documentos fue {{ month }}, con {{ total }}.",
+    "chartEmpty": "Documentos por mes en los últimos 12 meses: ninguno.",
+    "barTitle": "{{ month }}: {{ total }} documentos ({{ invoice }} facturas, {{ credit }} notas crédito, {{ debit }} notas débito, {{ other }} otros)",
+    "empty": "No hay documentos en los últimos 12 meses.",
+    "showTable": "Ver los datos en una tabla",
+    "tableCaption": "Documentos por mes",
+    "monthColumn": "Mes",
+    "invoice": "Facturas",
+    "creditNote": "Notas crédito",
+    "debitNote": "Notas débito",
+    "other": "Otros",
+    "total": "Total"
+  },
+  "plan": {
+    "title": "Plan",
+    "none": "Su empresa no tiene un plan contratado.",
+    "periodEnd": "El periodo termina el {{ date }}.",
+    "noPeriodEnd": "El plan no tiene fecha de fin.",
+    "expired": "El plan está vencido.",
+    "used": "{{ used }} de {{ limit }} usados, quedan {{ remaining }}",
+    "usedNoLimit": "{{ used }} usados, sin límite",
+    "details": "Ver el plan"
+  },
+  "certificate": {
+    "title": "Certificado de firma",
+    "none": "No hay un certificado activo: sin él no se pueden firmar documentos.",
+    "daysLeft": "Vence en {{ days }} días ({{ date }}).",
+    "oneDayLeft": "Vence mañana ({{ date }}).",
+    "today": "Vence hoy ({{ date }}).",
+    "expired": "Venció el {{ date }}.",
+    "soon": "Renuévelo pronto.",
+    "name": "Certificado: {{ name }}"
+  },
+  "resolutions": {
+    "title": "Resoluciones por agotarse",
+    "none": "Ninguna resolución está por agotarse.",
+    "item": "{{ kind }} {{ prefix }}, resolución {{ number }}",
+    "remaining": "Quedan {{ count }} números.",
+    "daysLeft": "Vence en {{ days }} días.",
+    "expired": "Vencida.",
+    "noNumber": "sin número"
+  },
+  "kinds": {
+    "invoice": "Facturas y notas",
+    "payroll": "Nómina electrónica",
+    "equivalent_document": "Documento equivalente",
+    "support_document": "Documento soporte",
+    "events": "Eventos RADIAN",
+    "other": "Otros ({{ kind }})"
+  },
+  "statuses": {
+    "Received": "Recibido",
+    "Queued": "En cola",
+    "Sent": "Enviado a la DIAN",
+    "Accepted": "Aceptado",
+    "AcceptedWithWarnings": "Aceptado con advertencias",
+    "Rejected": "Rechazado",
+    "Unconfirmed": "Sin confirmar",
+    "Failed": "Con error",
+    "ContingencyPending": "Contingencia pendiente",
+    "unknown": "Otro estado ({{ status }})"
+  }
+}

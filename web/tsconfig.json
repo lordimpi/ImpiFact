@@ -21,6 +21,16 @@
     { "path": "./projects/feature-documents/tsconfig.lib.json" },
     { "path": "./projects/feature-documents/tsconfig.spec.json" },
     { "path": "./projects/feature-companies/tsconfig.lib.json" },
-    { "path": "./projects/feature-companies/tsconfig.spec.json" }
+    { "path": "./projects/feature-companies/tsconfig.spec.json" },
+    { "path": "./projects/feature-platform/tsconfig.lib.json" },
+    { "path": "./projects/feature-platform/tsconfig.spec.json" },
+    { "path": "./projects/feature-dashboard/tsconfig.lib.json" },
+    { "path": "./projects/feature-dashboard/tsconfig.spec.json" },
+    { "path": "./projects/feature-plans/tsconfig.lib.json" },
+    { "path": "./projects/feature-plans/tsconfig.spec.json" },
+    { "path": "./projects/feature-api-keys/tsconfig.lib.json" },
+    { "path": "./projects/feature-api-keys/tsconfig.spec.json" },
+    { "path": "./projects/feature-notifications/tsconfig.lib.json" },
+    { "path": "./projects/feature-notifications/tsconfig.spec.json" }
   ]
 }

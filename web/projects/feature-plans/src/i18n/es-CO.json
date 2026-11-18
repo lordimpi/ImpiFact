@@ -1,0 +1,42 @@
+{
+  "title": "Mi plan",
+  "description": "Plan contratado por la empresa activa y los documentos que le quedan en el periodo. El consumo sube cuando la DIAN acepta un documento.",
+  "loading": "Cargando el plan",
+  "errorTitle": "No se pudo cargar el plan",
+  "errorDescription": "Revise su conexión e intente de nuevo.",
+  "retry": "Reintentar",
+  "noPlanTitle": "Su empresa no tiene un plan contratado",
+  "noPlanDescription": "Comuníquese con su proveedor de ImpiFact para contratar uno.",
+  "summary": {
+    "title": "Resumen",
+    "name": "Plan",
+    "period": "Periodo",
+    "status": "Estado",
+    "startsAt": "Inicio del periodo",
+    "periodEnd": "Fin del periodo",
+    "noPeriodEnd": "Sin fecha de fin",
+    "active": "Vigente",
+    "expired": "Vencido",
+    "inactive": "Inactivo"
+  },
+  "periods": {
+    "monthly": "Mensual",
+    "yearly": "Anual",
+    "package": "Paquete",
+    "unlimited": "Sin límite de tiempo"
+  },
+  "quotas": {
+    "title": "Documentos del periodo",
+    "used": "{{ used }} de {{ limit }} usados, quedan {{ remaining }}",
+    "usedNoLimit": "{{ used }} usados, sin límite",
+    "none": "Este plan no tiene cupos de documentos."
+  },
+  "kinds": {
+    "invoice": "Facturas y notas",
+    "payroll": "Nómina electrónica",
+    "equivalent_document": "Documento equivalente",
+    "support_document": "Documento soporte",
+    "events": "Eventos RADIAN",
+    "other": "Otros ({{ kind }})"
+  }
+}

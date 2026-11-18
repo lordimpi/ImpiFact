@@ -10,8 +10,8 @@ async function logIn(page: Page, password = USER.password) {
   await page.getByRole('button', { name: 'Ingresar' }).click();
 }
 
-const homeHeading = (page: Page) =>
-  page.getByRole('heading', { level: 1, name: 'Panel de ImpiFact' });
+// El propietario (rol por defecto de la Api simulada) entra en `/` al tablero.
+const homeHeading = (page: Page) => page.getByRole('heading', { level: 1, name: 'Tablero' });
 
 test('logs in, chooses a company and lands on the home page', async ({ page }) => {
   const api = await mockApi(page);

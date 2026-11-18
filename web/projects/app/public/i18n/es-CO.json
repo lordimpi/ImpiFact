@@ -11,12 +11,22 @@
     "products": "Productos",
     "documents": "Documentos",
     "company": "Empresa",
-    "production": "Paso a producción"
+    "production": "Paso a producción",
+    "notifications": "Avisos",
+    "apiKeys": "Llaves de API",
+    "plan": "Mi plan",
+    "platformPlans": "Planes",
+    "platformCompanies": "Asignar planes"
   },
   "userMenu": {
     "account": "Mi cuenta",
     "switchCompany": "Cambiar de empresa",
     "logout": "Cerrar sesión"
+  },
+  "bell": {
+    "label": "Avisos",
+    "labelUnread": "Avisos, {{ count }} sin leer",
+    "loading": "Cargando avisos"
   },
   "home": {
     "title": "Panel de ImpiFact",

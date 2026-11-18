@@ -1,0 +1,113 @@
+/* Página de llaves de API: formulario y tabla, cómodos en móvil y en escritorio. */
+:host {
+  display: block;
+}
+
+.keys-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-4);
+  max-inline-size: 72rem;
+  margin-inline: auto;
+}
+
+.keys-lead,
+.keys-hint {
+  margin: 0;
+  color: var(--if-color-text-muted);
+}
+
+.keys-subtitle {
+  margin: 0;
+  font-size: var(--if-font-size-lg);
+}
+
+.keys-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-3);
+  max-inline-size: 36rem;
+  padding: var(--if-space-4);
+  background: var(--if-color-surface);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-md);
+}
+
+.keys-scopes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-2);
+  margin: 0;
+  padding: var(--if-space-3);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-sm);
+}
+
+.keys-scopes legend {
+  font-weight: var(--if-font-weight-medium);
+}
+
+.keys-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+  align-items: center;
+}
+
+.keys-scope-code {
+  color: var(--if-color-text-muted);
+  font-size: var(--if-font-size-sm);
+}
+
+.keys-message {
+  margin: 0;
+}
+
+.keys-message--error {
+  color: var(--if-color-danger);
+}
+
+.keys-notice {
+  margin: 0;
+  padding: var(--if-space-3);
+  background: var(--if-color-primary-subtle);
+  border-radius: var(--if-radius-sm);
+}
+
+.keys-status {
+  color: var(--if-color-success);
+  font-weight: var(--if-font-weight-medium);
+}
+
+.keys-status--revoked {
+  color: var(--if-color-text-muted);
+}
+
+.keys-secret-label {
+  margin-block-end: var(--if-space-1);
+  font-weight: var(--if-font-weight-medium);
+}
+
+.keys-secret {
+  display: block;
+  padding: var(--if-space-3);
+  font-family: var(--if-font-family-mono);
+  overflow-wrap: anywhere;
+  background: var(--if-color-bg);
+  border: 1px solid var(--if-color-border-strong);
+  border-radius: var(--if-radius-sm);
+  user-select: all;
+}
+
+.keys-copied {
+  min-block-size: 1.5em;
+  margin: var(--if-space-2) 0 0;
+  color: var(--if-color-success);
+}
+
+.keys-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--if-space-2);
+}
