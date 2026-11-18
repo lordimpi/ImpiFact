@@ -34,6 +34,8 @@ internal sealed class RequestPasswordResetValidator : AbstractValidator<RequestP
         RuleFor(command => command.Email)
             .NotEmpty().WithMessage("El correo es obligatorio.")
             .MaximumLength(255).WithMessage("El correo admite hasta 255 caracteres.")
+            // PostgreSQL no acepta el carácter nulo en un texto: sin esta regla, buscar el correo terminaba en un 500.
+            .Must(email => !email.Any(char.IsControl)).WithMessage("El correo no admite caracteres de control.")
             .OverridePropertyName("email");
 }
 
@@ -45,8 +47,12 @@ internal sealed class RequestPasswordResetValidator : AbstractValidator<RequestP
 /// </summary>
 /// <remarks>
 /// La diferencia que queda (las escrituras en la base) es de milisegundos, y el límite estricto de intentos por IP
-/// (el del inicio de sesión) vuelve muy cara una medición estadística. Si dos solicitudes del mismo usuario llegan a la
-/// vez pueden quedar dos tokens vigentes; los dos van al mismo correo y vencen igual.
+/// (el del inicio de sesión) vuelve muy cara una medición estadística. Dejar sin efecto los tokens anteriores es un solo
+/// UPDATE en la base, sin token de concurrencia: si varias solicitudes del mismo usuario llegan a la vez, la segunda
+/// espera a la primera y no choca con ella, así que todas responden el mismo 202 que un correo desconocido. Pueden
+/// quedar varios tokens vigentes (uno por solicitud simultánea); todos van al mismo correo y vencen igual. Si aun así
+/// el guardado choca con otra solicitud, la ruta responde el mismo 202 (ver el endpoint de Identity): un 409 solo
+/// para los correos registrados revelaría que la cuenta existe.
 /// </remarks>
 internal sealed class RequestPasswordResetHandler(
     IUserStore users,

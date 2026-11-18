@@ -153,6 +153,23 @@ public sealed class PasswordResetHandlerTests
         });
     }
 
+    [TestCase("a\u0000b@example.com")]
+    [TestCase("ana\u0001@example.com")]
+    public void The_request_email_rejects_control_characters(string email)
+    {
+        var validator = new RequestPasswordResetValidator();
+
+        var withControl = validator.Validate(new RequestPasswordResetCommand(email, null));
+        var valid = validator.Validate(new RequestPasswordResetCommand("ana@example.com", null));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withControl.Errors.Select(error => (error.PropertyName, error.ErrorMessage)),
+                Is.EqualTo(new[] { ("email", "El correo no admite caracteres de control.") }));
+            Assert.That(valid.IsValid, Is.True);
+        });
+    }
+
     [Test]
     public async Task The_email_carries_the_panel_link_with_the_decrypted_token_through_the_platform_server()
     {

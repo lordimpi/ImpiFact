@@ -96,7 +96,10 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "`refresh_token`): debe volver a iniciar sesión. Responde 204. Un token desconocido, vencido, ya usado o " +
                 "reemplazado por otro más nuevo responde el mismo 422 (`identity.invalid_reset_token`), sin decir cuál de los " +
                 "casos es; una contraseña que no cumple la política responde 422 con el detalle en `errors.new_password` y no " +
-                "gasta el token. Comparte el límite de intentos del inicio de sesión (429).");
+                "gasta el token. Si dos confirmaciones con el mismo token llegan a la vez, o el usuario pide otro enlace " +
+                "mientras tanto, solo una gana: la otra responde 409 (`persistence.conflict`) sin cambiar nada, y volver a " +
+                "intentarla con ese token responde el mismo 422 (`identity.invalid_reset_token`). Comparte el límite de intentos del inicio " +
+                "de sesión (429).");
 
         var apiKeys = endpoints.MapGroup("/api/v1/api-keys").WithTags(ApiTags.Identity).RequireAuthorization(IdentityPolicies.ManageCredentials);
         apiKeys.MapPost("/", CreateApiKeyAsync).AddEndpointFilter(NoStore)
@@ -257,13 +260,27 @@ internal sealed class IdentityEndpoints : IEndpointModule
             new CreateUserCommand(body.Email ?? "", body.Password ?? "", body.Name ?? "", body.Phone, body.Role ?? ""), ct))
         .ToHttpResult(created => TypedResults.Created($"/api/v1/users/{created.Id}", created));
 
+    // Un choque al guardar (otra solicitud simultánea del mismo usuario) solo puede pasar con un correo registrado: si
+    // saliera como 409 revelaría que la cuenta existe. Por eso responde el mismo 202 que en los demás casos. El registro
+    // no lleva el correo ni el token.
     private static async Task<IResult> RequestPasswordResetAsync(
         PasswordResetRequestBody body,
         HttpContext context,
         [FromServices] IHandler<RequestPasswordResetCommand, PasswordResetRequested> handler,
-        CancellationToken ct) =>
-        (await handler.HandleAsync(new RequestPasswordResetCommand(body.Email ?? "", ClientIp(context)), ct))
-        .ToHttpResult(requested => TypedResults.Accepted((string?)null, requested));
+        [FromServices] ILogger<IdentityEndpoints> logger,
+        CancellationToken ct)
+    {
+        var result = await handler.HandleAsync(new RequestPasswordResetCommand(body.Email ?? "", ClientIp(context)), ct);
+        if (!result.IsSuccess && result.Error.Type == ErrorType.Conflict)
+        {
+            logger.LogWarning(
+                "A password reset request conflicted with a simultaneous request ({ErrorCode}); it answers the usual 202.",
+                result.Error.Code);
+            result = PasswordResetRequested.Instance;
+        }
+
+        return result.ToHttpResult(requested => TypedResults.Accepted((string?)null, requested));
+    }
 
     private static async Task<IResult> ConfirmPasswordResetAsync(
         PasswordResetConfirmBody body,
