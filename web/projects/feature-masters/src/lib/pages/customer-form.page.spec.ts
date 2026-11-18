@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ToastStore } from '@impifact/core';
-import { fireEvent, screen, waitFor } from '@testing-library/angular';
+import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
 import { catalogRequests } from '../testing/catalog-fixtures';
 import { expectRequest, problem, renderMastersRoute } from '../testing/masters-testing';
 
@@ -17,6 +17,17 @@ const optionTexts = (label: RegExp) =>
     option.textContent?.trim(),
   );
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+const municipality = () => screen.getByRole('combobox', { name: /^Municipio/ }) as HTMLInputElement;
+const municipalityOptions = () =>
+  within(screen.getByRole('listbox'))
+    .queryAllByRole('option')
+    .map((option) => option.textContent?.trim());
+
+/** Elige el municipio en el combobox: escribe para buscar y hace clic en la opción. */
+async function pickMunicipality(search: string, name: string) {
+  fireEvent.input(municipality(), { target: { value: search } });
+  fireEvent.click(await screen.findByRole('option', { name }));
+}
 const toastTexts = () =>
   TestBed.inject(ToastStore)
     .toasts()
@@ -27,7 +38,7 @@ async function openNew() {
   await screen.findByRole('heading', { level: 1, name: 'Nuevo cliente' });
   // Las listas salen de los catálogos del Api.
   await waitFor(() => expect(optionTexts(/^Tipo de identificación/)).toContain('NIT'));
-  await waitFor(() => expect(optionTexts(/^Municipio/)).toContain('Bogotá, D.C. (Bogotá)'));
+  await waitFor(() => expect(optionTexts(/^Departamento/)).toContain('Bogotá'));
   return rendered;
 }
 
@@ -37,7 +48,7 @@ function fillNit() {
 }
 
 describe('CustomerFormPage', () => {
-  it('fills the lists from the DIAN catalogs and searches municipalities on the server', async () => {
+  it('fills the lists from the DIAN catalogs and searches the municipalities of the chosen department', async () => {
     await openNew();
     const names = catalogRequests.map((request) => request.url.replace('/api/v1/catalogs/', ''));
     expect(names).toEqual(
@@ -47,17 +58,51 @@ describe('CustomerFormPage', () => {
         'regimes',
         'liabilities',
         'departments',
-        'municipalities',
       ]),
     );
+    expect(names).not.toContain('municipalities');
     expect(optionTexts(/^Responsabilidad fiscal/)).toContain('O-13 Gran contribuyente');
-    expect(optionTexts(/^Municipio/)).toContain('Medellín (Antioquia)');
+    expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
 
-    fireEvent.input(screen.getByLabelText(/^Buscar municipio/), { target: { value: 'bogo' } });
+    choose(/^Departamento/, '4');
+    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('4'));
+    fireEvent.input(municipality(), { target: { value: 'bogo' } });
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('bogo'));
-    await waitFor(() =>
-      expect(optionTexts(/^Municipio/)).toEqual(['Sin seleccionar', 'Bogotá, D.C. (Bogotá)']),
+    await waitFor(() => expect(municipalityOptions()).toEqual(['Bogotá, D.C.']));
+    expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
+  });
+
+  it('accepts only digits for a NIT or a cédula but letters for a passport', async () => {
+    await openNew();
+
+    choose(/^Tipo de identificación/, '6');
+    type(/^Número de identificación/, '900.123.456-x');
+    expect(field(/^Número de identificación/).value).toBe('900123456');
+    expect(field(/^Número de identificación/).getAttribute('inputmode')).toBe('numeric');
+
+    choose(/^Tipo de identificación/, '7');
+    type(/^Número de identificación/, 'AB123456');
+    expect(field(/^Número de identificación/).value).toBe('AB123456');
+    expect(field(/^Número de identificación/).getAttribute('inputmode')).toBeNull();
+
+    type(/^Teléfono/, '300 123 4567');
+    expect(field(/^Teléfono/).value).toBe('3001234567');
+  });
+
+  it('computes the check digit of a NIT and explains every field', async () => {
+    await openNew();
+    fillNit();
+
+    const dv = (await screen.findByLabelText(/Dígito de verificación/)) as HTMLInputElement;
+    expect(dv.readOnly).toBe(true);
+    await waitFor(() => expect(dv.value).toBe('8'));
+    const name = field(/^Nombre o razón social/);
+    const help = document.getElementById(
+      (name.getAttribute('aria-describedby') ?? '').split(' ')[0]!,
     );
+    expect(help?.textContent).toContain('(por ejemplo, ACUÑA OBANDO SANTIAGO)');
+    expect(screen.getAllByRole('tooltip', { hidden: true }).length).toBe(13);
+    expect(screen.getByText(/Es opcional: déjelo vacío si el cliente no tiene/)).toBeTruthy();
   });
 
   it('shows the check digit only for a NIT', async () => {
@@ -83,10 +128,10 @@ describe('CustomerFormPage', () => {
   it('shows the server field errors next to each field and then saves', async () => {
     const { http, router } = await openNew();
     fillNit();
-    type(/Dígito de verificación/, '1');
     type(/^Nombre o razón social/, 'Ana Comercial SAS');
     type(/Correo para recibir facturas/, 'facturas@ana.test');
-    choose(/^Municipio/, '149');
+    choose(/^Departamento/, '4');
+    await pickMunicipality('bogo', 'Bogotá, D.C.');
 
     save();
     const rejected = await expectRequest(http, '/api/v1/customers');
@@ -94,7 +139,7 @@ describe('CustomerFormPage', () => {
     expect(rejected.request.body).toEqual({
       type_document_identification_id: 6,
       identification_number: '900123456',
-      dv: '1',
+      dv: '8',
       name: 'Ana Comercial SAS',
       phone: null,
       address: null,
@@ -113,14 +158,15 @@ describe('CustomerFormPage', () => {
     expect(
       await screen.findByText('Error, el digito de verificacion no es valido para este NIT.'),
     ).toBeTruthy();
-    expect(field(/Dígito de verificación/).getAttribute('aria-invalid')).toBe('true');
+    // El DV se calcula del número: el error se muestra en el número, que es lo que hay que corregir.
+    expect(field(/^Número de identificación/).getAttribute('aria-invalid')).toBe('true');
     expect(router.url).toBe('/clientes/nuevo');
     expect(toastTexts()).toEqual([]);
 
-    type(/Dígito de verificación/, '8');
+    type(/^Número de identificación/, '800197268');
     save();
     const accepted = await expectRequest(http, '/api/v1/customers');
-    expect((accepted.request.body as { dv: string }).dv).toBe('8');
+    expect(accepted.request.body).toMatchObject({ identification_number: '800197268', dv: '4' });
     accepted.flush({ id: 'c-9', name: 'Ana Comercial SAS', is_active: true });
 
     await waitFor(() => expect(router.url).toBe('/clientes'));
@@ -237,7 +283,9 @@ describe('CustomerFormPage', () => {
     });
     expect(await screen.findByRole('heading', { level: 1, name: 'Editar cliente' })).toBeTruthy();
     await waitFor(() => expect(field(/^Nombre o razón social/).value).toBe('Ana Pérez'));
-    expect((screen.getByLabelText(/^Municipio/) as HTMLSelectElement).value).toBe('1');
+    // El departamento sale del municipio guardado.
+    await waitFor(() => expect(field(/^Departamento/).value).toBe('2'));
+    await waitFor(() => expect(municipality().value).toBe('Medellín'));
 
     type(/^Nombre o razón social/, 'Ana María Pérez');
     save();

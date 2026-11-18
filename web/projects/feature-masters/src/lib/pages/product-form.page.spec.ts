@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ToastStore } from '@impifact/core';
-import { fireEvent, screen, waitFor } from '@testing-library/angular';
+import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
 import { catalogRequests } from '../testing/catalog-fixtures';
 import { expectRequest, problem, renderMastersRoute } from '../testing/masters-testing';
 
@@ -16,6 +16,12 @@ const optionTexts = (label: RegExp) =>
     option.textContent?.trim(),
   );
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+const unitMeasure = () =>
+  screen.getByRole('combobox', { name: /^Unidad de medida/ }) as HTMLInputElement;
+const unitOptions = () =>
+  within(screen.getByRole('listbox'))
+    .queryAllByRole('option')
+    .map((option) => option.textContent?.trim());
 const toastTexts = () =>
   TestBed.inject(ToastStore)
     .toasts()
@@ -34,21 +40,20 @@ describe('ProductFormPage', () => {
       expect(optionTexts(/^Impuesto/)).toContain('IVA (Impuesto sobre la Ventas)'),
     );
     expect(optionTexts(/^Impuesto/).join()).not.toContain('ReteIVA');
-    await waitFor(() => expect(optionTexts(/^Unidad de medida/)).toContain('unidad (94)'));
+    await waitFor(() => expect(unitMeasure().value).toBe('unidad (94)'));
 
-    fireEvent.input(screen.getByLabelText(/^Buscar unidad de medida/), {
-      target: { value: 'kgm' },
-    });
+    fireEvent.input(unitMeasure(), { target: { value: 'kgm' } });
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('kgm'));
     // La unidad elegida sigue en la lista aunque la búsqueda no la traiga.
-    await waitFor(() =>
-      expect(optionTexts(/^Unidad de medida/)).toEqual(['kilogramo (KGM)', 'unidad (94)']),
-    );
+    await waitFor(() => expect(unitOptions()).toEqual(['kilogramo (KGM)', 'unidad (94)']));
+    fireEvent.click(screen.getByRole('option', { name: 'kilogramo (KGM)' }));
+    expect(unitMeasure().value).toBe('kilogramo (KGM)');
+    expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
   });
 
   it('starts with the unit measure and marks the required fields', async () => {
     const { http } = await openNew();
-    expect((screen.getByLabelText(/^Unidad de medida/) as HTMLSelectElement).value).toBe('70');
+    await waitFor(() => expect(unitMeasure().value).toBe('unidad (94)'));
     expect(screen.queryByLabelText(/Producto activo/)).toBeNull();
 
     save();
