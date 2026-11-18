@@ -10,18 +10,20 @@ import {
   SmallCatalogName,
   ToastStore,
   catalogOptions,
-  catalogSearch,
-  municipalityLabel,
+  municipalityPicker,
   optionsWith,
+  syncCheckDigit,
 } from '@impifact/core';
 import {
   ButtonComponent,
+  ComboboxComponent,
+  ComboboxLabels,
   DialogComponent,
+  DigitsOnlyDirective,
   FieldComponent,
+  HelpComponent,
   InputDirective,
   PageTitleComponent,
-  SearchSelectComponent,
-  SearchSelectLabels,
   SelectDirective,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -51,14 +53,15 @@ interface CreatedCompany extends UserCompany {
 /** Formato propio del error de patrón de algunos campos. */
 const FORMAT_KEYS: Partial<Record<keyof NewCompanyModel, string>> = {
   nit: 'newCompany.nitFormat',
-  dv: 'newCompany.dvFormat',
   phone: 'newCompany.phoneFormat',
 };
 
 /**
  * Página `/plataforma/empresas/nueva`: el administrador de la plataforma da de alta una empresa (`createCompany`,
- * `POST /api/v1/companies/{nit}/{dv}`) con los catálogos de la DIAN del Api. El dígito de verificación lo valida el
- * Api y sus errores por campo salen junto a cada campo. La llave de API inicial de la empresa se muestra **una sola
+ * `POST /api/v1/companies/{nit}/{dv}`) con los catálogos de la DIAN del Api. El NIT y el teléfono solo admiten
+ * dígitos; el dígito de verificación se calcula del NIT (el Api lo vuelve a revisar); el municipio se elige después
+ * del departamento, en un combobox con búsqueda; cada campo explica qué poner en su tooltip. Los errores por campo
+ * del Api salen junto a cada campo. La llave de API inicial de la empresa se muestra **una sola
  * vez** en un diálogo con botón de copiar y sale de la memoria al cerrarlo; enseguida se ofrece crear el dueño. Si
  * el NIT ya existía, el Api actualiza sus datos sin llave nueva y la página lo dice.
  */
@@ -71,9 +74,11 @@ const FORMAT_KEYS: Partial<Record<keyof NewCompanyModel, string>> = {
     ButtonComponent,
     DialogComponent,
     FieldComponent,
+    HelpComponent,
     InputDirective,
     PageTitleComponent,
-    SearchSelectComponent,
+    ComboboxComponent,
+    DigitsOnlyDirective,
     SelectDirective,
     CompanyUserDialogComponent,
     PlatformNavComponent,
@@ -135,21 +140,24 @@ export class NewCompanyPage {
     () => this.model().type_organization_id,
   );
   protected readonly regimes = this.catalogField('regimes', () => this.model().type_regime_id);
-  private readonly departments = this.catalogs.items('departments');
-  protected readonly municipalities = catalogSearch('municipalities', {
+  protected readonly location = municipalityPicker({
     current: () => this.model().municipality_id,
     otherName: this.other,
-    format: (item) => municipalityLabel(item, this.departments()),
+    clear: () => this.model.update((current) => ({ ...current, municipality_id: '' })),
   });
-  protected readonly municipalityLabels: SearchSelectLabels = {
-    search: this.text('newCompany.municipalitySearch'),
-    hint: this.text('newCompany.municipalitySearchHint'),
+  protected readonly municipalities = this.location.municipalities;
+  protected readonly municipalityLabels: ComboboxLabels = {
+    idle: this.text('newCompany.municipalityIdle'),
     loading: this.text('common.catalog.loading'),
     error: this.text('common.catalog.error'),
     empty: this.text('newCompany.municipalityNone'),
-    more: this.text('newCompany.municipalityMore'),
     retry: this.text('common.retry'),
   };
+
+  constructor() {
+    // El DV no se escribe: sale del NIT.
+    syncCheckDigit(this.model, (current) => current.nit);
+  }
 
   protected readonly errors = computed(() => {
     const translate = (key: string, params?: Record<string, unknown>) => this.text(key, params);
@@ -245,6 +253,7 @@ export class NewCompanyPage {
     this.userDone.set(null);
     this.model.set(emptyNewCompany());
     this.companyForm().reset();
+    this.location.selectDepartment('');
   }
 
   private showError(error: unknown) {
@@ -259,7 +268,16 @@ export class NewCompanyPage {
       this.generalError.set(this.text('newCompany.platformOnly'));
       return undefined;
     }
-    const onFields = serverFieldErrors(this.companyForm, NEW_COMPANY_FIELDS, error);
+    const onFields = serverFieldErrors(
+      this.companyForm,
+      NEW_COMPANY_FIELDS.filter((name) => name !== 'dv'),
+      error,
+    );
+    // El DV sale del NIT y es de solo lectura: si el Api lo rechaza, el que hay que corregir es el NIT.
+    const dv = error.fieldErrors['dv']?.[0];
+    if (dv) {
+      onFields.push({ kind: 'server', message: dv, fieldTree: this.companyForm.nit as never });
+    }
     // El Api nombra `type_liability_id` cuando falta la responsabilidad (regla heredada del PHP).
     const liability = error.fieldErrors['type_liability_id']?.[0];
     if (liability) {

@@ -63,19 +63,33 @@
         <p class="platform-message platform-message--error" role="alert">{{ message }}</p>
       }
       <div class="platform-form-row">
+        @if (editing()) {
+          <ui-field
+            [label]="'platform.planForm.id' | transloco"
+            [hint]="'platform.planForm.idReadOnly' | transloco"
+            [help]="'platform.planForm.help.id' | transloco"
+            [error]="errors().id"
+          >
+            <input uiInput type="text" tabindex="-1" [formField]="planForm.id" />
+          </ui-field>
+        }
         <ui-field
-          [label]="'platform.planForm.id' | transloco"
-          [hint]="'platform.planForm.idHint' | transloco"
-          [error]="errors().id"
+          [label]="'platform.planForm.name' | transloco"
+          [help]="'platform.planForm.help.name' | transloco"
+          [error]="errors().name"
           required
         >
-          <input uiInput type="text" inputmode="numeric" [formField]="planForm.id" />
-        </ui-field>
-        <ui-field [label]="'platform.planForm.name' | transloco" [error]="errors().name" required>
-          <input uiInput type="text" autocomplete="off" [formField]="planForm.name" />
+          <input
+            uiInput
+            type="text"
+            autocomplete="off"
+            [placeholder]="'platform.planForm.namePlaceholder' | transloco"
+            [formField]="planForm.name"
+          />
         </ui-field>
         <ui-field
           [label]="'platform.planForm.period' | transloco"
+          [help]="'platform.planForm.help.period' | transloco"
           [error]="errors().period"
           required
         >
@@ -87,54 +101,95 @@
         </ui-field>
       </div>
 
-      <fieldset class="platform-fieldset">
-        <legend>{{ 'platform.planForm.quantities' | transloco }}</legend>
+      <fieldset class="platform-fieldset" aria-describedby="plan-quantities-help">
+        <legend>
+          {{ 'platform.planForm.quantities' | transloco }}
+          <ui-help
+            tooltipId="plan-quantities-help"
+            [label]="'platform.planForm.quantities' | transloco"
+            [text]="'platform.planForm.help.quantities' | transloco"
+          />
+        </legend>
         <div class="platform-form-row">
           <ui-field
             [label]="'platform.planForm.invoice' | transloco"
+            [help]="'platform.planForm.help.invoice' | transloco"
             [error]="errors().qty_docs_invoice"
           >
             <input
               uiInput
+              uiDigitsOnly
               type="text"
-              inputmode="numeric"
+              [placeholder]="'platform.planForm.quantityPlaceholder' | transloco"
               [formField]="planForm.qty_docs_invoice"
             />
           </ui-field>
           <ui-field
             [label]="'platform.planForm.payroll' | transloco"
+            [help]="'platform.planForm.help.payroll' | transloco"
             [error]="errors().qty_docs_payroll"
           >
             <input
               uiInput
+              uiDigitsOnly
               type="text"
-              inputmode="numeric"
+              [placeholder]="'platform.planForm.quantityPlaceholder' | transloco"
               [formField]="planForm.qty_docs_payroll"
             />
           </ui-field>
           <ui-field
             [label]="'platform.planForm.radian' | transloco"
+            [help]="'platform.planForm.help.radian' | transloco"
             [error]="errors().qty_docs_radian"
           >
-            <input uiInput type="text" inputmode="numeric" [formField]="planForm.qty_docs_radian" />
+            <input
+              uiInput
+              uiDigitsOnly
+              type="text"
+              [placeholder]="'platform.planForm.quantityPlaceholder' | transloco"
+              [formField]="planForm.qty_docs_radian"
+            />
           </ui-field>
-          <ui-field [label]="'platform.planForm.ds' | transloco" [error]="errors().qty_docs_ds">
-            <input uiInput type="text" inputmode="numeric" [formField]="planForm.qty_docs_ds" />
+          <ui-field
+            [label]="'platform.planForm.ds' | transloco"
+            [help]="'platform.planForm.help.ds' | transloco"
+            [error]="errors().qty_docs_ds"
+          >
+            <input
+              uiInput
+              uiDigitsOnly
+              type="text"
+              [placeholder]="'platform.planForm.quantityPlaceholder' | transloco"
+              [formField]="planForm.qty_docs_ds"
+            />
           </ui-field>
         </div>
       </fieldset>
 
       <ui-field
         [label]="'platform.planForm.observations' | transloco"
+        [help]="'platform.planForm.help.observations' | transloco"
         [error]="errors().observations"
       >
-        <textarea uiInput rows="2" [formField]="planForm.observations"></textarea>
+        <textarea
+          uiInput
+          rows="2"
+          [placeholder]="'platform.planForm.observationsPlaceholder' | transloco"
+          [formField]="planForm.observations"
+        ></textarea>
       </ui-field>
 
-      <label class="platform-check">
-        <input type="checkbox" [formField]="planForm.state" />
-        {{ 'platform.planForm.state' | transloco }}
-      </label>
+      <div class="platform-check platform-check--help">
+        <label class="platform-check">
+          <input type="checkbox" aria-describedby="plan-state-help" [formField]="planForm.state" />
+          {{ 'platform.planForm.state' | transloco }}
+        </label>
+        <ui-help
+          tooltipId="plan-state-help"
+          [label]="'platform.planForm.state' | transloco"
+          [text]="'platform.planForm.help.state' | transloco"
+        />
+      </div>
 
       <!-- Los botones van dentro del formulario para que «Guardar» lo envíe (también con Enter). -->
       <div class="platform-actions">

@@ -1,6 +1,14 @@
 import { HttpContext } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { Api, PlanResponse, StorePlanCommand, listPlans, savePlan } from '@impifact/api';
+import {
+  Api,
+  CreatePlanCommand,
+  PlanResponse,
+  StorePlanCommand,
+  createPlan,
+  listPlans,
+  savePlan,
+} from '@impifact/api';
 import { SKIP_ERROR_TOAST } from '@impifact/core';
 import { patchState, signalStore, withMethods, withProps, withState } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
@@ -72,17 +80,19 @@ export const PlatformPlansStore = signalStore(
       }
     },
     /**
-     * Crea o actualiza (`PUT /plans/{id}`). Lanza el error sin aviso automático: el formulario lo muestra junto a
-     * su campo.
+     * Crea un plan (`POST /plans`); el Api le asigna el id. Lanza el error sin aviso automático: el formulario lo
+     * muestra junto a su campo.
      */
+    async create(body: CreatePlanCommand): Promise<void> {
+      await firstValueFrom(
+        store._api.invoke(createPlan, { body }, new HttpContext().set(SKIP_ERROR_TOAST, true)),
+      );
+    },
+    /** Cambia un plan que ya existe (`PUT /plans/{id}`). Lanza el error sin aviso automático, como `create`. */
     async save(id: number, body: StorePlanCommand): Promise<void> {
       await firstValueFrom(
         store._api.invoke(savePlan, { id, body }, new HttpContext().set(SKIP_ERROR_TOAST, true)),
       );
-    },
-    /** El siguiente id libre, para proponerlo al crear un plan. */
-    nextId(): number {
-      return store.plans().reduce((max, plan) => Math.max(max, plan.id), 0) + 1;
     },
   })),
 );
