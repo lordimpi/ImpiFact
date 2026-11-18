@@ -72,7 +72,8 @@ function fakeJwt(companyId: string | null, roles: string[], scopes: string[]): s
   return `${base64Url({ alg: 'ES256', typ: 'JWT' })}.${base64Url(claims)}.firma`;
 }
 
-function tokens(
+/** Respuesta de login y renovación del Api simulado (también la usan las pruebas que simulan otro usuario). */
+export function sessionTokens(
   companyId: string | null,
   companies: string[],
   roles: string[] = ['owner'],
@@ -121,7 +122,7 @@ export async function mockApi(page: Page, options: MockApiOptions = {}): Promise
     // Como el Api: con una sola empresa queda activa; con varias, la persona elige.
     session = { companyId: companies.length === 1 ? companies[0]! : null };
     return route.fulfill({
-      json: tokens(session.companyId, companies, options.roles, options.scopes),
+      json: sessionTokens(session.companyId, companies, options.roles, options.scopes),
     });
   });
 
@@ -138,7 +139,7 @@ export async function mockApi(page: Page, options: MockApiOptions = {}): Promise
       session.companyId = body.company_id;
     }
     return route.fulfill({
-      json: tokens(session.companyId, companies, options.roles, options.scopes),
+      json: sessionTokens(session.companyId, companies, options.roles, options.scopes),
     });
   });
 
