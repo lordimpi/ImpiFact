@@ -38,40 +38,9 @@ internal sealed class StorePlanHandler(IPlanStore plans, ITenantContext tenant, 
             return Error.Validation([new FieldError("name", PlanMessages.Unique("name"))]);
         }
 
-        var now = clock.UtcNow;
-        var createdAt = plan?.CreatedAt ?? now;
-        if (plan is null)
-        {
-            plan = new Plan { Id = id, Name = name };
-            plans.Add(plan);
-        }
-
-        plan.Name = name;
-        plan.Period = (PlanPeriod)request.Period!.Value;
-        plan.IsActive = request.State ?? true;
-        plan.Observations = request.Observations;
-
-        var quotas = (await plans.FindQuotasAsync(id, ct)).ToDictionary(quota => quota.DocumentKind);
-        var values = new Dictionary<DocumentKind, long>
-        {
-            [DocumentKind.Invoice] = request.QtyDocsInvoice!.Value,
-            [DocumentKind.Payroll] = request.QtyDocsPayroll!.Value,
-            [DocumentKind.Events] = request.QtyDocsRadian!.Value,
-            [DocumentKind.SupportDocument] = request.QtyDocsDs!.Value,
-        };
-        foreach (var (kind, quantity) in values)
-        {
-            if (quotas.TryGetValue(kind, out var quota))
-            {
-                quota.Quantity = quantity;
-            }
-            else
-            {
-                plans.Add(new PlanQuota { PlanId = id, DocumentKind = kind, Quantity = quantity });
-            }
-        }
-
-        // El guardado pone las fechas con el mismo reloj al final de la solicitud; la respuesta las anticipa.
-        return new PlanSavedResponse { Plan = PlanResponse.From(plan, values, createdAt, now) };
+        var values = new PlanValues(
+            (PlanPeriod)request.Period!.Value, request.State ?? true, request.Observations, request.QtyDocsInvoice!.Value,
+            request.QtyDocsPayroll!.Value, request.QtyDocsRadian!.Value, request.QtyDocsDs!.Value);
+        return new PlanSavedResponse { Plan = await PlanWriter.SaveAsync(plans, plan, id, name, values, clock.UtcNow, ct) };
     }
 }

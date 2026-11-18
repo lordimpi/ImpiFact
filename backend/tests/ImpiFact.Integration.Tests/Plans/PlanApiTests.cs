@@ -151,6 +151,103 @@ public sealed class PlanApiTests
         });
     }
 
+    [Test]
+    public async Task Post_plans_assigns_the_next_id_and_answers_201_with_the_plan()
+    {
+        using var platform = await PlansHost.PlatformAsync();
+        var existing = await CreatePlanAsync(platform);
+        var name = $"Creado {Guid.NewGuid():N}"[..30];
+
+        using var response = await platform.PostAsJsonAsync("/api/v1/plans", new Dictionary<string, object?>
+        {
+            ["name"] = name, ["qty_docs_invoice"] = 100, ["qty_docs_payroll"] = "5", ["qty_docs_radian"] = 7, ["qty_docs_ds"] = 0,
+            ["period"] = 1, ["observations"] = "Plan de prueba",
+        });
+
+        using var json = await JsonAsync(response, HttpStatusCode.Created);
+        var plan = json.RootElement.GetProperty("plan");
+        var id = plan.GetProperty("id").GetInt32();
+        await using var scope = Api.OpenScope(null, null, ActorType.System);
+        var maxBefore = await scope.Db.Set<Plan>().AsNoTracking().Where(row => row.Id != id).MaxAsync(row => row.Id);
+        var stored = await scope.Db.Set<Plan>().AsNoTracking().SingleAsync(row => row.Id == id);
+        var quotas = await scope.Db.Set<PlanQuota>().AsNoTracking().CountAsync(row => row.PlanId == id);
+        Assert.Multiple(() =>
+        {
+            Assert.That(id, Is.GreaterThan(existing));
+            Assert.That(id, Is.EqualTo(maxBefore + 1), "The new plan takes the id after the highest one.");
+            Assert.That(response.Headers.Location?.ToString(), Is.EqualTo($"/api/v1/plans/{id}"));
+            Assert.That(plan.ToString(), Is.EqualTo(PlanJson(id, name, 100, 5, 7, 0, 1, true, "Plan de prueba")));
+            Assert.That((stored.Name, stored.Period), Is.EqualTo((name, PlanPeriod.Monthly)));
+            Assert.That(quotas, Is.EqualTo(4));
+        });
+    }
+
+    [Test]
+    public async Task Post_plans_ignores_an_id_in_the_body_and_never_overwrites_a_plan()
+    {
+        using var platform = await PlansHost.PlatformAsync();
+        var existing = await CreatePlanAsync(platform, invoices: 100);
+
+        using var response = await platform.PostAsJsonAsync("/api/v1/plans", new Dictionary<string, object?>
+        {
+            ["id"] = existing, ["name"] = $"Otro {existing}", ["qty_docs_invoice"] = 1, ["qty_docs_payroll"] = 0,
+            ["qty_docs_radian"] = 0, ["qty_docs_ds"] = 0, ["period"] = 3,
+        });
+
+        using var json = await JsonAsync(response, HttpStatusCode.Created);
+        await using var scope = Api.OpenScope(null, null, ActorType.System);
+        var kept = await scope.Db.Set<Plan>().AsNoTracking().SingleAsync(row => row.Id == existing);
+        Assert.Multiple(() =>
+        {
+            Assert.That(json.RootElement.GetProperty("plan").GetProperty("id").GetInt32(), Is.Not.EqualTo(existing));
+            Assert.That(kept.Name, Is.EqualTo($"Plan {existing}"));
+        });
+    }
+
+    [Test]
+    public async Task Post_plans_needs_a_unique_name_and_the_quantities_and_the_period()
+    {
+        using var platform = await PlansHost.PlatformAsync();
+        var existing = await CreatePlanAsync(platform);
+
+        using var empty = await platform.PostAsJsonAsync("/api/v1/plans", new { });
+        using var taken = await platform.PostAsJsonAsync("/api/v1/plans", Body(0, $"Plan {existing}"));
+
+        using var emptyJson = await JsonAsync(empty, HttpStatusCode.UnprocessableEntity);
+        using var takenJson = await JsonAsync(taken, HttpStatusCode.UnprocessableEntity);
+        var missing = emptyJson.RootElement.GetProperty("errors");
+        Assert.Multiple(() =>
+        {
+            Assert.That(missing.GetProperty("name")[0].GetString(), Is.EqualTo("El campo name es obligatorio."));
+            Assert.That(missing.GetProperty("qty_docs_invoice")[0].GetString(), Is.EqualTo("El campo qty docs invoice es obligatorio."));
+            Assert.That(missing.GetProperty("period")[0].GetString(), Is.EqualTo("El campo period es obligatorio."));
+            Assert.That(missing.TryGetProperty("id", out _), Is.False, "The id is assigned by the server.");
+            Assert.That(takenJson.RootElement.GetProperty("errors").GetProperty("name")[0].GetString(), Is.EqualTo("name ya ha sido registrado."));
+        });
+    }
+
+    [Test]
+    public async Task Concurrent_post_plans_get_distinct_ids()
+    {
+        using var platform = await PlansHost.PlatformAsync();
+        var prefix = Guid.NewGuid().ToString("N")[..8];
+
+        var responses = await Task.WhenAll(Enumerable.Range(0, 4).Select(index =>
+            platform.PostAsJsonAsync("/api/v1/plans", Body(0, $"Paralelo {prefix} {index}"))));
+
+        var ids = new List<int>();
+        foreach (var response in responses)
+        {
+            using (response)
+            {
+                using var json = await JsonAsync(response, HttpStatusCode.Created);
+                ids.Add(json.RootElement.GetProperty("plan").GetProperty("id").GetInt32());
+            }
+        }
+
+        Assert.That(ids, Is.Unique);
+    }
+
     // Correcciones al PHP: un plan nuevo sin nombre respondía un 500, y la regla unique chocaba con el mismo plan.
     [Test]
     public async Task A_new_plan_needs_a_name_and_another_plan_cannot_take_it()
@@ -333,6 +430,7 @@ public sealed class PlanApiTests
             (HttpMethod.Put, "/api/ubl2.1/plan"), (HttpMethod.Get, "/api/ubl2.1/plan/query"), (HttpMethod.Get, $"/api/ubl2.1/plan/query/{id}"),
             (HttpMethod.Get, $"/api/ubl2.1/plan/queryusersbyplan/{id}"), (HttpMethod.Get, "/api/v1/plans"), (HttpMethod.Put, $"/api/v1/plans/{id}"),
             (HttpMethod.Get, $"/api/v1/plans/{id}/companies"), (HttpMethod.Put, $"/api/v1/companies/{company.Nit}/plan"),
+            (HttpMethod.Post, "/api/v1/plans"),
         };
 
         foreach (var (method, path) in routes)
@@ -401,7 +499,7 @@ public sealed class PlanApiTests
     private static Task<HttpResponseMessage> SendAsync(HttpClient client, HttpMethod method, string path, object body)
     {
         var request = new HttpRequestMessage(method, path);
-        if (method == HttpMethod.Put)
+        if (method == HttpMethod.Put || method == HttpMethod.Post)
         {
             request.Content = JsonContent.Create(body);
         }

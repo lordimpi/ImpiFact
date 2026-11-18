@@ -115,6 +115,7 @@ public sealed class OpenApiContractTests
     [TestCase("GET /api/v1/plans", "listPlans")]
     [TestCase("GET /api/v1/plans/{id}", "getPlan")]
     [TestCase("PUT /api/v1/plans/{id}", "savePlan")]
+    [TestCase("POST /api/v1/plans", "createPlan")]
     [TestCase("GET /api/v1/plans/{id}/companies", "listPlanCompanies")]
     [TestCase("GET /api/v1/plans/current", "getCurrentPlan")]
     [TestCase("GET /api/v1/notifications", "listNotifications")]
