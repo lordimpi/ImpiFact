@@ -12,8 +12,9 @@ namespace ImpiFact.Api.Documents;
 
 /// <summary>
 /// Emisión de factura, nota crédito y nota débito (Arquitectura detallada, sección 7; anexo A.1 a A.3) y el cálculo de
-/// sus totales antes de emitir (<c>POST /api/v1/documents/calculate</c>) y la vista previa del PDF de la factura
-/// (<c>POST /api/v1/documents/invoices/preview</c>). Todas piden el alcance
+/// sus totales antes de emitir (<c>POST /api/v1/documents/calculate</c>) y la vista previa del PDF de la factura y de las
+/// notas (<c>POST /api/v1/documents/invoices/preview</c>, <c>credit-notes/preview</c> y <c>debit-notes/preview</c>). Todas
+/// piden el alcance
 /// <c>documents:write</c>; la empresa es siempre la de la credencial, porque el cuerpo heredado no trae el NIT del
 /// emisor. Las rutas heredadas <c>/api/ubl2.1/...</c> y sus variantes con <c>{testSetId}</c> (set de pruebas de
 /// habilitación) usan el mismo caso de uso que las canónicas de <c>/api/v1/documents</c>. El encabezado
@@ -91,6 +92,14 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
             .WithOperationId("previewInvoice")
             .WithSummary("Ver la vista previa del PDF de una factura")
             .WithDescription(PreviewText);
+        Issue(canonical.MapPost("/credit-notes/preview", PreviewCreditNote), OpenApiExamples.CreditNotes, producesPdf: true)
+            .WithOperationId("previewCreditNote")
+            .WithSummary("Ver la vista previa del PDF de una nota crédito")
+            .WithDescription(NotePreviewText("nota crédito", "issueCreditNote"));
+        Issue(canonical.MapPost("/debit-notes/preview", PreviewDebitNote), OpenApiExamples.DebitNotes, producesPdf: true)
+            .WithOperationId("previewDebitNote")
+            .WithSummary("Ver la vista previa del PDF de una nota débito")
+            .WithDescription(NotePreviewText("nota débito", "issueDebitNote"));
 
         canonical.MapPost("/calculate", Calculate)
             .Produces<DocumentTotalsCalculation>()
@@ -132,6 +141,19 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         "si tiene. Responde `application/pdf` para abrir en el navegador (`Content-Disposition: inline`, " +
         "`Cache-Control: no-store`). Si el conversor de PDF no responde: 503 (`pdf.unavailable`, reintente después de " +
         "`Retry-After`). Pide `documents:write`.";
+
+    /// <summary>La vista previa de una nota: la misma de la factura, con el cuerpo de la nota y su CUDE.</summary>
+    private static string NotePreviewText(string name, string issueOperation) =>
+        $"Genera el PDF que tendría la {name} con el mismo cuerpo de `{issueOperation}`, sin emitirla. Revisa lo mismo que " +
+        "la emisión, salvo lo que solo sirve para firmar y enviar: forma del cuerpo, empresa activa (403 " +
+        "`company.inactive`), resolución activa del tipo y el prefijo, catálogos y totales con las reglas de la DIAN (422 " +
+        "`validation.failed`, con `errors` por campo). Tampoco revisa que la factura de `billing_reference` esté aceptada " +
+        "(eso se revisa al emitir). No pide certificado ni software, no toma número del consecutivo, no calcula el CUDE, no " +
+        "guarda nada, no consume el plan y no llama a la DIAN; ignora `Idempotency-Key`. El PDF lleva la marca «VISTA " +
+        "PREVIA - SIN VALIDEZ», el número `{prefijo} - BORRADOR`, «VISTA PREVIA - SIN CUDE» en lugar del CUDE, un QR de " +
+        "muestra y el logo de la empresa si tiene. Responde `application/pdf` para abrir en el navegador " +
+        "(`Content-Disposition: inline`, `Cache-Control: no-store`). Si el conversor de PDF no responde: 503 " +
+        "(`pdf.unavailable`, reintente después de `Retry-After`). Pide `documents:write`.";
 
     private const string InvoiceText =
         "Emite una factura electrónica de venta. El cuerpo sigue el contrato de ApiDian: `customer` (comprador), " +
@@ -182,8 +204,22 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         CalculateDocumentTotalsRequest body, IHandler<CalculateDocumentTotalsRequest, DocumentTotalsCalculation> handler, CancellationToken ct) =>
         (await handler.HandleAsync(body, ct)).ToHttpResult();
 
-    private static async Task<IResult> PreviewInvoice(
-        HttpRequest request, HttpResponse response, IHandler<PreviewInvoiceQuery, byte[]> handler, CancellationToken ct)
+    private static Task<IResult> PreviewInvoice(
+        HttpRequest request, HttpResponse response, IHandler<PreviewInvoiceQuery, byte[]> handler, CancellationToken ct) =>
+        PreviewAsync(request, response, body => handler.HandleAsync(new PreviewInvoiceQuery(body), ct), ct);
+
+    private static Task<IResult> PreviewCreditNote(
+        HttpRequest request, HttpResponse response, IHandler<PreviewCreditNoteQuery, byte[]> handler, CancellationToken ct) =>
+        PreviewAsync(request, response, body => handler.HandleAsync(new PreviewCreditNoteQuery(body), ct), ct);
+
+    private static Task<IResult> PreviewDebitNote(
+        HttpRequest request, HttpResponse response, IHandler<PreviewDebitNoteQuery, byte[]> handler, CancellationToken ct) =>
+        PreviewAsync(request, response, body => handler.HandleAsync(new PreviewDebitNoteQuery(body), ct), ct);
+
+    /// <summary>La vista previa de los tres tipos: lee el cuerpo como la emisión y responde el PDF del caso de uso.</summary>
+    private static async Task<IResult> PreviewAsync(
+        HttpRequest request, HttpResponse response, Func<IssueDocumentBody, Task<Application.Abstractions.Results.Result<byte[]>>> preview,
+        CancellationToken ct)
     {
         using var buffer = new MemoryStream();
         await request.Body.CopyToAsync(buffer, ct);
@@ -192,7 +228,7 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
             return IssueErrors.InvalidJson.ToHttpResult();
         }
 
-        var result = await handler.HandleAsync(new PreviewInvoiceQuery(body!), ct);
+        var result = await preview(body!);
         if (!result.IsSuccess)
         {
             return result.ToHttpResult();

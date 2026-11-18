@@ -43,6 +43,9 @@ internal sealed class DocumentPdfModelBuilder(
     /// <summary>Texto en lugar del CUFE en la vista previa: el CUFE se calcula al emitir, con el número.</summary>
     public const string PreviewUuid = "VISTA PREVIA - SIN CUFE";
 
+    /// <summary>Texto en lugar del CUDE (código único de documento electrónico) en la vista previa de una nota.</summary>
+    public const string PreviewNoteUuid = "VISTA PREVIA - SIN CUDE";
+
     /// <summary>Texto en lugar de la fecha y la hora de validación de la DIAN en la vista previa.</summary>
     public const string PreviewValidation = "Sin validar";
 
@@ -100,28 +103,32 @@ internal sealed class DocumentPdfModelBuilder(
     }
 
     /// <summary>
-    /// Modelo de la vista previa de una factura que todavía no se emitió (<c>POST /api/v1/documents/invoices/preview</c>,
-    /// el <c>preeliminar-view</c> del PHP), con la solicitud ya validada como en la emisión: los mismos datos y nombres
-    /// que tendrá el PDF del documento emitido, pero con el número <see cref="PreviewNumber"/>, sin CUFE, con un QR de
-    /// muestra y con la marca de vista previa. No lee ni escribe nada del documento ni del consecutivo.
+    /// Modelo de la vista previa de una factura o nota que todavía no se emitió (<c>POST /api/v1/documents/invoices/preview</c>,
+    /// el <c>preeliminar-view</c> del PHP, y sus gemelas de las notas), con la solicitud ya validada como en la emisión:
+    /// los mismos datos y nombres que tendrá el PDF del documento emitido, pero con el número <see cref="PreviewNumber"/>,
+    /// sin CUFE ni CUDE, con un QR de muestra y con la marca de vista previa. La nota no imprime resolución, como su PDF
+    /// emitido, y la nota débito toma sus totales de <c>requested_monetary_totals</c>. No lee ni escribe nada del
+    /// documento ni del consecutivo.
     /// </summary>
     public async Task<DocumentPdfModel> BuildPreviewAsync(
-        IssuerContext issuer, IssuerResolution resolution, IssueDocumentBody body, DateOnly issueDate, TimeOnly issueTime, CancellationToken ct)
+        IssueSpec spec, IssuerContext issuer, IssuerResolution resolution, IssueDocumentBody body, DateOnly issueDate, TimeOnly issueTime,
+        CancellationToken ct)
     {
-        var totals = body.LegalMonetaryTotals;
+        var kind = KindOf(spec.DocumentTypeId) ?? throw new InvalidOperationException($"Document type {spec.DocumentTypeId} has no PDF template.");
+        var totals = spec.TotalsOf(body);
         return await ComposeAsync(
             new PrintSource(
-                PdfDocumentKind.Invoice,
+                kind,
                 resolution.Prefix ?? "",
                 PreviewNumber,
                 issueDate,
                 issueTime,
                 PreviewValidation,
                 PreviewValidation,
-                PreviewUuid,
+                kind == PdfDocumentKind.Invoice ? PreviewUuid : PreviewNoteUuid,
                 PreviewQrText,
                 issuer,
-                Resolution(issuer, resolution.Id),
+                kind == PdfDocumentKind.Invoice ? Resolution(issuer, resolution.Id) : null,
                 PreviewCustomer(body.Customer!),
                 body,
                 new DocumentTotals(

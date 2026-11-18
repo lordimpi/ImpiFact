@@ -13,20 +13,41 @@ using Microsoft.Extensions.Logging;
 
 namespace ImpiFact.Application.Features.Documents.Preview;
 
+/// <summary>El cuerpo de una vista previa: el mismo de la emisión del tipo.</summary>
+public interface IPreviewDocumentQuery
+{
+    IssueDocumentBody Body { get; }
+}
+
 /// <summary>
 /// <c>POST /api/v1/documents/invoices/preview</c>: el PDF que tendría la factura, antes de emitirla (el
 /// <c>invoice/preeliminar-view</c> del PHP). No es un comando: no guarda nada, así que no abre transacción.
 /// </summary>
 /// <param name="Body">El mismo cuerpo de <c>issueInvoice</c>.</param>
-public sealed record PreviewInvoiceQuery(IssueDocumentBody Body);
+public sealed record PreviewInvoiceQuery(IssueDocumentBody Body) : IPreviewDocumentQuery;
 
-/// <summary>Las mismas reglas de forma de la emisión de la factura, con los mismos mensajes.</summary>
-internal sealed class PreviewInvoiceQueryValidator : AbstractValidator<PreviewInvoiceQuery>
+/// <summary><c>POST /api/v1/documents/credit-notes/preview</c>: el PDF que tendría la nota crédito, antes de emitirla.</summary>
+/// <param name="Body">El mismo cuerpo de <c>issueCreditNote</c>.</param>
+public sealed record PreviewCreditNoteQuery(IssueDocumentBody Body) : IPreviewDocumentQuery;
+
+/// <summary><c>POST /api/v1/documents/debit-notes/preview</c>: el PDF que tendría la nota débito, antes de emitirla.</summary>
+/// <param name="Body">El mismo cuerpo de <c>issueDebitNote</c>.</param>
+public sealed record PreviewDebitNoteQuery(IssueDocumentBody Body) : IPreviewDocumentQuery;
+
+/// <summary>Las mismas reglas de forma de la emisión del tipo, con los mismos mensajes.</summary>
+internal abstract class PreviewQueryValidator<TQuery> : AbstractValidator<TQuery>
+    where TQuery : IPreviewDocumentQuery
 {
-    public PreviewInvoiceQueryValidator() =>
+    protected PreviewQueryValidator(IssueSpec spec) =>
         RuleFor(query => query).Custom((query, context) =>
-            IssueDocumentRules.Validate(IssueSpec.Invoice, query.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+            IssueDocumentRules.Validate(spec, query.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
 }
+
+internal sealed class PreviewInvoiceQueryValidator() : PreviewQueryValidator<PreviewInvoiceQuery>(IssueSpec.Invoice);
+
+internal sealed class PreviewCreditNoteQueryValidator() : PreviewQueryValidator<PreviewCreditNoteQuery>(IssueSpec.CreditNote);
+
+internal sealed class PreviewDebitNoteQueryValidator() : PreviewQueryValidator<PreviewDebitNoteQuery>(IssueSpec.DebitNote);
 
 /// <summary>Errores propios de la vista previa.</summary>
 public static class PreviewErrors
@@ -38,32 +59,37 @@ public static class PreviewErrors
         ErrorType.Unavailable);
 }
 
+/// <summary>Puertos que usan las tres vistas previas; cada handler los recibe por inyección y los pasa juntos.</summary>
+internal sealed record PreviewPorts(
+    ITenantContext Tenant,
+    IIssuerContextReads Issuers,
+    IDocumentCatalogs Catalogs,
+    DocumentPdfModelBuilder Builder,
+    IPdfRenderer Renderer,
+    IClock Clock,
+    ILogger Logger);
+
 /// <summary>
-/// Revisa la factura como la emisión, sin las partes que solo sirven para firmar y enviar: empresa activa, resolución del
-/// tipo y el prefijo, catálogos y totales con las reglas de la DIAN (Dirección de Impuestos y Aduanas Nacionales). Luego
-/// arma el modelo imprimible con <see cref="DocumentPdfModelBuilder.BuildPreviewAsync"/> y lo convierte en PDF en la
-/// misma solicitud.
+/// Revisa el documento como la emisión, sin las partes que solo sirven para firmar y enviar: empresa activa, resolución
+/// del tipo y el prefijo, catálogos y totales con las reglas de la DIAN (Dirección de Impuestos y Aduanas Nacionales).
+/// Luego arma el modelo imprimible con <see cref="DocumentPdfModelBuilder.BuildPreviewAsync"/> y lo convierte en PDF en
+/// la misma solicitud.
 /// </summary>
 /// <remarks>
 /// No pide certificado ni software (no firma), no revisa el plan (no emite), no toma número del consecutivo, no calcula
-/// el CUFE (código único de la factura) y no llama a la DIAN. Una falla de Gotenberg responde 503
-/// (<see cref="PreviewErrors.PdfUnavailable"/>); la cancelación de la solicitud por el cliente no se disfraza de 503.
+/// el CUFE ni el CUDE (códigos únicos de la factura y de la nota) y no llama a la DIAN. En las notas tampoco revisa que
+/// la factura de <c>billing_reference</c> esté aceptada: una nota se prepara mientras la factura espera respuesta, y esa
+/// regla se revisa al emitir. Una falla de Gotenberg responde 503 (<see cref="PreviewErrors.PdfUnavailable"/>); la
+/// cancelación de la solicitud por el cliente no se disfraza de 503.
 /// </remarks>
-internal sealed class PreviewInvoiceHandler(
-    ITenantContext tenant,
-    IIssuerContextReads issuers,
-    IDocumentCatalogs catalogs,
-    DocumentPdfModelBuilder builder,
-    IPdfRenderer renderer,
-    IClock clock,
-    ILogger<PreviewInvoiceHandler> logger) : IHandler<PreviewInvoiceQuery, byte[]>
+internal abstract class PreviewDocumentHandler<TQuery>(PreviewPorts ports, IssueSpec spec) : IHandler<TQuery, byte[]>
+    where TQuery : IPreviewDocumentQuery
 {
-    public async Task<Result<byte[]>> HandleAsync(PreviewInvoiceQuery request, CancellationToken ct)
+    public async Task<Result<byte[]>> HandleAsync(TQuery request, CancellationToken ct)
     {
-        var companyId = tenant.CompanyId ?? throw new InvalidOperationException("The tenant decorator guarantees a company.");
-        var spec = IssueSpec.Invoice;
+        var companyId = ports.Tenant.CompanyId ?? throw new InvalidOperationException("The tenant decorator guarantees a company.");
         var body = request.Body;
-        var issuer = await issuers.GetAsync(companyId, spec.DocumentTypeId, DocumentKind.Invoice, ct);
+        var issuer = await ports.Issuers.GetAsync(companyId, spec.DocumentTypeId, DocumentKind.Invoice, ct);
         if (issuer is null || !issuer.Company.IsActive)
         {
             return IssueErrors.CompanyInactive;
@@ -75,7 +101,7 @@ internal sealed class PreviewInvoiceHandler(
             return resolution.Error;
         }
 
-        var found = await IssueChecks.LoadCatalogsAsync(spec, catalogs, issuer, body, ct);
+        var found = await IssueChecks.LoadCatalogsAsync(spec, ports.Catalogs, issuer, body, ct);
         if (!found.IsSuccess)
         {
             return found.Error;
@@ -87,17 +113,32 @@ internal sealed class PreviewInvoiceHandler(
             return totals.Error;
         }
 
-        var (issueDate, issueTime) = IssueChecks.IssueMoment(body, clock.UtcNow);
-        var model = await builder.BuildPreviewAsync(issuer, resolution.Value, body, issueDate, issueTime, ct);
+        var (issueDate, issueTime) = IssueChecks.IssueMoment(body, ports.Clock.UtcNow);
+        var model = await ports.Builder.BuildPreviewAsync(spec, issuer, resolution.Value, body, issueDate, issueTime, ct);
         try
         {
-            return await renderer.RenderAsync(model, ct);
+            return await ports.Renderer.RenderAsync(model, ct);
         }
         catch (Exception exception) when (exception is HttpRequestException or InvalidDataException
             || (exception is OperationCanceledException && !ct.IsCancellationRequested))
         {
-            logger.LogWarning(exception, "The PDF preview of company {CompanyId} could not be rendered.", companyId);
+            ports.Logger.LogWarning(exception, "The PDF preview ({Kind}) of company {CompanyId} could not be rendered.", spec.Kind, companyId);
             return PreviewErrors.PdfUnavailable;
         }
     }
 }
+
+internal sealed class PreviewInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, DocumentPdfModelBuilder builder, IPdfRenderer renderer,
+    IClock clock, ILogger<PreviewInvoiceHandler> logger)
+    : PreviewDocumentHandler<PreviewInvoiceQuery>(new PreviewPorts(tenant, issuers, catalogs, builder, renderer, clock, logger), IssueSpec.Invoice);
+
+internal sealed class PreviewCreditNoteHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, DocumentPdfModelBuilder builder, IPdfRenderer renderer,
+    IClock clock, ILogger<PreviewCreditNoteHandler> logger)
+    : PreviewDocumentHandler<PreviewCreditNoteQuery>(new PreviewPorts(tenant, issuers, catalogs, builder, renderer, clock, logger), IssueSpec.CreditNote);
+
+internal sealed class PreviewDebitNoteHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, DocumentPdfModelBuilder builder, IPdfRenderer renderer,
+    IClock clock, ILogger<PreviewDebitNoteHandler> logger)
+    : PreviewDocumentHandler<PreviewDebitNoteQuery>(new PreviewPorts(tenant, issuers, catalogs, builder, renderer, clock, logger), IssueSpec.DebitNote);

@@ -95,7 +95,7 @@ Cada módulo es una carpeta en `Domain`, `Application/Features` y `Infrastructur
 | `Identity` | Usuarios, roles, API keys, JWT | `Login`, `RefreshToken`, `CreateApiKey`, `RevokeApiKey`, `CreateUser` |
 | `Company` | Empresa, ambientes, software, certificado, resoluciones, correo, logo | `CreateCompany`, `UpdateCompany`, `SetEnvironment`, `SetSoftware`, `UploadCertificate`, `UpsertResolution`, `SetMailSettings`, `DeleteCompany` |
 | `Masters` | Clientes y productos | `ListCustomers`, `GetCustomer`, `CreateCustomer`, `UpdateCustomer`, `DeactivateCustomer`, `LookupAcquirer` (GetAcquirer en vivo), `ListProducts`, `GetProduct`, `CreateProduct`, `UpdateProduct`, `DeactivateProduct` |
-| `Documents` | Emisión y consulta de documentos | `IssueInvoice`, `IssueCreditNote`, `IssueDebitNote`, `IssueSupportDocument`, `PreviewInvoice`, `GetDocument`, `ListDocuments`, `RegenerateAttachedDocument`, `RegeneratePdf`, `SendEmail`, `SendEvent`, `ProcessContingency` |
+| `Documents` | Emisión y consulta de documentos | `IssueInvoice`, `IssueCreditNote`, `IssueDebitNote`, `IssueSupportDocument`, `PreviewInvoice`, `PreviewCreditNote`, `PreviewDebitNote`, `GetDocument`, `ListDocuments`, `RegenerateAttachedDocument`, `RegeneratePdf`, `SendEmail`, `SendEvent`, `ProcessContingency` |
 | `Billing` | Planes y consumo | `StorePlan`, `AssignPlan`, `QueryPlans`, `QueryPlanCompanies`, `GetCurrentPlan` (consumo restante) y el puerto `IPlanGate` (revisar la cuota antes de emitir y contar al aceptar) |
 | `Platform` | Outbox, auditoría, notificaciones, idempotencia | `AppendAudit`, `ListNotifications` |
 
@@ -445,14 +445,15 @@ El logo va en el encabezado del PDF (la representación gráfica) de los documen
 - Se guarda en `company_logos` (una fila por empresa con `storage_key` y `content_type`, tabla de la migración inicial) y el archivo en `IBlobStorage` con la clave `{empresa}/company/logo-{id}.{png|jpg}`. Cada subida escribe un archivo nuevo y la fila le apunta en la transacción del comando; el archivo reemplazado queda huérfano, como en `document_files`. Quitar el logo borra la fila y el archivo.
 - El PDF lo pide por el puerto `ICompanyLogos` (`Application/Abstractions/Companies`), así Documents no usa el módulo Company. `GotenbergPdfRenderer` manda la imagen a Gotenberg como `logo.png` o `logo.jpg` junto al HTML, y la plantilla la muestra arriba del título solo si existe.
 
-### 9.10 Vista previa del PDF de la factura (fase 5)
+### 9.10 Vista previa del PDF de la factura y de las notas (fase 5)
 
 `POST /api/v1/documents/invoices/preview` (`previewInvoice`, `documents:write`) es el `invoice/preeliminar-view` del PHP: recibe el mismo cuerpo de `issueInvoice` y responde el PDF (`application/pdf`, `Content-Disposition: inline`, `Cache-Control: no-store`) en la misma solicitud. El botón «Vista previa» del formulario de emisión (Arquitectura frontend, sección 8.1) lo abre sin consumir consecutivo.
 
 - Revisa lo mismo que la emisión con las mismas piezas (`IssueDocumentRules`, `IssueChecks.SelectResolution` y `LoadCatalogsAsync`, `DianTotalsValidator`): forma del cuerpo (422), empresa activa (403 `company.inactive`), resolución activa del tipo y el prefijo (422), catálogos y totales (422 `validation.failed`). No pide certificado ni software, no revisa el plan, no toma número, no calcula el CUFE, no firma, no guarda nada (no es un comando: no abre transacción) y no llama a la DIAN; `Idempotency-Key` no cuenta.
 - El modelo sale de `DocumentPdfModelBuilder.BuildPreviewAsync`, que comparte con el PDF del documento emitido el armado de líneas, impuestos, retenciones, pagos, cargos, totales y logo; el adquiriente toma los mismos valores por defecto que la copia de la emisión. Cambia el número (`{prefijo} - BORRADOR`), el CUFE («VISTA PREVIA - SIN CUFE»), la validación de la DIAN («Sin validar»), el QR (un texto de muestra, no la URL de consulta) y la marca de agua «VISTA PREVIA - SIN VALIDEZ» de la plantilla (`IsPreview`). El PHP mostraba el siguiente consecutivo y un CUFE vacío.
 - La API registra la generación del PDF (`AddPdfRendering`: plantillas, cliente de Gotenberg y `IPdfRenderer`) y convierte en línea. Si Gotenberg no responde, responde con error, no devuelve un PDF o se pasa de `Pdf:TimeoutSeconds`, la respuesta es 503 `pdf.unavailable` con `Retry-After`; si quien llama cancela la solicitud, no se responde 503.
-- Pendiente: la vista previa de notas crédito y débito y el alias heredado `POST /api/ubl2.1/invoice/preeliminar-view`, que en el PHP devolvía JSON con el PDF en Base64.
+- Notas (18-nov, B10): `POST /api/v1/documents/credit-notes/preview` (`previewCreditNote`) y `/debit-notes/preview` (`previewDebitNote`) usan el mismo caso de uso (`PreviewDocumentHandler`) con la especificación de cada nota: sus líneas, `requested_monetary_totals` en la débito, la resolución NC o ND y «VISTA PREVIA - SIN CUDE»; el PDF no imprime resolución, como el de la nota emitida. No revisan que la factura de `billing_reference` esté aceptada: una nota se prepara mientras la factura espera respuesta y esa regla se revisa al emitir.
+- Pendiente: el alias heredado `POST /api/ubl2.1/invoice/preeliminar-view`, que en el PHP devolvía JSON con el PDF en Base64.
 
 ## 10. Panel Angular (`web/`)
 
