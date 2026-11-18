@@ -29,30 +29,6 @@
   grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
 }
 
-.issue-wide {
-  grid-column: 1 / -1;
-}
-
-.issue-line {
-  margin: var(--if-space-3) 0 0;
-  padding: var(--if-space-3);
-  border: 1px solid var(--if-color-border);
-  border-radius: var(--if-radius-sm);
-  min-inline-size: 0;
-}
-
-.issue-line legend {
-  font-weight: var(--if-font-weight-bold);
-  padding-inline: var(--if-space-1);
-}
-
-.issue-line__amount {
-  display: flex;
-  gap: var(--if-space-2);
-  justify-content: space-between;
-  margin: 0 0 var(--if-space-2);
-}
-
 .issue-side {
   display: flex;
   flex-direction: column;

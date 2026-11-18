@@ -1,9 +1,9 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, RouterOutlet, provideRouter, withComponentInputBinding } from '@angular/router';
-import { SessionStore, ToastStore } from '@impifact/core';
+import { SessionStore, ToastStore, errorInterceptor } from '@impifact/core';
 import { Translation, TranslocoLoader, provideTransloco } from '@jsverse/transloco';
 import { render } from '@testing-library/angular';
 import { of } from 'rxjs';
@@ -81,7 +81,8 @@ export async function renderDocumentsRoute(
   const view = await render('<router-outlet />', {
     imports: [RouterOutlet],
     providers: [
-      provideHttpClient(),
+      // El interceptor de errores de core convierte las respuestas de error en `AppError`, como en la aplicación.
+      provideHttpClient(withInterceptors([errorInterceptor])),
       provideHttpClientTesting(),
       provideRouter(
         [

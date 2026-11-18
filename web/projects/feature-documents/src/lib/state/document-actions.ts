@@ -28,6 +28,12 @@ import { DocumentFilters } from './list-filters';
 
 export type DocumentFileKind = 'xml' | 'pdf' | 'attached-document' | 'zip';
 
+/** Resultado de abrir una vista previa: el error del Api (ya como `AppError`) si no se pudo. */
+export type PreviewResult = { ok: true } | { ok: false; error: unknown };
+
+/** Tiempo que la pestaña de la vista previa tiene para leer el PDF antes de liberar su URL temporal. */
+const PREVIEW_URL_LIFETIME_MS = 60_000;
+
 const EXTENSIONS: Record<DocumentFileKind, string> = {
   xml: 'xml',
   pdf: 'pdf',
@@ -136,6 +142,36 @@ export class DocumentActions {
         correlationId: error instanceof AppError ? error.correlationId : null,
       });
       return false;
+    }
+  }
+
+  /**
+   * Pide el PDF de vista previa (`path`, por ejemplo `previewInvoice.PATH`) con el cuerpo de la emisión y lo abre en
+   * una pestaña nueva. La pestaña se abre ya, dentro del clic: abrirla al llegar la respuesta la bloquearía el
+   * navegador como ventana emergente. El generado descarta el cuerpo, así que se pide con HttpClient como `blob`.
+   * Si falla, cierra la pestaña y devuelve el error sin avisar: la página lo explica.
+   */
+  async openPreview(path: string, body: unknown): Promise<PreviewResult> {
+    const tab = this.document.defaultView?.open('', '_blank') ?? null;
+    try {
+      const blob = await firstValueFrom(
+        this.http.post(`${this.config.rootUrl}${path}`, body, {
+          responseType: 'blob',
+          context: new HttpContext().set(SKIP_ERROR_TOAST, true),
+        }),
+      );
+      if (tab) {
+        const url = URL.createObjectURL(blob);
+        tab.location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), PREVIEW_URL_LIFETIME_MS);
+      } else {
+        // Sin pestaña (el navegador la bloqueó igual): se descarga.
+        this.save(blob, 'vista-previa.pdf');
+      }
+      return { ok: true };
+    } catch (error) {
+      tab?.close();
+      return { ok: false, error };
     }
   }
 

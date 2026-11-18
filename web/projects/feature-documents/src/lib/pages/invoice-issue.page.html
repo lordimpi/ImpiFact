@@ -102,75 +102,12 @@
         </div>
 
         @for (line of invoiceForm.lines().value(); track $index; let index = $index) {
-          @let lineField = lineFields(index);
-          <fieldset class="issue-line">
-            <legend>{{ 'documents.issue.line.title' | transloco: { number: index + 1 } }}</legend>
-            <div class="issue-grid">
-              <ui-field
-                [label]="'documents.issue.line.code' | transloco"
-                [error]="lineError(index, 'code')"
-                required
-              >
-                <input uiInput type="text" [formField]="lineField.code" />
-              </ui-field>
-              <ui-field
-                class="issue-wide"
-                [label]="'documents.issue.line.description' | transloco"
-                [error]="lineError(index, 'description')"
-                required
-              >
-                <input uiInput type="text" [formField]="lineField.description" />
-              </ui-field>
-              <ui-field
-                [label]="'documents.issue.line.quantity' | transloco"
-                [error]="lineError(index, 'quantity')"
-                required
-              >
-                <input
-                  uiInput
-                  type="number"
-                  step="any"
-                  inputmode="decimal"
-                  [formField]="lineField.quantity"
-                />
-              </ui-field>
-              <ui-field
-                [label]="'documents.issue.line.unitPrice' | transloco"
-                [error]="lineError(index, 'unitPrice')"
-                required
-              >
-                <input
-                  uiInput
-                  type="number"
-                  step="any"
-                  inputmode="decimal"
-                  [formField]="lineField.unitPrice"
-                />
-              </ui-field>
-              <ui-field [label]="'documents.issue.line.taxPercent' | transloco">
-                <select uiSelect [formField]="lineField.taxPercent">
-                  @for (option of ivaPercents; track option) {
-                    <option [value]="option">
-                      {{ 'documents.issue.line.taxOptions.' + option | transloco }}
-                    </option>
-                  }
-                  @if (!ivaPercents.includes($any(line.taxPercent))) {
-                    <option [value]="line.taxPercent">{{ line.taxPercent }} %</option>
-                  }
-                </select>
-              </ui-field>
-            </div>
-            <p class="issue-line__amount">
-              <span class="doc-muted">{{ 'documents.issue.line.amount' | transloco }}</span>
-              <span class="doc-amount">{{ lineAmount(index) | cop }}</span>
-            </p>
-            <ui-button
-              variant="text"
-              size="small"
-              [label]="'documents.issue.line.remove' | transloco: { number: index + 1 }"
-              (pressed)="removeLine(index)"
-            />
-          </fieldset>
+          <feat-line-fields
+            [line]="lineFields(index)"
+            [index]="index"
+            [amount]="lineAmount(index)"
+            (remove)="removeLine(index)"
+          />
         } @empty {
           <p class="doc-muted">{{ 'documents.issue.noLines' | transloco }}</p>
         }
@@ -191,9 +128,9 @@
       <h2 id="issue-totals">{{ 'documents.totals.title' | transloco }}</h2>
       <feat-totals-panel
         [totals]="calculated()?.legal_monetary_totals"
-        [taxes]="taxes()"
-        [state]="totalsState()"
-        (retry)="recalculate()"
+        [taxes]="totals.taxes()"
+        [state]="totals.state()"
+        (retry)="totals.retry()"
       />
 
       @if (issueError(); as failure) {
@@ -212,6 +149,16 @@
       @if (!canIssue() && !submitting()) {
         <p class="doc-muted" id="issue-not-ready">{{ 'documents.issue.notReady' | transloco }}</p>
       }
+      @if (previewError(); as message) {
+        <p class="doc-error" role="alert">{{ message }}</p>
+      }
+      <ui-button
+        variant="secondary"
+        [label]="'documents.issue.preview' | transloco"
+        [loading]="previewing()"
+        [disabled]="!canIssue() || previewing()"
+        (pressed)="preview()"
+      />
       <ui-button
         type="submit"
         [label]="'documents.issue.submit' | transloco"

@@ -12,13 +12,11 @@ import { FormField } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import {
   Api,
-  CalculateDocumentTotalsRequest,
   CustomerResponse,
-  DocumentTotalsCalculation,
-  calculateDocumentTotals,
   issueInvoice,
   listCustomers,
   listProducts,
+  previewInvoice,
 } from '@impifact/api';
 import {
   AppError,
@@ -37,28 +35,25 @@ import {
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import {
   Observable,
-  Subject,
   catchError,
   debounceTime,
   distinctUntilChanged,
   firstValueFrom,
   map,
-  merge,
   of,
   startWith,
   switchMap,
 } from 'rxjs';
-import { CopCurrencyPipe } from '../components/cop-currency.pipe';
+import { LineFieldsComponent } from '../components/line-fields.component';
 import {
   PickerLabels,
   PickerOption,
   SearchPickerComponent,
 } from '../components/search-picker.component';
-import { TotalsPanelComponent, TotalsState } from '../components/totals-panel.component';
+import { TotalsPanelComponent } from '../components/totals-panel.component';
 import { DOCUMENTS_I18N_SCOPE, provideDocumentsI18n } from '../documents-i18n';
 import {
   CREDIT_PAYMENT_FORM,
-  IVA_PERCENTS,
   PAYMENT_FORMS,
   PAYMENT_METHODS,
   buildCalculationRequest,
@@ -67,13 +62,8 @@ import {
   emptyLine,
   lineFromProduct,
 } from '../forms/invoice.form';
-
-/** Resultado del último cálculo pedido al servidor. */
-type Calculation =
-  | { status: 'empty' }
-  | { status: 'loading'; key: string }
-  | { status: 'error'; key: string }
-  | { status: 'ready'; key: string; result: DocumentTotalsCalculation };
+import { DocumentActions } from '../state/document-actions';
+import { serverTotals } from '../state/server-totals';
 
 interface SearchState<T> {
   term: string;
@@ -82,7 +72,6 @@ interface SearchState<T> {
   error: boolean;
 }
 
-const CALCULATE_DEBOUNCE_MS = 300;
 const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_MIN_LENGTH = 2;
 const SEARCH_LIMIT = 10;
@@ -91,8 +80,8 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 /**
  * Emisión de factura (`/documentos/nuevo`, sección 8.1). Los totales e impuestos siempre vienen del servidor
  * (`calculateDocumentTotals`, pedido de nuevo cada vez que cambian las líneas) y «Emitir» manda esos mismos valores
- * con la `Idempotency-Key` generada al abrir el formulario: reintentar no emite dos veces. La vista previa del PDF
- * no está porque el Api v1 aún no tiene ese endpoint.
+ * con la `Idempotency-Key` generada al abrir el formulario: reintentar no emite dos veces. «Vista previa» manda el
+ * mismo cuerpo a `previewInvoice` y abre el PDF sin número ni CUFE, sin gastar consecutivo.
  */
 @Component({
   selector: 'feat-invoice-issue-page',
@@ -105,11 +94,11 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
     InputDirective,
     PageTitleComponent,
     SelectDirective,
-    CopCurrencyPipe,
+    LineFieldsComponent,
     SearchPickerComponent,
     TotalsPanelComponent,
   ],
-  providers: [provideDocumentsI18n()],
+  providers: [provideDocumentsI18n(), DocumentActions],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './invoice-issue.page.html',
   styleUrls: ['./documents-page.css', './invoice-issue.page.css'],
@@ -119,6 +108,7 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
   private readonly router = inject(Router);
   private readonly toasts = inject(ToastStore);
   private readonly transloco = inject(TranslocoService);
+  private readonly actions = inject(DocumentActions);
 
   /** Una llave por formulario abierto: un reintento del mismo envío devuelve el mismo documento. */
   private readonly idempotencyKey = crypto.randomUUID();
@@ -126,11 +116,12 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
   protected readonly invoiceForm = createInvoiceForm();
   protected readonly paymentForms = PAYMENT_FORMS;
   protected readonly paymentMethods = PAYMENT_METHODS;
-  protected readonly ivaPercents = IVA_PERCENTS;
 
   protected readonly customer = signal<CustomerResponse | null>(null);
   protected readonly submitting = signal(false);
   protected readonly issueError = signal<{ message: string; details: string[] } | null>(null);
+  protected readonly previewing = signal(false);
+  protected readonly previewError = signal<string | null>(null);
   private issued = false;
 
   protected readonly onCredit = computed(
@@ -169,31 +160,11 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
   protected readonly customerLabels: PickerLabels = this.pickerLabels('customer');
   protected readonly productLabels: PickerLabels = this.pickerLabels('product');
 
-  /** Solicitud de cálculo que corresponde al formulario de este momento (`null` si está incompleto). */
-  private readonly calculationRequest = computed(() =>
-    buildCalculationRequest(this.invoiceForm().value()),
+  /** Totales e impuestos del servidor para las líneas de este momento. */
+  protected readonly totals = serverTotals(
+    computed(() => buildCalculationRequest(this.invoiceForm().value())),
   );
-  private readonly calculationKey = computed(() => keyOf(this.calculationRequest()));
-  private readonly retryCalculation = new Subject<void>();
-  protected readonly calculation = signal<Calculation>({ status: 'empty' });
-
-  /** El panel muestra «calculando» también mientras espera el *debounce* tras un cambio. */
-  protected readonly totalsState = computed<TotalsState>(() => {
-    const calculation = this.calculation();
-    if (this.calculationRequest() === null) return 'empty';
-    if (calculation.status === 'ready' && calculation.key === this.calculationKey()) return 'ready';
-    if (calculation.status === 'error' && calculation.key === this.calculationKey()) return 'error';
-    return 'loading';
-  });
-  protected readonly calculated = computed(() => {
-    const calculation = this.calculation();
-    return this.totalsState() === 'ready' && calculation.status === 'ready'
-      ? calculation.result
-      : null;
-  });
-  protected readonly taxes = computed(() =>
-    (this.calculated()?.tax_totals ?? []).flatMap((total) => total.tax_subtotals),
-  );
+  protected readonly calculated = this.totals.calculated;
 
   protected readonly canIssue = computed(
     () =>
@@ -202,22 +173,6 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
       this.calculated() !== null &&
       this.invoiceForm().valid(),
   );
-
-  constructor() {
-    // Un cambio en las líneas pide un cálculo nuevo tras el *debounce*; «Calcular de nuevo» repite el vigente.
-    merge(
-      toObservable(this.calculationRequest).pipe(
-        debounceTime(CALCULATE_DEBOUNCE_MS),
-        distinctUntilChanged((previous, next) => keyOf(previous) === keyOf(next)),
-      ),
-      this.retryCalculation.pipe(map(() => this.calculationRequest())),
-    )
-      .pipe(
-        switchMap((request) => this.calculate(request)),
-        takeUntilDestroyed(),
-      )
-      .subscribe((calculation) => this.calculation.set(calculation));
-  }
 
   hasUnsavedChanges(): boolean {
     return !this.issued && (this.invoiceForm().dirty() || this.customer() !== null);
@@ -256,10 +211,6 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
     this.invoiceForm.lines().value.update((lines) => lines.filter((_, i) => i !== index));
   }
 
-  protected recalculate(): void {
-    this.retryCalculation.next();
-  }
-
   /** Campos de la línea `index` (siempre existe: la plantilla recorre las líneas del modelo). */
   protected lineFields(index: number) {
     return this.invoiceForm.lines[index] as NonNullable<(typeof this.invoiceForm.lines)[number]>;
@@ -268,20 +219,6 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
   /** Valor de la línea que calculó el servidor, si el cálculo está al día. */
   protected lineAmount(index: number): number | string | undefined {
     return this.calculated()?.lines[index]?.line_extension_amount;
-  }
-
-  protected lineError(index: number, field: 'code' | 'description' | 'quantity' | 'unitPrice') {
-    const state = this.invoiceForm.lines[index]?.[field]();
-    if (!state || !state.touched() || state.errors().length === 0) {
-      return null;
-    }
-    const keys = {
-      code: 'issue.line.codeRequired',
-      description: 'issue.line.descriptionRequired',
-      quantity: 'issue.line.quantityInvalid',
-      unitPrice: 'issue.line.priceInvalid',
-    };
-    return this.text(keys[field]);
   }
 
   protected fieldError(field: 'paymentDueDate' | 'durationDays'): string | null {
@@ -331,16 +268,35 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
     }
   }
 
-  private calculate(request: CalculateDocumentTotalsRequest | null): Observable<Calculation> {
-    if (request === null) {
-      return of({ status: 'empty' });
+  /** Abre el PDF que tendría la factura (sin emitirla); un 503 es el conversor de PDF caído. */
+  protected async preview(): Promise<void> {
+    const customer = this.customer();
+    const calculated = this.calculated();
+    if (!this.canIssue() || this.previewing() || !customer || !calculated) {
+      return;
     }
-    const key = keyOf(request);
-    return this.api.invoke(calculateDocumentTotals, { body: request }, silent()).pipe(
-      map((result): Calculation => ({ status: 'ready', key, result })),
-      catchError(() => of<Calculation>({ status: 'error', key })),
-      startWith<Calculation>({ status: 'loading', key }),
-    );
+    this.previewing.set(true);
+    this.previewError.set(null);
+    this.issueError.set(null);
+    const body = buildInvoiceBody(this.invoiceForm().value(), customer, calculated);
+    const result = await this.actions.openPreview(previewInvoice.PATH, body);
+    this.previewing.set(false);
+    if (result.ok) {
+      return;
+    }
+    const error = result.error;
+    if (error instanceof AppError && error.hasFieldErrors) {
+      this.issueError.set({
+        message: error.message,
+        details: Object.values(error.fieldErrors).flat(),
+      });
+    } else if (error instanceof AppError && error.status === 503) {
+      this.previewError.set(this.text('issue.previewUnavailable'));
+    } else {
+      this.previewError.set(
+        error instanceof AppError ? error.message : this.text('issue.previewFailed'),
+      );
+    }
   }
 
   /** Estado de una búsqueda con *debounce*; menos de dos letras no consulta. */
@@ -382,8 +338,4 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
   private text(key: string, params?: Record<string, string>): string {
     return this.transloco.translate(`${DOCUMENTS_I18N_SCOPE}.${key}`, params);
   }
-}
-
-function keyOf(request: CalculateDocumentTotalsRequest | null): string {
-  return request === null ? '' : JSON.stringify(request);
 }

@@ -158,6 +158,75 @@ describe('InvoiceIssuePage', () => {
     http.expectNone('/api/v1/documents/invoices');
   });
 
+  describe('preview', () => {
+    let tab: { location: { href: string }; close: ReturnType<typeof vi.fn> };
+
+    beforeEach(() => {
+      tab = { location: { href: '' }, close: vi.fn() };
+      vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+      URL.createObjectURL = vi.fn(() => 'blob:preview');
+      URL.revokeObjectURL = vi.fn();
+    });
+
+    afterEach(() => vi.restoreAllMocks());
+
+    async function readyToIssue() {
+      const rendered = await renderDocumentsRoute('/documentos/nuevo');
+      await chooseCustomer(rendered.http);
+      await addProduct(rendered.http);
+      (await waitFor(() => rendered.http.expectOne(isCalculate))).flush(CALCULATION);
+      await screen.findByTestId('payable');
+      return rendered;
+    }
+
+    it('opens the PDF of the current invoice in a new tab without issuing it', async () => {
+      const { http } = await readyToIssue();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Vista previa' }));
+      const preview = await waitFor(() => http.expectOne('/api/v1/documents/invoices/preview'));
+      expect(preview.request.method).toBe('POST');
+      expect(preview.request.responseType).toBe('blob');
+      expect(preview.request.body.legal_monetary_totals).toEqual(CALCULATION.legal_monetary_totals);
+      expect(preview.request.body.invoice_lines[0].line_extension_amount).toBe('1500000.00');
+      // La pestaña se abre en el clic (sin bloqueo de ventanas emergentes) y luego recibe el PDF.
+      expect(window.open).toHaveBeenCalledWith('', '_blank');
+      preview.flush(new Blob(['%PDF-1.7'], { type: 'application/pdf' }));
+
+      await waitFor(() => expect(tab.location.href).toBe('blob:preview'));
+      expect(tab.close).not.toHaveBeenCalled();
+      http.expectNone('/api/v1/documents/invoices');
+    });
+
+    it('explains a 503 when the PDF service is not available and closes the tab', async () => {
+      const { http } = await readyToIssue();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Vista previa' }));
+      const preview = await waitFor(() => http.expectOne('/api/v1/documents/invoices/preview'));
+      preview.flush(
+        new Blob(
+          [JSON.stringify({ status: 503, code: 'pdf.unavailable', message: 'No responde.' })],
+          { type: 'application/problem+json' },
+        ),
+        { status: 503, statusText: 'Service Unavailable' },
+      );
+
+      expect(
+        await screen.findByText(
+          'El servicio que genera el PDF no está disponible en este momento. Intente de nuevo en unos minutos.',
+        ),
+      ).toBeTruthy();
+      expect(tab.close).toHaveBeenCalled();
+    });
+
+    it('is disabled until the invoice can be issued', async () => {
+      await renderDocumentsRoute('/documentos/nuevo');
+      const button = (await screen.findByRole('button', {
+        name: 'Vista previa',
+      })) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+    });
+  });
+
   it('is not reachable without the documents:write scope', async () => {
     const { router } = await renderDocumentsRoute('/documentos/nuevo', {
       scopes: ['documents:read'],
