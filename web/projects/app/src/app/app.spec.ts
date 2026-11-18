@@ -198,7 +198,9 @@ describe('App shell', () => {
     expect(within(nav).getByRole('link', { name: 'Planes' }).getAttribute('href')).toBe(
       '/plataforma/planes',
     );
-    expect(within(nav).getByRole('link', { name: 'Asignar planes' })).toBeTruthy();
+    expect(within(nav).getByRole('link', { name: 'Empresas' }).getAttribute('href')).toBe(
+      '/plataforma/empresas',
+    );
     expect(within(nav).queryByRole('link', { name: 'Llaves de API' })).toBeNull();
   });
 
