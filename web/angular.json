@@ -43,6 +43,11 @@
                 "glob": "**/*",
                 "input": "projects/feature-documents/src/i18n",
                 "output": "i18n/documents"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/feature-notifications/src/i18n",
+                "output": "i18n/notifications"
               }
             ],
             "styles": ["projects/ui/src/styles/tokens.css", "projects/app/src/styles.scss"]
@@ -70,6 +75,12 @@
                 {
                   "type": "bundle",
                   "name": "feature-documents",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "feature-notifications",
                   "maximumWarning": "200kB",
                   "maximumError": "250kB"
                 },
@@ -258,6 +269,32 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/feature-documents/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "feature-notifications": {
+      "projectType": "library",
+      "root": "projects/feature-notifications",
+      "sourceRoot": "projects/feature-notifications/src",
+      "prefix": "feat",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/feature-notifications/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/feature-notifications/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/feature-notifications/tsconfig.spec.json"
           }
         }
       }

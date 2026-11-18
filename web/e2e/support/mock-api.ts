@@ -13,6 +13,16 @@ export const COMPANIES = [
   '3f2a9c1e-0000-4000-8000-000000000002',
 ];
 
+/** Tablero de una empresa nueva: sin documentos, sin plan, sin certificado ni resoluciones por agotarse. */
+export const EMPTY_DASHBOARD = {
+  generated_at: '2026-11-17T15:00:00Z',
+  current_month: { month: '2026-11', total: 0, by_status: [] },
+  months: [],
+  plan: null,
+  certificate: null,
+  resolutions: [],
+};
+
 export interface MockApiOptions {
   /** Minutos de inactividad del `config.json` simulado (por defecto, los de producción). */
   inactivity?: { warnMinutes: number; logoutMinutes: number };
@@ -115,6 +125,17 @@ export async function mockApi(page: Page, options: MockApiOptions = {}): Promise
     session = null;
     return route.fulfill({ status: 204 });
   });
+
+  // La campana del encabezado y el tablero de `/` piden datos al entrar: por defecto, sin avisos y un tablero vacío.
+  // Una prueba que necesite otros datos registra su propia ruta después (Playwright usa la última registrada).
+  await page.route(/\/api\/v1\/notifications(\/|\?|$)/, (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ json: { items: [], next_cursor: null, unread_count: 0 } })
+      : route.fulfill({ json: { marked_count: 0 } }),
+  );
+  await page.route('**/api/v1/dashboard/summary', (route) =>
+    route.fulfill({ json: EMPTY_DASHBOARD }),
+  );
 
   return { calls, hasSession: () => session !== null };
 }

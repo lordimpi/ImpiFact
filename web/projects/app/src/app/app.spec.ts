@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, provideRouter, withComponentInputBinding } from '@angular/router';
-import { InactivityMonitor, SessionStore, ToastStore } from '@impifact/core';
+import { InactivityMonitor, NotificationsStore, SessionStore, ToastStore } from '@impifact/core';
 import { Translation, TranslocoLoader, provideTransloco } from '@jsverse/transloco';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
 import { of } from 'rxjs';
@@ -19,13 +19,23 @@ class InMemoryLoader implements TranslocoLoader {
 }
 
 /** Sesión y monitor de inactividad falsos: el shell solo lee sus signals y llama a sus métodos. */
-function fakes(options: { authenticated?: boolean; companies?: string[]; roles?: string[] } = {}) {
+function fakes(
+  options: {
+    authenticated?: boolean;
+    companies?: string[];
+    roles?: string[];
+    scopes?: string[];
+  } = {},
+) {
   const isAuthenticated = signal(options.authenticated ?? false);
   const roles = signal(options.roles ?? ['owner']);
+  const scopes = signal(options.scopes ?? []);
   const session = {
     isAuthenticated,
     roles,
+    scopes,
     hasRole: (...wanted: string[]) => wanted.some((role) => roles().includes(role)),
+    hasScope: (scope: string) => scopes().includes(scope),
     user: signal(isAuthenticated() ? { id: 'user-1', email: 'ana@example.test' } : null),
     companyId: signal<string | null>(options.companies?.[0] ?? null),
     companies: signal(options.companies ?? []),
@@ -39,12 +49,22 @@ function fakes(options: { authenticated?: boolean; companies?: string[]; roles?:
     minutesLeft: signal(5),
     stayConnected: vi.fn(() => monitor.warning.set(false)),
   };
-  return { session, monitor };
+  // Campana de avisos de core: el shell solo lee el número sin leer.
+  const notifications = {
+    unreadCount: signal(0),
+    latest: signal([]),
+    loaded: signal(true),
+    error: signal(false),
+    refresh: vi.fn(async () => undefined),
+    markRead: vi.fn(async () => true),
+    markAllRead: vi.fn(async () => 0),
+  };
+  return { session, monitor, notifications };
 }
 
 describe('App shell', () => {
   async function renderShell(options: Parameters<typeof fakes>[0] = {}) {
-    const { session, monitor } = fakes(options);
+    const { session, monitor, notifications } = fakes(options);
     const result = await render(App, {
       providers: [
         provideRouter(routes, withComponentInputBinding()),
@@ -54,9 +74,10 @@ describe('App shell', () => {
         }),
         { provide: SessionStore, useValue: session },
         { provide: InactivityMonitor, useValue: monitor },
+        { provide: NotificationsStore, useValue: notifications },
       ],
     });
-    return { ...result, session, monitor };
+    return { ...result, session, monitor, notifications };
   }
 
   it('renders the layout with texts from the es-CO translations', async () => {
@@ -103,6 +124,22 @@ describe('App shell', () => {
     view.session.roles.set(['owner']);
     view.session.isAuthenticated.set(false);
     await waitFor(() => expect(within(nav).queryByRole('link', { name: 'Documentos' })).toBeNull());
+  });
+
+  it('shows the notification bell with the unread count to a session that reads notices', async () => {
+    const { notifications } = await renderShell({
+      authenticated: true,
+      companies: ['company-1'],
+      roles: ['seller'],
+      scopes: ['documents:read'],
+    });
+    notifications.unreadCount.set(2);
+
+    expect(await screen.findByRole('button', { name: 'Avisos, 2 sin leer' })).toBeTruthy();
+    const nav = screen.getByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).getByRole('link', { name: 'Avisos' }).getAttribute('href')).toBe(
+      '/notificaciones',
+    );
   });
 
   it('sets the document title from the translations', async () => {

@@ -9,12 +9,18 @@
     "home": "Inicio",
     "customers": "Clientes",
     "products": "Productos",
-    "documents": "Documentos"
+    "documents": "Documentos",
+    "notifications": "Avisos"
   },
   "userMenu": {
     "account": "Mi cuenta",
     "switchCompany": "Cambiar de empresa",
     "logout": "Cerrar sesión"
+  },
+  "bell": {
+    "label": "Avisos",
+    "labelUnread": "Avisos, {{ count }} sin leer",
+    "loading": "Cargando avisos"
   },
   "home": {
     "title": "Panel de ImpiFact",

@@ -14,8 +14,10 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { InactivityMonitor, SessionStore, ToastStore } from '@impifact/core';
 import { loadAuthTexts, loadInactivityWarning } from '@impifact/feature-auth';
 import { MASTERS_ROLES } from '@impifact/feature-masters';
+import { NOTIFICATIONS_ROLES } from '@impifact/feature-notifications';
 import { ToastRegionComponent, UiToast } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { NotificationBellComponent } from './shell/notification-bell.component';
 import { UserMenuComponent } from './shell/user-menu.component';
 
 /** Entrada del menú principal; sin `roles` la ve cualquiera, con `roles` solo quien tiene alguno (sección 7). */
@@ -25,6 +27,8 @@ interface NavItem {
   label: string;
   exact?: boolean;
   roles?: readonly string[];
+  /** Alcance del token que además exige la entrada (por ejemplo, `platform:*`, que solo va sin empresa activa). */
+  scope?: string;
 }
 
 /** Menú principal, filtrado por rol. Cada feature agrega aquí sus entradas. */
@@ -33,11 +37,12 @@ const NAV_ITEMS: readonly NavItem[] = [
   { path: '/clientes', label: 'nav.customers', roles: MASTERS_ROLES },
   { path: '/productos', label: 'nav.products', roles: MASTERS_ROLES },
   { path: '/documentos', label: 'nav.documents', roles: ['owner', 'seller'] },
+  { path: '/notificaciones', label: 'nav.notifications', roles: NOTIFICATIONS_ROLES },
 ];
 
 /**
- * Shell del panel: encabezado con el menú principal (filtrado por rol) y el de usuario, zona de contenido, avisos
- * (*toasts*) de core y el diálogo de inactividad.
+ * Shell del panel: encabezado con el menú principal (filtrado por rol), el de usuario y la campana de avisos, zona
+ * de contenido, avisos (*toasts*) de core y el diálogo de inactividad.
  */
 @Component({
   selector: 'app-root',
@@ -49,6 +54,7 @@ const NAV_ITEMS: readonly NavItem[] = [
     TranslocoPipe,
     ToastRegionComponent,
     UserMenuComponent,
+    NotificationBellComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
@@ -64,7 +70,8 @@ export class App {
   protected readonly navItems = computed(() =>
     NAV_ITEMS.filter(
       (item) =>
-        !item.roles || (this.session.isAuthenticated() && this.session.hasRole(...item.roles)),
+        (!item.roles || (this.session.isAuthenticated() && this.session.hasRole(...item.roles))) &&
+        (!item.scope || this.session.hasScope(item.scope)),
     ),
   );
 

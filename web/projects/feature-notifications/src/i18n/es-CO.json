@@ -1,0 +1,47 @@
+{
+  "dropdown": {
+    "title": "Avisos",
+    "loading": "Cargando avisos",
+    "emptyTitle": "No tiene avisos",
+    "emptyDescription": "Aquí aparecerán los avisos de su empresa.",
+    "errorTitle": "No se pudieron cargar los avisos",
+    "markReadRow": "Marcar como leído: {{ title }}",
+    "markRead": "Marcar como leído",
+    "markAll": "Marcar todos como leídos",
+    "seeAll": "Ver todos los avisos",
+    "unread": "Sin leer"
+  },
+  "list": {
+    "title": "Avisos",
+    "description": "Avisos de la empresa activa, del más reciente al más antiguo.",
+    "caption": "Avisos",
+    "filter": "Mostrar",
+    "filters": {
+      "all": "Todos",
+      "unread": "Sin leer"
+    },
+    "notice": "Aviso",
+    "date": "Fecha",
+    "status": "Estado",
+    "actions": "Acciones",
+    "read": "Leído",
+    "unread": "Sin leer",
+    "markRead": "Marcar como leído",
+    "markReadRow": "Marcar como leído: {{ title }}",
+    "markAll": "Marcar todos como leídos",
+    "markedAll": "Se marcaron {{ count }} avisos como leídos.",
+    "loading": "Cargando avisos",
+    "emptyTitle": "No hay avisos",
+    "emptyDescription": "Cuando haya novedades de su empresa aparecerán aquí.",
+    "emptyUnreadTitle": "No tiene avisos sin leer",
+    "errorTitle": "No se pudieron cargar los avisos",
+    "errorDescription": "Revise su conexión e intente de nuevo.",
+    "retry": "Reintentar",
+    "paginator": {
+      "navigation": "Paginación de avisos",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "page": "Página {page}"
+    }
+  }
+}
