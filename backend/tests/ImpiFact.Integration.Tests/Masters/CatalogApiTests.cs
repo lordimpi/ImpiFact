@@ -130,6 +130,48 @@ public sealed class CatalogApiTests
     }
 
     [Test]
+    public async Task A_department_filters_the_municipalities_and_keeps_the_search_and_the_cursor()
+    {
+        using var client = await AnyClientAsync();
+
+        var (all, _) = await WalkIdsAsync(client, "/api/v1/catalogs/municipalities?department_id=11&limit=200");
+        var (paged, pages) = await WalkIdsAsync(client, "/api/v1/catalogs/municipalities?department_id=11&limit=10");
+        var (status, first) = await SendAsync(client, HttpMethod.Get, "/api/v1/catalogs/municipalities?department_id=11");
+        var (_, popayan) = await SendAsync(client, HttpMethod.Get, "/api/v1/catalogs/municipalities?department_id=11&q=popayan");
+        var (_, elsewhere) = await SendAsync(client, HttpMethod.Get, "/api/v1/catalogs/municipalities?department_id=5&q=popayan");
+
+        var departments = first.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("department_id").GetInt32());
+        Assert.Multiple(() =>
+        {
+            Assert.That(status, Is.EqualTo(200), first.ToString());
+            Assert.That(all, Has.Count.EqualTo(42), "Cauca has 42 municipalities in the seed.");
+            Assert.That(all, Does.Contain(362));
+            Assert.That(departments, Has.All.EqualTo(11));
+            Assert.That(paged, Is.EqualTo(all));
+            Assert.That(pages, Is.EqualTo(5));
+            Assert.That(Ids(popayan), Is.EqualTo(new[] { 362 }));
+            Assert.That(elsewhere.GetProperty("items").GetArrayLength(), Is.Zero);
+        });
+    }
+
+    [TestCase("municipalities", "department_id=0")]
+    [TestCase("municipalities", "department_id=abc")]
+    [TestCase("unit-measures", "department_id=11")]
+    [TestCase("departments", "department_id=11")]
+    public async Task A_department_filter_that_does_not_apply_answers_422(string name, string query)
+    {
+        using var client = await AnyClientAsync();
+
+        var (status, body) = await SendAsync(client, HttpMethod.Get, $"/api/v1/catalogs/{name}?{query}");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(status, Is.EqualTo(422), body.ToString());
+            Assert.That(body.GetProperty("errors").TryGetProperty("department_id", out _), Is.True, body.ToString());
+        });
+    }
+
+    [Test]
     public async Task Catalog_rows_carry_their_parent_or_description()
     {
         using var client = await AnyClientAsync();
