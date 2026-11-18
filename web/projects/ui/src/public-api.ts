@@ -14,7 +14,6 @@ export * from './lib/help/help.component';
 export * from './lib/i18n/ui-texts';
 export * from './lib/meter/meter.component';
 export * from './lib/page-title/page-title.component';
-export * from './lib/search-select/search-select.component';
 export * from './lib/paginator/pagination';
 export * from './lib/paginator/paginator.component';
 export * from './lib/states/empty-state.component';

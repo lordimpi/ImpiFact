@@ -195,7 +195,7 @@ export function catalogSearch(
     },
     retry: () => {
       const { term, nextCursor, items } = untracked(state);
-      // Si falló «Cargar más», se repite esa página; si no, la búsqueda entera.
+      // Si falló la página siguiente, se repite esa página; si no, la búsqueda entera.
       const append = items.length > 0 && nextCursor !== null;
       direct.next({ term, cursor: append ? nextCursor : null, append });
     },
