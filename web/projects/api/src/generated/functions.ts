@@ -19,10 +19,16 @@ export type { RefreshSession$Params as RefreshSession$Params } from './fn/identi
 export { refreshSession as refreshSession } from './fn/identidad/refresh-session';
 export type { Logout$Params as Logout$Params } from './fn/identidad/logout';
 export { logout as logout } from './fn/identidad/logout';
+export type { RequestPasswordReset$Params as RequestPasswordReset$Params } from './fn/identidad/request-password-reset';
+export { requestPasswordReset as requestPasswordReset } from './fn/identidad/request-password-reset';
+export type { ConfirmPasswordReset$Params as ConfirmPasswordReset$Params } from './fn/identidad/confirm-password-reset';
+export { confirmPasswordReset as confirmPasswordReset } from './fn/identidad/confirm-password-reset';
 export type { CreateApiKey$Params as CreateApiKey$Params } from './fn/identidad/create-api-key';
 export { createApiKey as createApiKey } from './fn/identidad/create-api-key';
 export type { RevokeApiKey$Params as RevokeApiKey$Params } from './fn/identidad/revoke-api-key';
 export { revokeApiKey as revokeApiKey } from './fn/identidad/revoke-api-key';
+export type { ListMyCompanies$Params as ListMyCompanies$Params } from './fn/identidad/list-my-companies';
+export { listMyCompanies as listMyCompanies } from './fn/identidad/list-my-companies';
 export type { CreateUser$Params as CreateUser$Params } from './fn/identidad/create-user';
 export { createUser as createUser } from './fn/identidad/create-user';
 export type { UpdateCompany$Params as UpdateCompany$Params } from './fn/empresas/update-company';

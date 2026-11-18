@@ -235,6 +235,82 @@
         }
       }
     },
+    "/api/v1/auth/password-reset/request": {
+      "post": {
+        "tags": [
+          "Identidad"
+        ],
+        "summary": "Pedir el enlace para restablecer la contrase\u00F1a",
+        "description": "Recibe el \u0060email\u0060 de la cuenta y responde siempre 202 con el mismo \u0060message\u0060, exista o no la cuenta, para no revelar qu\u00E9 correos est\u00E1n registrados. Si el correo es de un usuario activo, crea un enlace de un solo uso que vence en 30 minutos y lo env\u00EDa por correo (la p\u00E1gina \u0060/restablecer?token=...\u0060 del panel); pedir otro deja sin efecto el anterior. Comparte el l\u00EDmite de intentos del inicio de sesi\u00F3n (429).\n\n**Permiso:** no pide credencial.",
+        "operationId": "requestPasswordReset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequestBody"
+              },
+              "examples": {
+                "correo": {
+                  "summary": "Correo de la cuenta",
+                  "description": "La respuesta es la misma aunque el correo no tenga cuenta.",
+                  "value": {
+                    "email": "admin@empresa-prueba.com"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordResetRequested"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password-reset/confirm": {
+      "post": {
+        "tags": [
+          "Identidad"
+        ],
+        "summary": "Fijar la contrase\u00F1a nueva",
+        "description": "Recibe el \u0060token\u0060 del enlace del correo y la contrase\u00F1a nueva (\u0060new_password\u0060, de 10 a 256 caracteres). Si el token sirve, cambia la contrase\u00F1a, gasta el token y cierra todas las sesiones del usuario (revoca sus \u0060refresh_token\u0060): debe volver a iniciar sesi\u00F3n. Responde 204. Un token desconocido, vencido, ya usado o reemplazado por otro m\u00E1s nuevo responde el mismo 422 (\u0060identity.invalid_reset_token\u0060), sin decir cu\u00E1l de los casos es; una contrase\u00F1a que no cumple la pol\u00EDtica responde 422 con el detalle en \u0060errors.new_password\u0060 y no gasta el token. Comparte el l\u00EDmite de intentos del inicio de sesi\u00F3n (429).\n\n**Permiso:** no pide credencial.",
+        "operationId": "confirmPasswordReset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetConfirmBody"
+              },
+              "examples": {
+                "nueva-clave": {
+                  "summary": "Token del enlace y contrase\u00F1a nueva",
+                  "description": "Reemplace \u0060token\u0060 por el valor de \u0060?token=\u0060 del enlace que lleg\u00F3 por correo.",
+                  "value": {
+                    "token": "pegue-aqui-el-token-del-enlace",
+                    "new_password": "Otra-clave-segura-2026"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
     "/api/v1/api-keys": {
       "post": {
         "tags": [
@@ -329,6 +405,33 @@
         "responses": {
           "204": {
             "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/me/companies": {
+      "get": {
+        "tags": [
+          "Identidad"
+        ],
+        "summary": "Listar mis empresas",
+        "description": "Devuelve en \u0060items\u0060 las empresas a las que puede entrar quien llama, ordenadas por raz\u00F3n social: \u0060id\u0060, \u0060name\u0060 (raz\u00F3n social), \u0060nit\u0060, \u0060dv\u0060, \u0060roles\u0060 (los roles de quien llama en esa empresa, por ejemplo \u0060owner\u0060 o \u0060seller\u0060) e \u0060is_active\u0060. Es lo que muestra el selector de empresa del panel antes de renovar la sesi\u00F3n con \u0060company_id\u0060; no necesita empresa activa y la empresa activa no reduce la lista. Un usuario del panel ve las empresas donde tiene un rol (un \u0060platform_admin\u0060 sin empresas recibe la lista vac\u00EDa); una API key de empresa ve solo su empresa, sin roles; una de plataforma, la lista vac\u00EDa. No se pagina: un usuario pertenece a pocas empresas.\n\n**Permiso:** cualquier credencial v\u00E1lida.",
+        "operationId": "listMyCompanies",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyCompanies"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -14821,6 +14924,55 @@
           }
         }
       },
+      "MyCompanies": {
+        "required": [
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MyCompany"
+            }
+          }
+        }
+      },
+      "MyCompany": {
+        "required": [
+          "id",
+          "name",
+          "nit",
+          "dv",
+          "roles",
+          "is_active"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nit": {
+            "type": "string"
+          },
+          "dv": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "is_active": {
+            "type": "boolean"
+          }
+        }
+      },
       "NotificationListResponse": {
         "type": "object",
         "properties": {
@@ -15053,6 +15205,52 @@
           }
         },
         "description": "Sesi\u00F3n del panel (con el encabezado \u0060X-Client: panel\u0060): los mismos campos de \u0060SessionTokens\u0060 menos el \u0060refresh_token\u0060, que viaja en la cookie \u0060impifact_refresh\u0060."
+      },
+      "PasswordResetConfirmBody": {
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "new_password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PasswordResetRequestBody": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PasswordResetRequested": {
+        "required": [
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
       },
       "PlanAssignedResponse": {
         "type": "object",
