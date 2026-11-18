@@ -146,6 +146,32 @@ describe('App shell', () => {
     );
   });
 
+  it('shows the API keys and plan entries only to an owner', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['owner'] });
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).getByRole('link', { name: 'Llaves de API' }).getAttribute('href')).toBe(
+      '/llaves-api',
+    );
+    expect(within(nav).getByRole('link', { name: 'Mi plan' }).getAttribute('href')).toBe('/plan');
+    expect(within(nav).queryByRole('link', { name: 'Planes' })).toBeNull();
+  });
+
+  it('shows the platform entries to an administrator with the platform scope', async () => {
+    await renderShell({ authenticated: true, roles: ['platform_admin'], scopes: ['platform:*'] });
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).getByRole('link', { name: 'Planes' }).getAttribute('href')).toBe(
+      '/plataforma/planes',
+    );
+    expect(within(nav).getByRole('link', { name: 'Asignar planes' })).toBeTruthy();
+    expect(within(nav).queryByRole('link', { name: 'Llaves de API' })).toBeNull();
+  });
+
+  it('hides the platform entries from an administrator inside a company', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['platform_admin'] });
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).queryByRole('link', { name: 'Planes' })).toBeNull();
+  });
+
   it('sets the document title from the translations', async () => {
     await renderShell();
     await screen.findByText('ImpiFact');

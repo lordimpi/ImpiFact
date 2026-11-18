@@ -1,0 +1,112 @@
+import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
+import { expectRequest, problem, renderPlatformRoute } from '../testing/platform-testing';
+
+const isList = (request: { url: string; method: string }) =>
+  request.method === 'GET' && request.url === '/api/v1/plans';
+
+export const PLANS = [
+  {
+    id: 1,
+    name: 'Pyme 300',
+    period: 1,
+    qty_docs_invoice: 300,
+    qty_docs_payroll: 0,
+    qty_docs_radian: 0,
+    qty_docs_ds: 10,
+    state: true,
+    observations: null,
+  },
+  {
+    id: 2,
+    name: 'Anual 5000',
+    period: '2',
+    qty_docs_invoice: '5000',
+    qty_docs_payroll: '0',
+    qty_docs_radian: '0',
+    qty_docs_ds: '0',
+    state: false,
+    observations: 'Solo para clientes antiguos',
+  },
+];
+
+describe('PlatformPlansPage', () => {
+  it('lists the plans of the platform', async () => {
+    const { http } = await renderPlatformRoute('/plataforma/planes');
+
+    (await expectRequest(http, isList)).flush({ success: true, data: PLANS });
+
+    const table = await screen.findByRole('table', { name: 'Planes' });
+    expect(await within(table).findByText('Pyme 300')).toBeTruthy();
+    expect(within(table).getByText('Mensual')).toBeTruthy();
+    expect(within(table).getByText('Anual')).toBeTruthy();
+    expect(within(table).getByText('Inactivo')).toBeTruthy();
+    expect(
+      within(table)
+        .getByRole('link', { name: 'Ver las empresas del plan Pyme 300' })
+        .getAttribute('href'),
+    ).toBe('/plataforma/planes/1');
+  });
+
+  it('creates a plan with the next free id', async () => {
+    const { http } = await renderPlatformRoute('/plataforma/planes');
+    (await expectRequest(http, isList)).flush({ success: true, data: PLANS });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Nuevo plan' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Nuevo plan' });
+    expect((within(dialog).getByLabelText(/Id del plan/) as HTMLInputElement).value).toBe('3');
+    fireEvent.input(within(dialog).getByLabelText(/^Nombre/), { target: { value: 'Micro 50' } });
+    // Signal Forms lee el evento `input` del <select>; el navegador manda también `change`.
+    const period = within(dialog).getByLabelText(/Periodo/);
+    fireEvent.change(period, { target: { value: '3' } });
+    fireEvent.input(period, { target: { value: '3' } });
+    fireEvent.input(within(dialog).getByLabelText('Facturas y notas'), {
+      target: { value: '50' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar' }));
+
+    const save = await expectRequest(http, '/api/v1/plans/3');
+    expect(save.request.method).toBe('PUT');
+    expect(save.request.body).toEqual({
+      id: 3,
+      name: 'Micro 50',
+      period: 3,
+      qty_docs_invoice: 50,
+      qty_docs_payroll: null,
+      qty_docs_radian: null,
+      qty_docs_ds: null,
+      state: true,
+      observations: null,
+    });
+    save.flush({ success: true, plan: { id: 3, name: 'Micro 50' } });
+
+    await expectRequest(http, isList);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  });
+
+  it('edits a plan and shows a repeated name next to the field', async () => {
+    const { http } = await renderPlatformRoute('/plataforma/planes');
+    (await expectRequest(http, isList)).flush({ success: true, data: PLANS });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar el plan Anual 5000' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Editar el plan Anual 5000' });
+    expect((within(dialog).getByLabelText(/Periodo/) as HTMLSelectElement).value).toBe('2');
+    expect((within(dialog).getByLabelText('Plan activo') as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar' }));
+
+    const save = await expectRequest(http, '/api/v1/plans/2');
+    expect(save.request.body).toMatchObject({ id: 2, name: 'Anual 5000', state: false });
+    const { body, options } = problem(422, 'validation.failed', 'Datos no válidos.', {
+      name: ['El nombre ya existe.'],
+    });
+    save.flush(body, options);
+
+    expect(await within(dialog).findByText('El nombre ya existe.')).toBeTruthy();
+  });
+
+  it('keeps an administrator with an active company out', async () => {
+    const { http } = await renderPlatformRoute('/plataforma/planes', { scopes: [] });
+
+    expect(await screen.findByText('stub')).toBeTruthy();
+    http.expectNone('/api/v1/plans');
+  });
+});

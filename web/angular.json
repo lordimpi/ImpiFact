@@ -63,6 +63,11 @@
                 "glob": "**/*",
                 "input": "projects/feature-dashboard/src/i18n",
                 "output": "i18n/dashboard"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/feature-platform/src/i18n",
+                "output": "i18n/platform"
               }
             ],
             "styles": ["projects/ui/src/styles/tokens.css", "projects/app/src/styles.scss"]
@@ -114,6 +119,12 @@
                 {
                   "type": "bundle",
                   "name": "feature-dashboard",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "feature-platform",
                   "maximumWarning": "200kB",
                   "maximumError": "250kB"
                 },
@@ -406,6 +417,32 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/feature-dashboard/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "feature-platform": {
+      "projectType": "library",
+      "root": "projects/feature-platform",
+      "sourceRoot": "projects/feature-platform/src",
+      "prefix": "feat",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/feature-platform/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/feature-platform/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/feature-platform/tsconfig.spec.json"
           }
         }
       }

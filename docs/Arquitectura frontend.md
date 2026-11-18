@@ -109,14 +109,14 @@ Cambio en el backend, hecho el 17-nov (fase 5, B1): el refresh acepta y emite la
 | --- | --- | --- |
 | `/login`, `/recuperar` | `feature-auth` | público |
 | `/empresas/seleccionar` | `feature-auth` | todos los autenticados |
-| `/` (tablero) | `app` | owner, seller |
+| `/` (tablero) | `feature-dashboard` (los demás roles ven la página de inicio de `app`) | owner, seller |
 | `/empresas/:id/{datos,ambientes,software,certificado,resoluciones,correo,logo,plantilla}` | `feature-companies` | owner |
 | `/empresas/:id/produccion` | `feature-production-wizard` | owner |
 | `/documentos`, `/documentos/nuevo`, `/documentos/:id` | `feature-documents` | owner, seller (`nuevo`: con alcance de emisión) |
 | `/clientes`, `/productos` | `feature-masters` | owner, seller |
 | `/llaves-api` | `feature-api-keys` | owner |
 | `/plan` | `feature-plans` | owner |
-| `/plataforma/{empresas,planes,revendedores}` | `feature-platform` | reseller, platform\_admin |
+| `/plataforma/{empresas,planes,revendedores}` | `feature-platform` (hoy `planes`, `planes/:id` y `empresas`) | platform\_admin con `platform:*` (reseller cuando el Api le dé alcances) |
 | `/notificaciones` | `feature-notifications` | todos |
 | `/portal` (documentos del cliente) | `feature-documents` (vista restringida) | customer |
 
@@ -150,7 +150,7 @@ Panel listo (fase 5, tarea 8): los filtros viven en la URL con nombres en españ
 ## 9. Estado en tiempo real
 
 - Detalle de documento: *polling* con retroceso (2 s, 4 s, 8 s hasta 30 s) mientras el estado sea `Queued`, `Sent` o `Unconfirmed`; se detiene con un estado final o al salir de la pantalla.
-- Notificaciones (campana): *polling* cada 60 s. Si se requiere inmediatez se agrega SSE en el Api (`/api/v1/events`) sin cambiar los componentes, porque ambos alimentan el mismo servicio de `core`.
+- Notificaciones (campana): *polling* cada 60 s con `NotificationsStore` de `core` (hecho en la tarea 9: solo con empresa activa y `documents:read`, se pausa con la pestaña oculta y se detiene al cerrar sesión). Si se requiere inmediatez se agrega SSE en el Api (`/api/v1/events`) sin cambiar los componentes, porque ambos alimentan el mismo servicio de `core`.
 - Todo *polling* se cancela con `takeUntilDestroyed` y se pausa si la pestaña está oculta.
 
 ## 10. Sistema de diseño y UX
@@ -224,6 +224,9 @@ Tareas que el frontend necesita y que se suman al backlog del Api:
 7. ~~Fase 5 (encontrada en la tarea 5 del backlog): las empresas del usuario con nombre. El login y la renovación solo traen `companies` como identificadores, así que la selección de empresa (`/empresas/seleccionar`) las numera y muestra el identificador; hace falta un endpoint (por ejemplo, `GET /api/v1/me/companies`) con identificador, razón social y NIT de cada empresa a la que el usuario tiene acceso.~~ Hecho el 17-nov (fase 5, B7): `GET /api/v1/me/companies` (`listMyCompanies`) devuelve `items` con `id`, `name` (razón social), `nit`, `dv`, `roles` (lista: un usuario puede tener más de un rol en una empresa) e `is_active`, ordenados por razón social, sin paginar. No exige empresa activa y la empresa activa no reduce la lista. Una empresa inactiva aparece con `is_active: false` para que el selector la muestre deshabilitada.
 8. ~~Fase 5 (encontrada en la tarea 5): recuperación de contraseña (pedir el cambio por correo y fijar la nueva con un token de un solo uso). Mientras no exista, `/recuperar` solo lo explica.~~ Hecho el 17-nov (fase 5, B7): `POST /api/v1/auth/password-reset/request` (`requestPasswordReset`, `{"email"}`) responde siempre 202 con el mismo `message`; el correo trae el enlace `{Panel:BaseUrl}/restablecer?token=...` (vence en 30 minutos, de un solo uso). `POST /api/v1/auth/password-reset/confirm` (`confirmPasswordReset`, `{"token", "new_password"}`) responde 204 y cierra todas las sesiones del usuario; un token que no sirve responde 422 `identity.invalid_reset_token` y una contraseña fuera de la política 422 con `errors.new_password`. Las dos son anónimas y comparten el límite del login (429). El panel necesita la página `/restablecer` que lea `token` de la URL y, al terminar, lleve al login.
 9. Fase 5 (encontrada en la tarea 7): catálogos de la DIAN para los formularios (tipos de identificación, tipos de organización, regímenes, responsabilidades fiscales, municipios, unidades de medida e impuestos), por ejemplo `GET /api/v1/catalogs/{nombre}` con id y nombre, y búsqueda por texto en municipios (1122) y unidades (1093). Mientras no existan, `feature-masters` usa listas fijas con los ids de las tablas sembradas (`models/catalogs.ts`): todas las opciones de los catálogos cortos, las capitales de departamento y las unidades más usadas; un id guardado que no esté en la lista se muestra como «Otro (id N)».
+10. Fase 5 (encontrada en la tarea 9): listar las API keys de la empresa (por ejemplo, `GET /api/v1/api-keys` con id, nombre, prefijo, alcances, vencimiento y si está revocada, nunca el texto completo). Mientras no exista, `/llaves-api` muestra solo las llaves creadas en esa sesión del panel.
+11. Fase 5 (encontrada en la tarea 9): listar las empresas de la plataforma con búsqueda y paginación para `/plataforma/empresas`; hoy el plan se asigna escribiendo el NIT. `listPlans` y `listPlanCompanies` devuelven todo sin paginar (aceptable mientras sean pocos).
+12. Fase 5 (encontrada en la tarea 9): alcances y endpoints del revendedor (`reseller` no recibe alcances en `RoleScopes`) y de `/plataforma/revendedores`; mientras no existan, esas pantallas no se ofrecen.
 
 ## 17. Backlog del frontend (fase 5)
 

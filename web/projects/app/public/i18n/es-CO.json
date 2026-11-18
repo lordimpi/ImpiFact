@@ -12,7 +12,9 @@
     "documents": "Documentos",
     "notifications": "Avisos",
     "apiKeys": "Llaves de API",
-    "plan": "Mi plan"
+    "plan": "Mi plan",
+    "platformPlans": "Planes",
+    "platformCompanies": "Asignar planes"
   },
   "userMenu": {
     "account": "Mi cuenta",

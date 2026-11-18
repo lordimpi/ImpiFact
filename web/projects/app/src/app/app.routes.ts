@@ -7,6 +7,7 @@ import { notificationsRoutes } from '@impifact/feature-notifications';
 import { apiKeysRoutes } from '@impifact/feature-api-keys';
 import { plansRoutes } from '@impifact/feature-plans';
 import { dashboardRoutes } from '@impifact/feature-dashboard';
+import { platformRoutes } from '@impifact/feature-platform';
 
 /*
  * Rutas solo para desarrollo. En el build de producción `ngDevMode` vale `false` en tiempo de compilación,
@@ -27,7 +28,8 @@ const devRoutes: Routes =
  * páginas se cargan de forma perezosa: `authRoutes` trae `/login`, `/recuperar` y `/empresas/seleccionar`;
  * `mastersRoutes`, `/clientes` y `/productos`.
  * `documentsRoutes`, `/documentos`, `/documentos/nuevo` y `/documentos/:id`; `notificationsRoutes`, `/notificaciones`;
- * `apiKeysRoutes`, `/llaves-api`; `plansRoutes`, `/plan`.
+ * `apiKeysRoutes`, `/llaves-api`; `plansRoutes`, `/plan`; `platformRoutes`, `/plataforma/*`; `dashboardRoutes`, el
+ * tablero de `/` para el propietario y el vendedor.
  * Las rutas del panel exigen sesión con `authGuard`, que manda al login con `returnUrl`.
  */
 export const routes: Routes = [
@@ -45,6 +47,7 @@ export const routes: Routes = [
   ...notificationsRoutes,
   ...apiKeysRoutes,
   ...plansRoutes,
+  ...platformRoutes,
   ...devRoutes,
   { path: '**', redirectTo: '' },
 ];

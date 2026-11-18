@@ -1,0 +1,102 @@
+/* Estilos comunes de las páginas de la plataforma: listados y formularios, cómodos en móvil y en escritorio. */
+:host {
+  display: block;
+}
+
+.platform-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-4);
+  max-inline-size: 72rem;
+  margin-inline: auto;
+}
+
+.platform-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.platform-lead {
+  margin: 0;
+  color: var(--if-color-text-muted);
+}
+
+.platform-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-3);
+}
+
+.platform-card {
+  max-inline-size: 36rem;
+  padding: var(--if-space-4);
+  background: var(--if-color-surface);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-md);
+}
+
+.platform-form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
+  gap: var(--if-space-3);
+}
+
+.platform-fieldset {
+  margin: 0;
+  padding: var(--if-space-3);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-sm);
+}
+
+.platform-fieldset legend {
+  font-weight: var(--if-font-weight-medium);
+}
+
+.platform-check {
+  display: flex;
+  gap: var(--if-space-2);
+  align-items: center;
+}
+
+.platform-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--if-space-2);
+}
+
+.platform-message {
+  margin: 0;
+}
+
+.platform-message--error {
+  color: var(--if-color-danger);
+}
+
+.platform-message--success {
+  color: var(--if-color-success);
+}
+
+.platform-status {
+  color: var(--if-color-success);
+  font-weight: var(--if-font-weight-medium);
+}
+
+.platform-status--inactive {
+  color: var(--if-color-text-muted);
+}
+
+.platform-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+  align-items: center;
+}
+
+.platform-row-actions a,
+.platform-back {
+  color: var(--if-color-primary);
+}

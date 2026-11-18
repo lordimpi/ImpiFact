@@ -17,6 +17,7 @@ import { API_KEYS_ROLES } from '@impifact/feature-api-keys';
 import { MASTERS_ROLES } from '@impifact/feature-masters';
 import { NOTIFICATIONS_ROLES } from '@impifact/feature-notifications';
 import { PLANS_ROLES } from '@impifact/feature-plans';
+import { PLATFORM_ROLES, PLATFORM_SCOPE } from '@impifact/feature-platform';
 import { ToastRegionComponent, UiToast } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { NotificationBellComponent } from './shell/notification-bell.component';
@@ -42,6 +43,18 @@ const NAV_ITEMS: readonly NavItem[] = [
   { path: '/notificaciones', label: 'nav.notifications', roles: NOTIFICATIONS_ROLES },
   { path: '/llaves-api', label: 'nav.apiKeys', roles: API_KEYS_ROLES },
   { path: '/plan', label: 'nav.plan', roles: PLANS_ROLES },
+  {
+    path: '/plataforma/planes',
+    label: 'nav.platformPlans',
+    roles: PLATFORM_ROLES,
+    scope: PLATFORM_SCOPE,
+  },
+  {
+    path: '/plataforma/empresas',
+    label: 'nav.platformCompanies',
+    roles: PLATFORM_ROLES,
+    scope: PLATFORM_SCOPE,
+  },
 ];
 
 /**

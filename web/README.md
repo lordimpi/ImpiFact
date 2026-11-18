@@ -216,6 +216,18 @@ Tablero de `/` (tarea 9 del backlog) para el propietario y el vendedor (`DASHBOA
 - **Certificado:** días que le quedan (en rojo desde 30 días o vencido) o el aviso de que no hay uno activo.
 - **Resoluciones por agotarse:** las que el Api marca con pocos números o por vencer.
 
+## Librería `feature-platform`
+
+Administración de la plataforma (tarea 9 del backlog) para el `platform_admin` (`PLATFORM_ROLES`). El Api da `platform:*` solo sin empresa activa, así que las rutas piden también ese alcance (`scopeGuard`) y el menú las oculta si falta.
+
+| Ruta                     | Página              | Qué hace                                                                                                                                                                                                                      |
+| ------------------------ | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/plataforma/planes`     | `PlatformPlansPage` | Planes con su periodo, documentos por familia y estado. «Nuevo plan» y «Editar» abren un diálogo con Signal Forms que guarda con `savePlan` (`PUT /plans/{id}`: crea o actualiza); al crear se propone el siguiente id libre. |
+| `/plataforma/planes/:id` | `PlanCompaniesPage` | Empresas que tienen activo el plan (`listPlanCompanies`).                                                                                                                                                                     |
+| `/plataforma/empresas`   | `AssignPlanPage`    | Asigna un plan a una empresa por su NIT (`assignCompanyPlan`); explica una empresa o un plan que no existen.                                                                                                                  |
+
+Pendiente en el Api: listar las empresas de la plataforma (hoy se escribe el NIT), paginar planes y empresas por plan (llegan completos), y alcances y endpoints para el revendedor (`reseller` no tiene alcances; `/plataforma/revendedores` no se ofrece).
+
 ## Crear un feature nuevo
 
 1. `npx ng generate library feature-<nombre> --prefix=feat`. Después:

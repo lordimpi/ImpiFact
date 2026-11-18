@@ -1,0 +1,57 @@
+<section class="platform-page">
+  <feat-platform-nav />
+  <header>
+    <ui-page-title>{{ 'platform.assign.title' | transloco }}</ui-page-title>
+    <p class="platform-lead">{{ 'platform.assign.description' | transloco }}</p>
+    <p class="platform-lead">{{ 'platform.assign.noCompanyList' | transloco }}</p>
+  </header>
+
+  <form
+    class="platform-form platform-card"
+    novalidate
+    (submit)="onSubmit($event)"
+    [attr.aria-busy]="submitting() || null"
+  >
+    @if (generalError(); as message) {
+      <p class="platform-message platform-message--error" role="alert">{{ message }}</p>
+    }
+    <ui-field
+      [label]="'platform.assign.nit' | transloco"
+      [hint]="'platform.assign.nitHint' | transloco"
+      [error]="errors().nit"
+      required
+    >
+      <input
+        uiInput
+        type="text"
+        inputmode="numeric"
+        autocomplete="off"
+        [formField]="assignForm.nit"
+      />
+    </ui-field>
+    <ui-field
+      [label]="'platform.assign.plan' | transloco"
+      [error]="store.error() ? ('platform.assign.plansError' | transloco) : errors().plan_id"
+      required
+    >
+      <select uiSelect [formField]="assignForm.plan_id">
+        <option value="">{{ 'platform.assign.choosePlan' | transloco }}</option>
+        @for (plan of store.plans(); track plan.id) {
+          <option [value]="'' + plan.id">{{ plan.name }}</option>
+        }
+      </select>
+    </ui-field>
+    <div>
+      <ui-button
+        type="submit"
+        [label]="'platform.assign.submit' | transloco"
+        [loading]="submitting()"
+      />
+    </div>
+    <p class="platform-message platform-message--success" role="status">
+      @if (done(); as message) {
+        {{ message }}
+      }
+    </p>
+  </form>
+</section>
