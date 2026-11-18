@@ -1,7 +1,6 @@
 {
   "title": "Llaves de API",
   "description": "Llaves para que sus sistemas (tienda en línea, ERP) emitan y consulten documentos de esta empresa sin usar el panel.",
-  "noListNotice": "El Api todavía no lista las llaves existentes: aquí solo aparecen las que cree en esta sesión del panel. Si cierra la sesión o recarga la página dejará de verlas, pero siguen activas.",
   "form": {
     "title": "Nueva llave",
     "name": "Nombre de la llave",
@@ -32,20 +31,32 @@
     "close": "Cerrar"
   },
   "list": {
-    "caption": "Llaves creadas en esta sesión",
+    "caption": "Llaves de la empresa",
     "name": "Nombre",
     "prefix": "Comienza por",
     "scopes": "Permisos",
     "expiresAt": "Vence",
     "never": "No vence",
+    "lastUsedAt": "Último uso",
+    "neverUsed": "Sin uso",
     "status": "Estado",
     "active": "Activa",
     "revoked": "Revocada",
     "actions": "Acciones",
     "revoke": "Revocar",
     "revokeRow": "Revocar la llave {{ name }}",
-    "emptyTitle": "Aún no ha creado llaves en esta sesión",
-    "emptyDescription": "Las que cree aparecerán aquí para que pueda revocarlas."
+    "emptyTitle": "La empresa aún no tiene llaves de API",
+    "emptyDescription": "Las que cree aparecerán aquí para que pueda revocarlas.",
+    "loading": "Cargando las llaves…",
+    "errorTitle": "No se pudieron consultar las llaves",
+    "errorDescription": "Revise su conexión e intente de nuevo.",
+    "retry": "Reintentar",
+    "paginator": {
+      "navigation": "Paginación de llaves",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "page": "Página {page}"
+    }
   },
   "revoke": {
     "title": "Revocar la llave",

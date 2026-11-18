@@ -6,11 +6,28 @@ import { signInAt } from './support/sign-in';
 
 const SECRET = 'ifk_live_e2e_0123456789abcdef0123456789abcdef';
 
+const ERP_KEY = {
+  id: 'k-0',
+  name: 'ERP contable',
+  key_prefix: 'ifk_live_erp',
+  scopes: ['documents:read'],
+  created_at: '2026-10-01T15:00:00Z',
+  expires_at: null,
+  last_used_at: null,
+  is_revoked: false,
+  revoked_at: null,
+};
+
 test('creates a key, shows it once and forgets it after closing the dialog', async ({ page }) => {
   await signInAt(page, '/llaves-api');
   const bodies: unknown[] = [];
-  await page.route('**/api/v1/api-keys', (route) => {
+  const listed: object[] = [ERP_KEY];
+  await page.route(/\/api\/v1\/api-keys(\?|$)/, (route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({ json: { items: listed, next_cursor: null } });
+    }
     bodies.push(route.request().postDataJSON());
+    listed.unshift({ ...ERP_KEY, id: 'k-1', name: 'Tienda en línea', key_prefix: 'ifk_live_e2e' });
     return route.fulfill({
       status: 201,
       json: {
@@ -24,8 +41,11 @@ test('creates a key, shows it once and forgets it after closing the dialog', asy
       },
     });
   });
+  await page.reload();
 
   await expect(page.getByRole('heading', { level: 1, name: 'Llaves de API' })).toBeVisible();
+  const table = page.getByRole('table', { name: 'Llaves de la empresa' });
+  await expect(table.getByText('ERP contable')).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 
   await page.getByLabel(/Nombre de la llave/).fill('Tienda en línea');
@@ -43,7 +63,6 @@ test('creates a key, shows it once and forgets it after closing the dialog', asy
   await expect(dialog).toBeHidden();
   await expect(page.getByText(SECRET)).toHaveCount(0);
   expect(await page.content()).not.toContain(SECRET);
-  await expect(
-    page.getByRole('table', { name: 'Llaves creadas en esta sesión' }).getByText('ifk_live_e2e…'),
-  ).toBeVisible();
+  await expect(table.getByText('ifk_live_e2e…')).toBeVisible();
+  await expect(table.getByText('ERP contable')).toBeVisible();
 });

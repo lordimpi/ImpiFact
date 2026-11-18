@@ -62,28 +62,32 @@
     </div>
   </form>
 
-  <p class="keys-notice" role="note">{{ 'apiKeys.noListNotice' | transloco }}</p>
-
   <ui-table
     [caption]="'apiKeys.list.caption' | transloco"
     showCaption
     [columns]="columns()"
-    [rows]="store.keys()"
+    [rows]="store.items()"
     [labels]="tableLabels()"
+    [loading]="store.loading()"
+    [error]="store.error() !== null"
+    [pagination]="store.pagination()"
     [trackBy]="trackById"
+    (pageChange)="store.changePage($event)"
+    (retry)="store.refresh()"
   >
     <ng-template uiTableCell="keyPrefix" let-row
-      ><code>{{ row.keyPrefix }}…</code></ng-template
+      ><code>{{ row.key_prefix }}…</code></ng-template
     >
     <ng-template uiTableCell="scopes" let-row>{{ scopeList(row) }}</ng-template>
     <ng-template uiTableCell="expiresAt" let-row>{{ expiry(row) }}</ng-template>
+    <ng-template uiTableCell="lastUsedAt" let-row>{{ lastUse(row) }}</ng-template>
     <ng-template uiTableCell="revoked" let-row>
-      <span class="keys-status" [class.keys-status--revoked]="row.revoked">{{
-        (row.revoked ? 'apiKeys.list.revoked' : 'apiKeys.list.active') | transloco
+      <span class="keys-status" [class.keys-status--revoked]="row.is_revoked">{{
+        (row.is_revoked ? 'apiKeys.list.revoked' : 'apiKeys.list.active') | transloco
       }}</span>
     </ng-template>
     <ng-template uiTableCell="actions" let-row>
-      @if (!row.revoked) {
+      @if (!row.is_revoked) {
         <ui-button
           variant="text"
           size="small"

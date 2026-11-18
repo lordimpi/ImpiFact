@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormField, submit } from '@angular/forms/signals';
-import { CreatedApiKey } from '@impifact/api';
+import { ApiKeyItem, CreatedApiKey } from '@impifact/api';
 import { AppError, SessionStore, ToastStore } from '@impifact/core';
 import {
   ButtonComponent,
@@ -22,14 +22,14 @@ import {
   createApiKeyForm,
   emptyApiKey,
 } from '../forms/api-key.form';
-import { ApiKeysStore, SessionApiKey } from '../state/api-keys.store';
+import { ApiKeysStore } from '../state/api-keys.store';
 
 const DATE = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeZone: 'America/Bogota' });
 
 /**
  * Página `/llaves-api`: crea llaves con los alcances que la sesión ya tiene, muestra la llave completa **una sola
- * vez** en un diálogo con botón de copiar (y la borra de la memoria al cerrarlo) y revoca con confirmación. El Api no
- * lista las llaves: la tabla muestra solo las creadas en esta sesión, sin su texto completo.
+ * vez** en un diálogo con botón de copiar (y la borra de la memoria al cerrarlo) y revoca con confirmación. La tabla
+ * lista las llaves de la empresa (`listApiKeys`) paginadas por cursor en el servidor, sin su texto completo.
  */
 @Component({
   selector: 'feat-api-keys-page',
@@ -44,7 +44,7 @@ const DATE = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeZone: '
     TableComponent,
     TableCellDirective,
   ],
-  providers: [provideApiKeysI18n()],
+  providers: [provideApiKeysI18n(), ApiKeysStore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './api-keys.page.html',
   styleUrl: './api-keys.page.css',
@@ -67,7 +67,7 @@ export class ApiKeysPage {
   protected readonly secretOpen = computed(() => this.secret() !== null);
   protected readonly copied = signal(false);
 
-  protected readonly toRevoke = signal<SessionApiKey | null>(null);
+  protected readonly toRevoke = signal<ApiKeyItem | null>(null);
   protected readonly revokeOpen = signal(false);
 
   /** Alcances que se pueden dar: los de la sesión, en orden fijo. */
@@ -100,38 +100,53 @@ export class ApiKeysPage {
     { key: 'keyPrefix', header: this.text('list.prefix') },
     { key: 'scopes', header: this.text('list.scopes') },
     { key: 'expiresAt', header: this.text('list.expiresAt') },
+    { key: 'lastUsedAt', header: this.text('list.lastUsedAt') },
     { key: 'revoked', header: this.text('list.status') },
     { key: 'actions', header: this.text('list.actions') },
   ]);
   protected readonly tableLabels = computed<UiTableLabels>(() => ({
-    loading: '',
+    loading: this.text('list.loading'),
     emptyTitle: this.text('list.emptyTitle'),
     emptyDescription: this.text('list.emptyDescription'),
-    errorTitle: '',
-    retry: '',
-    paginator: { navigation: '', previous: '', next: '', page: '' },
+    errorTitle: this.text('list.errorTitle'),
+    errorDescription: this.text('list.errorDescription'),
+    retry: this.text('list.retry'),
+    paginator: {
+      navigation: this.text('list.paginator.navigation'),
+      previous: this.text('list.paginator.previous'),
+      next: this.text('list.paginator.next'),
+      page: this.text('list.paginator.page'),
+    },
   }));
   protected readonly revokeLabels = computed(() => ({
     header: this.text('revoke.title'),
     body: this.text('revoke.body', { name: this.toRevoke()?.name ?? '' }),
   }));
 
-  protected readonly trackById = (_: number, row: SessionApiKey) => row.id;
+  protected readonly trackById = (_: number, row: ApiKeyItem) => row.id;
+
+  constructor() {
+    this.store.load();
+  }
 
   protected scopeLabel(scope: string): string {
     return this.text(`scopes.${scope}`);
   }
 
-  protected scopeList(row: SessionApiKey): string {
-    return row.scopes.map((scope) => this.scopeLabel(scope)).join(', ');
+  protected scopeList(row: ApiKeyItem): string {
+    return (row.scopes ?? []).map((scope) => this.scopeLabel(scope)).join(', ');
   }
 
-  protected expiry(row: SessionApiKey): string {
-    return row.expiresAt ? DATE.format(new Date(row.expiresAt)) : this.text('list.never');
+  protected expiry(row: ApiKeyItem): string {
+    return row.expires_at ? DATE.format(new Date(row.expires_at)) : this.text('list.never');
   }
 
-  protected rowText(key: string, row: SessionApiKey): string {
-    return this.text(key, { name: row.name });
+  protected lastUse(row: ApiKeyItem): string {
+    return row.last_used_at ? DATE.format(new Date(row.last_used_at)) : this.text('list.neverUsed');
+  }
+
+  protected rowText(key: string, row: ApiKeyItem): string {
+    return this.text(key, { name: row.name ?? '' });
   }
 
   protected toggleScope(scope: string, event: Event): void {
@@ -191,7 +206,7 @@ export class ApiKeysPage {
     }
   }
 
-  protected askRevoke(row: SessionApiKey): void {
+  protected askRevoke(row: ApiKeyItem): void {
     this.toRevoke.set(row);
     this.revokeOpen.set(true);
   }
@@ -201,7 +216,7 @@ export class ApiKeysPage {
     if (!row) {
       return;
     }
-    if (await this.store.revoke(row.id)) {
+    if (row.id && (await this.store.revoke(row.id))) {
       this.toasts.show({ kind: 'success', text: this.text('revoke.done') });
     }
     this.revokeOpen.set(false);
