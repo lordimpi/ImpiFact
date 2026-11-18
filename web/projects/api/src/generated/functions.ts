@@ -47,6 +47,12 @@ export type { ListCompanyCertificates$Params as ListCompanyCertificates$Params }
 export { listCompanyCertificates as listCompanyCertificates } from './fn/empresas/list-company-certificates';
 export type { GetCertificateEndDate$Params as GetCertificateEndDate$Params } from './fn/empresas/get-certificate-end-date';
 export { getCertificateEndDate as getCertificateEndDate } from './fn/empresas/get-certificate-end-date';
+export type { GetCompanyLogo$Params as GetCompanyLogo$Params } from './fn/empresas/get-company-logo';
+export { getCompanyLogo as getCompanyLogo } from './fn/empresas/get-company-logo';
+export type { SaveCompanyLogo$Params as SaveCompanyLogo$Params } from './fn/empresas/save-company-logo';
+export { saveCompanyLogo as saveCompanyLogo } from './fn/empresas/save-company-logo';
+export type { DeleteCompanyLogo$Params as DeleteCompanyLogo$Params } from './fn/empresas/delete-company-logo';
+export { deleteCompanyLogo as deleteCompanyLogo } from './fn/empresas/delete-company-logo';
 export type { GetNumberingRanges$Params as GetNumberingRanges$Params } from './fn/empresas/get-numbering-ranges';
 export { getNumberingRanges as getNumberingRanges } from './fn/empresas/get-numbering-ranges';
 export type { ListValidatedDocuments$Params as ListValidatedDocuments$Params } from './fn/documentos/list-validated-documents';
@@ -85,6 +91,8 @@ export type { IssueDebitNote$Params as IssueDebitNote$Params } from './fn/docume
 export { issueDebitNote as issueDebitNote } from './fn/documentos/issue-debit-note';
 export type { IssueTestSetDebitNote$Params as IssueTestSetDebitNote$Params } from './fn/documentos/issue-test-set-debit-note';
 export { issueTestSetDebitNote as issueTestSetDebitNote } from './fn/documentos/issue-test-set-debit-note';
+export type { PreviewInvoice$Params as PreviewInvoice$Params } from './fn/documentos/preview-invoice';
+export { previewInvoice as previewInvoice } from './fn/documentos/preview-invoice';
 export type { CalculateDocumentTotals$Params as CalculateDocumentTotals$Params } from './fn/documentos/calculate-document-totals';
 export { calculateDocumentTotals as calculateDocumentTotals } from './fn/documentos/calculate-document-totals';
 export type { GetDocumentDianStatus$Params as GetDocumentDianStatus$Params } from './fn/documentos/get-document-dian-status';
@@ -135,3 +143,5 @@ export type { DeactivateProduct$Params as DeactivateProduct$Params } from './fn/
 export { deactivateProduct as deactivateProduct } from './fn/clientes-y-productos/deactivate-product';
 export type { GetDashboardSummary$Params as GetDashboardSummary$Params } from './fn/tablero/get-dashboard-summary';
 export { getDashboardSummary as getDashboardSummary } from './fn/tablero/get-dashboard-summary';
+export type { ListCatalog$Params as ListCatalog$Params } from './fn/catalogos/list-catalog';
+export { listCatalog as listCatalog } from './fn/catalogos/list-catalog';

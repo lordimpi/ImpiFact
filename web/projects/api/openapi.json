@@ -989,6 +989,117 @@
         ]
       }
     },
+    "/api/v1/companies/{nit}/logo": {
+      "put": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Subir el logo de la empresa",
+        "description": "Recibe el logo como \u0060multipart/form-data\u0060 en el campo \u0060logo\u0060: una imagen PNG o JPEG de hasta 512 KiB, reconocida por su contenido (el tipo que declare el archivo no cuenta; SVG, GIF y otros formatos no se aceptan). Reemplaza el logo anterior y responde \u0060content_type\u0060 y \u0060size_bytes\u0060. Desde ese momento va en el encabezado del PDF de los documentos que se generen y de la vista previa. Archivo que falta, vac\u00EDo, m\u00E1s grande o de otro formato: 422 con \u0060errors.logo\u0060. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "operationId": "saveCompanyLogo",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "logo": {
+                    "$ref": "#/components/schemas/IFormFile"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyLogoResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Ver el logo de la empresa",
+        "description": "Devuelve la imagen del logo (\u0060image/png\u0060 o \u0060image/jpeg\u0060) con \u0060Cache-Control: private, no-cache\u0060. Sin logo: 404 (\u0060company.logo_not_found\u0060). Pide \u0060documents:read\u0060. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "getCompanyLogo",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Quitar el logo de la empresa",
+        "description": "Borra el logo y responde 204 sin cuerpo, tambi\u00E9n si la empresa no ten\u00EDa. Los PDF que se generen despu\u00E9s salen sin logo; los ya generados no cambian. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "operationId": "deleteCompanyLogo",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/companies/{nit}/numbering-ranges": {
       "get": {
         "tags": [
@@ -10559,6 +10670,1626 @@
         ]
       }
     },
+    "/api/v1/documents/invoices/preview": {
+      "post": {
+        "tags": [
+          "Documentos"
+        ],
+        "summary": "Ver la vista previa del PDF de una factura",
+        "description": "Genera el PDF que tendr\u00EDa la factura con el mismo cuerpo de \u0060issueInvoice\u0060, sin emitirla (el \u0060invoice/preeliminar-view\u0060 de ApiDian). Revisa lo mismo que la emisi\u00F3n, salvo lo que solo sirve para firmar y enviar: forma del cuerpo, empresa activa (403 \u0060company.inactive\u0060), resoluci\u00F3n activa del tipo y el prefijo, cat\u00E1logos y totales con las reglas de la DIAN (422 \u0060validation.failed\u0060, con \u0060errors\u0060 por campo). No pide certificado ni software, no toma n\u00FAmero del consecutivo, no calcula el CUFE, no guarda nada, no consume el plan y no llama a la DIAN; ignora \u0060Idempotency-Key\u0060. El PDF lleva la marca \u00ABVISTA PREVIA - SIN VALIDEZ\u00BB, el n\u00FAmero \u0060{prefijo} - BORRADOR\u0060, \u00ABVISTA PREVIA - SIN CUFE\u00BB en lugar del CUFE, un QR de muestra y el logo de la empresa si tiene. Responde \u0060application/pdf\u0060 para abrir en el navegador (\u0060Content-Disposition: inline\u0060, \u0060Cache-Control: no-store\u0060). Si el conversor de PDF no responde: 503 (\u0060pdf.unavailable\u0060, reintente despu\u00E9s de \u0060Retry-After\u0060). Pide \u0060documents:write\u0060.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "previewInvoice",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "number": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "type_document_id": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "date": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "time": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "resolution_number": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "prefix": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "notes": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "head_note": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "foot_note": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "type_operation_id": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "idcurrency": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "calculationrate": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "calculationratedate": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "customer": {
+                    "type": "object",
+                    "properties": {
+                      "identification_number": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "dv": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "type_document_identification_id": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "type_organization_id": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "type_regime_id": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "type_liability_id": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "tax_id": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "language_id": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "country_id": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "municipality_id": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "name": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "phone": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "address": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "email": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "merchant_registration": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      }
+                    }
+                  },
+                  "payment_form": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "payment_form_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "payment_method_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "payment_due_date": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "duration_measure": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        }
+                      }
+                    }
+                  },
+                  "allowance_charges": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "charge_indicator": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "discount_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "allowance_charge_reason": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "multiplier_factor_numeric": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "base_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        }
+                      }
+                    }
+                  },
+                  "tax_totals": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "tax_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "tax_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "percent": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "taxable_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "unit_measure_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "per_unit_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "base_unit_measure": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        }
+                      }
+                    }
+                  },
+                  "with_holding_tax_total": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "tax_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "tax_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "percent": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "taxable_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "unit_measure_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "per_unit_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "base_unit_measure": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        }
+                      }
+                    }
+                  },
+                  "legal_monetary_totals": {
+                    "type": "object",
+                    "properties": {
+                      "line_extension_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "tax_exclusive_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "tax_inclusive_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "allowance_total_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "charge_total_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "pre_paid_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "payable_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      }
+                    }
+                  },
+                  "requested_monetary_totals": {
+                    "type": "object",
+                    "properties": {
+                      "line_extension_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "tax_exclusive_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "tax_inclusive_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "allowance_total_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "charge_total_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "pre_paid_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "payable_amount": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      }
+                    }
+                  },
+                  "invoice_lines": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "unit_measure_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "invoiced_quantity": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "line_extension_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "free_of_charge_indicator": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "reference_price_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "description": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "notes": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "code": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "type_item_identification_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "price_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "base_quantity": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "allowance_charges": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "charge_indicator": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              },
+                              "discount_id": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              },
+                              "allowance_charge_reason": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              },
+                              "multiplier_factor_numeric": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              },
+                              "amount": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              },
+                              "base_amount": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              }
+                            }
+                          }
+                        },
+                        "tax_totals": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "tax_id": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              },
+                              "tax_amount": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              },
+                              "percent": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              },
+                              "taxable_amount": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              },
+                              "unit_measure_id": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              },
+                              "per_unit_amount": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              },
+                              "base_unit_measure": {
+                                "type": [
+                                  "null",
+                                  "boolean",
+                                  "number",
+                                  "string"
+                                ],
+                                "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "credit_note_lines": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "unit_measure_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "invoiced_quantity": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "line_extension_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "free_of_charge_indicator": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "reference_price_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "description": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "notes": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "code": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "type_item_identification_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "price_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "base_quantity": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "allowance_charges": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {}
+                        },
+                        "tax_totals": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {}
+                        }
+                      }
+                    }
+                  },
+                  "debit_note_lines": {
+                    "type": [
+                      "null",
+                      "array"
+                    ],
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "unit_measure_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "invoiced_quantity": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "line_extension_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "free_of_charge_indicator": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "reference_price_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "description": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "notes": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "code": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "type_item_identification_id": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "price_amount": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "base_quantity": {
+                          "type": [
+                            "null",
+                            "boolean",
+                            "number",
+                            "string"
+                          ],
+                          "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                        },
+                        "allowance_charges": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {}
+                        },
+                        "tax_totals": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {}
+                        }
+                      }
+                    }
+                  },
+                  "discrepancyresponsecode": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "discrepancyresponsedescription": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "billing_reference": {
+                    "type": "object",
+                    "properties": {
+                      "number": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "uuid": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "issue_date": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      }
+                    }
+                  },
+                  "invoice_period": {
+                    "type": "object",
+                    "properties": {
+                      "start_date": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      },
+                      "end_date": {
+                        "type": [
+                          "null",
+                          "boolean",
+                          "number",
+                          "string"
+                        ],
+                        "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                      }
+                    }
+                  }
+                }
+              },
+              "examples": {
+                "single-line-iva19": {
+                  "summary": "Factura simple: una l\u00EDnea con IVA del 19 %",
+                  "value": {
+                    "number": 990000002,
+                    "type_document_id": 1,
+                    "date": "2026-11-14",
+                    "time": "10:05:00",
+                    "resolution_number": "18760000001",
+                    "prefix": "SETP",
+                    "customer": {
+                      "identification_number": "800000001",
+                      "dv": "1",
+                      "type_document_identification_id": 6,
+                      "type_organization_id": 1,
+                      "type_regime_id": 1,
+                      "type_liability_id": 117,
+                      "name": "CLIENTE DE PRUEBA GOLDEN SAS",
+                      "phone": "3000000001",
+                      "address": "CARRERA 2 # 2-02",
+                      "email": "cliente.golden@example.com",
+                      "merchant_registration": "0000000-00",
+                      "municipality_id": 149
+                    },
+                    "payment_form": {
+                      "payment_form_id": 1,
+                      "payment_method_id": 10,
+                      "payment_due_date": "2026-11-14",
+                      "duration_measure": "0"
+                    },
+                    "legal_monetary_totals": {
+                      "line_extension_amount": "1500000.00",
+                      "tax_exclusive_amount": "1500000.00",
+                      "tax_inclusive_amount": "1785000.00",
+                      "allowance_total_amount": "0.00",
+                      "charge_total_amount": "0.00",
+                      "payable_amount": "1785000.00"
+                    },
+                    "tax_totals": [
+                      {
+                        "tax_id": 1,
+                        "tax_amount": "285000.00",
+                        "percent": "19.00",
+                        "taxable_amount": "1500000.00"
+                      }
+                    ],
+                    "invoice_lines": [
+                      {
+                        "unit_measure_id": 70,
+                        "invoiced_quantity": "1",
+                        "line_extension_amount": "1500000.00",
+                        "free_of_charge_indicator": false,
+                        "description": "Servicio de consultor\u00EDa",
+                        "code": "SERV01",
+                        "type_item_identification_id": 4,
+                        "price_amount": "1500000.00",
+                        "base_quantity": "1",
+                        "tax_totals": [
+                          {
+                            "tax_id": 1,
+                            "tax_amount": "285000.00",
+                            "taxable_amount": "1500000.00",
+                            "percent": "19.00"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "two-lines-discounts-iva19": {
+                  "summary": "Factura con descuentos: dos l\u00EDneas con IVA del 19 %",
+                  "value": {
+                    "number": 990000001,
+                    "type_document_id": 1,
+                    "date": "2026-11-14",
+                    "time": "10:00:00",
+                    "resolution_number": "18760000001",
+                    "prefix": "SETP",
+                    "customer": {
+                      "identification_number": "800000001",
+                      "dv": "1",
+                      "type_document_identification_id": 6,
+                      "type_organization_id": 1,
+                      "type_regime_id": 1,
+                      "type_liability_id": 117,
+                      "name": "CLIENTE DE PRUEBA GOLDEN SAS",
+                      "phone": "3000000001",
+                      "address": "CARRERA 2 # 2-02",
+                      "email": "cliente.golden@example.com",
+                      "merchant_registration": "0000000-00",
+                      "municipality_id": 149
+                    },
+                    "payment_form": {
+                      "payment_form_id": 1,
+                      "payment_method_id": 30,
+                      "payment_due_date": "2026-11-14",
+                      "duration_measure": "0"
+                    },
+                    "allowance_charges": [
+                      {
+                        "discount_id": 1,
+                        "charge_indicator": false,
+                        "allowance_charge_reason": "Descuento Global",
+                        "amount": "100.00",
+                        "base_amount": "1900.00"
+                      }
+                    ],
+                    "legal_monetary_totals": {
+                      "line_extension_amount": "1900.00",
+                      "tax_exclusive_amount": "1900.00",
+                      "tax_inclusive_amount": "2261.00",
+                      "allowance_total_amount": "100.00",
+                      "charge_total_amount": "0.00",
+                      "payable_amount": "2161.00"
+                    },
+                    "tax_totals": [
+                      {
+                        "tax_id": 1,
+                        "tax_amount": "361.00",
+                        "percent": "19.00",
+                        "taxable_amount": "1900.00"
+                      }
+                    ],
+                    "invoice_lines": [
+                      {
+                        "unit_measure_id": 70,
+                        "invoiced_quantity": "1",
+                        "line_extension_amount": "950.00",
+                        "free_of_charge_indicator": false,
+                        "description": "Producto de prueba 1",
+                        "code": "PRUEBA1",
+                        "type_item_identification_id": 4,
+                        "price_amount": "1000.00",
+                        "base_quantity": "1",
+                        "allowance_charges": [
+                          {
+                            "discount_id": 10,
+                            "charge_indicator": false,
+                            "allowance_charge_reason": "Descuento por promoci\u00F3n",
+                            "amount": "50.00",
+                            "base_amount": "1000.00"
+                          }
+                        ],
+                        "tax_totals": [
+                          {
+                            "tax_id": 1,
+                            "tax_amount": "180.50",
+                            "taxable_amount": "950.00",
+                            "percent": "19.00"
+                          }
+                        ]
+                      },
+                      {
+                        "unit_measure_id": 70,
+                        "invoiced_quantity": "1",
+                        "line_extension_amount": "950.00",
+                        "free_of_charge_indicator": false,
+                        "description": "Producto de prueba 2",
+                        "code": "PRUEBA2",
+                        "type_item_identification_id": 4,
+                        "price_amount": "1000.00",
+                        "base_quantity": "1",
+                        "allowance_charges": [
+                          {
+                            "discount_id": 11,
+                            "charge_indicator": false,
+                            "allowance_charge_reason": "Descuento por volumen",
+                            "amount": "50.00",
+                            "base_amount": "1000.00"
+                          }
+                        ],
+                        "tax_totals": [
+                          {
+                            "tax_id": 1,
+                            "tax_amount": "180.50",
+                            "taxable_amount": "950.00",
+                            "percent": "19.00"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "mixed-iva-19-5-0": {
+                  "summary": "Factura con IVA mixto: l\u00EDneas al 19 %, al 5 % y exentas (0 %)",
+                  "value": {
+                    "number": 990000003,
+                    "type_document_id": 1,
+                    "date": "2026-11-14",
+                    "time": "10:10:00",
+                    "resolution_number": "18760000001",
+                    "prefix": "SETP",
+                    "customer": {
+                      "identification_number": "800000001",
+                      "dv": "1",
+                      "type_document_identification_id": 6,
+                      "type_organization_id": 1,
+                      "type_regime_id": 1,
+                      "type_liability_id": 117,
+                      "name": "CLIENTE DE PRUEBA GOLDEN SAS",
+                      "phone": "3000000001",
+                      "address": "CARRERA 2 # 2-02",
+                      "email": "cliente.golden@example.com",
+                      "merchant_registration": "0000000-00",
+                      "municipality_id": 149
+                    },
+                    "payment_form": {
+                      "payment_form_id": 1,
+                      "payment_method_id": 10,
+                      "payment_due_date": "2026-11-14",
+                      "duration_measure": "0"
+                    },
+                    "legal_monetary_totals": {
+                      "line_extension_amount": "4960000.00",
+                      "tax_exclusive_amount": "4960000.00",
+                      "tax_inclusive_amount": "5859250.00",
+                      "allowance_total_amount": "0.00",
+                      "charge_total_amount": "0.00",
+                      "payable_amount": "5859250.00"
+                    },
+                    "tax_totals": [
+                      {
+                        "tax_id": 1,
+                        "tax_amount": "893000.00",
+                        "percent": "19.00",
+                        "taxable_amount": "4700000.00"
+                      },
+                      {
+                        "tax_id": 1,
+                        "tax_amount": "6250.00",
+                        "percent": "5.00",
+                        "taxable_amount": "125000.00"
+                      },
+                      {
+                        "tax_id": 1,
+                        "tax_amount": "0.00",
+                        "percent": "0.00",
+                        "taxable_amount": "135000.00"
+                      }
+                    ],
+                    "invoice_lines": [
+                      {
+                        "unit_measure_id": 70,
+                        "invoiced_quantity": "2",
+                        "line_extension_amount": "4700000.00",
+                        "free_of_charge_indicator": false,
+                        "description": "Computador port\u00E1til",
+                        "code": "PC01",
+                        "type_item_identification_id": 4,
+                        "price_amount": "2350000.00",
+                        "base_quantity": "2",
+                        "tax_totals": [
+                          {
+                            "tax_id": 1,
+                            "tax_amount": "893000.00",
+                            "taxable_amount": "4700000.00",
+                            "percent": "19.00"
+                          }
+                        ]
+                      },
+                      {
+                        "unit_measure_id": 70,
+                        "invoiced_quantity": "10",
+                        "line_extension_amount": "125000.00",
+                        "free_of_charge_indicator": false,
+                        "description": "Medicamento",
+                        "code": "MED01",
+                        "type_item_identification_id": 4,
+                        "price_amount": "12500.00",
+                        "base_quantity": "10",
+                        "tax_totals": [
+                          {
+                            "tax_id": 1,
+                            "tax_amount": "6250.00",
+                            "taxable_amount": "125000.00",
+                            "percent": "5.00"
+                          }
+                        ]
+                      },
+                      {
+                        "unit_measure_id": 70,
+                        "invoiced_quantity": "3",
+                        "line_extension_amount": "135000.00",
+                        "free_of_charge_indicator": false,
+                        "description": "Libro",
+                        "code": "LIB01",
+                        "type_item_identification_id": 4,
+                        "price_amount": "45000.00",
+                        "base_quantity": "3",
+                        "tax_totals": [
+                          {
+                            "tax_id": 1,
+                            "tax_amount": "0.00",
+                            "taxable_amount": "135000.00",
+                            "percent": "0.00"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "final-consumer": {
+                  "summary": "Factura a consumidor final (222222222222)",
+                  "value": {
+                    "number": 990000010,
+                    "type_document_id": 1,
+                    "date": "2026-11-14",
+                    "time": "10:45:00",
+                    "resolution_number": "18760000001",
+                    "prefix": "SETP",
+                    "customer": {
+                      "identification_number": "222222222222",
+                      "type_document_identification_id": 3,
+                      "type_organization_id": 2,
+                      "type_regime_id": 2,
+                      "type_liability_id": 117,
+                      "name": "CONSUMIDOR FINAL",
+                      "municipality_id": 149
+                    },
+                    "payment_form": {
+                      "payment_form_id": 1,
+                      "payment_method_id": 10,
+                      "payment_due_date": "2026-11-14",
+                      "duration_measure": "0"
+                    },
+                    "legal_monetary_totals": {
+                      "line_extension_amount": "84033.61",
+                      "tax_exclusive_amount": "84033.61",
+                      "tax_inclusive_amount": "100000.00",
+                      "allowance_total_amount": "0.00",
+                      "charge_total_amount": "0.00",
+                      "payable_amount": "100000.00"
+                    },
+                    "tax_totals": [
+                      {
+                        "tax_id": 1,
+                        "tax_amount": "15966.39",
+                        "percent": "19.00",
+                        "taxable_amount": "84033.61"
+                      }
+                    ],
+                    "invoice_lines": [
+                      {
+                        "unit_measure_id": 70,
+                        "invoiced_quantity": "1",
+                        "line_extension_amount": "84033.61",
+                        "free_of_charge_indicator": false,
+                        "description": "Mercado",
+                        "code": "MER01",
+                        "type_item_identification_id": 4,
+                        "price_amount": "84033.61",
+                        "base_quantity": "1",
+                        "tax_totals": [
+                          {
+                            "tax_id": 1,
+                            "tax_amount": "15966.39",
+                            "taxable_amount": "84033.61",
+                            "percent": "19.00"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/documents/calculate": {
       "post": {
         "tags": [
@@ -11935,6 +13666,81 @@
           }
         ]
       }
+    },
+    "/api/v1/catalogs/{name}": {
+      "get": {
+        "tags": [
+          "Cat\u00E1logos"
+        ],
+        "summary": "Listar un cat\u00E1logo de la DIAN",
+        "description": "Filas del cat\u00E1logo \u0060{name}\u0060: \u0060identification-types\u0060, \u0060organization-types\u0060, \u0060regimes\u0060, \u0060liabilities\u0060, \u0060municipalities\u0060, \u0060departments\u0060, \u0060countries\u0060, \u0060unit-measures\u0060, \u0060taxes\u0060, \u0060payment-forms\u0060, \u0060payment-methods\u0060, \u0060document-types\u0060, \u0060currencies\u0060, \u0060item-identification-types\u0060, \u0060credit-note-discrepancy-responses\u0060, \u0060debit-note-discrepancy-responses\u0060. Cada fila trae \u0060id\u0060 (el que esperan los campos \u0060*_id\u0060 de la emisi\u00F3n, de la empresa y de los maestros), \u0060code\u0060 (c\u00F3digo DIAN), \u0060name\u0060 e \u0060is_active\u0060; los municipios suman \u0060department_id\u0060, los departamentos \u0060country_id\u0060 y los impuestos \u0060description\u0060. Solo salen las filas activas, salvo con \u0060include_inactive=true\u0060. \u0060q\u0060 busca el texto dentro del c\u00F3digo o del nombre sin distinguir may\u00FAsculas ni tildes (\u0060bogota\u0060 encuentra \u00ABBogot\u00E1\u00BB). El orden es por \u0060id\u0060. Los cat\u00E1logos largos (\u0060municipalities\u0060 y \u0060unit-measures\u0060) se paginan por cursor: \u0060limit\u0060 (50 si no llega, m\u00E1ximo 200) y \u0060cursor\u0060 (el \u0060next_cursor\u0060 de la p\u00E1gina anterior; nulo en la \u00FAltima); los dem\u00E1s salen completos y \u0060next_cursor\u0060 es nulo. \u0060version\u0060 cambia cuando cambia cualquier fila del cat\u00E1logo y es el \u0060ETag\u0060 de la respuesta: con \u0060If-None-Match\u0060 igual responde 304 sin cuerpo. \u0060Cache-Control: public, max-age=3600\u0060. Pide cualquier credencial, sin alcance ni empresa activa. Un cat\u00E1logo que no se publica responde 404 (\u0060catalog.not_found\u0060); un par\u00E1metro no v\u00E1lido, 422.\n\n**Permiso:** cualquier credencial v\u00E1lida.",
+        "operationId": "listCatalog",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "municipalities"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "bogota"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogListResponse"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -12370,6 +14176,75 @@
           }
         }
       },
+      "CatalogItemResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "department_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "country_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CatalogListResponse": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogItemResponse"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CertificateEndDateResponse": {
         "type": "object",
         "properties": {
@@ -12465,6 +14340,22 @@
             "items": {
               "$ref": "#/components/schemas/CertificateResponse"
             }
+          }
+        }
+      },
+      "CompanyLogoResponse": {
+        "type": "object",
+        "properties": {
+          "content_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -14476,6 +16367,10 @@
           }
         }
       },
+      "IFormFile": {
+        "type": "string",
+        "format": "binary"
+      },
       "InformationGroup": {
         "type": "object",
         "properties": {
@@ -16461,6 +18356,10 @@
     {
       "name": "Tablero",
       "description": "Resumen del tablero del panel: documentos por estado y por mes, consumo del plan, certificado de firma y resoluciones por agotarse de la empresa activa."
+    },
+    {
+      "name": "Cat\u00E1logos",
+      "description": "Cat\u00E1logos de la DIAN para las listas de los formularios: tipos de identificaci\u00F3n y de organizaci\u00F3n, reg\u00EDmenes, responsabilidades fiscales, municipios, departamentos, pa\u00EDses, unidades de medida, impuestos, formas y medios de pago, tipos de documento y monedas. Son los mismos para todas las empresas y se pueden guardar en cach\u00E9."
     }
   ]
 }
