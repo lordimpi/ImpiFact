@@ -16722,6 +16722,66 @@
             "Bearer": []
           }
         ]
+      },
+      "post": {
+        "tags": [
+          "Planes"
+        ],
+        "summary": "Crear un plan",
+        "description": "Crea un plan nuevo y le asigna el \u0060id\u0060 siguiente al mayor que existe (un \u0060id\u0060 en el cuerpo se ignora; nunca reemplaza un plan). Responde 201 con el plan en \u0060plan\u0060 y su direcci\u00F3n en \u0060Location\u0060. Campos: \u0060name\u0060 (\u00FAnico y obligatorio), la cantidad de documentos que la empresa puede emitir en cada periodo por familia (\u0060qty_docs_invoice\u0060 para facturas y notas, \u0060qty_docs_payroll\u0060 para n\u00F3mina, \u0060qty_docs_radian\u0060 para eventos RADIAN y \u0060qty_docs_ds\u0060 para documentos soporte; 0 no deja emitir esa familia), \u0060period\u0060 (1 mensual, 2 anual, 3 paquete sin vencimiento), \u0060state\u0060 (activo si no llega) y \u0060observations\u0060. Nombre repetido o campos que faltan: 422. Para cambiar un plan existente se usa \u0060PUT /api/v1/plans/{id}\u0060.\n\n**Permiso:** alcance \u0060platform:*\u0060 con una llave de plataforma (sin empresa).",
+        "operationId": "createPlan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlanCommand"
+              },
+              "examples": {
+                "mensual": {
+                  "summary": "Plan mensual de 100 facturas",
+                  "value": {
+                    "name": "Mensual 100",
+                    "qty_docs_invoice": 100,
+                    "qty_docs_payroll": 0,
+                    "qty_docs_radian": 0,
+                    "qty_docs_ds": 0,
+                    "period": 1,
+                    "observations": "Facturas y notas: 100 por mes."
+                  }
+                },
+                "paquete": {
+                  "summary": "Paquete de 1000 facturas sin vencimiento mensual",
+                  "value": {
+                    "name": "Paquete 1000",
+                    "qty_docs_invoice": 1000,
+                    "qty_docs_payroll": 0,
+                    "qty_docs_radian": 0,
+                    "qty_docs_ds": 0,
+                    "period": 3
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanSavedResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
       }
     },
     "/api/v1/plans/{id}": {
@@ -16768,7 +16828,7 @@
           "Planes"
         ],
         "summary": "Crear o actualizar un plan",
-        "description": "Crea el plan con ese \u0060id\u0060 o lo actualiza si ya existe. Campos: \u0060name\u0060 (\u00FAnico; obligatorio al crear), la cantidad de documentos por familia (\u0060qty_docs_invoice\u0060 para facturas y notas, \u0060qty_docs_payroll\u0060, \u0060qty_docs_radian\u0060, \u0060qty_docs_ds\u0060), \u0060period\u0060 (1 mensual, 2 anual, 3 paquete), \u0060state\u0060 (activo si no llega) y \u0060observations\u0060. Los n\u00FAmeros pueden llegar como n\u00FAmero o como texto. Nombre repetido: 422.\n\n**Permiso:** alcance \u0060platform:*\u0060 con una llave de plataforma (sin empresa).",
+        "description": "Crea el plan con ese \u0060id\u0060 o lo actualiza si ya existe; para crear uno sin elegir el id est\u00E1 \u0060POST /api/v1/plans\u0060. Campos: \u0060name\u0060 (\u00FAnico; obligatorio al crear), la cantidad de documentos por familia (\u0060qty_docs_invoice\u0060 para facturas y notas, \u0060qty_docs_payroll\u0060, \u0060qty_docs_radian\u0060, \u0060qty_docs_ds\u0060), \u0060period\u0060 (1 mensual, 2 anual, 3 paquete), \u0060state\u0060 (activo si no llega) y \u0060observations\u0060. Los n\u00FAmeros pueden llegar como n\u00FAmero o como texto. Nombre repetido: 422.\n\n**Permiso:** alcance \u0060platform:*\u0060 con una llave de plataforma (sin empresa).",
         "operationId": "savePlan",
         "parameters": [
           {
@@ -17654,7 +17714,7 @@
           "Cat\u00E1logos"
         ],
         "summary": "Listar un cat\u00E1logo de la DIAN",
-        "description": "Filas del cat\u00E1logo \u0060{name}\u0060: \u0060identification-types\u0060, \u0060organization-types\u0060, \u0060regimes\u0060, \u0060liabilities\u0060, \u0060municipalities\u0060, \u0060departments\u0060, \u0060countries\u0060, \u0060unit-measures\u0060, \u0060taxes\u0060, \u0060payment-forms\u0060, \u0060payment-methods\u0060, \u0060document-types\u0060, \u0060currencies\u0060, \u0060item-identification-types\u0060, \u0060credit-note-discrepancy-responses\u0060, \u0060debit-note-discrepancy-responses\u0060. Cada fila trae \u0060id\u0060 (el que esperan los campos \u0060*_id\u0060 de la emisi\u00F3n, de la empresa y de los maestros), \u0060code\u0060 (c\u00F3digo DIAN), \u0060name\u0060 e \u0060is_active\u0060; los municipios suman \u0060department_id\u0060, los departamentos \u0060country_id\u0060 y los impuestos \u0060description\u0060. Solo salen las filas activas, salvo con \u0060include_inactive=true\u0060. \u0060q\u0060 busca el texto dentro del c\u00F3digo o del nombre sin distinguir may\u00FAsculas ni tildes (\u0060bogota\u0060 encuentra \u00ABBogot\u00E1\u00BB). El orden es por \u0060id\u0060. Los cat\u00E1logos largos (\u0060municipalities\u0060 y \u0060unit-measures\u0060) se paginan por cursor: \u0060limit\u0060 (50 si no llega, m\u00E1ximo 200) y \u0060cursor\u0060 (el \u0060next_cursor\u0060 de la p\u00E1gina anterior; nulo en la \u00FAltima); los dem\u00E1s salen completos y \u0060next_cursor\u0060 es nulo. \u0060version\u0060 cambia cuando cambia cualquier fila del cat\u00E1logo y es el \u0060ETag\u0060 de la respuesta: con \u0060If-None-Match\u0060 igual responde 304 sin cuerpo. \u0060Cache-Control: public, max-age=3600\u0060. Pide cualquier credencial, sin alcance ni empresa activa. Un cat\u00E1logo que no se publica responde 404 (\u0060catalog.not_found\u0060); un par\u00E1metro no v\u00E1lido, 422.\n\n**Permiso:** cualquier credencial v\u00E1lida.",
+        "description": "Filas del cat\u00E1logo \u0060{name}\u0060: \u0060identification-types\u0060, \u0060organization-types\u0060, \u0060regimes\u0060, \u0060liabilities\u0060, \u0060municipalities\u0060, \u0060departments\u0060, \u0060countries\u0060, \u0060unit-measures\u0060, \u0060taxes\u0060, \u0060payment-forms\u0060, \u0060payment-methods\u0060, \u0060document-types\u0060, \u0060currencies\u0060, \u0060item-identification-types\u0060, \u0060credit-note-discrepancy-responses\u0060, \u0060debit-note-discrepancy-responses\u0060. Cada fila trae \u0060id\u0060 (el que esperan los campos \u0060*_id\u0060 de la emisi\u00F3n, de la empresa y de los maestros), \u0060code\u0060 (c\u00F3digo DIAN), \u0060name\u0060 e \u0060is_active\u0060; los municipios suman \u0060department_id\u0060, los departamentos \u0060country_id\u0060 y los impuestos \u0060description\u0060. Solo salen las filas activas, salvo con \u0060include_inactive=true\u0060. \u0060q\u0060 busca el texto dentro del c\u00F3digo o del nombre sin distinguir may\u00FAsculas ni tildes (\u0060bogota\u0060 encuentra \u00ABBogot\u00E1\u00BB). En \u0060municipalities\u0060, \u0060department_id\u0060 deja solo los municipios de ese departamento (por ejemplo \u0060department_id=11\u0060, Cauca) y se combina con \u0060q\u0060 y con el cursor; en los dem\u00E1s cat\u00E1logos responde 422. El orden es por \u0060id\u0060. Los cat\u00E1logos largos (\u0060municipalities\u0060 y \u0060unit-measures\u0060) se paginan por cursor: \u0060limit\u0060 (50 si no llega, m\u00E1ximo 200) y \u0060cursor\u0060 (el \u0060next_cursor\u0060 de la p\u00E1gina anterior; nulo en la \u00FAltima); los dem\u00E1s salen completos y \u0060next_cursor\u0060 es nulo. \u0060version\u0060 cambia cuando cambia cualquier fila del cat\u00E1logo y es el \u0060ETag\u0060 de la respuesta: con \u0060If-None-Match\u0060 igual responde 304 sin cuerpo. \u0060Cache-Control: public, max-age=3600\u0060. Pide cualquier credencial, sin alcance ni empresa activa. Un cat\u00E1logo que no se publica responde 404 (\u0060catalog.not_found\u0060); un par\u00E1metro no v\u00E1lido, 422.\n\n**Permiso:** cualquier credencial v\u00E1lida.",
         "operationId": "listCatalog",
         "parameters": [
           {
@@ -17695,6 +17755,13 @@
           },
           {
             "name": "include_inactive",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "department_id",
             "in": "query",
             "schema": {
               "type": "string"
@@ -19035,6 +19102,69 @@
               "string"
             ],
             "format": "uuid"
+          }
+        }
+      },
+      "CreatePlanCommand": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "qty_docs_invoice": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "qty_docs_payroll": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "qty_docs_radian": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "qty_docs_ds": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "period": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "state": {},
+          "observations": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
