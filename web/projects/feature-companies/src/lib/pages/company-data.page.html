@@ -104,18 +104,13 @@
         [help]="'companies.data.help.department' | transloco"
         required
       >
-        <select
-          uiSelect
+        <ui-combobox
           [value]="location.department()"
-          (change)="location.selectDepartment($any($event.target).value)"
-        >
-          <option value="">{{ 'companies.common.noneOption' | transloco }}</option>
-          @for (option of location.departments(); track option.id) {
-            <option [value]="'' + option.id" [selected]="'' + option.id === location.department()">
-              {{ option.name }}
-            </option>
-          }
-        </select>
+          (valueChange)="location.selectDepartment($event)"
+          [options]="location.departmentOptions()"
+          [labels]="departmentLabels"
+          (termChange)="location.searchDepartments($event)"
+        />
       </ui-field>
 
       <ui-field

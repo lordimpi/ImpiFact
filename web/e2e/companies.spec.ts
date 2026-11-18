@@ -73,7 +73,15 @@ test('the company data form shows a server field error and then saves', async ({
   // Primero el departamento; luego el municipio se busca en el Api entre los de ese departamento.
   const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
   await expect(page.getByText('Seleccione primero el departamento.')).toBeVisible();
-  await page.getByLabel('Departamento').selectOption('11');
+  // El departamento también se busca escribiendo, sin importar tildes ni mayúsculas.
+  const department = page.getByRole('combobox', { name: 'Departamento', exact: true });
+  await department.fill('cauca');
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveText([
+    'Cauca',
+    'Valle del Cauca',
+  ]);
+  await page.getByRole('option', { name: 'Cauca', exact: true }).click();
+  await expect(department).toHaveValue('Cauca');
   await municipality.fill('popa');
   await expect(page.getByRole('listbox').getByRole('option')).toHaveText(['Popayán']);
   await page.getByRole('option', { name: 'Popayán' }).click();
@@ -122,7 +130,9 @@ test('the company data form starts with the data the API has saved', async ({ pa
   await expect(page.getByLabel('Correo electrónico')).toHaveValue('facturas@acme.test');
   await expect(page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' })).toBeChecked();
   // El departamento sale del municipio guardado.
-  await expect(page.getByLabel('Departamento')).toHaveValue('4');
+  await expect(page.getByRole('combobox', { name: 'Departamento', exact: true })).toHaveValue(
+    'Bogotá',
+  );
   await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
     'Bogotá, D.C.',
   );

@@ -146,7 +146,16 @@ export class NewCompanyPage {
     clear: () => this.model.update((current) => ({ ...current, municipality_id: '' })),
   });
   protected readonly municipalities = this.location.municipalities;
+  protected readonly departmentLabels: ComboboxLabels = {
+    placeholder: this.text('newCompany.departmentPlaceholder'),
+    loading: this.text('common.catalog.loading'),
+    error: this.text('common.catalog.error'),
+    empty: this.text('newCompany.departmentNone'),
+    retry: this.text('common.retry'),
+  };
+
   protected readonly municipalityLabels: ComboboxLabels = {
+    placeholder: this.text('newCompany.municipalityPlaceholder'),
     idle: this.text('newCompany.municipalityIdle'),
     loading: this.text('common.catalog.loading'),
     error: this.text('common.catalog.error'),

@@ -52,7 +52,7 @@ async function open(company: object = NEW_COMPANY) {
   await screen.findByRole('heading', { level: 2, name: 'Datos de la empresa' });
   // Las listas salen de los catálogos del Api.
   await screen.findByRole('checkbox', { name: 'O-13 Gran contribuyente' });
-  await waitFor(() => expect(optionTexts(/^Departamento/)).toContain('Bogotá'));
+  expect(screen.getByRole('combobox', { name: /^Departamento/ })).toBeTruthy();
   return rendered;
 }
 
@@ -60,12 +60,21 @@ async function fillAll() {
   choose(/^Tipo de organización/, '1');
   choose(/^Régimen/, '1');
   fireEvent.click(screen.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }));
-  choose(/^Departamento/, '4');
+  await pickDepartment('Bogotá');
   await pickMunicipality('bogo', 'Bogotá, D.C.');
   type(/^Dirección/, 'Calle 1 # 2-3');
   type(/^Teléfono/, '6011234567');
   type(/^Correo electrónico/, 'facturas@acme.test');
   type(/^Matrícula mercantil/, '12345-67');
+}
+
+/** Elige el departamento en su combobox: escribe parte del nombre (sin tildes) y hace clic en la opción. */
+async function pickDepartment(name: string) {
+  const input = screen.getByRole('combobox', { name: /^Departamento/ });
+  fireEvent.input(input, {
+    target: { value: name.slice(0, 4).normalize('NFD').replace(/[̀-ͯ]/g, '') },
+  });
+  fireEvent.click(await screen.findByRole('option', { name }));
 }
 
 describe('CompanyDataPage', () => {
@@ -75,7 +84,7 @@ describe('CompanyDataPage', () => {
     expect(screen.getByRole('checkbox', { name: 'R-99-PN No aplica – Otros' })).toBeTruthy();
     expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
 
-    choose(/^Departamento/, '2');
+    await pickDepartment('Antioquia');
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2'));
     fireEvent.input(municipality(), { target: { value: 'medel' } });
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('medel'));
@@ -107,7 +116,7 @@ describe('CompanyDataPage', () => {
     expect(field(/^Tipo de organización/).value).toBe('1');
     expect(field(/^Régimen/).value).toBe('1');
     // El departamento sale del municipio guardado.
-    await waitFor(() => expect(field(/^Departamento/).value).toBe('4'));
+    await waitFor(() => expect(field(/^Departamento/).value).toBe('Bogotá'));
     await waitFor(() => expect(municipality().value).toBe('Bogotá, D.C.'));
     expect(field(/^Dirección/).value).toBe('Calle 1 # 2-3');
     expect(field(/^Teléfono/).value).toBe('6011234567');

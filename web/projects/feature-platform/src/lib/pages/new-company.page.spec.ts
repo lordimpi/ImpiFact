@@ -37,7 +37,7 @@ async function open() {
   await screen.findByRole('heading', { level: 1, name: 'Nueva empresa' });
   // Las listas salen de los catálogos del Api.
   await screen.findByRole('checkbox', { name: 'O-13 Gran contribuyente' });
-  await waitFor(() => expect(optionTexts(/^Departamento/)).toContain('Bogotá'));
+  expect(screen.getByRole('combobox', { name: /^Departamento/ })).toBeTruthy();
   return rendered;
 }
 
@@ -47,7 +47,7 @@ async function fillAll() {
   choose(/^Tipo de organización/, '1');
   choose(/^Régimen/, '1');
   fireEvent.click(screen.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }));
-  choose(/^Departamento/, '4');
+  await pickDepartment('Bogotá');
   await pickMunicipality('bogo', 'Bogotá, D.C.');
   type(/^Dirección/, 'Calle 1 # 2-3');
   type(/^Teléfono/, '6011234567');
@@ -69,6 +69,15 @@ const CREATED = {
   },
 };
 
+/** Elige el departamento en su combobox: escribe parte del nombre (sin tildes) y hace clic en la opción. */
+async function pickDepartment(name: string) {
+  const input = screen.getByRole('combobox', { name: /^Departamento/ });
+  fireEvent.input(input, {
+    target: { value: name.slice(0, 4).normalize('NFD').replace(/[̀-ͯ]/g, '') },
+  });
+  fireEvent.click(await screen.findByRole('option', { name }));
+}
+
 describe('NewCompanyPage', () => {
   it('fills the lists from the DIAN catalogs and searches the municipalities of the chosen department', async () => {
     await open();
@@ -78,13 +87,30 @@ describe('NewCompanyPage', () => {
     expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
     expect(catalogRequests.some((request) => request.url.endsWith('/municipalities'))).toBe(false);
 
-    choose(/^Departamento/, '2');
+    await pickDepartment('Antioquia');
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2'));
     fireEvent.input(municipality(), { target: { value: 'medel' } });
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('medel'));
     expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2');
     await waitFor(() => expect(municipalityOptions()).toEqual(['Medellín']));
     expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
+  });
+
+  it('searches the departments by name, ignoring accents and case', async () => {
+    await open();
+    const department = screen.getByRole('combobox', { name: /^Departamento/ });
+    expect(department.getAttribute('placeholder')).toBe('Escriba para buscar el departamento…');
+    expect(municipality().getAttribute('placeholder')).toBe('Escriba para buscar el municipio…');
+    fireEvent.input(department, { target: { value: 'BOGO' } });
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('listbox'))
+          .getAllByRole('option')
+          .map((o) => o.textContent?.trim()),
+      ).toEqual(['Bogotá']),
+    );
+    fireEvent.input(department, { target: { value: 'zzz' } });
+    await screen.findByText('Ningún departamento coincide con lo que escribió.');
   });
 
   it('accepts only digits in the NIT and the phone and computes the check digit', async () => {

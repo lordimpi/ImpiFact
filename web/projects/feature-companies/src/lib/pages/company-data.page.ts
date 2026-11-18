@@ -98,7 +98,16 @@ export class CompanyDataPage implements HasUnsavedChanges {
     clear: () => this.model.update((current) => ({ ...current, municipality_id: '' })),
   });
   protected readonly municipalities = this.location.municipalities;
+  protected readonly departmentLabels: ComboboxLabels = {
+    placeholder: this.text('data.departmentPlaceholder'),
+    loading: this.text('common.catalog.loading'),
+    error: this.text('common.catalog.error'),
+    empty: this.text('data.departmentNone'),
+    retry: this.text('common.retry'),
+  };
+
   protected readonly municipalityLabels: ComboboxLabels = {
+    placeholder: this.text('data.municipalityPlaceholder'),
     idle: this.text('data.municipalityIdle'),
     loading: this.text('common.catalog.loading'),
     error: this.text('common.catalog.error'),

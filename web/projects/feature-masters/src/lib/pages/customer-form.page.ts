@@ -153,7 +153,16 @@ export class CustomerFormPage implements HasUnsavedChanges {
     clear: () => this.model.update((current) => ({ ...current, municipality_id: '' })),
   });
   protected readonly municipalities = this.location.municipalities;
+  protected readonly departmentLabels: ComboboxLabels = {
+    placeholder: this.text('customers.form.departmentPlaceholder'),
+    loading: this.text('common.catalog.loading'),
+    error: this.text('common.catalog.error'),
+    empty: this.text('customers.form.departmentNone'),
+    retry: this.text('common.retry'),
+  };
+
   protected readonly municipalityLabels: ComboboxLabels = {
+    placeholder: this.text('customers.form.municipalityPlaceholder'),
     idle: this.text('customers.form.municipalityIdle'),
     loading: this.text('common.catalog.loading'),
     error: this.text('common.catalog.error'),

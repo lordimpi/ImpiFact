@@ -75,7 +75,10 @@
       "phone": "Teléfono de contacto de la empresa, fijo o celular: solo dígitos, entre 7 y 10, sin espacios ni indicativo del país (por ejemplo, 6028201234 o 3001234567).",
       "email": "Correo de contacto de la empresa. Sale en los documentos electrónicos como correo del emisor.",
       "merchantRegistration": "Número de inscripción de la empresa en el registro mercantil de la Cámara de Comercio; aparece en el certificado de existencia y representación legal o en el de matrícula mercantil. Es obligatorio: si la empresa no está inscrita en la Cámara de Comercio (por ejemplo, una persona natural sin establecimiento de comercio), escriba 0000000-00."
-    }
+    },
+    "departmentPlaceholder": "Escriba para buscar el departamento…",
+    "departmentNone": "Ningún departamento coincide con lo que escribió.",
+    "municipalityPlaceholder": "Escriba para buscar el municipio…"
   },
   "environments": {
     "title": "Ambientes",

@@ -113,7 +113,10 @@
         "noCertificate": "La empresa no tiene un certificado activo. Cárguelo para consultar en la DIAN.",
         "unavailable": "La DIAN no respondió. Intente de nuevo en unos minutos.",
         "failed": "No se pudo consultar la DIAN. Intente de nuevo."
-      }
+      },
+      "departmentPlaceholder": "Escriba para buscar el departamento…",
+      "departmentNone": "Ningún departamento coincide con lo que escribió.",
+      "municipalityPlaceholder": "Escriba para buscar el municipio…"
     }
   },
   "products": {

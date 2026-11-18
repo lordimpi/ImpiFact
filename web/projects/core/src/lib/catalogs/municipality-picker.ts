@@ -16,6 +16,10 @@ export interface MunicipalityPicker {
   department: Signal<string>;
   /** Opciones de la lista de departamentos (catálogo `departments`, completo). */
   departments: Signal<readonly CatalogOption[]>;
+  /** Departamentos que coinciden con lo escrito en su combobox (sin distinguir mayúsculas ni tildes). */
+  departmentOptions: Signal<readonly CatalogOption[]>;
+  /** La persona escribe en el combobox de departamentos. */
+  searchDepartments(term: string): void;
   /** Búsqueda de los municipios del departamento elegido, para `ui-combobox`. */
   municipalities: CatalogSearch;
   /** La persona eligió un departamento: si cambió, el municipio anterior se vacía. */
@@ -32,6 +36,14 @@ export function municipalityPicker(options: MunicipalityPickerOptions): Municipa
   const department = signal('');
   const departmentItems = store.items('departments');
   const departments = computed(() => catalogOptions('departments', departmentItems()));
+  // Son 33: se filtran en el navegador, sin pedirle nada al servidor.
+  const departmentTerm = signal('');
+  const departmentOptions = computed(() => {
+    const term = normalize(departmentTerm());
+    return term === ''
+      ? departments()
+      : departments().filter((option) => normalize(option.name).includes(term));
+  });
 
   const municipalities = catalogSearch('municipalities', {
     current: options.current,
@@ -66,6 +78,8 @@ export function municipalityPicker(options: MunicipalityPickerOptions): Municipa
   return {
     department: department.asReadonly(),
     departments,
+    departmentOptions,
+    searchDepartments: (term) => departmentTerm.set(term),
     municipalities,
     selectDepartment: (id) => {
       if (id === untracked(department)) {
@@ -77,4 +91,13 @@ export function municipalityPicker(options: MunicipalityPickerOptions): Municipa
       }
     },
   };
+}
+
+/** Texto para comparar sin distinguir mayúsculas ni tildes («Bogotá» = «bogota»). */
+function normalize(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 }

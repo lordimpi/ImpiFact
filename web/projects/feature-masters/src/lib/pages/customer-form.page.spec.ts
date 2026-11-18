@@ -38,13 +38,22 @@ async function openNew() {
   await screen.findByRole('heading', { level: 1, name: 'Nuevo cliente' });
   // Las listas salen de los catálogos del Api.
   await waitFor(() => expect(optionTexts(/^Tipo de identificación/)).toContain('NIT'));
-  await waitFor(() => expect(optionTexts(/^Departamento/)).toContain('Bogotá'));
+  expect(screen.getByRole('combobox', { name: /^Departamento/ })).toBeTruthy();
   return rendered;
 }
 
 function fillNit() {
   choose(/^Tipo de identificación/, '6');
   type(/^Número de identificación/, '900123456');
+}
+
+/** Elige el departamento en su combobox: escribe parte del nombre (sin tildes) y hace clic en la opción. */
+async function pickDepartment(name: string) {
+  const input = screen.getByRole('combobox', { name: /^Departamento/ });
+  fireEvent.input(input, {
+    target: { value: name.slice(0, 4).normalize('NFD').replace(/[̀-ͯ]/g, '') },
+  });
+  fireEvent.click(await screen.findByRole('option', { name }));
 }
 
 describe('CustomerFormPage', () => {
@@ -64,7 +73,7 @@ describe('CustomerFormPage', () => {
     expect(optionTexts(/^Responsabilidad fiscal/)).toContain('O-13 Gran contribuyente');
     expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
 
-    choose(/^Departamento/, '4');
+    await pickDepartment('Bogotá');
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('4'));
     fireEvent.input(municipality(), { target: { value: 'bogo' } });
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('bogo'));
@@ -130,7 +139,7 @@ describe('CustomerFormPage', () => {
     fillNit();
     type(/^Nombre o razón social/, 'Ana Comercial SAS');
     type(/Correo para recibir facturas/, 'facturas@ana.test');
-    choose(/^Departamento/, '4');
+    await pickDepartment('Bogotá');
     await pickMunicipality('bogo', 'Bogotá, D.C.');
 
     save();
@@ -284,7 +293,7 @@ describe('CustomerFormPage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Editar cliente' })).toBeTruthy();
     await waitFor(() => expect(field(/^Nombre o razón social/).value).toBe('Ana Pérez'));
     // El departamento sale del municipio guardado.
-    await waitFor(() => expect(field(/^Departamento/).value).toBe('2'));
+    await waitFor(() => expect(field(/^Departamento/).value).toBe('Antioquia'));
     await waitFor(() => expect(municipality().value).toBe('Medellín'));
 
     type(/^Nombre o razón social/, 'Ana María Pérez');

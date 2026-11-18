@@ -28,6 +28,8 @@ export type ComboboxStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 /** Textos del combobox, ya traducidos. */
 export interface ComboboxLabels {
+  /** Texto dentro del campo vacío que invita a escribir («Escriba para buscar…»). */
+  placeholder?: string;
   /** Por qué todavía no hay opciones («Seleccione primero el departamento»). */
   idle?: string;
   loading: string;
@@ -70,6 +72,7 @@ const LOAD_MORE_THRESHOLD_PX = 48;
           aria-autocomplete="list"
           [id]="field?.controlId ?? ownId"
           [value]="text()"
+          [attr.placeholder]="labels().placeholder ?? null"
           [disabled]="disabled()"
           [attr.aria-expanded]="open()"
           [attr.aria-controls]="listId"

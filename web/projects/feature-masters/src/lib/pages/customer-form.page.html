@@ -152,21 +152,13 @@
           [label]="'masters.customers.form.department' | transloco"
           [help]="'masters.customers.form.help.department' | transloco"
         >
-          <select
-            uiSelect
+          <ui-combobox
             [value]="location.department()"
-            (change)="location.selectDepartment($any($event.target).value)"
-          >
-            <option value="">{{ 'masters.common.noneOption' | transloco }}</option>
-            @for (option of location.departments(); track option.id) {
-              <option
-                [value]="'' + option.id"
-                [selected]="'' + option.id === location.department()"
-              >
-                {{ option.name }}
-              </option>
-            }
-          </select>
+            (valueChange)="location.selectDepartment($event)"
+            [options]="location.departmentOptions()"
+            [labels]="departmentLabels"
+            (termChange)="location.searchDepartments($event)"
+          />
         </ui-field>
 
         <ui-field

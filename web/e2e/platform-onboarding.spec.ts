@@ -112,7 +112,15 @@ test('creates a company, shows its key once, creates its owner and the owner sig
   await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
   await page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }).check();
   // Primero el departamento; el municipio se busca entre los suyos y se elige en la lista.
-  await page.getByLabel('Departamento').selectOption('11');
+  // El departamento también se busca escribiendo, sin importar tildes ni mayúsculas.
+  const department = page.getByRole('combobox', { name: 'Departamento', exact: true });
+  await department.fill('cauca');
+  await expect(page.getByRole('listbox').getByRole('option')).toHaveText([
+    'Cauca',
+    'Valle del Cauca',
+  ]);
+  await page.getByRole('option', { name: 'Cauca', exact: true }).click();
+  await expect(department).toHaveValue('Cauca');
   const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
   await municipality.fill('popa');
   await page.getByRole('option', { name: 'Popayán' }).click();
