@@ -34,6 +34,7 @@
   },
   "ui": {
     "close": "Cerrar",
+    "fieldHelp": "Ayuda sobre {{ label }}",
     "retry": "Reintentar",
     "paginator": {
       "navigation": "Paginación",
