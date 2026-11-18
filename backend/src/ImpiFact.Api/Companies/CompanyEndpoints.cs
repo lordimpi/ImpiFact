@@ -8,7 +8,9 @@ using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Features.Companies.CreateCompany;
 using ImpiFact.Application.Features.Companies.ListCertificates;
 using ImpiFact.Application.Features.Companies.Logo;
+using ImpiFact.Application.Features.Companies;
 using ImpiFact.Application.Features.Companies.NumberingRange;
+using ImpiFact.Application.Features.Companies.Reads;
 using ImpiFact.Application.Features.Companies.SetEnvironment;
 using ImpiFact.Application.Features.Companies.SetSoftware;
 using ImpiFact.Application.Features.Companies.UpdateCompany;
@@ -137,6 +139,66 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "Sin certificado activo: 404 (`certificate.not_found`)." + OwnNit);
         legacy.MapPut("/certificate-end-date", CertificateEndDate).RequireAuthorization(ApiScopes.ConfigWrite);
 
+        // Lecturas de la configuración para el panel: lo mismo que guardan las escrituras, sin ningún secreto.
+        canonical.MapGet("/{nit}", (string nit, IHandler<GetCompanyQuery, CompanyResponse> handler, CancellationToken ct) =>
+            Read(new GetCompanyQuery(nit), handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces<CompanyResponse>()
+            .WithOperationId("getCompany")
+            .WithSummary("Ver los datos de la empresa")
+            .WithDescription(
+                "Devuelve los datos de la empresa con los mismos nombres que recibe `PUT /api/v1/companies/{nit}/{dv}` " +
+                "(`business_name`, `email`, `phone`, `address`, `merchant_registration`, `municipality_id`, " +
+                "`type_liability_ids`, …), así el panel llena el formulario y puede enviar el mismo cuerpo para actualizar. " +
+                "Trae además `identification_number`, `dv`, `environments` (el ambiente de cada familia) e `is_active`, " +
+                "que la actualización no cambia." + OwnNit);
+
+        canonical.MapGet("/{nit}/environments", (string nit, IHandler<GetCompanyEnvironmentsQuery, CompanyEnvironmentsResponse> handler,
+            CancellationToken ct) => Read(new GetCompanyEnvironmentsQuery(nit), handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces<CompanyEnvironmentsResponse>()
+            .WithOperationId("getCompanyEnvironments")
+            .WithSummary("Ver el ambiente de la DIAN de cada familia")
+            .WithDescription(
+                "Lista en `environments` cada familia de documentos (`document_kind`: 1 factura y notas, 2 nómina, 3 documento " +
+                "equivalente, 4 documento soporte, 5 eventos) con su ambiente (`type_environment_id`: 1 producción, 2 " +
+                "habilitación). Se cambian con `PUT /api/v1/companies/{nit}/environment`." + OwnNit);
+
+        canonical.MapGet("/{nit}/software", (string nit, IHandler<GetCompanySoftwareQuery, CompanySoftwareResponse> handler,
+            CancellationToken ct) => Read(new GetCompanySoftwareQuery(nit), handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces<CompanySoftwareResponse>()
+            .WithOperationId("getCompanySoftware")
+            .WithSummary("Ver el software registrado ante la DIAN")
+            .WithDescription(
+                "Lista en `software` el software de cada familia y ambiente: `identifier` (el id del software en la DIAN), " +
+                "`url`, `test_set_id` y `has_pin` (si hay PIN guardado). El PIN nunca se devuelve: para cambiarlo se envía de " +
+                "nuevo con `PUT /api/v1/companies/{nit}/software`. Sin software configurado, la lista llega vacía." + OwnNit);
+
+        canonical.MapGet("/{nit}/resolutions", (string nit, IHandler<ListCompanyResolutionsQuery, CompanyResolutionsResponse> handler,
+            CancellationToken ct) => Read(new ListCompanyResolutionsQuery(nit), handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces<CompanyResolutionsResponse>()
+            .WithOperationId("listCompanyResolutions")
+            .WithSummary("Listar las resoluciones de numeración")
+            .WithDescription(
+                "Lista en `resolutions` todas las resoluciones de la empresa, activas e inactivas y de los dos ambientes: " +
+                "`kind` (`invoice`, `credit_note` o `debit_note`), `type_document_id`, `type_environment_id`, `prefix`, " +
+                "`resolution`, `resolution_date`, el rango `from`-`to`, la vigencia `date_from`-`date_to`, `is_active`, " +
+                "`next_number` (el número que tomará el próximo documento), `remaining` (los números que quedan) y " +
+                "`days_left` (días hasta el fin de la vigencia, en el calendario de Colombia). De la clave técnica solo dice " +
+                "si existe (`has_technical_key`); nunca la devuelve." + OwnNit);
+
+        canonical.MapGet("/{nit}/setup-status", (string nit, IHandler<GetCompanySetupStatusQuery, CompanySetupStatusResponse> handler,
+            CancellationToken ct) => Read(new GetCompanySetupStatusQuery(nit), handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces<CompanySetupStatusResponse>()
+            .WithOperationId("getCompanySetupStatus")
+            .WithSummary("Ver qué falta para el paso a producción")
+            .WithDescription(
+                "Responde lo que revisa el asistente de paso a producción, con lo que ya está guardado (no pregunta a la " +
+                "DIAN): `company_complete` (datos obligatorios llenos), `certificate_valid` (certificado activo con al menos un " +
+                "día de vigencia), `software_configured` y `test_set_id_configured` (software de factura con su set de pruebas " +
+                "en el ambiente actual de la factura), `test_set_accepted` (verdadero si la DIAN validó un documento del set, " +
+                "falso si respondió sin validar ninguno, nulo si no hay respuestas guardadas), `environments` (el ambiente de " +
+                "cada familia) y `resolutions` (para factura, nota crédito y nota débito, `valid` si hay una resolución activa " +
+                "en el ambiente actual, vigente hoy y con números por usar; la de factura además con clave técnica)." + OwnNit);
+
         // Logo del PDF: multipart con el campo «logo». Sin protección antifalsificación de formularios: la credencial
         // viaja en el encabezado Authorization, que un formulario de otro sitio no puede poner.
         canonical.MapPut("/{nit}/logo", SaveLogo).RequireAuthorization(ApiScopes.ConfigWrite)
@@ -238,6 +300,9 @@ internal sealed class CompanyEndpoints : IEndpointModule
     private static async Task<IResult> ListCertificates(
         string? nit, IHandler<ListCertificatesQuery, CertificatesResponse> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new ListCertificatesQuery(nit), ct)).ToHttpResult();
+
+    private static async Task<IResult> Read<TQuery, TResponse>(TQuery query, IHandler<TQuery, TResponse> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(query, ct)).ToHttpResult();
 
     private static async Task<IResult> NumberingRange(
         GetNumberingRangeQuery query, IHandler<GetNumberingRangeQuery, NumberingRangeResponse> handler, CancellationToken ct) =>
