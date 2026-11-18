@@ -67,6 +67,19 @@ let nextId = 0;
     .ui-field--invalid .ui-field__control {
       border-color: var(--if-color-danger);
     }
+    .ui-select {
+      min-block-size: var(--if-control-min-height);
+      padding: var(--if-control-padding-y) var(--if-control-padding-x);
+      font: inherit;
+      color: var(--if-color-text);
+      background: var(--if-color-surface);
+      border: 1px solid var(--if-color-border-strong);
+      border-radius: var(--if-radius-sm);
+    }
+    .ui-select:focus-visible {
+      outline: var(--if-focus-ring-width) solid var(--if-color-focus);
+      outline-offset: var(--if-focus-ring-offset);
+    }
   `,
 })
 export class FieldComponent {

@@ -7,6 +7,7 @@ export * from './lib/button/button.component';
 export * from './lib/dialog/dialog.component';
 export * from './lib/field/field.component';
 export * from './lib/field/input.directive';
+export * from './lib/field/select.directive';
 export * from './lib/page-title/page-title.component';
 export * from './lib/paginator/pagination';
 export * from './lib/paginator/paginator.component';
