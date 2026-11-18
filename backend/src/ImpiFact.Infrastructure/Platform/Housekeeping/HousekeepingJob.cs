@@ -13,8 +13,8 @@ namespace ImpiFact.Infrastructure.Platform.Housekeeping;
 /// <summary>
 /// Tarea diaria <c>Housekeeping</c> (Arquitectura detallada, sección 8): borra los mensajes hechos de la bandeja de
 /// salida (outbox: <c>outbox_messages</c>) procesados hace más de <see cref="ScheduledJobsOptions.OutboxRetentionDays"/>
-/// días, las llaves de idempotencia (<c>idempotency_keys</c>) vencidas y los tokens de renovación
-/// (<c>refresh_tokens</c>) expirados.
+/// días, las llaves de idempotencia (<c>idempotency_keys</c>) vencidas, los tokens de renovación
+/// (<c>refresh_tokens</c>) expirados y los tokens para restablecer la contraseña (<c>password_reset_tokens</c>) vencidos.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,6 +28,11 @@ namespace ImpiFact.Infrastructure.Platform.Housekeeping;
 /// con una llave foránea que impide borrar el token al que otro apunta). Se borran del más antiguo al más nuevo: el
 /// que apunta y el apuntado caen en la misma sentencia o el que apunta cae antes. Un token expirado al que apunta un
 /// token todavía vivo se deja hasta que ese también expire.
+/// </para>
+/// <para>
+/// Un token para restablecer la contraseña vale 30 minutos y nadie apunta a él con una llave foránea: se borra al vencer,
+/// usado, revocado o sin usar. Uno usado o revocado que todavía no vence se deja hasta su vencimiento, que llega pronto. El
+/// mensaje <c>SendPasswordResetEmail</c> que siga en la bandeja no envía nada si su token ya no existe.
 /// </para>
 /// </remarks>
 internal sealed class HousekeepingJob(
@@ -63,10 +68,18 @@ internal sealed class HousekeepingJob(
                 .Take(batch)
                 .ExecuteDeleteAsync(ct),
             batch);
+        var resetTokens = await DeleteInBatchesAsync(
+            () => db.Set<PasswordResetToken>()
+                .Where(token => token.ExpiresAt < now)
+                .OrderBy(token => token.ExpiresAt)
+                .Take(batch)
+                .ExecuteDeleteAsync(ct),
+            batch);
 
         logger.LogInformation(
-            "Housekeeping deleted {MessageCount} outbox messages, {KeyCount} idempotency keys and {TokenCount} refresh tokens.",
-            messages, keys, tokens);
+            "Housekeeping deleted {MessageCount} outbox messages, {KeyCount} idempotency keys, {TokenCount} refresh tokens and " +
+            "{ResetTokenCount} password reset tokens.",
+            messages, keys, tokens, resetTokens);
     }
 
     /// <summary>Repite el borrado de una tanda hasta que una tanda viene incompleta.</summary>

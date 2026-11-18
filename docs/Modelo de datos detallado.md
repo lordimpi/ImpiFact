@@ -112,7 +112,7 @@ password_reset_tokens          — sin equivalente en el PHP (fase 5, migración
   id uuid PK, user_id uuid FK users, token_hash char(64) UQ  — SHA-256 hex del token del enlace
   expires_at ts (30 min), used_at ts null, revoked_at ts null  — revocado al pedir otro enlace
   requested_ip varchar(45) null, created_at ts, updated_at ts, row_version bigint
-  IX (user_id)
+  IX (user_id)                 — la tarea diaria Housekeeping borra las filas ya vencidas
 ```
 
 Reglas: la clave en claro se muestra una sola vez al crearla; solo se guarda `key_hash`. Una llave con `company_id` solo opera sobre esa empresa (la regla «el NIT debe pertenecer a la empresa del token» del manual).

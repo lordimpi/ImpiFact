@@ -9,7 +9,8 @@ namespace ImpiFact.Integration.Tests.Scheduling;
 
 /// <summary>
 /// Limpieza diaria (<c>Housekeeping</c>; Arquitectura detallada, sección 8): borra los mensajes de la bandeja de salida
-/// hechos hace más de 30 días, las llaves de idempotencia vencidas y los tokens de renovación expirados, por tandas.
+/// hechos hace más de 30 días, las llaves de idempotencia vencidas, los tokens de renovación expirados y los tokens para
+/// restablecer la contraseña vencidos, por tandas.
 /// </summary>
 [TestFixture]
 [Category("Integration")]
@@ -70,6 +71,57 @@ public sealed class HousekeepingTests
         await using var scope = host.Worker.OpenScope();
         var left = await SchedulingHost.Db(scope).Set<RefreshToken>().Where(token => token.UserId == userId).Select(token => token.Id).ToListAsync();
         Assert.That(left, Is.EqualTo(new[] { live }), $"expired {expiredRecently}, {expiredLongAgo}");
+    }
+
+    [Test]
+    public async Task Expired_password_reset_tokens_are_deleted_used_or_not_and_live_ones_kept()
+    {
+        await using var host = SchedulingHost.Create();
+        var now = host.Clock.UtcNow;
+        var userId = await AddUserAsync(host);
+        var expired = await AddResetTokenAsync(host, userId, now.AddSeconds(-1));
+        var used = await AddResetTokenAsync(host, userId, now.AddMinutes(-10), usedAt: now.AddMinutes(-35));
+        var revoked = await AddResetTokenAsync(host, userId, now.AddDays(-2), revokedAt: now.AddDays(-2).AddMinutes(-20));
+        var live = await AddResetTokenAsync(host, userId, now.AddMinutes(20));
+        var liveButUsed = await AddResetTokenAsync(host, userId, now.AddMinutes(25), usedAt: now.AddMinutes(-5));
+
+        var run = await host.RunJobAsync("Housekeeping");
+
+        await using var scope = host.Worker.OpenScope();
+        var left = await SchedulingHost.Db(scope).Set<PasswordResetToken>().Where(token => token.UserId == userId)
+            .Select(token => token.Id).ToListAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(run.Outcome, Is.EqualTo(ScheduledJobOutcome.Completed));
+            Assert.That(left, Is.EquivalentTo(new[] { live, liveButUsed }), $"expired {expired}, {used}, {revoked}");
+        });
+    }
+
+    [Test]
+    public async Task Expired_password_reset_tokens_are_deleted_in_batches()
+    {
+        await using var host = SchedulingHost.Create(new Dictionary<string, string?> { ["ScheduledJobs:DeleteBatchSize"] = "2" });
+        var now = host.Clock.UtcNow;
+        var userId = await AddUserAsync(host);
+        for (var index = 0; index < 5; index++)
+        {
+            await AddResetTokenAsync(host, userId, now.AddHours(-1 - index));
+        }
+
+        await host.RunJobAsync("Housekeeping");
+
+        var deletes = host.Worker.Logs.Entries
+            .Where(entry => entry.Contains("Executed DbCommand", StringComparison.Ordinal)
+                && entry.Contains("DELETE FROM", StringComparison.Ordinal)
+                && entry.Contains("password_reset_tokens", StringComparison.Ordinal))
+            .ToList();
+        await using var scope = host.Worker.OpenScope();
+        Assert.Multiple(async () =>
+        {
+            Assert.That(deletes, Has.Count.GreaterThanOrEqualTo(3));
+            Assert.That(deletes, Has.All.Contains("LIMIT"));
+            Assert.That(await SchedulingHost.Db(scope).Set<PasswordResetToken>().CountAsync(token => token.UserId == userId), Is.Zero);
+        });
     }
 
     [Test]
@@ -178,6 +230,25 @@ public sealed class HousekeepingTests
             TokenHash = Convert.ToHexString(Guid.NewGuid().ToByteArray()) + Convert.ToHexString(Guid.NewGuid().ToByteArray()),
             ExpiresAt = expiresAt,
             ReplacedBy = replacedBy,
+        };
+        await using var scope = host.Worker.OpenScope();
+        var db = SchedulingHost.Db(scope);
+        db.Add(token);
+        await db.SaveChangesAsync();
+        return token.Id;
+    }
+
+    private static async Task<Guid> AddResetTokenAsync(
+        SchedulingHost host, Guid userId, DateTimeOffset expiresAt, DateTimeOffset? usedAt = null, DateTimeOffset? revokedAt = null)
+    {
+        var token = new PasswordResetToken
+        {
+            Id = Guid.CreateVersion7(),
+            UserId = userId,
+            TokenHash = Convert.ToHexString(Guid.NewGuid().ToByteArray()) + Convert.ToHexString(Guid.NewGuid().ToByteArray()),
+            ExpiresAt = expiresAt,
+            UsedAt = usedAt,
+            RevokedAt = revokedAt,
         };
         await using var scope = host.Worker.OpenScope();
         var db = SchedulingHost.Db(scope);
