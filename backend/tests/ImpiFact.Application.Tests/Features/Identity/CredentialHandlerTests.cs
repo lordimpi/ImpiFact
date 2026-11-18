@@ -289,7 +289,54 @@ public sealed class CredentialHandlerTests
     private Task<Result<RevokedApiKey>> RevokeKey(ITenantContext tenant, Guid id) =>
         new RevokeApiKeyHandler(tenant, _users, _keys, _cache, _clock).HandleAsync(new RevokeApiKeyCommand(id), CancellationToken.None);
 
-    private Task<Result<CreatedUser>> CreateUser(ITenantContext tenant, string email, string role) =>
+    [Test]
+    public async Task The_platform_creates_the_first_owner_or_seller_of_an_existing_company()
+    {
+        var companyId = Guid.CreateVersion7();
+        _users.Companies.Add(companyId);
+        var platform = new FakeTenant { Actor = ActorType.Platform };
+
+        var owner = await CreateUser(platform, "duena@example.com", "owner", companyId);
+        var seller = await CreateUser(platform, "vende@example.com", "seller", companyId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(owner.Value.CompanyId, Is.EqualTo(companyId));
+            Assert.That(owner.Value.Role, Is.EqualTo("owner"));
+            Assert.That(seller.Value.Role, Is.EqualTo("seller"));
+            Assert.That(_users.Added.Select(user => user.Company), Is.EqualTo(new[] { new CompanyMembership(companyId, "owner"), new CompanyMembership(companyId, "seller") }));
+            Assert.That(_users.Added.All(user => user.PlatformRoles.Count == 0), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task A_company_for_another_tenant_or_an_unknown_company_is_refused()
+    {
+        var companyId = Guid.CreateVersion7();
+        var otherId = Guid.CreateVersion7();
+        _users.Companies.Add(companyId);
+        _users.Companies.Add(otherId);
+        var owner = _users.AddUser("owner@example.com");
+        _users.Memberships.Add((owner.Id, new CompanyMembership(companyId, "owner")));
+        var ownerSession = new FakeTenant { CompanyId = companyId, UserId = owner.Id, Actor = ActorType.User };
+        var platform = new FakeTenant { Actor = ActorType.Platform };
+
+        var crossTenant = await CreateUser(ownerSession, "x@example.com", "seller", otherId);
+        var unknown = await CreateUser(platform, "y@example.com", "owner", Guid.CreateVersion7());
+        var adminInCompany = await CreateUser(platform, "z@example.com", "platform_admin", companyId);
+        var customer = await CreateUser(platform, "w@example.com", "customer", companyId);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(crossTenant.Error, Is.EqualTo(IdentityErrors.Forbidden));
+            Assert.That(unknown.Error, Is.EqualTo(IdentityErrors.CompanyNotFound));
+            Assert.That(adminInCompany.Error, Is.EqualTo(IdentityErrors.RoleNotAllowed));
+            Assert.That(customer.Error, Is.EqualTo(IdentityErrors.RoleNotAllowed));
+            Assert.That(_users.Added, Is.Empty);
+        });
+    }
+
+    private Task<Result<CreatedUser>> CreateUser(ITenantContext tenant, string email, string role, Guid? companyId = null) =>
         new CreateUserHandler(tenant, _users, new FakePasswordHasher())
-            .HandleAsync(new CreateUserCommand(email, "Contraseña-Larga-1", " Usuario Nuevo ", null, role), CancellationToken.None);
+            .HandleAsync(new CreateUserCommand(email, "Contraseña-Larga-1", " Usuario Nuevo ", null, role, companyId), CancellationToken.None);
 }

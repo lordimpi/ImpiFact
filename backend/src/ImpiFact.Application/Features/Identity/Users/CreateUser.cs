@@ -10,9 +10,11 @@ namespace ImpiFact.Application.Features.Identity.Users;
 
 /// <summary>
 /// Crea un usuario del panel. El <c>owner</c> de una empresa crea usuarios de su empresa con rol <c>owner</c> o
-/// <c>seller</c>; la plataforma crea administradores de plataforma (<c>platform_admin</c>, sin empresa).
+/// <c>seller</c>; la plataforma crea administradores de plataforma (<c>platform_admin</c>, sin empresa) y, indicando
+/// <paramref name="CompanyId"/>, el primer dueño o un vendedor de una empresa (sin esto nadie podría crear al primer
+/// dueño de una empresa nueva).
 /// </summary>
-public sealed record CreateUserCommand(string Email, string Password, string Name, string? Phone, string Role)
+public sealed record CreateUserCommand(string Email, string Password, string Name, string? Phone, string Role, Guid? CompanyId = null)
     : ICommand, ICompanyOptional
 {
     /// <summary>No incluye la contraseña, para que un registro accidental del objeto no la filtre.</summary>
@@ -69,6 +71,12 @@ internal sealed class CreateUserHandler(ITenantContext tenant, IUserStore users,
         CompanyMembership? membership;
         if (tenant.CompanyId is { } companyId)
         {
+            // Una credencial de empresa solo crea usuarios de su propia empresa.
+            if (request.CompanyId is { } requested && requested != companyId)
+            {
+                return IdentityErrors.Forbidden;
+            }
+
             if (!await IdentityAccess.IsCompanyOwnerAsync(tenant, users, ct))
             {
                 return IdentityErrors.Forbidden;
@@ -89,13 +97,31 @@ internal sealed class CreateUserHandler(ITenantContext tenant, IUserStore users,
                 return IdentityErrors.Forbidden;
             }
 
-            if (request.Role != RoleNames.PlatformAdmin)
+            if (request.CompanyId is { } targetCompany)
             {
-                return IdentityErrors.RoleNotAllowed;
-            }
+                if (!CompanyRoles.Contains(request.Role))
+                {
+                    return IdentityErrors.RoleNotAllowed;
+                }
 
-            platformRoles = [RoleNames.PlatformAdmin];
-            membership = null;
+                if (!await users.CompanyExistsAsync(targetCompany, ct))
+                {
+                    return IdentityErrors.CompanyNotFound;
+                }
+
+                platformRoles = [];
+                membership = new CompanyMembership(targetCompany, request.Role);
+            }
+            else
+            {
+                if (request.Role != RoleNames.PlatformAdmin)
+                {
+                    return IdentityErrors.RoleNotAllowed;
+                }
+
+                platformRoles = [RoleNames.PlatformAdmin];
+                membership = null;
+            }
         }
 
         var email = IdentityAccess.NormalizeEmail(request.Email);

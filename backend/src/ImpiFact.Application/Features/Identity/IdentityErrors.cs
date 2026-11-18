@@ -40,6 +40,9 @@ public static class IdentityErrors
     public static readonly Error EmailTaken =
         new("user.email_taken", "Ya existe un usuario con ese correo.", ErrorType.Conflict);
 
+    public static readonly Error CompanyNotFound =
+        new("user.company_not_found", "La empresa indicada no existe.", ErrorType.NotFound);
+
     public static readonly Error RoleNotAllowed =
         new("user.role_not_allowed", "La credencial no puede crear usuarios con ese rol.", ErrorType.Forbidden);
 }

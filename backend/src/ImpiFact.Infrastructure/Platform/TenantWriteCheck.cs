@@ -1,4 +1,5 @@
 using ImpiFact.Application.Abstractions;
+using ImpiFact.Application.Abstractions.Identity;
 
 namespace ImpiFact.Infrastructure.Platform;
 
@@ -13,7 +14,7 @@ internal static class TenantWriteCheck
     /// <exception cref="InvalidOperationException">Si la solicitud es de una empresa distinta de <paramref name="companyId"/>.</exception>
     public static void EnsureCanWrite(ITenantContext tenant, Guid? companyId, string what)
     {
-        if (tenant.Actor is ActorType.Platform or ActorType.System)
+        if (ActsForPlatform(tenant))
         {
             return;
         }
@@ -23,4 +24,13 @@ internal static class TenantWriteCheck
             throw new InvalidOperationException($"{what} does not belong to the company of the current request.");
         }
     }
+
+    /// <summary>
+    /// Si la solicitud actúa por la plataforma: una llave de plataforma, un proceso interno o un administrador de
+    /// plataforma con su sesión del panel sin empresa activa (su sesión trae el alcance <c>platform:*</c>, que solo se
+    /// da en ese caso). Puede escribir datos de cualquier empresa, por ejemplo el primer dueño de una empresa nueva.
+    /// </summary>
+    public static bool ActsForPlatform(ITenantContext tenant) =>
+        tenant.Actor is ActorType.Platform or ActorType.System
+        || (tenant is { Actor: ActorType.User, CompanyId: null } && tenant.Scopes.Contains(ApiScopes.Platform));
 }

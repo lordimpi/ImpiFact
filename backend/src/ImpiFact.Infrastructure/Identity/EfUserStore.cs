@@ -28,6 +28,10 @@ internal sealed class EfUserStore(ImpiFactDbContext db) : IUserStore
     public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken ct) =>
         CredentialStoreGuard.RunAsync(() => db.Set<User>().AnyAsync(user => user.Email == normalizedEmail, ct));
 
+    public Task<bool> CompanyExistsAsync(Guid companyId, CancellationToken ct) =>
+        CredentialStoreGuard.RunAsync(() => db.Set<ImpiFact.Domain.Companies.Company>().IgnoreQueryFilters()
+            .AnyAsync(company => company.Id == companyId, ct));
+
     public Task<UserRoles> GetRolesAsync(Guid userId, CancellationToken ct) =>
         CredentialStoreGuard.RunAsync(async () =>
         {

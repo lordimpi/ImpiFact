@@ -14,6 +14,9 @@ public interface IUserStore
 
     Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken ct);
 
+    /// <summary>Si existe la empresa (sin el filtro de empresa: la usa la plataforma al crear su primer dueño).</summary>
+    Task<bool> CompanyExistsAsync(Guid companyId, CancellationToken ct);
+
     /// <summary>
     /// Roles de plataforma del usuario (<c>user_roles</c>), por ejemplo <c>platform_admin</c>, y sus empresas con
     /// el rol en cada una (<c>user_companies</c>). Las empresas se leen sin el filtro de empresa a propósito: se

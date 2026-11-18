@@ -36,6 +36,9 @@ public sealed class FakeUserStore : IUserStore
 
     public List<NewUser> Added { get; } = [];
 
+    /// <summary>Empresas que existen (para <see cref="CompanyExistsAsync"/>).</summary>
+    public HashSet<Guid> Companies { get; } = [];
+
     public Dictionary<Guid, string> UpdatedHashes { get; } = [];
 
     public UserAccount AddUser(string email, string passwordHash = "hash:Secreta-123", bool isActive = true, DateTimeOffset? lockoutEnd = null)
@@ -55,6 +58,8 @@ public sealed class FakeUserStore : IUserStore
 
     public Task<UserAccount?> FindByIdAsync(Guid userId, CancellationToken ct) =>
         Task.FromResult(Users.FirstOrDefault(user => user.Id == userId));
+
+    public Task<bool> CompanyExistsAsync(Guid companyId, CancellationToken ct) => Task.FromResult(Companies.Contains(companyId));
 
     public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken ct) =>
         Task.FromResult(Users.Any(user => user.Email == normalizedEmail) || Added.Any(user => user.Email == normalizedEmail));

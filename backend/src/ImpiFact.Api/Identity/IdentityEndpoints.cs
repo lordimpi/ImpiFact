@@ -156,8 +156,10 @@ internal sealed class IdentityEndpoints : IEndpointModule
             .WithDescription(
                 "Crea un usuario con `email`, `password` (al menos 10 caracteres), `name`, `role` y, si quiere, `phone`. El dueño (`owner`) de una " +
                 "empresa, con su sesión del panel, crea usuarios de su empresa con rol `owner` o `seller`; la plataforma " +
-                "crea administradores de plataforma (`platform_admin`). Las API keys de empresa no crean usuarios. Correo " +
-                "repetido: 409 (`user.email_taken`); rol no permitido: 403 (`user.role_not_allowed`).");
+                "crea administradores de plataforma (`platform_admin`) y, con `company_id`, el primer dueño (`owner`) o un vendedor " +
+                "(`seller`) de una empresa. Las API keys de empresa no crean usuarios. Correo repetido: 409 " +
+                "(`user.email_taken`); rol no permitido: 403 (`user.role_not_allowed`); empresa inexistente: 404 " +
+                "(`user.company_not_found`); `company_id` de otra empresa con una credencial de empresa: 403.");
     }
 
     /// <summary>Texto común de las rutas de sesión sobre la cookie del panel (<see cref="PanelSession"/>).</summary>
@@ -275,7 +277,7 @@ internal sealed class IdentityEndpoints : IEndpointModule
     private static async Task<IResult> CreateUserAsync(
         CreateUserBody body, [FromServices] IHandler<CreateUserCommand, CreatedUser> handler, CancellationToken ct) =>
         (await handler.HandleAsync(
-            new CreateUserCommand(body.Email ?? "", body.Password ?? "", body.Name ?? "", body.Phone, body.Role ?? ""), ct))
+            new CreateUserCommand(body.Email ?? "", body.Password ?? "", body.Name ?? "", body.Phone, body.Role ?? "", body.CompanyId), ct))
         .ToHttpResult(created => TypedResults.Created($"/api/v1/users/{created.Id}", created));
 
     // Un choque al guardar (otra solicitud simultánea del mismo usuario) solo puede pasar con un correo registrado: si
@@ -368,7 +370,8 @@ internal sealed class IdentityEndpoints : IEndpointModule
         [property: JsonPropertyName("password")] string? Password,
         [property: JsonPropertyName("name")] string? Name,
         [property: JsonPropertyName("phone")] string? Phone,
-        [property: JsonPropertyName("role")] string? Role)
+        [property: JsonPropertyName("role")] string? Role,
+        [property: JsonPropertyName("company_id")] Guid? CompanyId = null)
     {
         public override string ToString() => "CreateUserBody";
     }
