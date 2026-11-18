@@ -1,3 +1,5 @@
+import { WritableSignal, effect, untracked } from '@angular/core';
+
 /*
  * Identificación de empresas y clientes: tipos de documento (catálogo `identification-types` de la semilla del
  * backend), solo dígitos y el dígito de verificación (DV) del NIT. El DV es un dígito de control, no un cálculo
@@ -48,4 +50,22 @@ export function nitCheckDigit(nit: string): string | null {
   }
   const remainder = sum % 11;
   return String(remainder < 2 ? remainder : 11 - remainder);
+}
+
+/**
+ * Mantiene el DV del modelo de un formulario al día con su NIT: cada vez que cambia el NIT se recalcula, y queda
+ * vacío si el número no es un NIT válido o si `nitOf` devuelve `null` (otro tipo de documento). El campo del DV es de
+ * solo lectura. Debe llamarse en un contexto de inyección.
+ */
+export function syncCheckDigit<T extends { dv: string }>(
+  model: WritableSignal<T>,
+  nitOf: (current: T) => string | null,
+): void {
+  effect(() => {
+    const nit = nitOf(model());
+    const dv = nit === null ? '' : (nitCheckDigit(nit) ?? '');
+    if (untracked(model).dv !== dv) {
+      model.update((current) => ({ ...current, dv }));
+    }
+  });
 }

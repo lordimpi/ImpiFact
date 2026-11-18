@@ -75,7 +75,9 @@ describe('FieldComponent', () => {
         { provide: UI_TEXTS, useValue: { fieldHelp: (label: string) => `Ayuda sobre ${label}` } },
       ]);
 
-      expect(button.getAttribute('aria-label')).toBe('Ayuda sobre NIT');
+      expect(screen.getByRole('button', { name: 'Ayuda sobre NIT' })).toBe(button);
+      // El nombre del botón no es una etiqueta: buscar el campo por «NIT» no lo encuentra.
+      expect(screen.getAllByLabelText(/NIT/)).toEqual([screen.getByRole('textbox')]);
     });
 
     it('opens on keyboard focus and on hover, and Escape closes it', async () => {
@@ -83,7 +85,7 @@ describe('FieldComponent', () => {
 
       fireEvent.focus(button);
       expect(button.getAttribute('aria-expanded')).toBe('true');
-      expect(tooltip.classList).toContain('ui-field__tooltip--open');
+      expect(tooltip.classList).toContain('ui-help__tooltip--open');
 
       fireEvent.keyDown(button, { key: 'Escape' });
       expect(button.getAttribute('aria-expanded')).toBe('false');

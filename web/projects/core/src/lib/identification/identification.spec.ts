@@ -1,5 +1,8 @@
+import { Injector, runInInjectionContext, signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 import {
   NIT_IDENTIFICATION_TYPE_ID,
+  syncCheckDigit,
   digitsOnly,
   isNitType,
   isNumericIdentificationType,
@@ -49,5 +52,26 @@ describe('identification types', () => {
   it('knows the NIT type by its seeded id', () => {
     expect(isNitType('6')).toBe(true);
     expect(isNitType('3')).toBe(false);
+  });
+});
+
+describe('syncCheckDigit', () => {
+  it('keeps the check digit of the model in step with its NIT', () => {
+    const model = signal({ type: '6', nit: '', dv: '' });
+    runInInjectionContext(TestBed.inject(Injector), () =>
+      syncCheckDigit(model, (current) => (current.type === '6' ? current.nit : null)),
+    );
+
+    model.update((current) => ({ ...current, nit: '900123456' }));
+    TestBed.tick();
+    expect(model().dv).toBe('8');
+
+    model.update((current) => ({ ...current, nit: '90012345x' }));
+    TestBed.tick();
+    expect(model().dv).toBe('');
+
+    model.set({ type: '3', nit: '900123456', dv: '8' });
+    TestBed.tick();
+    expect(model().dv).toBe('');
   });
 });
