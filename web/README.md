@@ -134,6 +134,7 @@ Componentes de presentación sobre [Optimus UI](https://optimus.openng.org/) (fo
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `ui-button`                                      | Botón (`primary`, `secondary`, `danger`, `text`), con `disabled` y `loading`; emite `pressed`.                                                                                                                     |
 | `ui-field` + `uiInput`                           | Etiqueta, ayuda y error alrededor de un `<input uiInput>`; enlaza `aria-describedby`, `aria-invalid` y `aria-required`.                                                                                            |
+| `ui-field` + `uiSelect`                          | Lo mismo para una lista desplegable nativa `<select uiSelect>` (accesible con teclado sin cargar más código de Optimus UI).                                                                                        |
 | `ui-table` + `uiTableCell`                       | Tabla paginada en el servidor: no ordena, filtra ni pagina en el navegador; emite `sortChange`, `filterChange`, `pageChange` y `retry`. Estados de carga (esqueletos), vacío y error. Cabecera fija.               |
 | `ui-paginator`                                   | Paginación por cursor opaco (`kind: 'cursor'`) o con números de página cuando el Api da el total (`kind: 'pages'`).                                                                                                |
 | `ui-dialog`                                      | Diálogo modal con `[(visible)]`, foco atrapado y cierre con Escape; acciones en un elemento `uiDialogFooter`.                                                                                                      |
@@ -154,6 +155,18 @@ Inicio de sesión, recuperación de contraseña, selección de empresa y diálog
 | `/empresas/seleccionar` | `CompanySelectionPage` | Lista las empresas de la sesión y renueva con `company_id`. El Api solo da los identificadores, así que se numeran y se muestra el identificador.                                                                                  |
 
 El diálogo de inactividad («Su sesión se cerrará por inactividad») se abre a los 25 minutos; «Seguir conectado», Escape o cerrarlo cuentan como actividad y «Cerrar sesión» la cierra. A los 30 minutos el monitor cierra la sesión y el login lo explica.
+
+## Librería `feature-masters`
+
+Clientes y productos de la empresa activa (tarea 7 del backlog), para el propietario y el vendedor (`MASTERS_ROLES`; `authGuard`, `companyGuard` y `roleGuard`). La aplicación monta `mastersRoutes` y el menú principal muestra «Clientes» y «Productos» solo a esos roles.
+
+| Ruta                                 | Página             | Qué hace                                                                                                                                                                                                                                                        |
+| ------------------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/clientes`, `/productos`            | `*ListPage`        | Listado con `withServerList`: página por cursor, orden y búsqueda en el Api. La búsqueda (`?q=`, tras 300 ms sin escribir) y el estado (`?estado=inactive\|all`) viven en la URL, así el enlace se comparte. Editar, desactivar (con confirmación) o reactivar. |
+| `/clientes/nuevo`, `/clientes/:id`   | `CustomerFormPage` | Signal Forms con los campos del Api; el DV solo con NIT y lo valida el Api. «Buscar en la DIAN» (`lookupAcquirer`) llena nombre y correo; explica «no registrado», certificado faltante, rechazo (422) y DIAN caída (503).                                      |
+| `/productos/nuevo`, `/productos/:id` | `ProductFormPage`  | Código, nombre, descripción, unidad, precio sin impuestos y el impuesto con tarifa o valor por unidad; en la edición, «Producto activo».                                                                                                                        |
+
+Los errores por campo del Api aparecen junto a su campo; los de guardar van en el formulario (con `SKIP_ERROR_TOAST`). Salir con cambios sin guardar pide confirmación (`unsavedChangesGuard`). El Api aún no tiene endpoints de catálogos: los formularios usan listas fijas con los ids sembrados en el backend (`models/catalogs.ts`; ver la sección 16 de la arquitectura).
 
 ## Crear un feature nuevo
 
