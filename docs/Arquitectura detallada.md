@@ -423,6 +423,20 @@ Maestros del panel (`/clientes` y `/productos`, Arquitectura frontend sección 7
 - `municipalities` y `unit-measures` se paginan por cursor (el id de la última fila, opaco para el cliente; `limit` 50 por defecto y 200 como máximo); los demás salen completos y `next_cursor` es nulo.
 - Caché: `version` son los primeros 16 bytes del SHA-256 de todas las filas del catálogo (también las inactivas) y de la forma de la respuesta; es el `ETag` fuerte de la respuesta (el cuerpo de una URL solo depende de esa versión y de sus parámetros) y `If-None-Match` igual responde 304 sin cuerpo. `Cache-Control: public, max-age=3600`: los datos no son de ninguna empresa. Un cambio del sincronizador de catálogos o de `is_active` cambia la versión.
 
+### 9.9 Logo de la empresa (fase 5)
+
+El logo va en el encabezado del PDF (la representación gráfica) de los documentos que se generen desde que se sube, y en la vista previa. Equivale a `PUT config/logo` del PHP, que lo recibía en Base64 y lo guardaba como `{nit}{dv}.jpg`; la ruta heredada no se publica todavía.
+
+| Ruta | `operationId` | Alcance | Qué hace |
+| --- | --- | --- | --- |
+| `PUT /api/v1/companies/{nit}/logo` | `saveCompanyLogo` | `config:write` | `multipart/form-data` con el campo `logo`. Solo PNG o JPEG reconocidos por sus primeros bytes (el tipo declarado no cuenta; SVG, GIF y demás no), de 1 byte a 512 KiB; si no, 422 con `errors.logo`. El cuerpo completo tiene un tope de 1 MiB. Responde `{content_type, size_bytes}` |
+| `GET /api/v1/companies/{nit}/logo` | `getCompanyLogo` | `documents:read` | La imagen con su tipo, `Cache-Control: private, no-cache` y `X-Content-Type-Options: nosniff`; sin logo, 404 `company.logo_not_found` |
+| `DELETE /api/v1/companies/{nit}/logo` | `deleteCompanyLogo` | `config:write` | 204, también sin logo |
+
+- El `{nit}` debe ser el de la credencial (403 `company.forbidden`), como el resto del módulo Company.
+- Se guarda en `company_logos` (una fila por empresa con `storage_key` y `content_type`, tabla de la migración inicial) y el archivo en `IBlobStorage` con la clave `{empresa}/company/logo-{id}.{png|jpg}`. Cada subida escribe un archivo nuevo y la fila le apunta en la transacción del comando; el archivo reemplazado queda huérfano, como en `document_files`. Quitar el logo borra la fila y el archivo.
+- El PDF lo pide por el puerto `ICompanyLogos` (`Application/Abstractions/Companies`), así Documents no usa el módulo Company. `GotenbergPdfRenderer` manda la imagen a Gotenberg como `logo.png` o `logo.jpg` junto al HTML, y la plantilla la muestra arriba del título solo si existe.
+
 ## 10. Panel Angular (`web/`)
 
 - Angular (última versión estable), componentes *standalone*, `signals`, control flow nativo (`@if`, `@for`), `provideRouter` con rutas perezosas por `feature`.

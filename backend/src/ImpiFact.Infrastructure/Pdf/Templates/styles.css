@@ -140,3 +140,11 @@ footer {
     font-weight: 700;
     word-break: break-all;
 }
+
+/* Logo de la empresa, arriba del título; se escala para no empujar el resto del encabezado. */
+.logo {
+    display: block;
+    max-width: 100%;
+    max-height: 60px;
+    margin: 0 auto 4px auto;
+}

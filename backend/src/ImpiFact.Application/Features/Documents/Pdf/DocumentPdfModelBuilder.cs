@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
+using ImpiFact.Application.Abstractions.Companies;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Pdf;
 using ImpiFact.Application.Features.Documents.Issue;
@@ -14,7 +15,8 @@ namespace ImpiFact.Application.Features.Documents.Pdf;
 /// plantillas del PHP (ApiDian, la implementación de referencia): la cabecera, el adquiriente y los totales del
 /// documento guardado; las líneas, impuestos, retenciones, pagos, cargos y la factura de referencia de la solicitud JSON
 /// guardada (<c>document_files</c> de tipo solicitud, la misma que el PHP le pasa a la plantilla como <c>$request</c>);
-/// la empresa y su resolución de <see cref="IIssuerContextReads"/>, y los nombres de los catálogos DIAN.
+/// la empresa y su resolución de <see cref="IIssuerContextReads"/>, el logo de la empresa de <see cref="ICompanyLogos"/>
+/// y los nombres de los catálogos DIAN.
 /// </summary>
 /// <remarks>
 /// El texto del código QR se lee del <c>sts:QRCode</c> del XML firmado, así es exactamente el que recibió la DIAN
@@ -26,7 +28,8 @@ internal sealed class DocumentPdfModelBuilder(
     IDocumentStore store,
     IIssuerContextReads issuers,
     IDocumentCatalogs catalogs,
-    IDianQrUrls qrUrls)
+    IDianQrUrls qrUrls,
+    ICompanyLogos logos)
 {
     /// <summary>País del adquiriente cuando la solicitud no lo trae (Colombia, como el PHP).</summary>
     private const int Colombia = 46;
@@ -114,8 +117,13 @@ internal sealed class DocumentPdfModelBuilder(
             detail.Notes,
             detail.HeadNote,
             detail.FootNote,
-            SoftwareMode);
+            SoftwareMode,
+            await LogoAsync(logos, companyId, ct));
     }
+
+    /// <summary>Logo de la empresa para el encabezado del PDF; nulo si no tiene.</summary>
+    internal static async Task<PdfImage?> LogoAsync(ICompanyLogos logos, Guid companyId, CancellationToken ct) =>
+        await logos.FindAsync(companyId, ct) is { } logo ? new PdfImage(logo.Content, logo.ContentType) : null;
 
     private static PdfDocumentKind? KindOf(int documentTypeId) => documentTypeId switch
     {

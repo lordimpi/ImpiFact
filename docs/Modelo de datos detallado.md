@@ -177,8 +177,9 @@ company_mail_settings
 company_whatsapp_settings          — Enterprise (fase 8): no se crea en la migración inicial
   company_id uuid PK/FK, url varchar(255) null, token_cipher varchar(512) null
 
-company_logos                  — una fila por empresa; el archivo va a blob
+company_logos                  — una fila por empresa; el archivo va a blob (fase 5: PUT/GET/DELETE /api/v1/companies/{nit}/logo)
   company_id uuid PK/FK, storage_key varchar(500), content_type varchar(100), updated_at ts
+  — storage_key {empresa}/company/logo-{id}.{png|jpg}, nueva en cada subida; content_type image/png o image/jpeg
 ```
 
 Cifrado de `*_cipher`: ASP.NET Data Protection con llave en el proveedor de secretos (o llave maestra AES-GCM en instalaciones sin nube). Nunca se registran en logs ni en `audit_logs.changes`.

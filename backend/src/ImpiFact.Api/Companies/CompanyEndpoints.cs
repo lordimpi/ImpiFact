@@ -2,10 +2,12 @@ using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
 using ImpiFact.Api.OpenApi;
 using ImpiFact.Application.Abstractions;
+using ImpiFact.Application.Abstractions.Companies;
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Features.Companies.CreateCompany;
 using ImpiFact.Application.Features.Companies.ListCertificates;
+using ImpiFact.Application.Features.Companies.Logo;
 using ImpiFact.Application.Features.Companies.NumberingRange;
 using ImpiFact.Application.Features.Companies.SetEnvironment;
 using ImpiFact.Application.Features.Companies.SetSoftware;
@@ -135,6 +137,35 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "Sin certificado activo: 404 (`certificate.not_found`)." + OwnNit);
         legacy.MapPut("/certificate-end-date", CertificateEndDate).RequireAuthorization(ApiScopes.ConfigWrite);
 
+        // Logo del PDF: multipart con el campo «logo». Sin protección antifalsificación de formularios: la credencial
+        // viaja en el encabezado Authorization, que un formulario de otro sitio no puede poner.
+        canonical.MapPut("/{nit}/logo", SaveLogo).RequireAuthorization(ApiScopes.ConfigWrite)
+            .DisableAntiforgery()
+            .WithMetadata(new RequestSizeLimitAttribute(LogoRequestLimit))
+            .Produces<CompanyLogoResponse>()
+            .WithOperationId("saveCompanyLogo")
+            .WithSummary("Subir el logo de la empresa")
+            .WithDescription(
+                "Recibe el logo como `multipart/form-data` en el campo `logo`: una imagen PNG o JPEG de hasta 512 KiB, " +
+                "reconocida por su contenido (el tipo que declare el archivo no cuenta; SVG, GIF y otros formatos no se " +
+                "aceptan). Reemplaza el logo anterior y responde `content_type` y `size_bytes`. Desde ese momento va en el " +
+                "encabezado del PDF de los documentos que se generen y de la vista previa. Archivo que falta, vacío, más " +
+                "grande o de otro formato: 422 con `errors.logo`." + OwnNit);
+        canonical.MapGet("/{nit}/logo", GetLogo).RequireAuthorization(ApiScopes.DocumentsRead)
+            .Produces(StatusCodes.Status200OK, contentType: "image/png", additionalContentTypes: ["image/jpeg"])
+            .WithOperationId("getCompanyLogo")
+            .WithSummary("Ver el logo de la empresa")
+            .WithDescription(
+                "Devuelve la imagen del logo (`image/png` o `image/jpeg`) con `Cache-Control: private, no-cache`. Sin logo: " +
+                "404 (`company.logo_not_found`). Pide `documents:read`." + OwnNit);
+        canonical.MapDelete("/{nit}/logo", DeleteLogo).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithOperationId("deleteCompanyLogo")
+            .WithSummary("Quitar el logo de la empresa")
+            .WithDescription(
+                "Borra el logo y responde 204 sin cuerpo, también si la empresa no tenía. Los PDF que se generen después " +
+                "salen sin logo; los ya generados no cambian." + OwnNit);
+
         // Única consulta en vivo a la DIAN desde la API (rangos de numeración autorizados).
         canonical.MapGet("/{nit}/numbering-ranges", (string nit, [FromQuery(Name = "software_id")] string? softwareId,
             IHandler<GetNumberingRangeQuery, NumberingRangeResponse> handler, CancellationToken ct) =>
@@ -211,6 +242,57 @@ internal sealed class CompanyEndpoints : IEndpointModule
     private static async Task<IResult> NumberingRange(
         GetNumberingRangeQuery query, IHandler<GetNumberingRangeQuery, NumberingRangeResponse> handler, CancellationToken ct) =>
         (await handler.HandleAsync(query, ct)).ToHttpResult();
+
+    /// <summary>
+    /// Tope del cuerpo de la subida del logo: el archivo (512 KiB) más el sobre del formulario. Lo que pase de ahí se corta
+    /// antes de leerlo completo.
+    /// </summary>
+    private const long LogoRequestLimit = 1024 * 1024;
+
+    private static async Task<IResult> SaveLogo(
+        string nit, [FromForm(Name = "logo")] IFormFile? logo, IHandler<SaveCompanyLogoCommand, CompanyLogoResponse> handler, CancellationToken ct)
+    {
+        byte[]? content = null;
+        // Un archivo más grande que el tope no se copia entero: basta un byte de más para que la validación lo rechace.
+        if (logo is not null)
+        {
+            await using var stream = logo.OpenReadStream();
+            using var buffer = new MemoryStream();
+            await CopyAtMostAsync(stream, buffer, CompanyLogoFormat.MaxBytes + 1, ct);
+            content = buffer.ToArray();
+        }
+
+        return (await handler.HandleAsync(new SaveCompanyLogoCommand(nit, content), ct)).ToHttpResult();
+    }
+
+    private static async Task<IResult> GetLogo(string nit, HttpContext context, IHandler<GetCompanyLogoQuery, CompanyLogoImage> handler, CancellationToken ct)
+    {
+        var result = await handler.HandleAsync(new GetCompanyLogoQuery(nit), ct);
+        if (!result.IsSuccess)
+        {
+            return result.ToHttpResult();
+        }
+
+        // El logo puede cambiar en cualquier momento: el navegador lo guarda pero pregunta cada vez.
+        context.Response.Headers.CacheControl = "private, no-cache";
+        context.Response.Headers.XContentTypeOptions = "nosniff";
+        return TypedResults.File(result.Value.Content, result.Value.ContentType);
+    }
+
+    private static async Task<IResult> DeleteLogo(string nit, IHandler<DeleteCompanyLogoCommand, bool> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(new DeleteCompanyLogoCommand(nit), ct)).ToHttpResult(_ => TypedResults.NoContent());
+
+    private static async Task CopyAtMostAsync(Stream source, Stream destination, int maxBytes, CancellationToken ct)
+    {
+        var buffer = new byte[81920];
+        var left = maxBytes;
+        int read;
+        while (left > 0 && (read = await source.ReadAsync(buffer.AsMemory(0, Math.Min(buffer.Length, left)), ct)) > 0)
+        {
+            await destination.WriteAsync(buffer.AsMemory(0, read), ct);
+            left -= read;
+        }
+    }
 
     private static async Task<IResult> CertificateEndDate(
         string? nit, IHandler<GetCertificateEndDateQuery, CertificateEndDateResponse> handler, CancellationToken ct) =>

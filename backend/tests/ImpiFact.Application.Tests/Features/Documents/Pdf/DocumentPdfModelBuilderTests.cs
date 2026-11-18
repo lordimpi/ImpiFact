@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using ImpiFact.Application.Abstractions.Companies;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Pdf;
 using ImpiFact.Application.Features.Documents.Pdf;
@@ -32,6 +33,23 @@ public sealed class DocumentPdfModelBuilderTests
             Assert.That(model.UuidLabel, Is.EqualTo("CUFE"));
             Assert.That(model.Uuid, Is.EqualTo("cufe-990000005"));
             Assert.That(model.QrText, Is.EqualTo(WithholdingsQr));
+        });
+    }
+
+    [Test]
+    public async Task The_company_logo_goes_in_the_model_when_the_company_has_one()
+    {
+        var scenario = new PdfScenario().WithGolden("invoice/withholdings-renta-iva-ica", 1, "SETP", 990000005, WithholdingsTotals);
+        var withoutLogo = await scenario.BuildAsync();
+        scenario.Logos.Logos[PdfScenario.CompanyId] = new CompanyLogoImage([0x89, 0x50, 0x4E, 0x47], "image/png");
+
+        var withLogo = await scenario.BuildAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withoutLogo.Logo, Is.Null);
+            Assert.That(withLogo.Logo?.ContentType, Is.EqualTo("image/png"));
+            Assert.That(withLogo.Logo?.Content, Is.EqualTo(new byte[] { 0x89, 0x50, 0x4E, 0x47 }));
         });
     }
 

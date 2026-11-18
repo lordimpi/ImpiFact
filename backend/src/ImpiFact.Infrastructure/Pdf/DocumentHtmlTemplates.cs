@@ -12,13 +12,17 @@ namespace ImpiFact.Infrastructure.Pdf;
 /// </summary>
 /// <remarks>
 /// Los nombres, descripciones y notas son texto del usuario: las plantillas solo usan <c>{{ }}</c>, que escapa el HTML,
-/// nunca <c>{{{ }}}</c>. La hoja de estilos (<see cref="Stylesheet"/>) y la imagen del QR viajan aparte, como archivos
-/// junto al HTML (<c>styles.css</c> y <c>qr.png</c>).
+/// nunca <c>{{{ }}}</c>. La hoja de estilos (<see cref="Stylesheet"/>), la imagen del QR y el logo de la empresa viajan
+/// aparte, como archivos junto al HTML (<c>styles.css</c>, <c>qr.png</c> y <c>logo.png</c> o <c>logo.jpg</c>).
 /// </remarks>
 public sealed partial class DocumentHtmlTemplates
 {
     /// <summary>Nombre con que el HTML pide la imagen del código QR.</summary>
     public const string QrImageFile = "qr.png";
+
+    /// <summary>Nombre con que el HTML pide el logo de la empresa, según su tipo.</summary>
+    public static string LogoFileName(PdfImage logo) =>
+        string.Equals(logo.ContentType, "image/jpeg", StringComparison.OrdinalIgnoreCase) ? "logo.jpg" : "logo.png";
 
     /// <summary>Nombre con que el HTML pide la hoja de estilos.</summary>
     public const string StylesheetFile = "styles.css";
@@ -69,7 +73,7 @@ public sealed partial class DocumentHtmlTemplates
 
     /// <summary>HTML completo del documento (<c>index.html</c>).</summary>
     public string Render(DocumentPdfModel model) =>
-        compiled[model.Kind](new PdfView(model, Labels[model.Kind], QrImageFile));
+        compiled[model.Kind](new PdfView(model, Labels[model.Kind], QrImageFile, model.Logo is { } logo ? LogoFileName(logo) : null));
 
     private static string Read(string resource)
     {
@@ -88,8 +92,11 @@ public sealed partial class DocumentHtmlTemplates
     [GeneratedRegex(@"^[ \t]+\{\{~?>", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
     private static partial Regex IndentedPartial();
 
-    /// <summary>Lo que ve la plantilla: el documento, los textos fijos de su tipo y el archivo de la imagen del QR.</summary>
-    private sealed record PdfView(DocumentPdfModel Document, PdfLabels Labels, string QrImage);
+    /// <summary>
+    /// Lo que ve la plantilla: el documento, los textos fijos de su tipo, el archivo de la imagen del QR y el del logo
+    /// (nulo si la empresa no tiene).
+    /// </summary>
+    private sealed record PdfView(DocumentPdfModel Document, PdfLabels Labels, string QrImage, string? LogoImage);
 
     /// <summary>Textos fijos que cambian según el tipo de documento, en español como en ApiDian.</summary>
     private sealed record PdfLabels(

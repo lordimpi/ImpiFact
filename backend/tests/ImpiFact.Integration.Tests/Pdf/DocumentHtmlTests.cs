@@ -1,3 +1,4 @@
+using ImpiFact.Application.Abstractions.Pdf;
 using ImpiFact.Infrastructure.Pdf;
 
 namespace ImpiFact.Integration.Tests.Pdf;
@@ -97,6 +98,31 @@ public sealed class DocumentHtmlTests
             Assert.That(html, Does.Contain("NOTA DEBITO DE LA FACTURA"));
             Assert.That(html, Does.Contain("REPRESENTACION GRAFICA DE NOTA DEBITO ELECTRONICA"));
             Assert.That(html, Does.Contain("Nota Debito No: ND - 1"));
+        });
+    }
+
+    [Test]
+    public void The_company_logo_is_shown_in_the_header_when_there_is_one()
+    {
+        var png = templates.Render(PdfSamples.Invoice() with { Logo = new PdfImage([0x89, 0x50], "image/png") });
+        var jpeg = templates.Render(PdfSamples.CreditNote() with { Logo = new PdfImage([0xFF, 0xD8], "image/jpeg") });
+        var none = templates.Render(PdfSamples.Invoice());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(png, Does.Contain("<img class=\"logo\" src=\"logo.png\" alt=\"Logo\">"));
+            Assert.That(jpeg, Does.Contain("<img class=\"logo\" src=\"logo.jpg\" alt=\"Logo\">"));
+            Assert.That(none, Does.Not.Contain("class=\"logo\""));
+        });
+    }
+
+    [Test]
+    public void The_logo_travels_as_a_file_named_by_its_type()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(DocumentHtmlTemplates.LogoFileName(new PdfImage([1], "image/png")), Is.EqualTo("logo.png"));
+            Assert.That(DocumentHtmlTemplates.LogoFileName(new PdfImage([1], "image/jpeg")), Is.EqualTo("logo.jpg"));
         });
     }
 

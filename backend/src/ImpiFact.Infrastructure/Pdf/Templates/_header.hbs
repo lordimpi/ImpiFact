@@ -1,7 +1,8 @@
-{{!-- Encabezado: número, fechas y datos de la empresa emisora. Todo valor se escapa ({{ }}), nunca {{{ }}}. --}}
+{{!-- Encabezado: logo, número, fechas y datos de la empresa emisora. Todo valor se escapa ({{ }}), nunca {{{ }}}. --}}
 <table class="full">
     <tr>
         <td class="center top" style="width: 22%;">
+            {{#if LogoImage}}<img class="logo" src="{{LogoImage}}" alt="Logo">{{/if}}
             <p class="title">{{Labels.Title}}</p>
             <span class="badge">{{Document.Prefix}} - {{Document.Number}}</span><br>
             <span class="badge">Fecha Emisión: {{Document.IssueDate}}</span>
