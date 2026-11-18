@@ -20,11 +20,36 @@ npm run lint           # ESLint (incluye fronteras entre librerías) y formato c
 npm test               # pruebas unitarias con Vitest, una sola pasada
 npm run build          # compilación de producción en dist/app; falla si se superan los presupuestos
 npm run e2e            # pruebas E2E con Playwright (levanta ng serve si no está corriendo)
+npm run e2e:critical   # solo los 5 flujos críticos (etiqueta @critical)
+npm run lighthouse     # Lighthouse CI sobre /login del build de producción (antes: npm run build)
 npm run api:generate   # regenera openapi.json y el cliente de API desde el backend (necesita el SDK de .NET)
 npm run api:check      # lo mismo y falla si quedan diferencias sin commitear (lo corre el CI)
 ```
 
 Antes de la primera ejecución de `npm run e2e` hay que descargar el navegador: `npx playwright install chromium`.
+
+## Flujos críticos, accesibilidad y Lighthouse
+
+`npm run e2e:critical` corre los 5 flujos críticos (sección 12 de la arquitectura del frontend), contra la Api simulada con `page.route`, sin backend:
+
+| Flujo                                                                                             | Prueba                   |
+| ------------------------------------------------------------------------------------------------- | ------------------------ |
+| Login, selección de empresa y tablero                                                             | `e2e/auth.spec.ts`       |
+| Alta de empresa: datos, certificado, software, resolución y asistente hasta los 6 pasos completos | `e2e/onboarding.spec.ts` |
+| Factura con totales del servidor, seguimiento hasta Aceptado y descarga del PDF                   | `e2e/documents.spec.ts`  |
+| Nota crédito desde el detalle de una factura aceptada                                             | `e2e/documents.spec.ts`  |
+| Cliente nuevo con la consulta a la DIAN y su uso en una factura                                   | `e2e/masters.spec.ts`    |
+
+Cada página de esos flujos pasa por axe en modo claro y oscuro (`seriousViolationsInBothThemes` de `e2e/support/axe.ts`) y no debe tener violaciones graves ni críticas. Una prueba nueva se marca como crítica con `test('…', CRITICAL, async …)` (`e2e/support/critical.ts`).
+
+Para correr dos copias del workspace a la vez (por ejemplo, dos ramas), `E2E_PORT=4310 npm run e2e` levanta `ng serve` en otro puerto y no usa el servidor de la otra copia.
+
+`npm run lighthouse` sirve `dist/app/browser` en un puerto local (sin Api: la renovación de la sesión falla y el login queda anónimo) y audita `/login` 3 veces, con la mediana:
+
+- **Escritorio** (`lighthouserc.json`): falla si el rendimiento baja de 0,9 o la accesibilidad de 0,95.
+- **Móvil con 4G lento simulado** (`lighthouserc.mobile.json`): falla si la accesibilidad baja de 0,95; el rendimiento menor de 0,9 y el LCP mayor de 2,5 s solo avisan (hoy, unos 0,8 y 3,1 s; ver la sección 11 de la arquitectura del frontend).
+
+Los informes quedan en `lighthouse-reports/desktop` y `lighthouse-reports/mobile` (HTML y JSON). En el CI es el trabajo `lighthouse` de `.github/workflows/web.yml`, que sube los informes como artefacto.
 
 Otros comandos: `npm run format` corrige el formato con Prettier y `npm run build:libs` compila las librerías por separado con ng-packagr.
 
@@ -145,12 +170,12 @@ Componentes de presentación sobre [Optimus UI](https://optimus.openng.org/) (fo
 | `ui-empty-state`, `ui-loading`, `ui-error-state` | Estados vacío, de carga (`role="status"`) y de error (`role="alert"`, con reintento).                                                                                                                              |
 | `ui-toast-region`                                | Avisos en dos regiones `aria-live` (errores `assertive`, el resto `polite`), con el código de soporte copiable; emite `dismiss` y `copyReference`. Botones nativos para no cargar Optimus UI en el bundle inicial. |
 
-- **Tema:** `provideUiTheme()` en `app.config.ts` registra el preset de Optimus UI. Los valores de diseño están solo en `projects/ui/src/styles/tokens.css`. El tema sigue al sistema; `data-theme="light"` o `"dark"` en `<html>` lo fuerza y `data-density="compact"` reduce la densidad.
+- **Tema:** `provideUiTheme()` en `app.config.ts` registra el preset de Optimus UI. El preset y el motor de estilos de Optimus UI (`theme/optimus-theme.ts`, fuera de la API pública) se cargan con un `import()` durante el arranque, en paralelo con `config.json`, y la aplicación espera a que el tema quede aplicado antes de pintar: así no cuentan en el bundle inicial. Los valores de diseño están solo en `projects/ui/src/styles/tokens.css`. El tema sigue al sistema; `data-theme="light"` o `"dark"` en `<html>` lo fuerza y `data-density="compact"` reduce la densidad.
 - **Vitrina:** con `npm start`, `http://localhost:4200/dev/ui` muestra cada componente en cada estado. La ruta solo existe en desarrollo (`ngDevMode`); el build de producción la elimina. `e2e/ui-showcase.spec.ts` la recorre con axe en modo claro y oscuro.
 
 ## Librería `feature-auth`
 
-Inicio de sesión, recuperación de contraseña, selección de empresa y diálogo de inactividad (tarea 5 del backlog). La aplicación monta `authRoutes` en `app.routes.ts` y el shell carga el diálogo con `loadInactivityWarning()` la primera vez que `InactivityMonitor` avisa.
+Inicio de sesión, recuperación de contraseña, selección de empresa y diálogo de inactividad (tarea 5 del backlog). La aplicación monta `authRoutes` en `app.routes.ts` y el shell carga el diálogo con `loadInactivityWarning()` la primera vez que `InactivityMonitor` avisa. Las páginas van en el chunk `feature-auth` y el diálogo en `feature-auth-inactivity`, para que el login no baje el diálogo de Optimus UI.
 
 | Ruta                    | Página                 | Qué hace                                                                                                                                                                                                                                            |
 | ----------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

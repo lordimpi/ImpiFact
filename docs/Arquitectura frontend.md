@@ -168,6 +168,13 @@ Panel listo (fase 5, tarea 8): los filtros viven en la URL con nombres en españ
 - Presupuestos de *bundle* en `angular.json`: inicial ≤ 500 kB y falla el *build* al superarlos; cualquier feature perezoso ≤ 250 kB, con un presupuesto `bundle` por el nombre de su chunk (`feature-<nombre>`, que sale del archivo de entrada perezoso del feature). No hay presupuesto `anyScript`: caía también sobre `main`, que ya cuenta en el inicial, y solo producía avisos.
 - Imágenes con `NgOptimizedImage`; PDFs y XML descargados como blob, nunca incrustados en el estado.
 - Metas: LCP ≤ 2,5 s y INP ≤ 200 ms en 4G simulado; medidas con Lighthouse CI en el pipeline.
+- Medición del 18-nov (tarea 10 del backlog, `ng build --stats-json` y el *metafile* de esbuild): el inicial bajó de 446,29 kB a 383,47 kB (aviso en 400 kB) sin tocar los presupuestos.
+  - El preset y el motor de estilos de Optimus UI (unos 60 kB) salieron de `main` y de sus chunks compartidos: `provideUiTheme()` los carga con un `import()` dentro de un inicializador de la aplicación, en paralelo con `config.json`, y el arranque espera a que el tema quede aplicado (ninguna página se pinta sin estilos).
+  - El diálogo de inactividad tiene su propio chunk (`feature-auth-inactivity`): `/login` baja 199 kB de JS perezoso en lugar de 254 kB.
+  - `index.html` precarga `config.json` y los textos comunes (`<link rel="preload">`), que el arranque espera.
+  - Por chunk inicial, antes → después: `main` 65,05 → 56,27 kB; el compartido con `@angular/common`, Optimus UI y el cliente generado 90,76 → 39,92 kB (Optimus UI sale; quedan `@angular/common` y el cliente) más 13,18 kB de `@angular/common` aparte; `@angular/core` + rxjs + Transloco 191,83 → 175,56 kB (Transloco pasó a `main`); router + platform-browser + `@ngrx/signals` 96,05 → 95,94 kB.
+  - Pendiente: unos 15 kB del cliente generado de *features* perezosos siguen en el inicial. Cada función de `projects/api/src/generated/fn` asigna `fn.PATH = '…'` al cargar el módulo; esbuild lo trata como efecto secundario y, como `core` importa el barril `@impifact/api` desde el arranque, todas las funciones quedan en un chunk inicial. Se arregla en `projects/api` (que esbuild respete `"sideEffects": false` del `package.json` de la librería, o importar las funciones por ruta desde `core`, que hoy rompe `build:libs`).
+- Lighthouse CI (`npm run lighthouse`, trabajo `lighthouse` de `web.yml`) audita `/login` del build de producción servido en local, 3 corridas con la mediana. En escritorio exige rendimiento ≥ 0,9 y accesibilidad ≥ 0,95 (medido el 18-nov: 1,0 y 1,0; LCP 0,7–0,8 s). En móvil con 4G lento simulado (150 ms de RTT, 1,6 Mbps, CPU 4 veces más lenta) exige accesibilidad ≥ 0,95 (1,0) y solo avisa del rendimiento: 0,72–0,86 y LCP 3,1–3,3 s, sobre la meta de 2,5 s. El LCP de `/login` espera una cadena de solicitudes (`main` → tema → renovación de la sesión que esperan los guards → chunk de la ruta y sus dependencias → textos de `feature-auth`), y el botón de Optimus UI (81 kB) y `@angular/forms` (62 kB) pesan en esa ruta. El trabajo empieza sin bloquear (`continue-on-error`) hasta tener una línea base en GitHub Actions.
 
 ## 12. Pruebas
 
@@ -181,6 +188,16 @@ Panel listo (fase 5, tarea 8): los filtros viven en la URL con nombres en españ
 | Visual (opcional) | Capturas de Playwright | Páginas de `ui` |
 
 Cobertura mínima: `core` y servicios de estado 80 %. El E2E corre contra el docker-compose con un servidor DIAN simulado (`WireMock` o un `IDianClient` de prueba).
+
+Flujos críticos (tarea 10 del backlog, 18-nov): cinco pruebas con la etiqueta `@critical` (`npm run e2e:critical`) contra la Api simulada con `page.route` de Playwright, sin backend, para que el CI las corra en cada cambio de `web/`:
+
+1. Login, selección de empresa y tablero (`e2e/auth.spec.ts`).
+2. Alta de empresa sin el panel PHP: datos, certificado, software con el set de pruebas, resolución de habilitación y el asistente hasta que los seis pasos quedan completos, con la factura de prueba aceptada y la facturación en producción (`e2e/onboarding.spec.ts`). La Api simulada guarda cada escritura y la devuelve en las lecturas de la configuración (`getCompany`, `getCompanySoftware`, `listCompanyResolutions`, `getCompanySetupStatus`…).
+3. Factura con los totales del servidor, seguimiento hasta Aceptado y descarga del PDF con el token (`e2e/documents.spec.ts`).
+4. Nota crédito desde el detalle de una factura aceptada (`e2e/documents.spec.ts`).
+5. Cliente nuevo con la consulta `GetAcquirer` de la DIAN y su uso en una factura (`e2e/masters.spec.ts`).
+
+Cada página de estos flujos pasa por axe en modo claro y oscuro sin violaciones graves ni críticas (WCAG 2.2 A y AA). La medición espera a que terminen las transiciones de color: los botones de Optimus UI animan el fondo y, medido a mitad de la transición, axe da contrastes falsos. La prueba contra el docker-compose con la DIAN simulada sigue pendiente; la prueba real en habilitación se hace a mano desde el panel.
 
 ## 13. Construcción y despliegue
 
