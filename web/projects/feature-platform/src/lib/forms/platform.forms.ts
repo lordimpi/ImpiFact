@@ -134,20 +134,28 @@ export const emptyAssign = (): AssignModel => ({ nit: '', plan_id: '' });
 
 type Translate = (key: string, params?: Record<string, unknown>) => string;
 
-/** Mensaje bajo un campo: el primer error, solo después de tocarlo o de intentar enviar. */
+/**
+ * Mensaje bajo un campo: el primer error, solo después de tocarlo o de intentar enviar. Un error del Api va primero
+ * (explica mejor que el del cliente). `formatKey` reemplaza el texto del error de formato cuando el campo tiene uno
+ * propio (por defecto, el de número entero).
+ */
 export function fieldMessage(
   state: { touched(): boolean; errors(): readonly ValidationError[] },
   translate: Translate,
+  formatKey = 'common.wholeNumber',
 ): string | null {
-  const error = state.touched() ? state.errors()[0] : undefined;
+  const errors = state.touched() ? state.errors() : [];
+  const error = errors.find((item) => item.kind === 'server') ?? errors[0];
   if (!error) {
     return null;
   }
   switch (error.kind) {
     case 'required':
       return translate('common.required');
+    case 'email':
+      return translate('common.email');
     case 'pattern':
-      return translate('common.wholeNumber');
+      return translate(formatKey);
     case 'maxLength':
       return translate('common.maxLength', { max: (error as { maxLength?: number }).maxLength });
     default:

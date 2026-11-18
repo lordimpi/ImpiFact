@@ -1,8 +1,11 @@
 <section class="platform-page">
   <feat-platform-nav />
-  <header>
-    <ui-page-title>{{ 'platform.companies.title' | transloco }}</ui-page-title>
-    <p class="platform-lead">{{ 'platform.companies.description' | transloco }}</p>
+  <header class="platform-header">
+    <div>
+      <ui-page-title>{{ 'platform.companies.title' | transloco }}</ui-page-title>
+      <p class="platform-lead">{{ 'platform.companies.description' | transloco }}</p>
+    </div>
+    <ui-button [label]="'platform.companies.new' | transloco" (pressed)="newCompany()" />
   </header>
 
   <div class="platform-form">
@@ -46,13 +49,22 @@
       }}</span>
     </ng-template>
     <ng-template uiTableCell="actions" let-row>
-      <ui-button
-        variant="text"
-        size="small"
-        [label]="'platform.assign.submit' | transloco"
-        [ariaLabel]="rowText('assign.title', row)"
-        (pressed)="openAssign(row)"
-      />
+      <div class="platform-row-actions">
+        <ui-button
+          variant="text"
+          size="small"
+          [label]="'platform.assign.submit' | transloco"
+          [ariaLabel]="rowText('assign.title', row)"
+          (pressed)="openAssign(row)"
+        />
+        <ui-button
+          variant="text"
+          size="small"
+          [label]="'platform.user.open' | transloco"
+          [ariaLabel]="rowText('user.title', row)"
+          (pressed)="openUser(row)"
+        />
+      </div>
     </ng-template>
   </ui-table>
 
@@ -108,4 +120,10 @@
       </div>
     </form>
   </ui-dialog>
+
+  <feat-company-user-dialog
+    [company]="userCompany()"
+    [(visible)]="userOpen"
+    (created)="done.set($event)"
+  />
 </section>

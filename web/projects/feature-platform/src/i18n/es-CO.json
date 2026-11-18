@@ -15,6 +15,13 @@
       "previous": "Anterior",
       "next": "Siguiente",
       "page": "Página {page}"
+    },
+    "email": "Escriba un correo válido, por ejemplo nombre@empresa.com.",
+    "noneOption": "Seleccione una opción",
+    "otherOption": "Otro valor ({{ id }})",
+    "catalog": {
+      "loading": "Cargando opciones",
+      "error": "No se pudieron cargar las opciones."
     }
   },
   "nav": {
@@ -104,7 +111,7 @@
   },
   "companies": {
     "title": "Empresas de la plataforma",
-    "description": "Busque una empresa por razón social o NIT y asígnele un plan desde su fila.",
+    "description": "Busque una empresa por razón social o NIT; desde su fila asígnele un plan o cree sus usuarios.",
     "search": "Buscar empresa",
     "searchHint": "Escriba parte de la razón social o del NIT; la búsqueda se hace en el servidor.",
     "caption": "Empresas de la plataforma",
@@ -119,6 +126,76 @@
     "more": "Cargar más empresas",
     "empty": "La plataforma aún no tiene empresas",
     "noMatch": "Ninguna empresa coincide con la búsqueda",
-    "loadError": "No se pudieron consultar las empresas"
+    "loadError": "No se pudieron consultar las empresas",
+    "new": "Nueva empresa"
+  },
+  "newCompany": {
+    "title": "Nueva empresa",
+    "description": "Registre una empresa en la plataforma. Queda en habilitación (pruebas) para todos sus documentos y recibe una llave de API inicial para su integración.",
+    "back": "Volver a las empresas",
+    "nit": "NIT",
+    "nitHint": "Solo dígitos, sin puntos ni dígito de verificación.",
+    "nitFormat": "Escriba solo dígitos, máximo 15.",
+    "dv": "Dígito de verificación",
+    "dvHint": "El Api revisa que corresponda al NIT.",
+    "dvFormat": "Escriba un solo dígito.",
+    "businessName": "Razón social",
+    "identificationType": "Tipo de identificación",
+    "organization": "Tipo de organización",
+    "regime": "Régimen",
+    "liabilities": "Responsabilidades fiscales",
+    "liabilitiesHint": "Marque al menos una.",
+    "liabilitiesRequired": "Marque al menos una responsabilidad.",
+    "municipality": "Municipio",
+    "municipalitySearch": "Buscar municipio",
+    "municipalitySearchHint": "Escriba el nombre o el código DANE y elija el municipio en la lista.",
+    "municipalityNone": "Ningún municipio coincide con la búsqueda.",
+    "municipalityMore": "Cargar más municipios",
+    "address": "Dirección",
+    "phone": "Teléfono",
+    "phoneHint": "Entre 7 y 10 dígitos, sin espacios.",
+    "phoneFormat": "Escriba solo dígitos, entre 7 y 10.",
+    "email": "Correo electrónico",
+    "merchantRegistration": "Matrícula mercantil",
+    "merchantRegistrationHint": "Si no tiene, escriba 0000000-00.",
+    "submit": "Crear empresa",
+    "created": "Se creó la empresa {{ name }} (NIT {{ nit }}-{{ dv }}).",
+    "updated": "La empresa con NIT {{ nit }}-{{ dv }} ya existía: se actualizaron sus datos y no se generó una llave nueva.",
+    "nextStep": "Siguiente paso: cree el usuario dueño, que configura la empresa y la pasa a producción.",
+    "another": "Crear otra empresa",
+    "platformOnly": "Solo un administrador de la plataforma sin empresa activa puede crear empresas."
+  },
+  "companyKey": {
+    "title": "Copie la llave de la empresa",
+    "body": "Esta es la llave de API inicial de la empresa, para su integración (emitir y consultar documentos y cambiar la configuración). Se muestra solo esta vez: cópiela y guárdela en un lugar seguro.",
+    "label": "Llave de {{ name }}",
+    "copy": "Copiar llave",
+    "copied": "Llave copiada.",
+    "copyFailed": "No se pudo copiar. Seleccione la llave y cópiela a mano.",
+    "done": "Ya la copié",
+    "close": "Cerrar"
+  },
+  "user": {
+    "open": "Crear usuario",
+    "title": "Crear usuario de {{ name }}",
+    "description": "Cree el primer dueño de la empresa o un vendedor. El dueño configura la empresa y crea los demás usuarios.",
+    "email": "Correo electrónico",
+    "name": "Nombre",
+    "phone": "Teléfono",
+    "password": "Contraseña",
+    "passwordHint": "Al menos 10 caracteres. El panel no la guarda: entréguela a la persona por un medio seguro.",
+    "role": "Rol",
+    "roles": {
+      "owner": "Dueño",
+      "seller": "Vendedor"
+    },
+    "roleNames": {
+      "owner": "dueño",
+      "seller": "vendedor"
+    },
+    "submit": "Crear usuario",
+    "done": "Se creó el usuario {{ email }} como {{ role }} de {{ name }}; ya puede iniciar sesión.",
+    "companyNotFound": "La empresa ya no existe.",
+    "roleNotAllowed": "Su sesión no puede crear usuarios con ese rol."
   }
 }

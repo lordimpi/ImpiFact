@@ -100,3 +100,35 @@
 .platform-back {
   color: var(--if-color-primary);
 }
+
+/* Formulario de alta de empresa: dos columnas en escritorio, una en móvil. */
+.platform-company-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+  gap: var(--if-space-3) var(--if-space-4);
+  padding: var(--if-space-4);
+  background: var(--if-color-surface);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-md);
+}
+
+.platform-wide {
+  grid-column: 1 / -1;
+}
+
+/* Llave de API mostrada una sola vez. */
+.platform-secret-label {
+  margin-block-end: var(--if-space-1);
+  font-weight: var(--if-font-weight-medium);
+}
+
+.platform-secret {
+  display: block;
+  padding: var(--if-space-3);
+  font-family: var(--if-font-family-mono);
+  overflow-wrap: anywhere;
+  background: var(--if-color-bg);
+  border: 1px solid var(--if-color-border-strong);
+  border-radius: var(--if-radius-sm);
+  user-select: all;
+}

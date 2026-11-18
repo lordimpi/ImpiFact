@@ -1,4 +1,6 @@
 import { HttpTestingController, TestRequest } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
 import { expectRequest, problem, renderPlatformRoute } from '../testing/platform-testing';
 
@@ -176,5 +178,122 @@ describe('PlatformCompaniesPage', () => {
     (await expectRequest(http, '/api/v1/companies/900123456/plan')).flush(body, options);
 
     expect(await within(dialog).findByText('La empresa ya no existe.')).toBeTruthy();
+  });
+  it('opens the form of a new company', async () => {
+    await open();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nueva empresa' }));
+
+    await waitFor(() => expect(TestBed.inject(Router).url).toBe('/plataforma/empresas/nueva'));
+  });
+
+  describe('user of a company', () => {
+    const input = (dialog: HTMLElement, label: RegExp) =>
+      within(dialog).getByLabelText(label) as HTMLInputElement;
+    const type = (dialog: HTMLElement, label: RegExp, value: string) =>
+      fireEvent.input(input(dialog, label), { target: { value } });
+
+    async function openUserDialog(company = 'Beta Ltda') {
+      const result = await open();
+      fireEvent.click(screen.getByRole('button', { name: `Crear usuario de ${company}` }));
+      const dialog = await screen.findByRole('dialog', { name: `Crear usuario de ${company}` });
+      return { ...result, dialog };
+    }
+
+    function fill(dialog: HTMLElement) {
+      type(dialog, /^Correo electrónico/, 'vende@beta.test');
+      type(dialog, /^Nombre/, 'Luis Vendedor');
+      type(dialog, /^Teléfono/, '3001234567');
+      type(dialog, /^Contraseña/, 'una-clave-larga-1');
+    }
+
+    const submitUser = (dialog: HTMLElement) =>
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Crear usuario' }));
+
+    it('creates a seller of the company picked from the list and forgets the password', async () => {
+      const { http, dialog } = await openUserDialog();
+      expect(input(dialog, /^Contraseña/).type).toBe('password');
+      fill(dialog);
+      const role = within(dialog).getByLabelText(/^Rol/) as HTMLSelectElement;
+      expect(role.value).toBe('owner');
+      fireEvent.change(role, { target: { value: 'seller' } });
+      fireEvent.input(role, { target: { value: 'seller' } });
+
+      submitUser(dialog);
+      const request = await expectRequest(http, '/api/v1/users');
+      expect(request.request.method).toBe('POST');
+      expect(request.request.body).toEqual({
+        company_id: 'c-2',
+        email: 'vende@beta.test',
+        name: 'Luis Vendedor',
+        phone: '3001234567',
+        password: 'una-clave-larga-1',
+        role: 'seller',
+      });
+      // La contraseña sale del formulario apenas se envía.
+      expect(input(dialog, /^Contraseña/).value).toBe('');
+      request.flush(
+        {
+          id: 'u-2',
+          email: 'vende@beta.test',
+          name: 'Luis Vendedor',
+          role: 'seller',
+          company_id: 'c-2',
+        },
+        { status: 201, statusText: 'Created' },
+      );
+
+      expect(
+        await screen.findByText(
+          'Se creó el usuario vende@beta.test como vendedor de Beta Ltda; ya puede iniciar sesión.',
+        ),
+      ).toBeTruthy();
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+      // Al abrirlo otra vez, el formulario empieza vacío.
+      fireEvent.click(screen.getByRole('button', { name: 'Crear usuario de Beta Ltda' }));
+      const again = await screen.findByRole('dialog', { name: 'Crear usuario de Beta Ltda' });
+      expect(input(again, /^Correo electrónico/).value).toBe('');
+      expect(input(again, /^Contraseña/).value).toBe('');
+    });
+
+    it('shows the password policy error of the API under the password', async () => {
+      const { http, dialog } = await openUserDialog();
+      fill(dialog);
+      type(dialog, /^Contraseña/, 'corta');
+
+      submitUser(dialog);
+      const error = problem(422, 'validation.failed', 'Los datos no son válidos.', {
+        password: ['La contraseña debe tener al menos 10 caracteres.'],
+      });
+      (await expectRequest(http, '/api/v1/users')).flush(error.body, error.options);
+
+      expect(
+        await within(dialog).findByText('La contraseña debe tener al menos 10 caracteres.'),
+      ).toBeTruthy();
+      expect(input(dialog, /^Contraseña/).getAttribute('aria-invalid')).toBe('true');
+      expect(input(dialog, /^Contraseña/).value).toBe('');
+    });
+
+    it('shows a repeated email next to the email field', async () => {
+      const { http, dialog } = await openUserDialog();
+      fill(dialog);
+
+      submitUser(dialog);
+      const error = problem(409, 'user.email_taken', 'Ya existe un usuario con ese correo.');
+      (await expectRequest(http, '/api/v1/users')).flush(error.body, error.options);
+
+      expect(await within(dialog).findByText('Ya existe un usuario con ese correo.')).toBeTruthy();
+      expect(input(dialog, /^Correo electrónico/).getAttribute('aria-invalid')).toBe('true');
+    });
+
+    it('asks for the required fields before calling the API', async () => {
+      const { http, dialog } = await openUserDialog();
+
+      submitUser(dialog);
+
+      expect((await within(dialog).findAllByText('Este campo es obligatorio.')).length).toBe(3);
+      http.expectNone('/api/v1/users');
+    });
   });
 });

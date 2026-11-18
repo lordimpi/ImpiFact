@@ -1,6 +1,7 @@
 import { HttpContext } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormField, submit } from '@angular/forms/signals';
+import { Router } from '@angular/router';
 import { Api, PlatformCompanyItem, assignCompanyPlan } from '@impifact/api';
 import { AppError, SKIP_ERROR_TOAST } from '@impifact/core';
 import {
@@ -17,6 +18,10 @@ import {
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
+import {
+  CompanyUserDialogComponent,
+  UserCompany,
+} from '../components/company-user-dialog.component';
 import { PlatformNavComponent } from '../components/platform-nav.component';
 import {
   AssignModel,
@@ -42,7 +47,8 @@ const ASSIGN_FIELDS: readonly (keyof AssignModel & string)[] = ['plan_id'];
  * Página `/plataforma/empresas`: las empresas de la plataforma con su plan actual (`listPlatformCompanies`), con
  * búsqueda en el servidor por nombre o NIT y «Cargar más» por cursor. Desde cada fila se asigna un plan
  * (`assignCompanyPlan`) en un diálogo: la empresa se elige en la lista, ya no se escribe su NIT. Los planes salen del
- * store del feature.
+ * store del feature. También desde cada fila se crea el primer dueño o un vendedor de la empresa, y «Nueva empresa»
+ * lleva al alta (`/plataforma/empresas/nueva`); al volver, la lista se pide de nuevo.
  */
 @Component({
   selector: 'feat-platform-companies-page',
@@ -57,6 +63,7 @@ const ASSIGN_FIELDS: readonly (keyof AssignModel & string)[] = ['plan_id'];
     SelectDirective,
     TableComponent,
     TableCellDirective,
+    CompanyUserDialogComponent,
     PlatformNavComponent,
   ],
   providers: [providePlatformI18n(), PlatformCompaniesStore],
@@ -68,7 +75,12 @@ export class PlatformCompaniesPage {
   protected readonly store = inject(PlatformPlansStore);
   protected readonly companies = inject(PlatformCompaniesStore);
   private readonly api = inject(Api);
+  private readonly router = inject(Router);
   private readonly transloco = inject(TranslocoService);
+
+  /** Empresa para la que se crea un usuario (diálogo abierto). */
+  protected readonly userCompany = signal<UserCompany | null>(null);
+  protected readonly userOpen = signal(false);
 
   /** Texto escrito en la búsqueda (la consulta al Api sale tras una pausa). */
   protected readonly query = signal('');
@@ -127,6 +139,16 @@ export class PlatformCompaniesPage {
 
   protected rowText(key: string, row: PlatformCompanyItem): string {
     return this.text(key, { name: row.name ?? '' });
+  }
+
+  protected newCompany(): void {
+    void this.router.navigateByUrl('/plataforma/empresas/nueva');
+  }
+
+  protected openUser(row: PlatformCompanyItem): void {
+    this.done.set(null);
+    this.userCompany.set({ id: row.id ?? '', name: row.name ?? '' });
+    this.userOpen.set(true);
   }
 
   protected openAssign(row: PlatformCompanyItem): void {
