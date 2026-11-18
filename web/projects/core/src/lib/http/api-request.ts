@@ -9,6 +9,16 @@ export const SKIP_ERROR_TOAST = new HttpContextToken<boolean>(() => false);
 /** Solicitud repetida tras renovar la sesión: si vuelve a dar 401 no se renueva otra vez. */
 export const RETRIED_AFTER_REFRESH = new HttpContextToken<boolean>(() => false);
 
+/**
+ * Llave de idempotencia de una emisión: el feature la genera al abrir el formulario y la pone en el contexto de la
+ * solicitud; `idempotencyInterceptor` la manda en el encabezado `Idempotency-Key`. Repetir el envío con la misma
+ * llave devuelve el mismo documento en lugar de emitir otro (el cliente generado no expone ese encabezado).
+ */
+export const IDEMPOTENCY_KEY = new HttpContextToken<string | null>(() => null);
+
+/** Encabezado que lee el Api para no emitir dos veces la misma solicitud. */
+export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
+
 /** Encabezado del identificador de correlación (Arquitectura detallada, sección 9.1). */
 export const CORRELATION_HEADER = 'X-Correlation-Id';
 

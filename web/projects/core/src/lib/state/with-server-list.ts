@@ -40,6 +40,12 @@ export interface ServerListPage<Item> {
   items: Item[];
   nextCursor?: string | null;
   total?: number | null;
+  /**
+   * Total informativo de registros cuando el Api lo da sin dejar de paginar por cursor (por ejemplo, la lista de
+   * documentos con `include_total`): queda en `totalCount` y no cambia la paginación. Sin valor se conserva el que
+   * ya había, porque el Api lo da solo en la primera página.
+   */
+  count?: number | null;
 }
 
 export type ServerListLoader<Item, Filters> = (
@@ -76,6 +82,8 @@ export interface ServerListState<Item, Filters> {
   pageSize: number;
   /** Total de registros si el Api lo da; `null` con paginación por cursor. */
   total: number | null;
+  /** Total informativo (ver `ServerListPage.count`); se borra al volver a la primera página. */
+  totalCount: number | null;
   sort: ServerListSort | null;
   filters: Filters;
   loading: boolean;
@@ -96,6 +104,7 @@ export function withServerList<Item, Filters extends object>(
     page: 1,
     pageSize: config.pageSize ?? DEFAULT_PAGE_SIZE,
     total: null,
+    totalCount: null,
     sort: config.sort ?? null,
     filters: config.filters,
     loading: false,
@@ -145,6 +154,7 @@ export function withServerList<Item, Filters extends object>(
                   items: page.items,
                   nextCursor: page.nextCursor ?? null,
                   total: page.total ?? null,
+                  totalCount: page.count !== undefined ? page.count : store.totalCount(),
                   loading: false,
                 }),
               ),
@@ -168,7 +178,7 @@ export function withServerList<Item, Filters extends object>(
       }
 
       function firstPage(): Partial<ServerListState<Item, Filters>> {
-        return { cursor: null, previousCursors: [], page: 1 };
+        return { cursor: null, previousCursors: [], page: 1, totalCount: null };
       }
 
       function nextPage(): void {

@@ -2,12 +2,14 @@ import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { Injector, inject } from '@angular/core';
 import { ApiConfiguration } from '@impifact/api';
 import { TranslocoService } from '@jsverse/transloco';
-import { catchError, from, switchMap, throwError } from 'rxjs';
+import { Observable, catchError, from, switchMap, throwError } from 'rxjs';
 import { AppError, NETWORK_ERROR_CODE, toAppError } from '../errors/app-error';
 import { ToastStore } from '../notifications/toast.store';
 import { SessionStore } from '../session/session.store';
 import {
   CORRELATION_HEADER,
+  IDEMPOTENCY_HEADER,
+  IDEMPOTENCY_KEY,
   RETRIED_AFTER_REFRESH,
   SKIP_ERROR_TOAST,
   isApiRequest,
@@ -30,6 +32,15 @@ export const correlationInterceptor: HttpInterceptorFn = (request, next) => {
     return next(request);
   }
   return next(request.clone({ setHeaders: { [CORRELATION_HEADER]: crypto.randomUUID() } }));
+};
+
+/** Pone `Idempotency-Key` cuando la solicitud la trae en su contexto (`IDEMPOTENCY_KEY`). */
+export const idempotencyInterceptor: HttpInterceptorFn = (request, next) => {
+  const key = request.context.get(IDEMPOTENCY_KEY);
+  if (!key || request.headers.has(IDEMPOTENCY_HEADER)) {
+    return next(request);
+  }
+  return next(request.clone({ setHeaders: { [IDEMPOTENCY_HEADER]: key } }));
 };
 
 /**
@@ -112,6 +123,9 @@ export const errorInterceptor: HttpInterceptorFn = (request, next) => {
       .translate(code === NETWORK_ERROR_CODE ? 'errors.network' : 'errors.unexpected');
 
   return next(request).pipe(
+    catchError((error: unknown) =>
+      error instanceof HttpErrorResponse ? readBlobBody(error) : throwError(() => error),
+    ),
     catchError((error: unknown) => {
       if (!(error instanceof HttpErrorResponse)) {
         return throwError(() => error);
@@ -129,6 +143,30 @@ export const errorInterceptor: HttpInterceptorFn = (request, next) => {
   );
 };
 
+/**
+ * Las descargas (`responseType: 'blob'`) reciben también el error como archivo; se lee su texto para que
+ * `toAppError` encuentre el ProblemDetails. Devuelve siempre un error, nunca un valor.
+ */
+function readBlobBody(error: HttpErrorResponse): Observable<never> {
+  if (!(error.error instanceof Blob)) {
+    return throwError(() => error);
+  }
+  return from(error.error.text().catch(() => '')).pipe(
+    switchMap((body) =>
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            error: body,
+            headers: error.headers,
+            status: error.status,
+            statusText: error.statusText,
+            url: error.url ?? undefined,
+          }),
+      ),
+    ),
+  );
+}
+
 function shouldToast(error: AppError, skip: boolean): boolean {
   return !skip && error.status !== UNAUTHORIZED && !error.hasFieldErrors;
 }
@@ -139,6 +177,7 @@ function shouldToast(error: AppError, skip: boolean): boolean {
  */
 export const coreInterceptors: HttpInterceptorFn[] = [
   correlationInterceptor,
+  idempotencyInterceptor,
   errorInterceptor,
   refreshInterceptor,
   authInterceptor,

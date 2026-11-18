@@ -38,6 +38,23 @@ export function roleGuard(roles: readonly string[]): CanActivateFn {
   };
 }
 
+/**
+ * Exige sesión con el alcance (`scope` del token, por ejemplo `documents:write` para emitir); sin él, manda al
+ * inicio. El Api vuelve a validarlo en cada endpoint.
+ */
+export function scopeGuard(scope: string): CanActivateFn {
+  return async (_route, state) => {
+    const session = inject(SessionStore);
+    const router = inject(Router);
+    const paths = inject(CORE_ROUTE_PATHS);
+    const signedIn = await requireSession(state.url);
+    if (signedIn !== true) {
+      return signedIn;
+    }
+    return session.hasScope(scope) ? true : router.parseUrl(paths.home);
+  };
+}
+
 /** Exige sesión con empresa activa; si no hay, manda a la selección de empresa. */
 export const companyGuard: CanActivateFn = async (_route, state) => {
   const session = inject(SessionStore);
