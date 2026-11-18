@@ -11,7 +11,8 @@
     "products": "Productos",
     "documents": "Documentos",
     "notifications": "Avisos",
-    "apiKeys": "Llaves de API"
+    "apiKeys": "Llaves de API",
+    "plan": "Mi plan"
   },
   "userMenu": {
     "account": "Mi cuenta",

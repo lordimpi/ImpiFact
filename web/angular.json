@@ -53,6 +53,11 @@
                 "glob": "**/*",
                 "input": "projects/feature-api-keys/src/i18n",
                 "output": "i18n/apiKeys"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/feature-plans/src/i18n",
+                "output": "i18n/plans"
               }
             ],
             "styles": ["projects/ui/src/styles/tokens.css", "projects/app/src/styles.scss"]
@@ -92,6 +97,12 @@
                 {
                   "type": "bundle",
                   "name": "feature-api-keys",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "feature-plans",
                   "maximumWarning": "200kB",
                   "maximumError": "250kB"
                 },
@@ -332,6 +343,32 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/feature-api-keys/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "feature-plans": {
+      "projectType": "library",
+      "root": "projects/feature-plans",
+      "sourceRoot": "projects/feature-plans/src",
+      "prefix": "feat",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/feature-plans/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/feature-plans/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/feature-plans/tsconfig.spec.json"
           }
         }
       }

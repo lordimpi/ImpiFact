@@ -20,6 +20,8 @@
     { "path": "./projects/feature-masters/tsconfig.spec.json" },
     { "path": "./projects/feature-documents/tsconfig.lib.json" },
     { "path": "./projects/feature-documents/tsconfig.spec.json" },
+    { "path": "./projects/feature-plans/tsconfig.lib.json" },
+    { "path": "./projects/feature-plans/tsconfig.spec.json" },
     { "path": "./projects/feature-api-keys/tsconfig.lib.json" },
     { "path": "./projects/feature-api-keys/tsconfig.spec.json" },
     { "path": "./projects/feature-notifications/tsconfig.lib.json" },

@@ -1,0 +1,73 @@
+<section class="plan-page">
+  <header>
+    <ui-page-title>{{ 'plans.title' | transloco }}</ui-page-title>
+    <p class="plan-lead">{{ 'plans.description' | transloco }}</p>
+  </header>
+
+  @if (summary.isLoading()) {
+    <ui-loading [label]="'plans.loading' | transloco" [lines]="4" />
+  } @else if (summary.error()) {
+    <ui-error-state
+      [title]="'plans.errorTitle' | transloco"
+      [description]="'plans.errorDescription' | transloco"
+      [retryLabel]="'plans.retry' | transloco"
+      (retry)="summary.reload()"
+    />
+  } @else if (plan(); as plan) {
+    <section class="plan-card" aria-labelledby="plan-summary-title">
+      <h2 id="plan-summary-title" class="plan-subtitle">
+        {{ 'plans.summary.title' | transloco }}
+      </h2>
+      <dl class="plan-facts">
+        <div>
+          <dt>{{ 'plans.summary.name' | transloco }}</dt>
+          <dd>{{ plan.name }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'plans.summary.period' | transloco }}</dt>
+          <dd>{{ periodLabel(plan.period) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'plans.summary.status' | transloco }}</dt>
+          <dd [class.plan-expired]="plan.expired">{{ status() }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'plans.summary.startsAt' | transloco }}</dt>
+          <dd>{{ date(plan.starts_at) }}</dd>
+        </div>
+        <div>
+          <dt>{{ 'plans.summary.periodEnd' | transloco }}</dt>
+          <dd>{{ date(plan.period_end) }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="plan-card" aria-labelledby="plan-quotas-title">
+      <h2 id="plan-quotas-title" class="plan-subtitle">
+        {{ 'plans.quotas.title' | transloco }}
+      </h2>
+      @if (quotas().length === 0) {
+        <p class="plan-lead">{{ 'plans.quotas.none' | transloco }}</p>
+      } @else {
+        <ul class="plan-quotas">
+          @for (quota of quotas(); track quota.kind) {
+            <li>
+              <span class="plan-quota-label">{{ quota.label }}</span>
+              <ui-meter
+                [label]="quota.label"
+                [value]="quota.used"
+                [max]="quota.limit"
+                [valueText]="quota.text"
+              />
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  } @else {
+    <ui-empty-state
+      [title]="'plans.noPlanTitle' | transloco"
+      [description]="'plans.noPlanDescription' | transloco"
+    />
+  }
+</section>

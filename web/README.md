@@ -200,6 +200,12 @@ Llaves de API de la empresa activa en `/llaves-api` (tarea 9 del backlog), solo 
 - **Revocar:** con confirmación (`revokeApiKey`); la fila queda como «Revocada».
 - **Pendiente en el Api:** no hay endpoint para listar las llaves. La tabla muestra solo las creadas en esta sesión del panel (se vacía al recargar, al cambiar de empresa o al cerrar sesión) y la página lo explica.
 
+## Librería `feature-plans`
+
+Plan y consumo de la empresa activa en `/plan` (tarea 9 del backlog), solo para el propietario (`PLANS_ROLES`). Lee el `plan` de `getDashboardSummary`: nombre, periodo (mensual, anual, paquete), estado, inicio y fin del periodo y, por familia de documentos, lo usado, el límite y lo que queda, ya calculados por el Api. Cada familia se dibuja con `ui-meter` (en rojo desde el 90 %, siempre con el texto «120 de 300 usados, quedan 180»); sin límite, solo el texto. Sin plan contratado muestra un estado vacío. Son datos de una sola pantalla: `rxResource` en la página, sin store.
+
+`ui-meter` (librería `ui`) es el medidor accesible (`role="meter"` con `aria-valuetext`) que usan el plan y el tablero.
+
 ## Crear un feature nuevo
 
 1. `npx ng generate library feature-<nombre> --prefix=feat`. Después:

@@ -16,6 +16,7 @@ import { loadAuthTexts, loadInactivityWarning } from '@impifact/feature-auth';
 import { API_KEYS_ROLES } from '@impifact/feature-api-keys';
 import { MASTERS_ROLES } from '@impifact/feature-masters';
 import { NOTIFICATIONS_ROLES } from '@impifact/feature-notifications';
+import { PLANS_ROLES } from '@impifact/feature-plans';
 import { ToastRegionComponent, UiToast } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { NotificationBellComponent } from './shell/notification-bell.component';
@@ -40,6 +41,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { path: '/documentos', label: 'nav.documents', roles: ['owner', 'seller'] },
   { path: '/notificaciones', label: 'nav.notifications', roles: NOTIFICATIONS_ROLES },
   { path: '/llaves-api', label: 'nav.apiKeys', roles: API_KEYS_ROLES },
+  { path: '/plan', label: 'nav.plan', roles: PLANS_ROLES },
 ];
 
 /**
