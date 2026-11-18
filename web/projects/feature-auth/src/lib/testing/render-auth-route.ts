@@ -1,7 +1,10 @@
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, RouterOutlet, provideRouter, withComponentInputBinding } from '@angular/router';
-import { render } from '@testing-library/angular';
+import { errorInterceptor } from '@impifact/core';
+import { render, waitFor } from '@testing-library/angular';
 import { authRoutes } from '../auth.routes';
 import { fakeSession, provideAuthTestingI18n } from './auth-testing';
 
@@ -15,7 +18,8 @@ class StubPage {}
 
 /**
  * Monta las rutas reales del feature (guards, *resolver* de textos y carga perezosa) junto al inicio y a una ruta
- * protegida, con una sesión falsa, y navega a `url`.
+ * protegida, con una sesión falsa y el Api simulado (`HttpTestingController`, con el interceptor de errores de core),
+ * y navega a `url`.
  */
 export async function renderAuthRoute(
   url: string,
@@ -33,11 +37,41 @@ export async function renderAuthRoute(
         ],
         withComponentInputBinding(),
       ),
+      provideHttpClient(withInterceptors([errorInterceptor])),
+      provideHttpClientTesting(),
       provideAuthTestingI18n(),
       fake.provider,
     ],
   });
   const router = TestBed.inject(Router);
+  const http = TestBed.inject(HttpTestingController);
   await router.navigateByUrl(url);
-  return { session: fake.session, router };
+  return { session: fake.session, router, http };
+}
+
+/** Espera la única solicitud que cumple `match` (las páginas llaman al Api después de un `await`). */
+export function expectRequest(
+  http: HttpTestingController,
+  match: Parameters<HttpTestingController['expectOne']>[0],
+) {
+  return waitFor(() => http.expectOne(match));
+}
+
+/** Respuesta de error del Api (ProblemDetails) para `flush`, con errores por campo opcionales. */
+export function problem(
+  status: number,
+  code: string,
+  message: string,
+  errors?: Record<string, string[]>,
+) {
+  return {
+    body: {
+      status,
+      code,
+      message,
+      correlation_id: 'test-correlation',
+      ...(errors ? { errors } : {}),
+    },
+    options: { status, statusText: 'Error' },
+  };
 }

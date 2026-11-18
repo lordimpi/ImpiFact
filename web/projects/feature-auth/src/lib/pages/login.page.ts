@@ -41,7 +41,7 @@ export class LoginPage {
 
   /** Ruta que pidió la sesión (la pone `authGuard`). */
   readonly returnUrl = input<string>();
-  /** Motivo del cierre anterior (`inactivity`), si lo hubo. */
+  /** Motivo por el que se llegó al login (`inactivity`, `password-reset`), si lo hubo. */
   readonly reason = input<string>();
 
   protected readonly loginForm = createLoginForm();

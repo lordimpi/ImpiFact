@@ -7,6 +7,7 @@
     "submit": "Ingresar",
     "forgotPassword": "¿Olvidó su contraseña?",
     "inactivity": "Su sesión se cerró por inactividad. Inicie sesión de nuevo para continuar.",
+    "passwordReset": "Su contraseña quedó cambiada. Inicie sesión con la contraseña nueva.",
     "errors": {
       "emailRequired": "Escriba su correo electrónico.",
       "emailInvalid": "Escriba un correo electrónico válido, por ejemplo nombre@empresa.com.",
@@ -18,9 +19,32 @@
   },
   "recovery": {
     "title": "Recuperar la contraseña",
-    "unavailable": "La recuperación de la contraseña todavía no está disponible en el panel.",
-    "help": "Pida al propietario de su empresa o al equipo de soporte que le asigne una contraseña nueva.",
-    "back": "Volver a iniciar sesión"
+    "description": "Escriba el correo de su cuenta de ImpiFact y le enviaremos un enlace para elegir una contraseña nueva. El enlace vence en 30 minutos.",
+    "submit": "Enviar el enlace",
+    "sent": "Si el correo está registrado, le enviamos un enlace para restablecer la contraseña. Revise su bandeja de entrada y la carpeta de correo no deseado.",
+    "back": "Volver a iniciar sesión",
+    "errors": {
+      "network": "No se pudo enviar la solicitud. Revise su conexión e intente de nuevo."
+    }
+  },
+  "reset": {
+    "title": "Restablecer la contraseña",
+    "description": "Elija la contraseña nueva de su cuenta. Al guardarla se cierran todas sus sesiones abiertas.",
+    "newPassword": "Contraseña nueva",
+    "newPasswordHint": "Entre 10 y 256 caracteres.",
+    "confirmation": "Confirme la contraseña nueva",
+    "show": "Mostrar las contraseñas",
+    "submit": "Guardar la contraseña",
+    "invalidLink": "El enlace para restablecer la contraseña no sirve: venció, ya se usó o se pidió otro más nuevo.",
+    "requestNew": "Pedir un enlace nuevo",
+    "errors": {
+      "passwordRequired": "Escriba la contraseña nueva.",
+      "passwordTooShort": "La contraseña debe tener al menos 10 caracteres.",
+      "passwordTooLong": "La contraseña admite hasta 256 caracteres.",
+      "confirmationRequired": "Escriba de nuevo la contraseña nueva.",
+      "mismatch": "Las contraseñas no coinciden.",
+      "unexpected": "No se pudo guardar la contraseña. Intente de nuevo."
+    }
   },
   "selectCompany": {
     "title": "Seleccionar empresa",

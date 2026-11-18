@@ -6,3 +6,4 @@
 export { CompanySelectionPage } from './pages/company-selection.page';
 export { LoginPage } from './pages/login.page';
 export { PasswordRecoveryPage } from './pages/password-recovery.page';
+export { PasswordResetPage } from './pages/password-reset.page';

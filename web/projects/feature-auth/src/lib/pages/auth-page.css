@@ -92,3 +92,18 @@
   margin: 0;
   font-weight: var(--if-font-weight-medium);
 }
+
+.auth-back {
+  margin-block: var(--if-space-4) 0;
+}
+
+.auth-error__text {
+  margin-block: 0 var(--if-space-2);
+}
+
+.auth-check {
+  display: flex;
+  align-items: center;
+  gap: var(--if-space-2);
+  margin-block: 0 var(--if-space-3);
+}

@@ -5,6 +5,8 @@
 
     @if (reason() === 'inactivity') {
       <p class="auth-notice" role="status">{{ 'auth.login.inactivity' | transloco }}</p>
+    } @else if (reason() === 'password-reset') {
+      <p class="auth-notice" role="status">{{ 'auth.login.passwordReset' | transloco }}</p>
     }
 
     <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="submitting() || null">

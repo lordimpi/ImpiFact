@@ -24,6 +24,12 @@ export const authRoutes: Routes = [
     loadComponent: () => loadFeature().then((m) => m.PasswordRecoveryPage),
   },
   {
+    // El enlace del correo (`?token=...`). Pública también con sesión abierta: al terminar, la página la cierra.
+    path: 'restablecer',
+    resolve: { texts: authTextsResolver },
+    loadComponent: () => loadFeature().then((m) => m.PasswordResetPage),
+  },
+  {
     path: 'empresas/seleccionar',
     canActivate: [authGuard],
     resolve: { texts: authTextsResolver },
