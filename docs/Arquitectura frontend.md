@@ -27,8 +27,7 @@ web/
 │  ├─ ui/                        lib: componentes de presentación sin lógica de negocio
 │  ├─ api/                       lib: cliente generado desde OpenAPI (no se edita a mano)
 │  ├─ feature-auth/
-│  ├─ feature-companies/
-│  ├─ feature-production-wizard/
+│  ├─ feature-companies/         configuración de la empresa y asistente de paso a producción (dos chunks)
 │  ├─ feature-documents/
 │  ├─ feature-masters/           clientes y productos
 │  ├─ feature-api-keys/
@@ -97,7 +96,7 @@ feature-documents/src/lib/
 | XSS | Sin `innerHTML` ni `bypassSecurityTrust*` salvo en un wrapper revisado (`SafeHtml` solo para el PDF/XML renderizado); plantillas Angular escapan por defecto |
 | CSP | Cabeceras en el servidor estático: `default-src 'self'`, sin `unsafe-inline` (estilos con *nonce* o hash), `frame-ancestors 'none'`, `connect-src` solo el Api |
 | Secretos | Ninguno en el bundle. API keys se muestran una vez con botón de copiar y se borran del estado al cerrar el diálogo |
-| Certificado `.pfx` | Se sube por `multipart` directo al Api; la clave se escribe en un campo `type=password`, no se guarda en estado ni en logs del cliente |
+| Certificado `.pfx` | Se sube directo al Api en base64 dentro del JSON (`uploadCompanyCertificate`, lo que acepta el Api); la clave se escribe en un campo `type=password`, se lee solo al enviar, no pasa por signals, stores ni logs del cliente y el campo se vacía después de cada envío |
 | Cierre de sesión | Llama a `/auth/logout` (revoca el refresh), limpia estado y redirige; sincroniza entre pestañas con `BroadcastChannel` |
 | Inactividad | Aviso a los 25 min y cierre a los 30 (configurable en `config.json`); la actividad de cualquier pestaña cuenta para todas; con la pestaña oculta no corre el temporizador y al volver se compara el tiempo transcurrido |
 
@@ -110,8 +109,8 @@ Cambio en el backend, hecho el 17-nov (fase 5, B1): el refresh acepta y emite la
 | `/login`, `/recuperar` | `feature-auth` | público |
 | `/empresas/seleccionar` | `feature-auth` | todos los autenticados |
 | `/` (tablero) | `app` | owner, seller |
-| `/empresas/:id/{datos,ambientes,software,certificado,resoluciones,correo,logo,plantilla}` | `feature-companies` | owner |
-| `/empresas/:id/produccion` | `feature-production-wizard` | owner |
+| `/empresas/:id/{datos,ambientes,software,certificado,resoluciones}` (`/empresa` lleva a la activa); `correo`, `logo` y `plantilla` esperan su endpoint | `feature-companies` | owner |
+| `/empresas/:id/produccion` (`/empresa/produccion`) | `feature-companies`, chunk `feature-production-wizard` | owner |
 | `/documentos`, `/documentos/nuevo`, `/documentos/:id` | `feature-documents` | owner, seller (`nuevo`: con alcance de emisión) |
 | `/clientes`, `/productos` | `feature-masters` | owner, seller |
 | `/llaves-api` | `feature-api-keys` | owner |
@@ -226,6 +225,7 @@ Tareas que el frontend necesita y que se suman al backlog del Api:
 9. ~~Fase 5 (encontrada en la tarea 7): catálogos de la DIAN para los formularios (tipos de identificación, tipos de organización, regímenes, responsabilidades fiscales, municipios, unidades de medida e impuestos), por ejemplo `GET /api/v1/catalogs/{nombre}` con id y nombre, y búsqueda por texto en municipios (1122) y unidades (1093). Mientras no existan, `feature-masters` usa listas fijas con los ids de las tablas sembradas (`models/catalogs.ts`): todas las opciones de los catálogos cortos, las capitales de departamento y las unidades más usadas; un id guardado que no esté en la lista se muestra como «Otro (id N)».~~ Hecho el 18-nov (fase 5, B8): `GET /api/v1/catalogs/{name}` (`listCatalog`) con cualquier credencial, para `identification-types`, `organization-types`, `regimes`, `liabilities`, `municipalities`, `departments`, `countries`, `unit-measures`, `taxes`, `payment-forms`, `payment-methods`, `document-types`, `currencies`, `item-identification-types`, `credit-note-discrepancy-responses` y `debit-note-discrepancy-responses`. Cada fila trae `id`, `code`, `name` e `is_active` (municipios con `department_id`, departamentos con `country_id`, impuestos con `description`), en orden de `id` y solo las activas salvo `include_inactive=true`. `q` busca en código o nombre sin distinguir mayúsculas ni tildes. `municipalities` y `unit-measures` se paginan por cursor (`limit` 50 por defecto, máximo 200); los demás salen completos. La respuesta lleva `version`, el mismo valor del `ETag` (304 con `If-None-Match`), y `Cache-Control: public, max-age=3600`. Falta cambiar `models/catalogs.ts` de `feature-masters` por este endpoint.
 10. ~~Fase 5 (lista movida de la fase 4): logo de la empresa para `/empresas/:id/logo`.~~ Hecho el 18-nov (fase 5, B8): `PUT /api/v1/companies/{nit}/logo` (`saveCompanyLogo`, `config:write`) con `multipart/form-data` y el campo `logo` (PNG o JPEG reconocidos por su contenido, hasta 512 KiB; si no, 422 con `errors.logo`), `GET` (`getCompanyLogo`, `documents:read`, la imagen o 404 `company.logo_not_found`) y `DELETE` (`deleteCompanyLogo`, 204). El logo sale en el encabezado de los PDF que se generen después.
 11. ~~Fase 5 (lista movida de la fase 4): vista previa del PDF antes de emitir (`preeliminar-view`).~~ Hecho el 18-nov (fase 5, B8): `POST /api/v1/documents/invoices/preview` (`previewInvoice`, `documents:write`) con el mismo cuerpo de `issueInvoice` responde el PDF (`application/pdf`, `inline`) con la marca «VISTA PREVIA - SIN VALIDEZ», el número `{prefijo} - BORRADOR` y sin CUFE; no toma consecutivo, no guarda nada y no consume el plan. Errores: 422 como la emisión, 503 `pdf.unavailable` si el conversor no responde. El panel puede pedirlo como `Blob` y abrirlo con `URL.createObjectURL`. Solo factura: la de notas crédito y débito queda pendiente.
+12. Fase 5 (encontrada en la tarea 6): lectura de la configuración de la empresa. El Api solo tiene escrituras para los datos, los ambientes, el software y las resoluciones (`updateCompany`, `setCompanyEnvironment`, `setCompanySoftware`, `saveCompanyResolution`); los certificados sí se listan. Hacen falta, por ejemplo, `GET /api/v1/companies/{nit}` (datos y ambientes por familia), `GET /api/v1/companies/{nit}/software` (sin PIN, con `test_set_id`) y `GET /api/v1/companies/{nit}/resolutions`. Mientras no existan, `feature-companies` recuerda lo que devolvió cada guardado de la sesión: el formulario de datos empieza con la razón social y lo demás vacío, y el asistente de paso a producción marca esos pasos «Sin verificar» (no bloquean). Tampoco hay endpoints para el correo saliente (SMTP) de la empresa ni para el logo y la plantilla del PDF, así que esas pantallas no existen todavía.
 
 ## 17. Backlog del frontend (fase 5)
 
