@@ -548,7 +548,7 @@
           "Identidad"
         ],
         "summary": "Crear un usuario del panel",
-        "description": "Crea un usuario con \u0060email\u0060, \u0060password\u0060 (al menos 10 caracteres), \u0060name\u0060, \u0060role\u0060 y, si quiere, \u0060phone\u0060. El due\u00F1o (\u0060owner\u0060) de una empresa, con su sesi\u00F3n del panel, crea usuarios de su empresa con rol \u0060owner\u0060 o \u0060seller\u0060; la plataforma crea administradores de plataforma (\u0060platform_admin\u0060). Las API keys de empresa no crean usuarios. Correo repetido: 409 (\u0060user.email_taken\u0060); rol no permitido: 403 (\u0060user.role_not_allowed\u0060).\n\n**Permiso:** \u0060config:write\u0060 con una credencial de empresa, o \u0060platform:*\u0060 con una credencial de plataforma.",
+        "description": "Crea un usuario con \u0060email\u0060, \u0060password\u0060 (al menos 10 caracteres), \u0060name\u0060, \u0060role\u0060 y, si quiere, \u0060phone\u0060. El due\u00F1o (\u0060owner\u0060) de una empresa, con su sesi\u00F3n del panel, crea usuarios de su empresa con rol \u0060owner\u0060 o \u0060seller\u0060; la plataforma crea administradores de plataforma (\u0060platform_admin\u0060) y, con \u0060company_id\u0060, el primer due\u00F1o (\u0060owner\u0060) o un vendedor (\u0060seller\u0060) de una empresa. Las API keys de empresa no crean usuarios. Correo repetido: 409 (\u0060user.email_taken\u0060); rol no permitido: 403 (\u0060user.role_not_allowed\u0060); empresa inexistente: 404 (\u0060user.company_not_found\u0060); \u0060company_id\u0060 de otra empresa con una credencial de empresa: 403.\n\n**Permiso:** \u0060config:write\u0060 con una credencial de empresa, o \u0060platform:*\u0060 con una credencial de plataforma.",
         "operationId": "createUser",
         "requestBody": {
           "content": {
@@ -19154,6 +19154,13 @@
               "null",
               "string"
             ]
+          },
+          "company_id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
           }
         }
       },
