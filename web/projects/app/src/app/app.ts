@@ -32,6 +32,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { path: '/', label: 'nav.home', exact: true },
   { path: '/clientes', label: 'nav.customers', roles: MASTERS_ROLES },
   { path: '/productos', label: 'nav.products', roles: MASTERS_ROLES },
+  { path: '/documentos', label: 'nav.documents', roles: ['owner', 'seller'] },
 ];
 
 /**

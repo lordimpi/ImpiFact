@@ -90,6 +90,21 @@ describe('App shell', () => {
     expect(within(nav).queryByRole('link', { name: 'Productos' })).toBeNull();
   });
 
+  it('shows the documents menu entry only to owners and sellers with a session', async () => {
+    const view = await renderShell({ authenticated: true, roles: ['seller'] });
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).getByRole('link', { name: 'Documentos' }).getAttribute('href')).toBe(
+      '/documentos',
+    );
+
+    view.session.roles.set(['customer']);
+    await waitFor(() => expect(within(nav).queryByRole('link', { name: 'Documentos' })).toBeNull());
+
+    view.session.roles.set(['owner']);
+    view.session.isAuthenticated.set(false);
+    await waitFor(() => expect(within(nav).queryByRole('link', { name: 'Documentos' })).toBeNull());
+  });
+
   it('sets the document title from the translations', async () => {
     await renderShell();
     await screen.findByText('ImpiFact');
