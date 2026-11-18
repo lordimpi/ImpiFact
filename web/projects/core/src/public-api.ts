@@ -2,6 +2,7 @@
  * API pública de la librería core: configuración, sesión, empresa activa, interceptores, guards, errores, avisos e
  * i18n (internacionalización).
  */
+export * from './lib/companies/my-companies.store';
 export * from './lib/config/runtime-config';
 export * from './lib/errors/app-error';
 export * from './lib/guards/guards';

@@ -29,6 +29,53 @@ describe('CompanySelectionPage', () => {
     ).toBeTruthy();
   });
 
+  it('shows the business name and NIT when the API lists the companies of the user', async () => {
+    await renderAuthRoute('/empresas/seleccionar', {
+      ...SIGNED_IN,
+      directory: [
+        {
+          id: SIGNED_IN.companies[0]!,
+          name: 'Acme SAS',
+          nit: '900123456',
+          dv: '7',
+          roles: ['owner'],
+          is_active: true,
+        },
+      ],
+    });
+
+    const list = await screen.findByRole('list', { name: 'Empresas disponibles' });
+    const items = within(list).getAllByRole('listitem');
+    expect(within(items[0]!).getByText('Acme SAS')).toBeTruthy();
+    expect(within(items[0]!).getByText('NIT 900123456-7')).toBeTruthy();
+    expect(within(items[0]!).getByRole('button', { name: 'Trabajar con Acme SAS' })).toBeTruthy();
+    // La que el Api no listó conserva el número y el identificador.
+    expect(within(items[1]!).getByText('Empresa 2')).toBeTruthy();
+    expect(within(items[1]!).getByText(`Identificador: ${SIGNED_IN.companies[1]}`)).toBeTruthy();
+  });
+
+  it('shows an inactive company as unavailable', async () => {
+    const { session } = await renderAuthRoute('/empresas/seleccionar', {
+      ...SIGNED_IN,
+      directory: [
+        {
+          id: SIGNED_IN.companies[1]!,
+          name: 'Beta Ltda',
+          nit: '800111222',
+          dv: '3',
+          roles: ['seller'],
+          is_active: false,
+        },
+      ],
+    });
+
+    const button = await screen.findByRole('button', { name: 'Trabajar con Beta Ltda' });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Empresa inactiva')).toBeTruthy();
+    fireEvent.click(button);
+    expect(session.selectCompany).not.toHaveBeenCalled();
+  });
+
   it('switches the session to the chosen company and goes back to the requested page', async () => {
     const { session, router } = await renderAuthRoute(
       '/empresas/seleccionar?returnUrl=%2Fdocumentos',

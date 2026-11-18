@@ -21,7 +21,7 @@ test('logs in, chooses a company and lands on the home page', async ({ page }) =
 
   await expect(page).toHaveURL('/empresas/seleccionar');
   await expect(page.getByRole('heading', { level: 1, name: 'Seleccionar empresa' })).toBeVisible();
-  await page.getByRole('button', { name: 'Trabajar con la empresa 2' }).click();
+  await page.getByRole('button', { name: 'Trabajar con Beta Ltda' }).click();
 
   await expect(page).toHaveURL('/');
   await expect(homeHeading(page)).toBeVisible();

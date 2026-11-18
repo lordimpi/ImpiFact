@@ -13,6 +13,12 @@ export const COMPANIES = [
   '3f2a9c1e-0000-4000-8000-000000000002',
 ];
 
+/** Razón social, NIT y DV de cada empresa simulada (`GET /api/v1/me/companies`). */
+export const COMPANY_NAMES: Record<string, { name: string; nit: string; dv: string }> = {
+  [COMPANIES[0]!]: { name: 'Acme SAS', nit: '900123456', dv: '7' },
+  [COMPANIES[1]!]: { name: 'Beta Ltda', nit: '800111222', dv: '3' },
+};
+
 export interface MockApiOptions {
   /** Minutos de inactividad del `config.json` simulado (por defecto, los de producción). */
   inactivity?: { warnMinutes: number; logoutMinutes: number };
@@ -114,6 +120,22 @@ export async function mockApi(page: Page, options: MockApiOptions = {}): Promise
     calls.logout++;
     session = null;
     return route.fulfill({ status: 204 });
+  });
+
+  await page.route('**/api/v1/me/companies', (route) => {
+    if (!session) {
+      return problem(route, 401, 'identity.unauthorized', 'No hay sesión.');
+    }
+    return route.fulfill({
+      json: {
+        items: companies.map((id) => ({
+          id,
+          ...(COMPANY_NAMES[id] ?? { name: 'Empresa sin nombre', nit: '1', dv: '0' }),
+          roles: options.roles ?? ['owner'],
+          is_active: true,
+        })),
+      },
+    });
   });
 
   return { calls, hasSession: () => session !== null };

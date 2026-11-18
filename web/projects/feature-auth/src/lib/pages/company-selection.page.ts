@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { AppError, CORE_ROUTE_PATHS, SessionStore } from '@impifact/core';
+import { AppError, CORE_ROUTE_PATHS, MyCompaniesStore, SessionStore } from '@impifact/core';
 import { ButtonComponent, EmptyStateComponent, PageTitleComponent } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { AUTH_I18N_SCOPE, provideAuthI18n } from '../auth-i18n';
@@ -12,8 +12,9 @@ const FORBIDDEN = 403;
  * Selección de empresa (`/empresas/seleccionar`). Muestra las empresas de la sesión (`companies` del login y de la
  * renovación) y, al elegir una, renueva la sesión con `company_id` (`SessionStore.selectCompany`).
  *
- * El Api solo entrega los identificadores de las empresas, no sus nombres: por eso se numeran y se muestra el
- * identificador. Cuando exista un endpoint con las empresas del usuario, aquí irán la razón social y el NIT.
+ * La razón social y el NIT (Número de Identificación Tributaria) salen de `MyCompaniesStore`
+ * (`GET /api/v1/me/companies`). Si esa lista no cargó o no trae una empresa, esa empresa se numera y se muestra su
+ * identificador. Una empresa inactiva aparece deshabilitada.
  */
 @Component({
   selector: 'feat-company-selection-page',
@@ -41,23 +42,39 @@ const FORBIDDEN = 403;
             @for (company of companies(); track company.id) {
               <li class="auth-company">
                 <div>
-                  <p class="auth-company__name">
-                    {{ 'auth.selectCompany.company' | transloco: { number: company.number } }}
-                  </p>
-                  <p class="auth-company__id">
-                    {{ 'auth.selectCompany.companyId' | transloco: { id: company.id } }}
-                  </p>
+                  @if (company.name; as name) {
+                    <p class="auth-company__name">{{ name }}</p>
+                    <p class="auth-company__id">
+                      {{
+                        'auth.selectCompany.nit' | transloco: { nit: company.nit, dv: company.dv }
+                      }}
+                    </p>
+                  } @else {
+                    <p class="auth-company__name">
+                      {{ 'auth.selectCompany.company' | transloco: { number: company.number } }}
+                    </p>
+                    <p class="auth-company__id">
+                      {{ 'auth.selectCompany.companyId' | transloco: { id: company.id } }}
+                    </p>
+                  }
                   @if (company.active) {
                     <p class="auth-company__active">
                       {{ 'auth.selectCompany.active' | transloco }}
                     </p>
                   }
+                  @if (company.inactive) {
+                    <p class="auth-company__id">{{ 'auth.selectCompany.inactive' | transloco }}</p>
+                  }
                 </div>
                 <ui-button
                   [variant]="company.active ? 'secondary' : 'primary'"
-                  [label]="'auth.selectCompany.select' | transloco: { number: company.number }"
+                  [label]="
+                    company.name
+                      ? ('auth.selectCompany.selectNamed' | transloco: { name: company.name })
+                      : ('auth.selectCompany.select' | transloco: { number: company.number })
+                  "
                   [loading]="pending() === company.id"
-                  [disabled]="pending() !== null"
+                  [disabled]="pending() !== null || company.inactive"
                   (pressed)="choose(company.id)"
                 />
               </li>
@@ -74,21 +91,34 @@ export class CompanySelectionPage {
   private readonly router = inject(Router);
   private readonly paths = inject(CORE_ROUTE_PATHS);
   private readonly transloco = inject(TranslocoService);
+  private readonly directory = inject(MyCompaniesStore);
 
   /** Ruta a la que se vuelve después de elegir (la trae el login). */
   readonly returnUrl = input<string>();
 
   protected readonly companies = computed(() => {
     const active = this.session.companyId();
-    return this.session
-      .companies()
-      .map((id, index) => ({ id, number: index + 1, active: id === active }));
+    return this.session.companies().map((id, index) => {
+      const known = this.directory.byId(id);
+      return {
+        id,
+        number: index + 1,
+        active: id === active,
+        name: known?.name ?? null,
+        nit: known?.nit ?? '',
+        dv: known?.dv ?? '',
+        inactive: known ? !known.is_active : false,
+      };
+    });
   });
   /** Empresa que se está activando; mientras tanto las demás no se pueden elegir. */
   protected readonly pending = signal<string | null>(null);
   protected readonly error = signal<string | null>(null);
 
   protected async choose(companyId: string): Promise<void> {
+    if (this.directory.byId(companyId)?.is_active === false) {
+      return;
+    }
     const returnUrl = safeReturnUrl(this.returnUrl());
     this.error.set(null);
     this.pending.set(companyId);
