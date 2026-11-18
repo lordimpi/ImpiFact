@@ -6,6 +6,61 @@
     "version": "v1"
   },
   "paths": {
+    "/api/v1/platform/companies": {
+      "get": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Listar las empresas de la plataforma",
+        "description": "Devuelve en \u0060items\u0060 las empresas de la plataforma ordenadas por raz\u00F3n social (sin distinguir may\u00FAsculas): \u0060id\u0060, \u0060name\u0060, \u0060nit\u0060, \u0060dv\u0060, \u0060email\u0060, \u0060is_active\u0060 y el plan vigente (\u0060plan_id\u0060 y \u0060plan_name\u0060, nulos si no tiene plan). \u0060search\u0060 busca el texto dentro del NIT o de la raz\u00F3n social, sin distinguir may\u00FAsculas (hasta 100 caracteres). Pagina por cursor: \u0060limit\u0060 (20 por defecto, m\u00E1ximo 100) y \u0060cursor\u0060 con el \u0060next_cursor\u0060 de la p\u00E1gina anterior (nulo en la \u00FAltima). Pide \u0060platform:*\u0060 sin empresa.\n\n**Permiso:** alcance \u0060platform:*\u0060 con una llave de plataforma (sin empresa).",
+        "operationId": "listPlatformCompanies",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformCompanyListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/companies/{nit}/plan": {
       "put": {
         "tags": [
@@ -370,6 +425,52 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CreatedApiKey"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "Identidad"
+        ],
+        "summary": "Listar las API keys",
+        "description": "Devuelve en \u0060items\u0060 las llaves de la empresa de la credencial (con una credencial de plataforma, las llaves de plataforma), revocadas o no, de la m\u00E1s nueva a la m\u00E1s antigua: \u0060id\u0060, \u0060name\u0060, \u0060key_prefix\u0060 (el inicio visible de la llave, para reconocerla), \u0060scopes\u0060, \u0060created_at\u0060, \u0060expires_at\u0060, \u0060last_used_at\u0060 (se guarda en segundo plano y puede atrasarse unos segundos), \u0060is_revoked\u0060 y \u0060revoked_at\u0060. Nunca trae el texto de la llave: solo se muestra al crearla. Pagina por cursor: \u0060limit\u0060 (20 por defecto, m\u00E1ximo 100) y \u0060cursor\u0060 con el \u0060next_cursor\u0060 de la p\u00E1gina anterior (nulo en la \u00FAltima). En una empresa, un usuario del panel debe ser su due\u00F1o (\u0060owner\u0060).\n\n**Permiso:** \u0060config:write\u0060 con una credencial de empresa, o \u0060platform:*\u0060 con una credencial de plataforma.",
+        "operationId": "listApiKeys",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiKeyListResponse"
                 }
               }
             }
@@ -768,6 +869,42 @@
             "Bearer": []
           }
         ]
+      },
+      "get": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Ver el software registrado ante la DIAN",
+        "description": "Lista en \u0060software\u0060 el software de cada familia y ambiente: \u0060identifier\u0060 (el id del software en la DIAN), \u0060url\u0060, \u0060test_set_id\u0060 y \u0060has_pin\u0060 (si hay PIN guardado). El PIN nunca se devuelve: para cambiarlo se env\u00EDa de nuevo con \u0060PUT /api/v1/companies/{nit}/software\u0060. Sin software configurado, la lista llega vac\u00EDa. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "operationId": "getCompanySoftware",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanySoftwareResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
       }
     },
     "/api/v1/companies/{nit}/certificate": {
@@ -977,6 +1114,158 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CertificateEndDateResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/companies/{nit}": {
+      "get": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Ver los datos de la empresa",
+        "description": "Devuelve los datos de la empresa con los mismos nombres que recibe \u0060PUT /api/v1/companies/{nit}/{dv}\u0060 (\u0060business_name\u0060, \u0060email\u0060, \u0060phone\u0060, \u0060address\u0060, \u0060merchant_registration\u0060, \u0060municipality_id\u0060, \u0060type_liability_ids\u0060, \u2026), as\u00ED el panel llena el formulario y puede enviar el mismo cuerpo para actualizar. Trae adem\u00E1s \u0060identification_number\u0060, \u0060dv\u0060, \u0060environments\u0060 (el ambiente de cada familia) e \u0060is_active\u0060, que la actualizaci\u00F3n no cambia. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "operationId": "getCompany",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/companies/{nit}/environments": {
+      "get": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Ver el ambiente de la DIAN de cada familia",
+        "description": "Lista en \u0060environments\u0060 cada familia de documentos (\u0060document_kind\u0060: 1 factura y notas, 2 n\u00F3mina, 3 documento equivalente, 4 documento soporte, 5 eventos) con su ambiente (\u0060type_environment_id\u0060: 1 producci\u00F3n, 2 habilitaci\u00F3n). Se cambian con \u0060PUT /api/v1/companies/{nit}/environment\u0060. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "operationId": "getCompanyEnvironments",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyEnvironmentsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/companies/{nit}/resolutions": {
+      "get": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Listar las resoluciones de numeraci\u00F3n",
+        "description": "Lista en \u0060resolutions\u0060 todas las resoluciones de la empresa, activas e inactivas y de los dos ambientes: \u0060kind\u0060 (\u0060invoice\u0060, \u0060credit_note\u0060 o \u0060debit_note\u0060), \u0060type_document_id\u0060, \u0060type_environment_id\u0060, \u0060prefix\u0060, \u0060resolution\u0060, \u0060resolution_date\u0060, el rango \u0060from\u0060-\u0060to\u0060, la vigencia \u0060date_from\u0060-\u0060date_to\u0060, \u0060is_active\u0060, \u0060next_number\u0060 (el n\u00FAmero que tomar\u00E1 el pr\u00F3ximo documento), \u0060remaining\u0060 (los n\u00FAmeros que quedan) y \u0060days_left\u0060 (d\u00EDas hasta el fin de la vigencia, en el calendario de Colombia). De la clave t\u00E9cnica solo dice si existe (\u0060has_technical_key\u0060); nunca la devuelve. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "operationId": "listCompanyResolutions",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyResolutionsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/companies/{nit}/setup-status": {
+      "get": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Ver qu\u00E9 falta para el paso a producci\u00F3n",
+        "description": "Responde lo que revisa el asistente de paso a producci\u00F3n, con lo que ya est\u00E1 guardado (no pregunta a la DIAN): \u0060company_complete\u0060 (datos obligatorios llenos), \u0060certificate_valid\u0060 (certificado activo con al menos un d\u00EDa de vigencia), \u0060software_configured\u0060 y \u0060test_set_id_configured\u0060 (software de factura con su set de pruebas en el ambiente actual de la factura), \u0060test_set_accepted\u0060 (verdadero si la DIAN valid\u00F3 un documento del set, falso si respondi\u00F3 sin validar ninguno, nulo si no hay respuestas guardadas), \u0060environments\u0060 (el ambiente de cada familia) y \u0060resolutions\u0060 (para factura, nota cr\u00E9dito y nota d\u00E9bito, \u0060valid\u0060 si hay una resoluci\u00F3n activa en el ambiente actual, vigente hoy y con n\u00FAmeros por usar; la de factura adem\u00E1s con clave t\u00E9cnica). El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "operationId": "getCompanySetupStatus",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanySetupStatusResponse"
                 }
               }
             }
@@ -13777,6 +14066,72 @@
           }
         }
       },
+      "ApiKeyItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "key_prefix": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "last_used_at": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "is_revoked": {
+            "type": "boolean"
+          },
+          "revoked_at": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ApiKeyListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiKeyItem"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "AssignPlanCommand": {
         "type": "object",
         "properties": {
@@ -14343,6 +14698,17 @@
           }
         }
       },
+      "CompanyEnvironmentsResponse": {
+        "type": "object",
+        "properties": {
+          "environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentResponse"
+            }
+          }
+        }
+      },
       "CompanyLogoResponse": {
         "type": "object",
         "properties": {
@@ -14356,6 +14722,17 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "CompanyResolutionsResponse": {
+        "type": "object",
+        "properties": {
+          "resolutions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResolutionStatusResponse"
+            }
           }
         }
       },
@@ -14507,6 +14884,88 @@
           },
           "company": {
             "$ref": "#/components/schemas/CompanyResponse"
+          }
+        }
+      },
+      "CompanySetupStatusResponse": {
+        "type": "object",
+        "properties": {
+          "company_complete": {
+            "type": "boolean"
+          },
+          "certificate_valid": {
+            "type": "boolean"
+          },
+          "software_configured": {
+            "type": "boolean"
+          },
+          "test_set_id_configured": {
+            "type": "boolean"
+          },
+          "test_set_accepted": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentResponse"
+            }
+          },
+          "resolutions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ResolutionReadiness"
+            }
+          }
+        }
+      },
+      "CompanySoftwareResponse": {
+        "type": "object",
+        "properties": {
+          "software": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredSoftwareResponse"
+            }
+          }
+        }
+      },
+      "ConfiguredSoftwareResponse": {
+        "type": "object",
+        "properties": {
+          "document_kind": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_environment_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "identifier": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "test_set_id": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "has_pin": {
+            "type": "boolean"
           }
         }
       },
@@ -17309,6 +17768,62 @@
           "data": {}
         }
       },
+      "PlatformCompanyItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nit": {
+            "type": "string"
+          },
+          "dv": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "plan_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "plan_name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PlatformCompanyListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlatformCompanyItem"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "ProductListResponse": {
         "type": "object",
         "properties": {
@@ -17423,6 +17938,25 @@
           }
         }
       },
+      "ResolutionReadiness": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "type_document_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        }
+      },
       "ResolutionResponse": {
         "type": "object",
         "properties": {
@@ -17517,6 +18051,117 @@
           },
           "resolution": {
             "$ref": "#/components/schemas/ResolutionResponse"
+          }
+        }
+      },
+      "ResolutionStatusResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type_document_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "type_environment_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "prefix": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "resolution": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "resolution_date": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "from": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "to": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "date_from": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "date_to": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "has_technical_key": {
+            "type": "boolean"
+          },
+          "next_number": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "remaining": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "days_left": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
