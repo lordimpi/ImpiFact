@@ -2,7 +2,14 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormField, submit } from '@angular/forms/signals';
 import { NumberingRangeItem } from '@impifact/api';
 import { AppError, HasUnsavedChanges, ToastStore } from '@impifact/core';
-import { ButtonComponent, FieldComponent, InputDirective, SelectDirective } from '@impifact/ui';
+import {
+  ButtonComponent,
+  ErrorStateComponent,
+  FieldComponent,
+  InputDirective,
+  LoadingComponent,
+  SelectDirective,
+} from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { companiesText, provideCompaniesI18n } from '../companies-i18n';
 import { fieldMessage, serverFieldErrors } from '../forms/form-messages';
@@ -28,7 +35,8 @@ type LookupState =
 /**
  * Resoluciones de numeración (`/empresas/:id/resoluciones`): alta o actualización de una resolución, con el ejemplo
  * de habilitación (SETP) y la consulta en vivo de los rangos que la DIAN tiene autorizados (`getNumberingRanges`)
- * para copiar uno al formulario. El Api no lista las resoluciones guardadas: la tabla muestra las de esta sesión.
+ * para copiar uno al formulario. La tabla muestra las resoluciones guardadas (`listCompanyResolutions`) con el próximo
+ * número, lo que queda del rango y los días de vigencia; se vuelve a leer después de cada guardado.
  */
 @Component({
   selector: 'feat-resolutions-page',
@@ -36,8 +44,10 @@ type LookupState =
     FormField,
     TranslocoPipe,
     ButtonComponent,
+    ErrorStateComponent,
     FieldComponent,
     InputDirective,
+    LoadingComponent,
     SelectDirective,
   ],
   providers: [provideCompaniesI18n()],
@@ -75,8 +85,19 @@ export class ResolutionsPage implements HasUnsavedChanges {
       resolution: resolution.resolution ?? '',
       range: `${resolution.from} – ${resolution.to}`,
       validity: `${resolution.date_from ?? ''} – ${resolution.date_to ?? ''}`,
+      next: `${resolution.next_number ?? ''}`,
+      remaining: `${resolution.remaining ?? ''}`,
+      daysLeft:
+        resolution.days_left === null || resolution.days_left === undefined
+          ? this.text('resolutions.noExpiry')
+          : `${resolution.days_left}`,
+      status: this.text(resolution.is_active ? 'resolutions.active' : 'resolutions.inactive'),
     })),
   );
+
+  constructor() {
+    void this.setup.loadResolutions();
+  }
 
   protected readonly errors = computed(() => {
     const translate = (key: string, params?: Record<string, unknown>) => this.text(key, params);

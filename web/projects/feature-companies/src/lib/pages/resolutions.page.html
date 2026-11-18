@@ -2,7 +2,13 @@
   <h2>{{ 'companies.resolutions.title' | transloco }}</h2>
   <p class="companies-lead">{{ 'companies.resolutions.description' | transloco }}</p>
 
-  @if (saved().length > 0) {
+  @if (setup.resolutionsStatus() === 'error' && saved().length === 0) {
+    <ui-error-state
+      [title]="'companies.resolutions.loadError' | transloco"
+      [retryLabel]="'companies.common.retry' | transloco"
+      (retry)="setup.loadResolutions()"
+    />
+  } @else if (saved().length > 0) {
     <div class="companies-scroll">
       <table class="companies-table">
         <caption>
@@ -17,6 +23,10 @@
             <th scope="col">{{ 'companies.resolutions.ranges.columns.resolution' | transloco }}</th>
             <th scope="col">{{ 'companies.resolutions.ranges.columns.range' | transloco }}</th>
             <th scope="col">{{ 'companies.resolutions.ranges.columns.validity' | transloco }}</th>
+            <th scope="col">{{ 'companies.resolutions.columns.next' | transloco }}</th>
+            <th scope="col">{{ 'companies.resolutions.columns.remaining' | transloco }}</th>
+            <th scope="col">{{ 'companies.resolutions.columns.daysLeft' | transloco }}</th>
+            <th scope="col">{{ 'companies.resolutions.columns.status' | transloco }}</th>
           </tr>
         </thead>
         <tbody>
@@ -27,13 +37,19 @@
               <td>{{ row.resolution }}</td>
               <td>{{ row.range }}</td>
               <td>{{ row.validity }}</td>
+              <td>{{ row.next }}</td>
+              <td>{{ row.remaining }}</td>
+              <td>{{ row.daysLeft }}</td>
+              <td>{{ row.status }}</td>
             </tr>
           }
         </tbody>
       </table>
     </div>
-  } @else {
+  } @else if (setup.resolutionsStatus() === 'ready') {
     <p class="companies-message">{{ 'companies.resolutions.savedEmpty' | transloco }}</p>
+  } @else {
+    <ui-loading [label]="'companies.common.loading' | transloco" />
   }
 
   <h3>{{ 'companies.resolutions.form' | transloco }}</h3>

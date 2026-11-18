@@ -14,9 +14,9 @@ import { CompanySetupStore } from '../state/company-setup.store';
 type Choice = '' | `${typeof PRODUCTION}` | `${typeof HABILITATION}`;
 
 /**
- * Ambientes (`/empresas/:id/ambientes`): habilitación o producción por familia de documentos. El Api no informa el
- * ambiente actual hasta que se cambia, así que cada lista empieza en «Sin cambios» y solo se envían las familias que
- * cambian. Pasar una familia a producción pide una confirmación explícita.
+ * Ambientes (`/empresas/:id/ambientes`): habilitación o producción por familia de documentos. Al abrir se lee el
+ * ambiente actual de cada familia (`getCompanyEnvironments`); cada lista empieza en «Sin cambios» y solo se envían las
+ * familias que cambian. Pasar una familia a producción pide una confirmación explícita.
  */
 @Component({
   selector: 'feat-environments-page',
@@ -33,7 +33,6 @@ type Choice = '' | `${typeof PRODUCTION}` | `${typeof HABILITATION}`;
     <section class="companies-section">
       <h2>{{ 'companies.environments.title' | transloco }}</h2>
       <p class="companies-lead">{{ 'companies.environments.description' | transloco }}</p>
-      <p class="companies-message">{{ 'companies.environments.notReadable' | transloco }}</p>
 
       <form
         class="companies-form"
@@ -100,10 +99,7 @@ export class EnvironmentsPage {
         kind,
         label: this.text(kindKey(kind)),
         choice: this.choices()[kind] ?? '',
-        current:
-          current === null
-            ? this.text('environments.unknown')
-            : this.text('environments.current', { name: this.environmentName(current) }),
+        current: this.currentText(current),
       };
     }),
   );
@@ -133,6 +129,24 @@ export class EnvironmentsPage {
       close: this.text('common.close'),
     };
   });
+
+  constructor() {
+    void this.setup.loadEnvironments();
+  }
+
+  private currentText(current: number | null): string {
+    if (current !== null) {
+      return this.text('environments.current', { name: this.environmentName(current) });
+    }
+    switch (this.setup.environmentsStatus()) {
+      case 'error':
+        return this.text('environments.loadError');
+      case 'ready':
+        return this.text('environments.unknown');
+      default:
+        return this.text('environments.loading');
+    }
+  }
 
   protected choose(kind: number, value: Choice): void {
     this.choices.update((current) => ({ ...current, [kind]: value }));

@@ -99,7 +99,7 @@ export function companyCommand(model: CompanyModel): UpdateCompanyCommand {
   };
 }
 
-/** Modelo a partir de lo que devolvió el último guardado. */
+/** Modelo a partir de la lectura de la empresa (`getCompany`) o de lo que devolvió el último guardado. */
 export function companyModel(company: CompanyResponse): CompanyModel {
   return {
     business_name: asText(company.business_name),

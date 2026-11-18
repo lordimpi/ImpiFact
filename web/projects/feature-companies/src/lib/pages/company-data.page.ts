@@ -13,8 +13,10 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  ErrorStateComponent,
   FieldComponent,
   InputDirective,
+  LoadingComponent,
   SearchSelectComponent,
   SearchSelectLabels,
   SelectDirective,
@@ -33,9 +35,9 @@ import { fieldMessage, serverFieldErrors } from '../forms/form-messages';
 import { CompanySetupStore } from '../state/company-setup.store';
 
 /**
- * Datos de la empresa (`/empresas/:id/datos`): razón social, ubicación y responsabilidades fiscales. El Api no tiene
- * lectura de la empresa, así que el formulario empieza con la razón social del directorio (o con lo guardado en esta
- * sesión) y lo demás vacío. Los errores por campo del Api se muestran junto a cada campo.
+ * Datos de la empresa (`/empresas/:id/datos`): razón social, ubicación y responsabilidades fiscales. Al abrir se leen
+ * del Api (`getCompany`) y llenan el formulario; esa misma forma es la que se envía al guardar. Los errores por campo
+ * del Api se muestran junto a cada campo.
  */
 @Component({
   selector: 'feat-company-data-page',
@@ -43,8 +45,10 @@ import { CompanySetupStore } from '../state/company-setup.store';
     FormField,
     TranslocoPipe,
     ButtonComponent,
+    ErrorStateComponent,
     FieldComponent,
     InputDirective,
+    LoadingComponent,
     SearchSelectComponent,
     SelectDirective,
   ],
@@ -54,7 +58,7 @@ import { CompanySetupStore } from '../state/company-setup.store';
   styleUrl: './companies-page.css',
 })
 export class CompanyDataPage implements HasUnsavedChanges {
-  private readonly setup = inject(CompanySetupStore);
+  protected readonly setup = inject(CompanySetupStore);
   private readonly toasts = inject(ToastStore);
   private readonly transloco = inject(TranslocoService);
 
@@ -116,8 +120,21 @@ export class CompanyDataPage implements HasUnsavedChanges {
     return messages;
   });
 
+  constructor() {
+    this.load();
+  }
+
   hasUnsavedChanges(): boolean {
     return this.companyForm().dirty();
+  }
+
+  /** Lee los datos guardados; si llegan antes de que se escriba algo, llenan el formulario. */
+  protected load(): void {
+    void this.setup.loadCompany().then((company) => {
+      if (company && !this.companyForm().dirty()) {
+        this.model.set(companyModel(company));
+      }
+    });
   }
 
   protected toggleLiability(id: number, checked: boolean): void {
@@ -152,7 +169,7 @@ export class CompanyDataPage implements HasUnsavedChanges {
   }
 
   private initialModel(): CompanyModel {
-    const saved = this.setup.saved();
+    const saved = this.setup.companyData();
     return saved ? companyModel(saved) : emptyCompany(this.setup.company()?.name ?? '');
   }
 

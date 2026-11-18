@@ -1,5 +1,9 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
-import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import {
+  HttpTestingController,
+  TestRequest,
+  provideHttpClientTesting,
+} from '@angular/common/http/testing';
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, RouterOutlet, provideRouter, withComponentInputBinding } from '@angular/router';
@@ -121,6 +125,73 @@ export async function expectRequest(
 ) {
   return waitFor(() => http.expectOne(match));
 }
+
+/** Ruta base de la empresa de prueba en el Api. */
+export const COMPANY_PATH = '/api/v1/companies/900123456';
+
+/** Espera la lectura (`GET`) de `path` y la contesta con `body`. */
+export async function respond(
+  http: HttpTestingController,
+  path: string,
+  body: Parameters<TestRequest['flush']>[0],
+) {
+  const request = await expectRequest(
+    http,
+    (candidate) => candidate.method === 'GET' && candidate.url === path,
+  );
+  request.flush(body);
+  return request;
+}
+
+/** Datos de la empresa como los devuelve `getCompany`. */
+export const COMPANY_DATA = {
+  id: COMPANY_ID,
+  identification_number: '900123456',
+  dv: '7',
+  business_name: 'Acme SAS',
+  type_document_identification_id: 6,
+  type_organization_id: 1,
+  type_regime_id: 1,
+  type_liability_ids: [7],
+  municipality_id: 149,
+  address: 'Calle 1 # 2-3',
+  phone: '6011234567',
+  email: 'facturas@acme.test',
+  merchant_registration: '12345-67',
+  is_active: true,
+  environments: [{ document_kind: 1, type_environment_id: 2 }],
+};
+
+/** Ambientes de la empresa de prueba: todo en habilitación. */
+export const ENVIRONMENTS = [1, 2, 3, 4, 5].map((kind) => ({
+  document_kind: kind,
+  type_environment_id: 2,
+}));
+
+/** Software de la factura en habilitación, con PIN guardado. */
+export const INVOICE_SOFTWARE = {
+  document_kind: 1,
+  type_environment_id: 2,
+  identifier: 'soft-123',
+  url: 'https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc',
+  test_set_id: 'set-abc',
+  has_pin: true,
+};
+
+/** Estado del paso a producción de una empresa recién creada. */
+export const EMPTY_READINESS = {
+  company_complete: false,
+  certificate_valid: false,
+  software_configured: false,
+  test_set_id_configured: false,
+  test_set_accepted: null,
+  environments: ENVIRONMENTS,
+  resolutions: [
+    { kind: 'invoice', type_document_id: 1, valid: false },
+    { kind: 'credit_note', type_document_id: 4, valid: false },
+    { kind: 'debit_note', type_document_id: 5, valid: false },
+  ],
+};
 
 /** Cuerpo de error del Api (ProblemDetails) para `flush`. */
 export function problem(

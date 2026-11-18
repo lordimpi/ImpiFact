@@ -11,7 +11,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { Api, calculateDocumentTotals, getDocument, issueTestSetInvoice } from '@impifact/api';
 import { IDEMPOTENCY_KEY, SKIP_ERROR_TOAST, ToastStore } from '@impifact/core';
-import { ButtonComponent, FieldComponent, InputDirective } from '@impifact/ui';
+import {
+  ButtonComponent,
+  ErrorStateComponent,
+  FieldComponent,
+  InputDirective,
+  LoadingComponent,
+} from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { companiesText, provideCompaniesI18n } from '../companies-i18n';
@@ -34,13 +40,15 @@ import { TEST_INVOICE_CALCULATION, buildTestInvoiceBody } from '../models/test-i
 import { CompanySetupStore } from '../state/company-setup.store';
 import { pageVisibility, pollWhilePending } from '../state/polling';
 
-export type StepStatus = 'done' | 'missing' | 'unverified' | 'locked' | 'inProgress';
+export type StepStatus = 'done' | 'missing' | 'locked' | 'inProgress';
 
 interface Step {
   id: 'company' | 'certificate' | 'resolution' | 'software' | 'testSet' | 'production';
   title: string;
   status: StepStatus;
   detail: string;
+  /** Resultado que informa el Api para el paso (por ejemplo, la respuesta de la DIAN al set de pruebas). */
+  note?: string;
   /** Sección de la empresa donde se completa el paso. */
   section?: { path: string; label: string };
 }
@@ -51,10 +59,11 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
  * Asistente de paso a producción (`/empresas/:id/produccion`, sección 8.2 de la arquitectura del frontend): empresa,
  * certificado, resolución, software y set de pruebas, envío al set de pruebas y producción por familia de documentos.
  *
- * El estado de cada paso sale del Api: el certificado se consulta al abrir; los datos, la resolución y el software
- * solo se conocen si se guardaron en esta sesión (el Api no tiene lectura de ellos), y entonces el paso queda
- * «Sin verificar» y no bloquea. Sin un certificado activo y vigente, el set de pruebas y la producción quedan
- * bloqueados. Pasar a producción pide una confirmación explícita, porque los documentos tienen efecto fiscal real.
+ * El estado de cada paso sale de `getCompanySetupStatus`, que el Api calcula con lo guardado; el certificado y el
+ * software se leen además para mostrar sus datos. El estado se vuelve a pedir después de cada guardado, al terminar
+ * una factura de prueba y con «Volver a revisar». Sin un certificado activo y vigente, el set de pruebas y la
+ * producción quedan bloqueados. Pasar a producción pide una confirmación explícita, porque los documentos tienen
+ * efecto fiscal real.
  */
 @Component({
   selector: 'feat-production-wizard-page',
@@ -62,8 +71,10 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    ErrorStateComponent,
     FieldComponent,
     InputDirective,
+    LoadingComponent,
     ProductionConfirmDialogComponent,
   ],
   providers: [provideCompaniesI18n()],
@@ -88,24 +99,19 @@ export class ProductionWizardPage {
   protected readonly confirming = signal(false);
 
   private readonly certificateStep = computed<Pick<Step, 'status' | 'detail'>>(() => {
-    const status = this.setup.certificatesStatus();
-    if (status === 'idle' || status === 'loading') {
-      return { status: 'inProgress', detail: this.text('common.loading') };
-    }
-    if (status === 'error') {
-      return { status: 'missing', detail: this.text('wizard.steps.certificate.error') };
+    if (!this.setup.readiness()?.certificate_valid) {
+      return { status: 'missing', detail: this.text('wizard.steps.certificate.missing') };
     }
     const active = this.setup.activeCertificate();
-    const days = Number(active?.certificate_days_left ?? 0);
-    return active && days > 0
-      ? {
-          status: 'done',
-          detail: this.text('wizard.steps.certificate.done', {
+    return {
+      status: 'done',
+      detail: active
+        ? this.text('wizard.steps.certificate.done', {
             subject: active.subject ?? active.name ?? '',
-            days,
-          }),
-        }
-      : { status: 'missing', detail: this.text('wizard.steps.certificate.missing') };
+            days: Number(active.certificate_days_left ?? 0),
+          })
+        : this.text('wizard.steps.certificate.valid'),
+    };
   });
 
   /** Los pasos que mandan documentos a la DIAN necesitan un certificado vigente. */
@@ -146,24 +152,28 @@ export class ProductionWizardPage {
   );
 
   protected readonly steps = computed<Step[]>(() => {
+    const readiness = this.setup.readiness();
     const locked = !this.unlocked();
-    const saved = this.setup.saved();
-    const resolution = this.setup
-      .resolutions()
-      .find((entry) => Number(entry.type_document_id) === 1);
+    const invoiceResolution = readiness?.resolutions?.find(
+      (entry) => Number(entry.type_document_id) === 1,
+    );
     const software = this.setup.invoiceSoftware();
-    const testSetId = this.setup.effectiveTestSetId();
-    const test = this.testDocument();
+    const accepted = readiness?.test_set_accepted ?? null;
     const section = (path: string, label: string) => ({
       path: `../${path}`,
       label: this.text('wizard.open', { section: this.text(`layout.tabs.${label}`) }),
     });
+    const softwareDone = !!readiness?.software_configured && !!readiness.test_set_id_configured;
     return [
       {
         id: 'company',
         title: this.text('wizard.steps.company.title'),
-        status: saved ? 'done' : 'unverified',
-        detail: this.text(saved ? 'wizard.steps.company.done' : 'wizard.steps.company.unverified'),
+        status: readiness?.company_complete ? 'done' : 'missing',
+        detail: this.text(
+          readiness?.company_complete
+            ? 'wizard.steps.company.done'
+            : 'wizard.steps.company.missing',
+        ),
         section: section('datos', 'data'),
       },
       {
@@ -175,25 +185,28 @@ export class ProductionWizardPage {
       {
         id: 'resolution',
         title: this.text('wizard.steps.resolution.title'),
-        status: resolution ? 'done' : 'unverified',
-        detail: resolution
-          ? this.text('wizard.steps.resolution.done', {
-              resolution: resolution.resolution ?? '',
-              prefix: resolution.prefix ?? '',
-            })
-          : this.text('wizard.steps.resolution.unverified'),
+        status: invoiceResolution?.valid ? 'done' : 'missing',
+        detail: this.text(
+          invoiceResolution?.valid
+            ? 'wizard.steps.resolution.done'
+            : 'wizard.steps.resolution.missing',
+        ),
         section: section('resoluciones', 'resolutions'),
       },
       {
         id: 'software',
         title: this.text('wizard.steps.software.title'),
-        status: testSetId ? 'done' : 'unverified',
-        detail: testSetId
+        status: softwareDone ? 'done' : 'missing',
+        detail: softwareDone
           ? this.text('wizard.steps.software.done', {
               identifier: software?.identifier ?? '',
-              testSetId,
+              testSetId: software?.test_set_id ?? '',
             })
-          : this.text('wizard.steps.software.unverified'),
+          : this.text(
+              readiness?.software_configured
+                ? 'wizard.steps.software.missingTestSet'
+                : 'wizard.steps.software.missing',
+            ),
         section: section('software', 'software'),
       },
       {
@@ -201,12 +214,21 @@ export class ProductionWizardPage {
         title: this.text('wizard.steps.testSet.title'),
         status: locked
           ? 'locked'
-          : test?.accepted
+          : accepted === true
             ? 'done'
-            : this.sending() || test?.pending
+            : this.sending() || this.testDocument()?.pending
               ? 'inProgress'
               : 'missing',
         detail: this.text(locked ? 'wizard.lockedHint' : 'wizard.steps.testSet.description'),
+        note: locked
+          ? undefined
+          : this.text(
+              accepted === null
+                ? 'wizard.steps.testSet.noResult'
+                : accepted
+                  ? 'wizard.steps.testSet.setAccepted'
+                  : 'wizard.steps.testSet.setRejected',
+            ),
       },
       {
         id: 'production',
@@ -236,11 +258,14 @@ export class ProductionWizardPage {
   });
 
   constructor() {
-    void this.setup.loadCertificates();
+    this.refresh();
   }
 
+  /** Vuelve a pedir el estado del paso a producción y los datos que se muestran del certificado y el software. */
   protected refresh(): void {
+    void this.setup.loadReadiness();
     void this.setup.loadCertificates();
+    void this.setup.loadSoftware();
   }
 
   protected setTestSetId(value: string): void {
@@ -295,7 +320,11 @@ export class ProductionWizardPage {
           this.testError.set(dianErrorText(error, this.text));
           this.sending.set(false);
         },
-        complete: () => this.sending.set(false),
+        complete: () => {
+          this.sending.set(false);
+          // Con la respuesta final de la DIAN, el resultado del set de pruebas puede haber cambiado.
+          void this.setup.loadReadiness();
+        },
       });
   }
 

@@ -5,17 +5,25 @@ import {
   CertificateResponse,
   CertificateSavedResponse,
   CompanyResponse,
+  CompanySetupStatusResponse,
+  ConfiguredSoftwareResponse,
   DocumentDetailResponse,
   EnvironmentResponse,
   NumberingRangeResponse,
   ResolutionResponse,
+  ResolutionStatusResponse,
   SetEnvironmentCommand,
   SetSoftwareCommand,
   SoftwareResponse,
   UpdateCompanyCommand,
   UpsertResolutionCommand,
+  getCompany,
+  getCompanyEnvironments,
+  getCompanySetupStatus,
+  getCompanySoftware,
   getNumberingRanges,
   listCompanyCertificates,
+  listCompanyResolutions,
   saveCompanyResolution,
   setCompanyEnvironment,
   setCompanySoftware,
@@ -25,7 +33,7 @@ import {
 import { MyCompaniesStore, SKIP_ERROR_TOAST } from '@impifact/core';
 import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
-import { INVOICE_KIND } from '../models/dian';
+import { HABILITATION, INVOICE_KIND } from '../models/dian';
 
 /** Empresa con la que se trabaja: la activa de la sesión, con el NIT y el DV que piden las rutas del Api. */
 export interface CompanyRef {
@@ -39,42 +47,65 @@ export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface CompanySetupState {
   company: CompanyRef | null;
-  /** Datos guardados en esta sesión (el Api no tiene lectura de la empresa). */
-  saved: CompanyResponse | null;
-  /** Ambientes por familia; `null` mientras el Api no los haya devuelto en esta sesión. */
+  /** Datos de la empresa como los devuelve `getCompany` (la misma forma que acepta `updateCompany`). */
+  companyData: CompanyResponse | null;
+  companyStatus: LoadStatus;
+  /** Ambiente actual de cada familia de documentos. */
   environments: EnvironmentResponse[] | null;
-  software: SoftwareResponse[] | null;
-  /** Resoluciones guardadas en esta sesión (el Api no las lista). */
-  resolutions: ResolutionResponse[];
+  environmentsStatus: LoadStatus;
+  /** Software de cada familia y ambiente; del PIN solo se sabe si existe (`has_pin`). */
+  software: ConfiguredSoftwareResponse[] | null;
+  softwareStatus: LoadStatus;
+  /** Resoluciones con el próximo número, lo que queda y los días de vigencia. */
+  resolutions: ResolutionStatusResponse[];
+  resolutionsStatus: LoadStatus;
+  /** Estado del paso a producción que calcula el Api (`getCompanySetupStatus`). */
+  readiness: CompanySetupStatusResponse | null;
+  readinessStatus: LoadStatus;
   certificates: CertificateResponse[];
   certificatesStatus: LoadStatus;
-  /** Set de pruebas escrito en el asistente cuando no se guardó el software en esta sesión. */
+  /** Set de pruebas escrito en el asistente; tiene prioridad sobre el del software guardado. */
   testSetId: string;
   /** Última factura de prueba enviada desde el asistente, con su estado en la DIAN. */
   testDocument: DocumentDetailResponse | null;
 }
 
 const EMPTY: Omit<CompanySetupState, 'company'> = {
-  saved: null,
+  companyData: null,
+  companyStatus: 'idle',
   environments: null,
+  environmentsStatus: 'idle',
   software: null,
+  softwareStatus: 'idle',
   resolutions: [],
+  resolutionsStatus: 'idle',
+  readiness: null,
+  readinessStatus: 'idle',
   certificates: [],
   certificatesStatus: 'idle',
   testSetId: '',
   testDocument: null,
 };
 
+/** Campos del estado que guardan el estado de una lectura. */
+type StatusKey =
+  | 'companyStatus'
+  | 'environmentsStatus'
+  | 'softwareStatus'
+  | 'resolutionsStatus'
+  | 'readinessStatus';
+
 /** Las páginas muestran los errores en el formulario, no en un aviso flotante. */
 const IN_FORM = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 
 /**
  * Configuración de la empresa activa (NgRx SignalStore), compartida por las pantallas de la empresa y el asistente
- * de paso a producción. Los métodos son la única forma de cambiarla y llaman al cliente generado; los errores
- * (`AppError`) llegan a quien llama para ponerlos junto a cada campo.
+ * de paso a producción. Los métodos son la única forma de cambiarla y llaman al cliente generado; los errores de un
+ * guardado (`AppError`) llegan a quien llama para ponerlos junto a cada campo.
  *
- * El Api no tiene lectura de los datos, ambientes, software ni resoluciones de la empresa: el store recuerda lo que
- * devolvió cada guardado de esta sesión. Al cambiar de empresa, se olvida todo.
+ * Cada pantalla pide al abrir lo que muestra (`loadCompany`, `loadEnvironments`, `loadSoftware`, `loadResolutions`,
+ * `loadReadiness`); mientras llega la respuesta se conserva lo anterior. Después de cada guardado se vuelve a pedir
+ * el estado del paso a producción. Al cambiar de empresa, se olvida todo.
  */
 export const CompanySetupStore = signalStore(
   { providedIn: 'root' },
@@ -83,10 +114,22 @@ export const CompanySetupStore = signalStore(
     activeCertificate: computed(
       () => store.certificates().find((certificate) => certificate.is_active) ?? null,
     ),
-    /** Software de la factura electrónica, si se guardó en esta sesión. */
-    invoiceSoftware: computed(
-      () => store.software()?.find((entry) => Number(entry.document_kind) === INVOICE_KIND) ?? null,
-    ),
+    /**
+     * Software de la factura electrónica en su ambiente actual; si los ambientes aún no se leyeron, el de
+     * habilitación (o el primero que haya).
+     */
+    invoiceSoftware: computed(() => {
+      const rows = (store.software() ?? []).filter(
+        (entry) => Number(entry.document_kind) === INVOICE_KIND,
+      );
+      const current = store
+        .environments()
+        ?.find((entry) => Number(entry.document_kind) === INVOICE_KIND)?.type_environment_id;
+      const environment = current === undefined ? HABILITATION : Number(current);
+      return (
+        rows.find((entry) => Number(entry.type_environment_id) === environment) ?? rows[0] ?? null
+      );
+    }),
   })),
   withComputed((store) => ({
     /** Set de pruebas para el asistente: el escrito allí o el del software guardado. */
@@ -103,6 +146,59 @@ export const CompanySetupStore = signalStore(
       return company;
     };
 
+    /**
+     * Pide una lectura y la guarda junto con su estado. Si mientras tanto se cambió de empresa, la respuesta se
+     * descarta. Devuelve lo leído, o `null` si falló (el error queda en el estado, para mostrarlo con reintento).
+     */
+    async function read<T>(
+      status: StatusKey,
+      fetch: (nit: string) => Promise<T>,
+      apply: (value: T) => Partial<CompanySetupState>,
+    ): Promise<T | null> {
+      const company = current();
+      patchState(store, { [status]: 'loading' });
+      try {
+        const value = await fetch(company.nit);
+        if (store.company()?.id !== company.id) {
+          return null;
+        }
+        patchState(store, { ...apply(value), [status]: 'ready' });
+        return value;
+      } catch {
+        if (store.company()?.id === company.id) {
+          patchState(store, { [status]: 'error' });
+        }
+        return null;
+      }
+    }
+
+    const loadReadiness = () =>
+      read(
+        'readinessStatus',
+        (nit) => firstValueFrom(api.invoke(getCompanySetupStatus, { nit }, IN_FORM())),
+        (readiness) => ({
+          readiness,
+          ...(readiness.environments ? { environments: readiness.environments } : {}),
+        }),
+      );
+
+    const loadSoftware = () =>
+      read(
+        'softwareStatus',
+        (nit) => firstValueFrom(api.invoke(getCompanySoftware, { nit }, IN_FORM())),
+        (response) => ({ software: response.software ?? [] }),
+      );
+
+    const loadResolutions = () =>
+      read(
+        'resolutionsStatus',
+        (nit) => firstValueFrom(api.invoke(listCompanyResolutions, { nit }, IN_FORM())),
+        (response) => ({ resolutions: response.resolutions ?? [] }),
+      );
+
+    /** Después de guardar, el estado del paso a producción puede haber cambiado. */
+    const afterSave = () => void loadReadiness();
+
     return {
       /** Fija la empresa con la que se trabaja; si es otra, olvida lo de la anterior. */
       use(company: CompanyRef): void {
@@ -112,6 +208,30 @@ export const CompanySetupStore = signalStore(
         }
         patchState(store, { company, ...EMPTY });
       },
+
+      /** Datos de la empresa; el resultado sirve para llenar el formulario. */
+      loadCompany(): Promise<CompanyResponse | null> {
+        return read(
+          'companyStatus',
+          (nit) => firstValueFrom(api.invoke(getCompany, { nit }, IN_FORM())),
+          (companyData) => ({
+            companyData,
+            ...(companyData.environments ? { environments: companyData.environments } : {}),
+          }),
+        );
+      },
+
+      loadEnvironments(): Promise<unknown> {
+        return read(
+          'environmentsStatus',
+          (nit) => firstValueFrom(api.invoke(getCompanyEnvironments, { nit }, IN_FORM())),
+          (response) => ({ environments: response.environments ?? [] }),
+        );
+      },
+
+      loadSoftware,
+      loadResolutions,
+      loadReadiness,
 
       environmentOf(kind: number): number | null {
         const found = store.environments()?.find((entry) => Number(entry.document_kind) === kind);
@@ -124,11 +244,12 @@ export const CompanySetupStore = signalStore(
           api.invoke(updateCompany, { nit, dv, body }, IN_FORM()),
         );
         patchState(store, {
-          saved: response.company,
+          companyData: response.company,
           environments: response.company.environments ?? store.environments(),
         });
         // La razón social se muestra en el menú y en la selección de empresa.
         void directory.reload();
+        afterSave();
         return response.company;
       },
 
@@ -137,7 +258,8 @@ export const CompanySetupStore = signalStore(
           api.invoke(setCompanyEnvironment, { nit: current().nit, body }, IN_FORM()),
         );
         const environments = response.environments ?? [];
-        patchState(store, { environments });
+        patchState(store, { environments, environmentsStatus: 'ready' });
+        afterSave();
         return environments;
       },
 
@@ -145,20 +267,20 @@ export const CompanySetupStore = signalStore(
         const response = await firstValueFrom(
           api.invoke(setCompanySoftware, { nit: current().nit, body }, IN_FORM()),
         );
-        const software = response.software ?? [];
-        patchState(store, { software });
-        return software;
+        // La respuesta no dice si hay PIN guardado: se vuelve a leer el software.
+        void loadSoftware();
+        afterSave();
+        return response.software ?? [];
       },
 
       async saveResolution(body: UpsertResolutionCommand): Promise<ResolutionResponse> {
         const response = await firstValueFrom(
           api.invoke(saveCompanyResolution, { nit: current().nit, body }, IN_FORM()),
         );
-        const saved = response.resolution;
-        patchState(store, {
-          resolutions: [...store.resolutions().filter((entry) => entry.id !== saved.id), saved],
-        });
-        return saved;
+        // La lista trae el próximo número y lo que queda del rango: se vuelve a leer.
+        void loadResolutions();
+        afterSave();
+        return response.resolution;
       },
 
       /**
@@ -187,6 +309,7 @@ export const CompanySetupStore = signalStore(
           ],
           certificatesStatus: 'ready',
         });
+        afterSave();
         return response;
       },
 

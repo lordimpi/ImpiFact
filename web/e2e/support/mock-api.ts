@@ -30,6 +30,21 @@ export const EMPTY_DASHBOARD = {
   resolutions: [],
 };
 
+/** Estado del paso a producción de una empresa nueva (`GET /api/v1/companies/{nit}/setup-status`). */
+export const EMPTY_SETUP_STATUS = {
+  company_complete: false,
+  certificate_valid: false,
+  software_configured: false,
+  test_set_id_configured: false,
+  test_set_accepted: null,
+  environments: [1, 2, 3, 4, 5].map((kind) => ({ document_kind: kind, type_environment_id: 2 })),
+  resolutions: [
+    { kind: 'invoice', type_document_id: 1, valid: false },
+    { kind: 'credit_note', type_document_id: 4, valid: false },
+    { kind: 'debit_note', type_document_id: 5, valid: false },
+  ],
+};
+
 export interface MockApiOptions {
   /** Minutos de inactividad del `config.json` simulado (por defecto, los de producción). */
   inactivity?: { warnMinutes: number; logoutMinutes: number };
@@ -158,6 +173,46 @@ export async function mockApi(page: Page, options: MockApiOptions = {}): Promise
   );
   await page.route('**/api/v1/dashboard/summary', (route) =>
     route.fulfill({ json: EMPTY_DASHBOARD }),
+  );
+  // Lecturas de la configuración de la empresa: por defecto, una empresa nueva sin software ni resoluciones.
+  await page.route(
+    /\/api\/v1\/companies\/\d+(\/(environments|software|resolutions|setup-status))?$/,
+    (route) => {
+      if (route.request().method() !== 'GET') {
+        return route.fallback();
+      }
+      const path = new URL(route.request().url()).pathname;
+      const nit = path.split('/')[4]!;
+      const company = Object.values(COMPANY_NAMES).find((entry) => entry.nit === nit);
+      if (path.endsWith('/environments')) {
+        return route.fulfill({ json: { environments: EMPTY_SETUP_STATUS.environments } });
+      }
+      if (path.endsWith('/software')) {
+        return route.fulfill({ json: { software: [] } });
+      }
+      if (path.endsWith('/resolutions')) {
+        return route.fulfill({ json: { resolutions: [] } });
+      }
+      if (path.endsWith('/setup-status')) {
+        return route.fulfill({ json: EMPTY_SETUP_STATUS });
+      }
+      return route.fulfill({
+        json: {
+          identification_number: nit,
+          dv: company?.dv ?? '0',
+          business_name: company?.name ?? 'Empresa sin nombre',
+          type_document_identification_id: 6,
+          type_liability_ids: [],
+          environments: EMPTY_SETUP_STATUS.environments,
+        },
+      });
+    },
+  );
+  // Llaves de API y empresas de la plataforma: listas vacías por defecto.
+  await page.route(/\/api\/v1\/(api-keys|platform\/companies)(\?|$)/, (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({ json: { items: [], next_cursor: null } })
+      : route.fallback(),
   );
   // Catálogos de la DIAN que piden los formularios (empresa, clientes, productos y notas).
   await mockCatalogs(page);

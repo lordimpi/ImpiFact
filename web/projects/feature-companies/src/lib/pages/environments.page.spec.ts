@@ -1,22 +1,31 @@
 import { fireEvent, screen, within } from '@testing-library/angular';
-import { expectRequest, renderCompaniesRoute } from '../testing/companies-testing';
+import {
+  COMPANY_PATH,
+  EMPTY_READINESS,
+  ENVIRONMENTS,
+  expectRequest,
+  problem,
+  renderCompaniesRoute,
+  respond,
+} from '../testing/companies-testing';
 
-const URL = '/api/v1/companies/900123456/environment';
+const URL = `${COMPANY_PATH}/environment`;
 
 const choose = (label: RegExp, value: string) => {
   const select = screen.getByLabelText(label) as HTMLSelectElement;
   fireEvent.change(select, { target: { value } });
 };
 
-async function open() {
+async function open(environments: object[] = ENVIRONMENTS) {
   const rendered = await renderCompaniesRoute('/empresas/company-1/ambientes');
   await screen.findByRole('heading', { level: 2, name: 'Ambientes' });
+  await respond(rendered.http, `${COMPANY_PATH}/environments`, { environments });
   return rendered;
 }
 
 describe('EnvironmentsPage', () => {
-  it('offers each document family with no change by default', async () => {
-    await open();
+  it('shows the current environment the API reports, with no change by default', async () => {
+    await open([...ENVIRONMENTS.slice(1), { document_kind: 1, type_environment_id: 1 }]);
 
     for (const label of [
       'Factura electrónica y notas',
@@ -27,7 +36,17 @@ describe('EnvironmentsPage', () => {
     ]) {
       expect((screen.getByLabelText(label) as HTMLSelectElement).value).toBe('');
     }
-    expect(screen.getAllByText('Ambiente actual: sin consultar')).toHaveLength(5);
+    expect(await screen.findAllByText('Ambiente actual: Habilitación (pruebas)')).toHaveLength(4);
+    expect(screen.getAllByText('Ambiente actual: Producción')).toHaveLength(1);
+    expect(screen.queryByText(/no informa el ambiente actual/)).toBeNull();
+  });
+
+  it('says when the current environment could not be read', async () => {
+    const { http } = await renderCompaniesRoute('/empresas/company-1/ambientes');
+    const error = problem(503, 'unavailable', 'No disponible.');
+    (await expectRequest(http, `${COMPANY_PATH}/environments`)).flush(error.body, error.options);
+
+    expect(await screen.findAllByText('Ambiente actual: no se pudo consultar')).toHaveLength(5);
   });
 
   it('does not call the API when nothing changes', async () => {
@@ -40,7 +59,7 @@ describe('EnvironmentsPage', () => {
   });
 
   it('sends only the families that change and shows the environments the API returns', async () => {
-    const { http } = await open();
+    const { http } = await open([]);
     choose(/^Nómina electrónica/, '2');
 
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
@@ -57,6 +76,8 @@ describe('EnvironmentsPage', () => {
 
     expect((await screen.findAllByText('Ambiente actual: Habilitación (pruebas)')).length).toBe(2);
     expect((screen.getByLabelText(/^Nómina electrónica/) as HTMLSelectElement).value).toBe('');
+    // El cambio de ambiente puede cambiar el estado del paso a producción.
+    await respond(http, `${COMPANY_PATH}/setup-status`, EMPTY_READINESS);
   });
 
   it('asks for an explicit confirmation before moving a family to production', async () => {

@@ -44,7 +44,6 @@
   "data": {
     "title": "Datos de la empresa",
     "description": "Razón social, ubicación y responsabilidades fiscales con las que la empresa factura ante la DIAN.",
-    "notReadable": "Por ahora el Api no permite consultar los datos guardados. Escriba todos los campos antes de guardar; lo que guarde reemplaza lo anterior.",
     "businessName": "Razón social",
     "identificationType": "Tipo de identificación",
     "organization": "Tipo de organización",
@@ -63,14 +62,16 @@
     "merchantRegistration": "Matrícula mercantil",
     "merchantRegistrationHint": "Si no tiene, escriba 0000000-00.",
     "phoneFormat": "Escriba solo dígitos, entre 7 y 10.",
-    "liabilitiesRequired": "Marque al menos una responsabilidad."
+    "liabilitiesRequired": "Marque al menos una responsabilidad.",
+    "loadError": "No se pudieron consultar los datos de la empresa."
   },
   "environments": {
     "title": "Ambientes",
     "description": "Cada familia de documentos se envía a la DIAN en habilitación (pruebas) o en producción.",
-    "notReadable": "El Api no informa el ambiente actual hasta que lo cambie aquí. «Sin cambios» deja el ambiente como está.",
     "current": "Ambiente actual: {{ name }}",
-    "unknown": "Ambiente actual: sin consultar",
+    "unknown": "Ambiente actual: sin definir",
+    "loading": "Ambiente actual: consultando…",
+    "loadError": "Ambiente actual: no se pudo consultar",
     "habilitation": "Habilitación (pruebas)",
     "production": "Producción",
     "nothingToSave": "Elija al menos un ambiente para cambiar.",
@@ -95,16 +96,21 @@
     "idHint": "El que aparece en el portal de la DIAN, en «Configurar modos de operación».",
     "pin": "PIN del software",
     "pinHint": "Cinco dígitos. No se muestra después de guardar.",
+    "pinKeepHint": "PIN configurado. Déjelo vacío para conservar el PIN guardado o escriba uno nuevo de cinco dígitos para cambiarlo.",
     "testSetId": "Identificador del set de pruebas (TestSetId)",
     "testSetIdHint": "Lo da la DIAN al asociar el software en habilitación.",
     "pinFormat": "El PIN tiene 5 dígitos.",
+    "pinConfigured": "PIN configurado",
+    "pinMissing": "Sin PIN",
     "registered": "Software registrado",
-    "registeredEmpty": "Aún no ha guardado el software en esta sesión.",
+    "registeredEmpty": "La empresa aún no tiene software registrado.",
+    "loadError": "No se pudo consultar el software guardado.",
     "columns": {
       "kind": "Familia",
       "environment": "Ambiente",
       "identifier": "Identificador",
-      "testSet": "Set de pruebas"
+      "testSet": "Set de pruebas",
+      "pin": "PIN"
     }
   },
   "certificate": {
@@ -136,8 +142,18 @@
   "resolutions": {
     "title": "Resoluciones de numeración",
     "description": "Rangos de numeración que la DIAN autorizó para cada tipo de documento.",
-    "saved": "Resoluciones guardadas en esta sesión",
-    "savedEmpty": "Aún no ha guardado resoluciones en esta sesión. El Api no permite listar las resoluciones guardadas antes.",
+    "saved": "Resoluciones guardadas",
+    "savedEmpty": "La empresa aún no tiene resoluciones guardadas.",
+    "loadError": "No se pudieron consultar las resoluciones.",
+    "columns": {
+      "next": "Próximo número",
+      "remaining": "Quedan",
+      "daysLeft": "Días de vigencia",
+      "status": "Estado"
+    },
+    "active": "Activa",
+    "inactive": "Inactiva",
+    "noExpiry": "Sin vencimiento",
     "form": "Agregar o actualizar una resolución",
     "habilitationExample": "Usar el ejemplo de habilitación (SETP)",
     "habilitationExampleHint": "En habilitación la DIAN usa el prefijo SETP con la resolución 18760000001, del 990000000 al 995000000.",
@@ -182,14 +198,13 @@
   },
   "wizard": {
     "title": "Paso a producción",
-    "description": "Siga los pasos en orden. Cada paso se revisa con el Api antes de habilitar el siguiente.",
+    "description": "Siga los pasos en orden. El estado de cada paso lo calcula el Api con lo que la empresa tiene guardado.",
     "stepsLabel": "Pasos del paso a producción",
     "open": "Ir a {{ section }}",
     "refresh": "Volver a revisar",
     "status": {
       "done": "Completo",
       "missing": "Pendiente",
-      "unverified": "Sin verificar",
       "locked": "Bloqueado",
       "inProgress": "En curso"
     },
@@ -197,24 +212,25 @@
     "steps": {
       "company": {
         "title": "Datos de la empresa",
-        "done": "Los datos se guardaron en esta sesión.",
-        "unverified": "El Api aún no permite consultarlos: revíselos en la sección Datos antes de seguir."
+        "done": "Los datos obligatorios de la empresa están completos.",
+        "missing": "Faltan datos obligatorios de la empresa (correo, teléfono, dirección, matrícula mercantil o responsabilidades fiscales): complételos en la sección Datos."
       },
       "certificate": {
         "title": "Certificado digital",
         "done": "Certificado activo de {{ subject }}, vence en {{ days }} días.",
-        "missing": "La empresa no tiene un certificado activo y vigente.",
-        "error": "No se pudo consultar el certificado."
+        "valid": "La empresa tiene un certificado activo y vigente.",
+        "missing": "La empresa no tiene un certificado activo y vigente."
       },
       "resolution": {
         "title": "Resolución de numeración",
-        "done": "Resolución {{ resolution }} con prefijo {{ prefix }} guardada en esta sesión.",
-        "unverified": "El Api no permite listar las resoluciones guardadas: confirme en la sección Resoluciones que la de habilitación (SETP) existe."
+        "done": "La factura de venta tiene una resolución vigente, con clave técnica, en el ambiente actual.",
+        "missing": "Falta una resolución vigente de factura de venta en el ambiente actual (en habilitación, la de prefijo SETP): guárdela en la sección Resoluciones."
       },
       "software": {
         "title": "Software y set de pruebas",
         "done": "Software {{ identifier }} con el set de pruebas {{ testSetId }}.",
-        "unverified": "Escriba el identificador del set de pruebas (TestSetId) o guárdelo en la sección Software.",
+        "missing": "La empresa no tiene software en el ambiente actual: guárdelo en la sección Software.",
+        "missingTestSet": "Falta el identificador del set de pruebas (TestSetId): guárdelo en la sección Software o escríbalo aquí para enviar la factura de prueba.",
         "testSetId": "Identificador del set de pruebas (TestSetId)",
         "use": "Usar este set de pruebas"
       },
@@ -226,6 +242,9 @@
         "result": "Factura {{ number }}: {{ status }}",
         "dian": "Respuesta de la DIAN: {{ code }} {{ description }}",
         "accepted": "La DIAN aceptó la factura de prueba.",
+        "noResult": "Sin resultado de la DIAN todavía.",
+        "setAccepted": "La DIAN aceptó el set de pruebas.",
+        "setRejected": "La DIAN rechazó el set de pruebas. Revise la respuesta de cada documento y vuelva a enviar.",
         "needsTestSet": "Falta el identificador del set de pruebas.",
         "statuses": {
           "Received": "Recibida",
@@ -247,6 +266,7 @@
         "inProduction": "En producción",
         "switched": "{{ kind }} quedó en producción."
       }
-    }
+    },
+    "loadError": "No se pudo consultar el estado del paso a producción."
   }
 }

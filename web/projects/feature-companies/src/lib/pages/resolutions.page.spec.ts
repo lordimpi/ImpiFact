@@ -1,14 +1,23 @@
 import { fireEvent, screen, within } from '@testing-library/angular';
-import { expectRequest, problem, renderCompaniesRoute } from '../testing/companies-testing';
+import {
+  COMPANY_PATH,
+  EMPTY_READINESS,
+  expectRequest,
+  problem,
+  renderCompaniesRoute,
+  respond,
+} from '../testing/companies-testing';
 
-const URL = '/api/v1/companies/900123456/resolution';
-const RANGES_URL = '/api/v1/companies/900123456/numbering-ranges';
+const URL = `${COMPANY_PATH}/resolution`;
+const LIST_URL = `${COMPANY_PATH}/resolutions`;
+const RANGES_URL = `${COMPANY_PATH}/numbering-ranges`;
 const field = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement;
 const type = (label: RegExp, value: string) => fireEvent.input(field(label), { target: { value } });
 
-async function open() {
+async function open(resolutions: object[] = []) {
   const rendered = await renderCompaniesRoute('/empresas/company-1/resoluciones');
   await screen.findByRole('heading', { level: 2, name: 'Resoluciones de numeración' });
+  await respond(rendered.http, LIST_URL, { resolutions });
   return rendered;
 }
 
@@ -24,10 +33,98 @@ const SETP = {
   date_to: '2030-01-19',
 };
 
+/** La resolución SETP como la lista el Api, con el próximo número y lo que queda. */
+const SETP_STATUS = {
+  id: 'res-1',
+  kind: 'invoice',
+  type_document_id: 1,
+  type_environment_id: 2,
+  prefix: 'SETP',
+  resolution: '18760000001',
+  resolution_date: '2019-01-19',
+  from: 990000000,
+  to: 995000000,
+  date_from: '2019-01-19',
+  date_to: '2030-01-19',
+  is_active: true,
+  has_technical_key: true,
+  next_number: 990000012,
+  remaining: 4999989,
+  days_left: 1158,
+};
+
+const rowCells = (table: HTMLElement) =>
+  within(table)
+    .getAllByRole('row')
+    .slice(1)
+    .map((row) =>
+      within(row)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent?.trim()),
+    );
+
 describe('ResolutionsPage', () => {
-  it('fills the habilitation example and saves it', async () => {
+  it('lists the saved resolutions with the next number, what remains and the days left', async () => {
+    await open([
+      SETP_STATUS,
+      {
+        ...SETP_STATUS,
+        id: 'res-2',
+        kind: 'credit_note',
+        type_document_id: 4,
+        prefix: 'NC',
+        is_active: false,
+        days_left: null,
+      },
+    ]);
+
+    const table = await screen.findByRole('table', { name: 'Resoluciones guardadas' });
+    expect(rowCells(table)).toEqual([
+      [
+        'Factura de venta',
+        'SETP',
+        '18760000001',
+        '990000000 – 995000000',
+        '2019-01-19 – 2030-01-19',
+        '990000012',
+        '4999989',
+        '1158',
+        'Activa',
+      ],
+      [
+        'Nota crédito',
+        'NC',
+        '18760000001',
+        '990000000 – 995000000',
+        '2019-01-19 – 2030-01-19',
+        '990000012',
+        '4999989',
+        'Sin vencimiento',
+        'Inactiva',
+      ],
+    ]);
+    expect(screen.queryByText(/no permite listar/)).toBeNull();
+  });
+
+  it('says when the company has no resolutions yet', async () => {
+    await open();
+
+    expect(await screen.findByText('La empresa aún no tiene resoluciones guardadas.')).toBeTruthy();
+  });
+
+  it('explains when the resolutions could not be read and retries', async () => {
+    const { http } = await renderCompaniesRoute('/empresas/company-1/resoluciones');
+    const error = problem(503, 'unavailable', 'No disponible.');
+    (await expectRequest(http, LIST_URL)).flush(error.body, error.options);
+
+    expect(await screen.findByText('No se pudieron consultar las resoluciones.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    await respond(http, LIST_URL, { resolutions: [SETP_STATUS] });
+    expect(await screen.findByRole('table', { name: 'Resoluciones guardadas' })).toBeTruthy();
+  });
+
+  it('fills the habilitation example, saves it and reads the list again', async () => {
     const { http } = await open();
-    expect(screen.getByText(/El Api no permite listar las resoluciones guardadas/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Usar el ejemplo de habilitación (SETP)' }));
     expect(field(/^Prefijo/).value).toBe('SETP');
@@ -37,12 +134,12 @@ describe('ResolutionsPage', () => {
     expect(request.request.method).toBe('PUT');
     expect(request.request.body).toEqual(SETP);
     request.flush({ success: true, resolution: { id: 'res-1', ...SETP } });
+    await respond(http, LIST_URL, { resolutions: [SETP_STATUS] });
+    await respond(http, `${COMPANY_PATH}/setup-status`, EMPTY_READINESS);
 
-    const list = await screen.findByRole('table', {
-      name: 'Resoluciones guardadas en esta sesión',
-    });
+    const list = await screen.findByRole('table', { name: 'Resoluciones guardadas' });
     expect(within(list).getByText('SETP')).toBeTruthy();
-    expect(within(list).getByText('990000000 – 995000000')).toBeTruthy();
+    expect(within(list).getByText('990000012')).toBeTruthy();
   });
 
   it('checks the form before calling the API', async () => {

@@ -180,7 +180,6 @@
   color: var(--if-color-danger);
 }
 
-.companies-badge--unverified,
 .companies-badge--inProgress {
   color: var(--if-color-text-muted);
 }

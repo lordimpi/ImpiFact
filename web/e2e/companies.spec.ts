@@ -1,6 +1,6 @@
 import { Page, Request, expect, test } from '@playwright/test';
 import { seriousViolations } from './support/axe';
-import { COMPANIES, USER, mockApi } from './support/mock-api';
+import { COMPANIES, EMPTY_SETUP_STATUS, USER, mockApi } from './support/mock-api';
 
 // Configuración de la empresa y asistente de paso a producción (feature-companies) contra la Api simulada. Con una
 // sola empresa, queda activa al entrar. Nada de esto llama a la DIAN: todas las respuestas son simuladas.
@@ -26,10 +26,21 @@ function problem(status: number, code: string, message: string, errors?: object)
   };
 }
 
-async function signInAt(page: Page, path: string, certificates: unknown[] = [CERTIFICATE]) {
+/** Estado del paso a producción con el certificado vigente. */
+const WITH_CERTIFICATE = { ...EMPTY_SETUP_STATUS, certificate_valid: true };
+
+async function signInAt(
+  page: Page,
+  path: string,
+  certificates: unknown[] = [CERTIFICATE],
+  readiness: object = WITH_CERTIFICATE,
+) {
   await mockApi(page, { companies: [COMPANY] });
   await page.route(`**/api/v1/companies/${NIT}/certificates`, (route) =>
     route.fulfill({ json: { success: true, certificates } }),
+  );
+  await page.route(`**/api/v1/companies/${NIT}/setup-status`, (route) =>
+    route.fulfill({ json: readiness }),
   );
   await page.goto(`/login?returnUrl=${encodeURIComponent(path)}`);
   await page.getByLabel('Correo electrónico').fill(USER.email);
@@ -81,6 +92,69 @@ test('the company data form shows a server field error and then saves', async ({
   await expect(page.getByText('Los cambios se guardaron.')).toBeVisible();
 });
 
+test('the company data form starts with the data the API has saved', async ({ page }) => {
+  await signInAt(page, '/empresa');
+  await expect(page).toHaveURL(`/empresas/${COMPANY}/datos`);
+  await page.route(`**/api/v1/companies/${NIT}`, (route) =>
+    route.fulfill({
+      json: {
+        identification_number: NIT,
+        dv: '7',
+        business_name: 'Acme SAS',
+        type_document_identification_id: 6,
+        type_organization_id: 1,
+        type_regime_id: 1,
+        type_liability_ids: [7],
+        municipality_id: 149,
+        address: 'Calle 1 # 2-3',
+        phone: '6011234567',
+        email: 'facturas@acme.test',
+        merchant_registration: '12345-67',
+      },
+    }),
+  );
+  await page.reload();
+
+  await expect(page.getByLabel('Dirección')).toHaveValue('Calle 1 # 2-3');
+  await expect(page.getByLabel('Correo electrónico')).toHaveValue('facturas@acme.test');
+  await expect(page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' })).toBeChecked();
+});
+
+test('the software screen never shows the PIN and keeps it when left empty', async ({ page }) => {
+  const bodies: unknown[] = [];
+  await signInAt(page, `/empresas/${COMPANY}/software`);
+  await expect(page).toHaveURL(`/empresas/${COMPANY}/software`);
+  const software = {
+    document_kind: 1,
+    type_environment_id: 2,
+    identifier: 'soft-123',
+    url: 'https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc',
+    test_set_id: 'set-abc',
+    has_pin: true,
+  };
+  await page.route(`**/api/v1/companies/${NIT}/software`, (route) => {
+    if (route.request().method() === 'PUT') {
+      bodies.push(route.request().postDataJSON());
+    }
+    return route.fulfill({ json: { success: true, software: [software] } });
+  });
+  await page.reload();
+
+  const table = page.getByRole('table', { name: 'Software registrado' });
+  await expect(table.getByText('PIN configurado')).toBeVisible();
+  await expect(
+    page.getByRole('textbox', { name: 'Identificador del software', exact: true }),
+  ).toHaveValue('soft-123');
+  await expect(page.getByRole('textbox', { name: 'PIN del software' })).toHaveValue('');
+  expect(await seriousViolations(page)).toEqual([]);
+
+  await page.getByRole('textbox', { name: /Identificador del set de pruebas/ }).fill('set-new');
+  await page.getByRole('button', { name: 'Guardar' }).click();
+
+  await expect(page.getByText('Los cambios se guardaron.')).toBeVisible();
+  expect(bodies).toEqual([{ test_set_id: 'set-new' }]);
+});
+
 test('the certificate upload sends the password once and never shows it', async ({ page }) => {
   const requests: Request[] = [];
   const logs: string[] = [];
@@ -124,7 +198,7 @@ test('the certificate upload sends the password once and never shows it', async 
 });
 
 test('the production wizard steps follow what the API reports', async ({ page }) => {
-  await signInAt(page, '/empresa/produccion', []);
+  await signInAt(page, '/empresa/produccion', [], EMPTY_SETUP_STATUS);
   await expect(page).toHaveURL(`/empresas/${COMPANY}/produccion`);
 
   const steps = page.getByRole('list', { name: 'Pasos del paso a producción' });
@@ -133,15 +207,24 @@ test('the production wizard steps follow what the API reports', async ({ page })
   await expect(step('Certificado digital').getByText('Pendiente', { exact: true })).toBeVisible();
   await expect(step('Set de pruebas de la DIAN').getByText('Bloqueado')).toBeVisible();
   await expect(step('Producción').getByText('Bloqueado')).toBeVisible();
+  await expect(step('Datos de la empresa').getByText('Pendiente', { exact: true })).toBeVisible();
+  await expect(page.getByText('Sin verificar')).toHaveCount(0);
   expect(await seriousViolations(page)).toEqual([]);
 
   await page.unroute(`**/api/v1/companies/${NIT}/certificates`);
   await page.route(`**/api/v1/companies/${NIT}/certificates`, (route) =>
     route.fulfill({ json: { success: true, certificates: [CERTIFICATE] } }),
   );
+  await page.unroute(`**/api/v1/companies/${NIT}/setup-status`);
+  await page.route(`**/api/v1/companies/${NIT}/setup-status`, (route) =>
+    route.fulfill({ json: WITH_CERTIFICATE }),
+  );
   await page.getByRole('button', { name: 'Volver a revisar' }).click();
 
   await expect(step('Certificado digital').getByText('Completo')).toBeVisible();
+  await expect(
+    step('Set de pruebas de la DIAN').getByText('Sin resultado de la DIAN todavía.'),
+  ).toBeVisible();
   await expect(
     step('Set de pruebas de la DIAN').getByRole('button', { name: 'Enviar factura de prueba' }),
   ).toBeDisabled();
