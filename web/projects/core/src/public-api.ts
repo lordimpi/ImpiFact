@@ -18,3 +18,5 @@ export * from './lib/session/route-paths';
 export * from './lib/session/session-sync';
 export * from './lib/session/session.store';
 export * from './lib/state/with-server-list';
+export * from './lib/catalogs/catalogs.store';
+export * from './lib/catalogs/catalog-search';

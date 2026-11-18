@@ -10,6 +10,7 @@ export * from './lib/field/input.directive';
 export * from './lib/field/select.directive';
 export * from './lib/meter/meter.component';
 export * from './lib/page-title/page-title.component';
+export * from './lib/search-select/search-select.component';
 export * from './lib/paginator/pagination';
 export * from './lib/paginator/paginator.component';
 export * from './lib/states/empty-state.component';
