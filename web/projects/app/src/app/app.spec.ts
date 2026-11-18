@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, provideRouter, withComponentInputBinding } from '@angular/router';
-import { InactivityMonitor, SessionStore, ToastStore } from '@impifact/core';
+import { InactivityMonitor, MyCompaniesStore, SessionStore, ToastStore } from '@impifact/core';
 import { Translation, TranslocoLoader, provideTransloco } from '@jsverse/transloco';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
 import { of } from 'rxjs';
@@ -39,12 +39,16 @@ function fakes(options: { authenticated?: boolean; companies?: string[]; roles?:
     minutesLeft: signal(5),
     stayConnected: vi.fn(() => monitor.warning.set(false)),
   };
-  return { session, monitor };
+  // Empresas con nombre (`GET /api/v1/me/companies`); el menú de usuario muestra la activa.
+  const directory = {
+    active: signal<{ id: string; name: string } | null>(null),
+  };
+  return { session, monitor, directory };
 }
 
 describe('App shell', () => {
   async function renderShell(options: Parameters<typeof fakes>[0] = {}) {
-    const { session, monitor } = fakes(options);
+    const { session, monitor, directory } = fakes(options);
     const result = await render(App, {
       providers: [
         provideRouter(routes, withComponentInputBinding()),
@@ -54,9 +58,10 @@ describe('App shell', () => {
         }),
         { provide: SessionStore, useValue: session },
         { provide: InactivityMonitor, useValue: monitor },
+        { provide: MyCompaniesStore, useValue: directory },
       ],
     });
-    return { ...result, session, monitor };
+    return { ...result, session, monitor, directory };
   }
 
   it('renders the layout with texts from the es-CO translations', async () => {
@@ -79,6 +84,31 @@ describe('App shell', () => {
     expect(within(nav).getByRole('link', { name: 'Productos' }).getAttribute('href')).toBe(
       '/productos',
     );
+  });
+
+  it('shows the company configuration and the production wizard only to an owner', async () => {
+    const view = await renderShell({ authenticated: true, companies: ['company-1'] });
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).getByRole('link', { name: 'Empresa' }).getAttribute('href')).toBe(
+      '/empresa',
+    );
+    expect(within(nav).getByRole('link', { name: 'Paso a producción' }).getAttribute('href')).toBe(
+      '/empresa/produccion',
+    );
+
+    view.session.roles.set(['seller']);
+    await waitFor(() => expect(within(nav).queryByRole('link', { name: 'Empresa' })).toBeNull());
+    expect(within(nav).queryByRole('link', { name: 'Paso a producción' })).toBeNull();
+  });
+
+  it('shows the name of the active company in the user menu', async () => {
+    const view = await renderShell({ authenticated: true, companies: ['company-1'] });
+    const toggle = await screen.findByRole('button', { name: /Mi cuenta/ });
+    expect(toggle.textContent).not.toContain('Acme SAS');
+
+    view.directory.active.set({ id: 'company-1', name: 'Acme SAS' });
+
+    await waitFor(() => expect(toggle.textContent).toContain('Acme SAS'));
   });
 
   it('hides customers and products from other roles', async () => {

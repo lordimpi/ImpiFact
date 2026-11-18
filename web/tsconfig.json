@@ -19,6 +19,8 @@
     { "path": "./projects/feature-masters/tsconfig.lib.json" },
     { "path": "./projects/feature-masters/tsconfig.spec.json" },
     { "path": "./projects/feature-documents/tsconfig.lib.json" },
-    { "path": "./projects/feature-documents/tsconfig.spec.json" }
+    { "path": "./projects/feature-documents/tsconfig.spec.json" },
+    { "path": "./projects/feature-companies/tsconfig.lib.json" },
+    { "path": "./projects/feature-companies/tsconfig.spec.json" }
   ]
 }

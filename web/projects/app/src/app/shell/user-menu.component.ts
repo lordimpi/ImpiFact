@@ -8,11 +8,12 @@ import {
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { SessionStore } from '@impifact/core';
+import { MyCompaniesStore, SessionStore } from '@impifact/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 
 /**
- * Menú de usuario del encabezado, solo con sesión: correo, cambio de empresa (si tiene varias) y cierre de sesión.
+ * Menú de usuario del encabezado, solo con sesión: correo, empresa activa (su razón social, de
+ * `MyCompaniesStore`), cambio de empresa (si tiene varias) y cierre de sesión.
  * Es un botón que muestra u oculta un panel (patrón *disclosure*, con `aria-expanded`); Escape lo cierra y devuelve
  * el foco al botón. Usa elementos nativos para no cargar Optimus UI en el bundle inicial.
  */
@@ -34,6 +35,9 @@ import { TranslocoPipe } from '@jsverse/transloco';
         <span>{{ 'userMenu.account' | transloco }}</span>
         @if (email(); as email) {
           <span class="user-menu__email">{{ email }}</span>
+        }
+        @if (companyName(); as name) {
+          <span class="user-menu__email">{{ name }}</span>
         }
       </button>
       @if (open()) {
@@ -96,10 +100,12 @@ import { TranslocoPipe } from '@jsverse/transloco';
 })
 export class UserMenuComponent {
   protected readonly session = inject(SessionStore);
+  private readonly directory = inject(MyCompaniesStore);
   private readonly toggle = viewChild<ElementRef<HTMLButtonElement>>('toggle');
 
   protected readonly open = signal(false);
   protected readonly email = computed(() => this.session.user()?.email ?? null);
+  protected readonly companyName = computed(() => this.directory.active()?.name ?? null);
   protected readonly canSwitchCompany = computed(() => this.session.companies().length > 1);
 
   protected close(returnFocus: boolean): void {

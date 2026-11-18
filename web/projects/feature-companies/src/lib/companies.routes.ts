@@ -1,0 +1,69 @@
+import { Routes } from '@angular/router';
+import { authGuard, roleGuard, unsavedChangesGuard } from '@impifact/core';
+import { companiesTextsResolver } from './companies-i18n';
+import { activeCompanyGuard, redirectToActiveCompany } from './guards/active-company.guard';
+
+/*
+ * Rutas del feature (sección 7 de la arquitectura del frontend): la configuración de la empresa
+ * (`/empresas/:id/{datos,ambientes,software,certificado,resoluciones}`) y el asistente de paso a producción
+ * (`/empresas/:id/produccion`), solo para el propietario. Este archivo entra en el bundle inicial y es mínimo: las
+ * pantallas de la empresa se cargan con `import('./feature-companies')` y el asistente con
+ * `import('./feature-production-wizard')`, dos chunks perezosos con su propio presupuesto en `angular.json`.
+ *
+ * Correo (SMTP), logo y plantilla de la sección 7 no tienen pantalla: el Api aún no tiene esos endpoints.
+ */
+const loadCompanies = () => import('./feature-companies');
+const loadWizard = () => import('./feature-production-wizard');
+
+/** Roles que configuran la empresa. */
+export const COMPANY_ROLES: readonly string[] = ['owner'];
+
+export const companiesRoutes: Routes = [
+  {
+    path: 'empresa',
+    pathMatch: 'full',
+    canActivate: [roleGuard(COMPANY_ROLES), redirectToActiveCompany('datos')],
+    children: [],
+  },
+  {
+    path: 'empresa/produccion',
+    canActivate: [roleGuard(COMPANY_ROLES), redirectToActiveCompany('produccion')],
+    children: [],
+  },
+  {
+    path: 'empresas/:id',
+    canActivate: [authGuard, roleGuard(COMPANY_ROLES), activeCompanyGuard],
+    resolve: { texts: companiesTextsResolver },
+    loadComponent: () => loadCompanies().then((m) => m.CompanyLayoutPage),
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'datos' },
+      {
+        path: 'datos',
+        canDeactivate: [unsavedChangesGuard],
+        loadComponent: () => loadCompanies().then((m) => m.CompanyDataPage),
+      },
+      {
+        path: 'ambientes',
+        loadComponent: () => loadCompanies().then((m) => m.EnvironmentsPage),
+      },
+      {
+        path: 'software',
+        canDeactivate: [unsavedChangesGuard],
+        loadComponent: () => loadCompanies().then((m) => m.SoftwarePage),
+      },
+      {
+        path: 'certificado',
+        loadComponent: () => loadCompanies().then((m) => m.CertificatePage),
+      },
+      {
+        path: 'resoluciones',
+        canDeactivate: [unsavedChangesGuard],
+        loadComponent: () => loadCompanies().then((m) => m.ResolutionsPage),
+      },
+      {
+        path: 'produccion',
+        loadComponent: () => loadWizard().then((m) => m.ProductionWizardPage),
+      },
+    ],
+  },
+];

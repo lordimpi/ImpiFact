@@ -1,0 +1,190 @@
+/* Estilos comunes de las páginas del feature: cómodos en móvil y en escritorio. */
+:host {
+  display: block;
+}
+
+.companies-page,
+.companies-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-4);
+}
+
+.companies-page {
+  max-inline-size: 72rem;
+  margin-inline: auto;
+}
+
+.companies-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-3);
+  justify-content: space-between;
+}
+
+.companies-company {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+  margin: 0;
+  color: var(--if-color-text-muted);
+}
+
+.companies-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+  border-block-end: 1px solid var(--if-color-border);
+}
+
+.companies-tabs a {
+  padding: var(--if-space-2) var(--if-space-3);
+  color: var(--if-color-text);
+  text-decoration: none;
+  border-block-end: 3px solid transparent;
+}
+
+.companies-tabs a.is-active {
+  color: var(--if-color-primary);
+  border-block-end-color: var(--if-color-primary);
+  font-weight: var(--if-font-weight-medium);
+}
+
+.companies-section h2,
+.companies-section h3 {
+  margin: 0;
+}
+
+.companies-lead {
+  margin: 0;
+  color: var(--if-color-text-muted);
+}
+
+.companies-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  column-gap: var(--if-space-4);
+  padding: var(--if-space-4);
+  background: var(--if-color-surface);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-md);
+}
+
+.companies-form__wide,
+.companies-form__actions,
+.companies-message {
+  grid-column: 1 / -1;
+}
+
+.companies-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+  align-items: center;
+}
+
+.companies-message {
+  margin: 0 0 var(--if-space-3);
+  padding: var(--if-space-3);
+  border-radius: var(--if-radius-sm);
+  border-inline-start: 4px solid currentColor;
+  background: var(--if-color-surface-raised);
+}
+
+.companies-message--error {
+  color: var(--if-color-danger);
+}
+
+.companies-message--success {
+  color: var(--if-color-success);
+}
+
+.companies-checks {
+  margin: 0 0 var(--if-space-3);
+  padding: 0;
+  border: 0;
+}
+
+.companies-checks legend {
+  margin-block-end: var(--if-space-2);
+  font-weight: var(--if-font-weight-medium);
+}
+
+.companies-check {
+  display: flex;
+  gap: var(--if-space-2);
+  align-items: center;
+  margin-block-end: var(--if-space-2);
+}
+
+.companies-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.companies-table caption {
+  text-align: start;
+  font-weight: var(--if-font-weight-medium);
+  padding-block-end: var(--if-space-2);
+}
+
+.companies-table th,
+.companies-table td {
+  padding: var(--if-space-2);
+  text-align: start;
+  border-block-end: 1px solid var(--if-color-border);
+}
+
+.companies-scroll {
+  overflow-x: auto;
+}
+
+.companies-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.companies-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-2);
+  padding: var(--if-space-4);
+  background: var(--if-color-surface);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-md);
+}
+
+.companies-card p {
+  margin: 0;
+}
+
+.companies-badge {
+  align-self: flex-start;
+  padding: 0 var(--if-space-2);
+  border: 1px solid currentColor;
+  border-radius: var(--if-radius-sm);
+  font-size: var(--if-font-size-sm);
+  font-weight: var(--if-font-weight-medium);
+}
+
+.companies-badge--done {
+  color: var(--if-color-success);
+}
+
+.companies-badge--missing,
+.companies-badge--locked {
+  color: var(--if-color-danger);
+}
+
+.companies-badge--unverified,
+.companies-badge--inProgress {
+  color: var(--if-color-text-muted);
+}
+
+.companies-link {
+  color: var(--if-color-primary);
+}

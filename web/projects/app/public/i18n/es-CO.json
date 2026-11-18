@@ -9,7 +9,9 @@
     "home": "Inicio",
     "customers": "Clientes",
     "products": "Productos",
-    "documents": "Documentos"
+    "documents": "Documentos",
+    "company": "Empresa",
+    "production": "Paso a producción"
   },
   "userMenu": {
     "account": "Mi cuenta",

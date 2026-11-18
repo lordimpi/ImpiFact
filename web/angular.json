@@ -43,6 +43,11 @@
                 "glob": "**/*",
                 "input": "projects/feature-documents/src/i18n",
                 "output": "i18n/documents"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/feature-companies/src/i18n",
+                "output": "i18n/companies"
               }
             ],
             "styles": ["projects/ui/src/styles/tokens.css", "projects/app/src/styles.scss"]
@@ -70,6 +75,18 @@
                 {
                   "type": "bundle",
                   "name": "feature-documents",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "feature-companies",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "feature-production-wizard",
                   "maximumWarning": "200kB",
                   "maximumError": "250kB"
                 },
@@ -258,6 +275,32 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/feature-documents/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "feature-companies": {
+      "projectType": "library",
+      "root": "projects/feature-companies",
+      "sourceRoot": "projects/feature-companies/src",
+      "prefix": "feat",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/feature-companies/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/feature-companies/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/feature-companies/tsconfig.spec.json"
           }
         }
       }

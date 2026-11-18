@@ -1,0 +1,110 @@
+<section class="companies-section">
+  <h2>{{ 'companies.wizard.title' | transloco }}</h2>
+  <p class="companies-lead">{{ 'companies.wizard.description' | transloco }}</p>
+  <div class="companies-form__actions">
+    <ui-button
+      variant="secondary"
+      [label]="'companies.wizard.refresh' | transloco"
+      (pressed)="refresh()"
+    />
+  </div>
+
+  <ol class="companies-cards" [attr.aria-label]="'companies.wizard.stepsLabel' | transloco">
+    @for (step of steps(); track step.id) {
+      <li class="companies-card">
+        <h3>
+          <span aria-hidden="true">{{ $index + 1 }}. </span>{{ step.title }}
+        </h3>
+        <span class="companies-badge companies-badge--{{ step.status }}">
+          {{ 'companies.wizard.status.' + step.status | transloco }}
+        </span>
+        <p>{{ step.detail }}</p>
+
+        @if (step.section; as section) {
+          <a class="companies-link" [routerLink]="section.path">{{ section.label }}</a>
+        }
+
+        @switch (step.id) {
+          @case ('software') {
+            <ui-field [label]="'companies.wizard.steps.software.testSetId' | transloco">
+              <input
+                uiInput
+                type="text"
+                autocomplete="off"
+                [value]="setup.effectiveTestSetId()"
+                (input)="setTestSetId($any($event.target).value)"
+              />
+            </ui-field>
+          }
+          @case ('testSet') {
+            @if (step.status !== 'locked') {
+              <div class="companies-form__actions">
+                <ui-button
+                  [label]="'companies.wizard.steps.testSet.send' | transloco"
+                  [disabled]="!canSendTest()"
+                  [loading]="sending()"
+                  (pressed)="sendTestInvoice()"
+                />
+              </div>
+              <div role="status" aria-live="polite">
+                @if (sending() && !testDocument()) {
+                  <p>{{ 'companies.wizard.steps.testSet.sending' | transloco }}</p>
+                }
+                @if (testDocument(); as test) {
+                  <p>{{ test.result }}</p>
+                  @if (test.dian) {
+                    <p>{{ test.dian }}</p>
+                  }
+                }
+              </div>
+              @if (testError(); as message) {
+                <p class="companies-message companies-message--error" role="alert">
+                  {{ message }}
+                </p>
+              }
+            }
+          }
+          @case ('production') {
+            @if (step.status !== 'locked') {
+              <ul class="companies-cards">
+                @for (entry of productionKinds(); track entry.kind) {
+                  <li>
+                    @if (entry.inProduction) {
+                      <p>
+                        {{ entry.label }}:
+                        <span class="companies-badge companies-badge--done">{{
+                          'companies.wizard.steps.production.inProduction' | transloco
+                        }}</span>
+                      </p>
+                    } @else {
+                      <ui-button
+                        variant="danger"
+                        [label]="
+                          'companies.wizard.steps.production.switch'
+                            | transloco: { kind: entry.label }
+                        "
+                        (pressed)="askProduction(entry.kind)"
+                      />
+                    }
+                  </li>
+                }
+              </ul>
+              @if (switchError(); as message) {
+                <p class="companies-message companies-message--error" role="alert">
+                  {{ message }}
+                </p>
+              }
+            }
+          }
+        }
+      </li>
+    }
+  </ol>
+</section>
+
+<feat-production-confirm-dialog
+  [labels]="confirmLabels()"
+  [busy]="switching()"
+  [(visible)]="confirming"
+  (confirmed)="switchToProduction()"
+/>
