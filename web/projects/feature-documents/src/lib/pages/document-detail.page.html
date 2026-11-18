@@ -158,6 +158,21 @@
             [disabled]="busy()"
             (pressed)="regenerateAttached()"
           />
+          @if (doc.kind === 'invoice') {
+            <!-- Una nota corrige una factura aceptada: el enlace la lleva elegida. -->
+            <a
+              class="doc-link-button"
+              routerLink="/documentos/nota-credito"
+              [queryParams]="{ factura: doc.id }"
+              >{{ 'documents.detail.creditNote' | transloco }}</a
+            >
+            <a
+              class="doc-link-button"
+              routerLink="/documentos/nota-debito"
+              [queryParams]="{ factura: doc.id }"
+              >{{ 'documents.detail.debitNote' | transloco }}</a
+            >
+          }
         </div>
       </section>
     }

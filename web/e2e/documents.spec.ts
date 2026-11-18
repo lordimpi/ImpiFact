@@ -2,7 +2,8 @@ import { Page, Request, expect, test } from '@playwright/test';
 import { seriousViolations } from './support/axe';
 import { COMPANIES, USER, mockApi } from './support/mock-api';
 
-// Lista, detalle con seguimiento del estado y emisión de factura (feature-documents) contra la Api simulada.
+// Lista, detalle con seguimiento del estado, emisión de factura con vista previa y notas crédito y débito
+// (feature-documents) contra la Api simulada.
 
 const SUBTOTAL = {
   tax_id: 1,
@@ -83,8 +84,19 @@ interface DocumentsApi {
   listRequests: URL[];
   calculateBodies: unknown[];
   issueRequests: Request[];
+  noteRequests: Request[];
   detailCalls: () => number;
+  /** Respuesta de la vista previa: el PDF o el conversor caído (503). */
+  preview: 'pdf' | 'unavailable';
 }
+
+/** Factura aceptada que corrigen las notas (`?factura=doc-1`). */
+const ACCEPTED_INVOICE = {
+  ...DETAIL,
+  id: 'doc-1',
+  full_number: 'SETP990000001',
+  status: 'Accepted',
+};
 
 /** Endpoints de documentos, clientes y productos; el detalle pasa por En cola y Enviado antes de Aceptado. */
 async function mockDocuments(page: Page): Promise<DocumentsApi> {
@@ -93,7 +105,9 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
     listRequests: [],
     calculateBodies: [],
     issueRequests: [],
+    noteRequests: [],
     detailCalls: () => detailCalls,
+    preview: 'pdf',
   };
   const detailStatuses = ['Queued', 'Sent', 'Accepted'];
 
@@ -142,6 +156,55 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
           urlinvoicepdf: '',
           urlinvoicexml: '',
           document: { id: 'doc-9', full_number: 'SETP990000009', status: 'Queued' },
+        },
+      });
+    }
+    if (url.pathname === '/api/v1/documents/invoices/preview') {
+      return api.preview === 'pdf'
+        ? route.fulfill({ status: 200, contentType: 'application/pdf', body: '%PDF-1.7\n%%EOF' })
+        : route.fulfill({
+            status: 503,
+            contentType: 'application/problem+json',
+            body: JSON.stringify({ status: 503, code: 'pdf.unavailable', message: 'No responde.' }),
+          });
+    }
+    if (url.pathname === '/api/v1/documents/credit-notes') {
+      api.noteRequests.push(request);
+      return route.fulfill({
+        status: 201,
+        json: {
+          message: 'Documento recibido',
+          QRStr: '',
+          urlinvoiceattached: '',
+          urlinvoicepdf: '',
+          urlinvoicexml: '',
+          document: { id: 'note-1', full_number: 'NC1', status: 'Queued' },
+        },
+      });
+    }
+    if (url.pathname === '/api/v1/documents/debit-notes') {
+      api.noteRequests.push(request);
+      return route.fulfill({
+        status: 422,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({
+          status: 422,
+          code: 'document.reference_not_accepted',
+          message: 'La factura referenciada no está aceptada por la DIAN.',
+        }),
+      });
+    }
+    if (url.pathname === '/api/v1/documents/doc-1') {
+      return route.fulfill({ json: ACCEPTED_INVOICE });
+    }
+    if (url.pathname === '/api/v1/documents/note-1') {
+      return route.fulfill({
+        json: {
+          ...DETAIL,
+          id: 'note-1',
+          kind: 'credit_note',
+          full_number: 'NC1',
+          status: 'Accepted',
         },
       });
     }
@@ -268,5 +331,107 @@ test('issues an invoice with the server totals and follows its DIAN status', asy
   await page.waitForTimeout(3_000);
   expect(api.detailCalls()).toBe(callsWhenAccepted);
 
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
+test('previews the invoice PDF in a new tab and explains when the PDF service is down', async ({
+  page,
+}) => {
+  const api = await mockDocuments(page);
+  await logIn(page);
+  await page.goto('/documentos/nuevo');
+  await page.getByLabel('Buscar cliente').fill('golden');
+  await page.getByRole('button', { name: /Elegir CLIENTE DE PRUEBA GOLDEN SAS/ }).click();
+  await page.getByLabel('Agregar un producto').fill('serv');
+  await page.getByRole('button', { name: /Agregar Servicio de consultoría/ }).click();
+  await expect(page.getByTestId('payable')).toContainText('1.785.000,00');
+
+  // La pestaña se abre en el clic y recibe el PDF por una URL `blob:`. Chromium sin interfaz no tiene visor de PDF:
+  // esa navegación termina en una descarga, que se escucha desde que la pestaña existe.
+  const received: string[] = [];
+  page.context().on('page', (opened) => {
+    opened.on('download', (download) => received.push(download.url()));
+    opened.on('framenavigated', (frame) => received.push(frame.url()));
+  });
+  const popup = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Vista previa' }).click();
+  const tab = await popup;
+  await expect.poll(() => received.some((url) => url.startsWith('blob:'))).toBe(true);
+  await tab.close();
+  expect(api.issueRequests).toHaveLength(0);
+
+  api.preview = 'unavailable';
+  await page.getByRole('button', { name: 'Vista previa' }).click();
+  await expect(
+    page.getByText('El servicio que genera el PDF no está disponible en este momento.', {
+      exact: false,
+    }),
+  ).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
+test('issues a credit note for the invoice of the link with its lines', async ({ page }) => {
+  const api = await mockDocuments(page);
+  await logIn(page);
+  await page.goto('/documentos/nota-credito?factura=doc-1');
+
+  await expect(page.getByRole('heading', { level: 1, name: 'Emitir nota crédito' })).toBeVisible();
+  await expect(page.getByText('SETP990000001')).toBeVisible();
+  const line = page.getByRole('group', { name: 'Línea 1' });
+  await expect(line.getByLabel('Código')).toHaveValue('SERV01');
+  await expect(page.getByTestId('payable')).toContainText('1.785.000,00');
+  await expect(page.getByRole('button', { name: 'Vista previa' })).toHaveCount(0);
+  await page
+    .getByLabel('Concepto de la corrección')
+    .selectOption({ label: 'Anulación de factura electrónica' });
+  expect(await seriousViolations(page)).toEqual([]);
+
+  await page.getByRole('button', { name: 'Emitir nota crédito' }).click();
+
+  await expect(page).toHaveURL('/documentos/note-1');
+  await expect(page.getByRole('heading', { level: 1, name: 'Nota crédito NC1' })).toBeVisible();
+  const note = api.noteRequests[0]!;
+  expect(note.headers()['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+  expect(note.postDataJSON()).toMatchObject({
+    type_document_id: 4,
+    discrepancyresponsecode: 2,
+    billing_reference: { number: 'SETP990000001', uuid: 'cufe-9', issue_date: '2026-11-14' },
+    legal_monetary_totals: TOTALS,
+    tax_totals: [SUBTOTAL],
+  });
+  expect(note.postDataJSON().credit_note_lines[0].line_extension_amount).toBe('1500000.00');
+});
+
+test('a debit note found from the list shows why the API rejects it', async ({ page }) => {
+  const api = await mockDocuments(page);
+  await logIn(page);
+  await page.goto('/documentos');
+  await page.getByRole('link', { name: 'Nota débito' }).click();
+
+  await expect(page.getByRole('heading', { level: 1, name: 'Emitir nota débito' })).toBeVisible();
+  await page.getByLabel('Buscar factura').fill('990000001');
+  await page.getByRole('button', { name: /Elegir SETP990000001/ }).click();
+  const search = api.listRequests.at(-1)!;
+  expect(search.searchParams.get('kind')).toBe('invoice');
+  expect(search.searchParams.getAll('status')).toEqual(['Accepted', 'AcceptedWithWarnings']);
+  expect(search.searchParams.get('number')).toBe('990000001');
+
+  const line = page.getByRole('group', { name: 'Línea 1' });
+  await line.getByLabel('Código').fill('INT01');
+  await line.getByLabel('Descripción').fill('Intereses de mora');
+  await line.getByLabel('Precio unitario').fill('50000');
+  await expect(page.getByTestId('payable')).toBeVisible();
+  await page.getByLabel('Concepto de la corrección').selectOption({ label: 'Intereses' });
+  await page.getByRole('button', { name: 'Emitir nota débito' }).click();
+
+  await expect(page.getByRole('alert')).toContainText(
+    'La factura referenciada no está aceptada por la DIAN.',
+  );
+  expect(api.noteRequests[0]!.postDataJSON()).toMatchObject({
+    type_document_id: 5,
+    discrepancyresponsecode: 1,
+    requested_monetary_totals: TOTALS,
+  });
+  await expect(page).toHaveURL('/documentos/nota-debito');
   expect(await seriousViolations(page)).toEqual([]);
 });

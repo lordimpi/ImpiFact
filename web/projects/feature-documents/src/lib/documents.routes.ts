@@ -3,9 +3,11 @@ import { companyGuard, roleGuard, scopeGuard, unsavedChangesGuard } from '@impif
 import { documentsTextsResolver } from './documents-i18n';
 
 /*
- * Rutas del feature (sección 7 de la arquitectura del frontend): `/documentos`, `/documentos/nuevo` y
- * `/documentos/:id`, para el propietario y el vendedor con una empresa activa; emitir pide además el alcance
- * `documents:write`. Este archivo entra en el bundle inicial y es mínimo: las páginas se cargan con
+ * Rutas del feature (sección 7 de la arquitectura del frontend): `/documentos`, `/documentos/nuevo`,
+ * `/documentos/nota-credito`, `/documentos/nota-debito` y `/documentos/:id`, para el propietario y el vendedor con
+ * una empresa activa; emitir pide además el alcance `documents:write`. Las notas son rutas propias (y no
+ * `nuevo?tipo=`) porque su formulario es otro (factura de referencia y concepto, sin pago) y así cada una tiene su
+ * enlace; las dos usan la misma página con el tipo en `data`. Este archivo entra en el bundle inicial y es mínimo: las páginas se cargan con
  * `import('./feature-documents')`, un solo chunk perezoso llamado `feature-documents` con su presupuesto en
  * `angular.json`.
  */
@@ -31,6 +33,13 @@ export const documentsRoutes: Routes = [
         canDeactivate: [unsavedChangesGuard],
         loadComponent: () => loadFeature().then((m) => m.InvoiceIssuePage),
       },
+      ...(['credit', 'debit'] as const).map((kind) => ({
+        path: kind === 'credit' ? 'nota-credito' : 'nota-debito',
+        data: { kind },
+        canActivate: [scopeGuard(ISSUE_SCOPE)],
+        canDeactivate: [unsavedChangesGuard],
+        loadComponent: () => loadFeature().then((m) => m.NoteIssuePage),
+      })),
       {
         path: ':id',
         loadComponent: () => loadFeature().then((m) => m.DocumentDetailPage),

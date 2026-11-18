@@ -12,6 +12,12 @@
         (pressed)="exportCsv()"
       />
       @if (canIssue()) {
+        <a class="doc-link-button" routerLink="/documentos/nota-credito">{{
+          'documents.list.creditNote' | transloco
+        }}</a>
+        <a class="doc-link-button" routerLink="/documentos/nota-debito">{{
+          'documents.list.debitNote' | transloco
+        }}</a>
         <a class="doc-link-button" routerLink="/documentos/nuevo">{{
           'documents.list.issue' | transloco
         }}</a>

@@ -56,7 +56,9 @@
     "emptyTitle": "No hay documentos",
     "emptyDescription": "Cambie los filtros o emita su primera factura.",
     "errorTitle": "No se pudieron cargar los documentos",
-    "errorDescription": "Revise su conexión e intente de nuevo."
+    "errorDescription": "Revise su conexión e intente de nuevo.",
+    "creditNote": "Nota crédito",
+    "debitNote": "Nota débito"
   },
   "filters": {
     "title": "Filtros",
@@ -118,7 +120,9 @@
     "actions": "Acciones",
     "resendEmail": "Reenviar correo al cliente",
     "regeneratePdf": "Regenerar PDF",
-    "regenerateAttached": "Regenerar AttachedDocument"
+    "regenerateAttached": "Regenerar AttachedDocument",
+    "creditNote": "Emitir nota crédito",
+    "debitNote": "Emitir nota débito"
   },
   "totals": {
     "title": "Totales calculados por el servidor",
@@ -219,5 +223,38 @@
     "pdfQueued": "El PDF se está regenerando.",
     "attachedQueued": "El AttachedDocument se está regenerando.",
     "downloadFailed": "No se pudo descargar el archivo."
+  },
+  "note": {
+    "creditTitle": "Emitir nota crédito",
+    "debitTitle": "Emitir nota débito",
+    "creditDescription": "Anula o rebaja una factura aceptada por la DIAN. Los totales los calcula el servidor.",
+    "debitDescription": "Suma cargos (intereses, gastos) a una factura aceptada por la DIAN. Los totales los calcula el servidor.",
+    "invoice": "Factura que se corrige",
+    "invoiceSearch": "Buscar factura",
+    "invoiceSearchHint": "Escriba el número (con o sin prefijo) o el nombre del cliente. Solo salen las facturas aceptadas por la DIAN.",
+    "invoiceResults": "Facturas encontradas",
+    "invoiceNone": "No hay facturas aceptadas con esa búsqueda.",
+    "invoiceLoading": "Cargando la factura",
+    "invoiceLoadFailed": "No se pudo cargar la factura. Búsquela de nuevo.",
+    "invoiceNumber": "Número",
+    "invoiceDate": "Fecha de emisión",
+    "invoiceTotal": "Total de la factura",
+    "invoiceChange": "Cambiar de factura",
+    "notAccepted": "La DIAN todavía no aceptó esta factura: el Api rechazará la nota hasta que la acepte.",
+    "notAnInvoice": "Solo se puede corregir una factura. Busque la factura que quiere corregir.",
+    "concept": "Concepto",
+    "conceptLabel": "Concepto de la corrección",
+    "conceptHint": "El motivo de la nota según la DIAN; su descripción va en el XML.",
+    "conceptNone": "Seleccione un concepto",
+    "conceptRequired": "Elija el concepto de la corrección.",
+    "copyLines": "Copiar las líneas de la factura",
+    "noLines": "Agregue una línea libre o copie las de la factura.",
+    "notesHint": "Aparecen en el PDF de la nota.",
+    "notReady": "Para emitir elija la factura y el concepto, complete las líneas y espere los totales del servidor.",
+    "creditSubmit": "Emitir nota crédito",
+    "debitSubmit": "Emitir nota débito",
+    "creditIssued": "Nota crédito {{ number }} emitida. La DIAN la está validando.",
+    "debitIssued": "Nota débito {{ number }} emitida. La DIAN la está validando.",
+    "issueFailed": "No se pudo emitir la nota. Intente de nuevo."
   }
 }

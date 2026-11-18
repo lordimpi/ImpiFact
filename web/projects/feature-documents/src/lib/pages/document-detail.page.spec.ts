@@ -108,6 +108,32 @@ describe('DocumentDetailPage', () => {
     http.expectNone('/api/v1/documents/doc-1');
   });
 
+  it('links an accepted invoice to its credit and debit notes', async () => {
+    const { http } = await renderDocumentsRoute('/documentos/doc-1');
+    (await waitFor(() => http.expectOne('/api/v1/documents/doc-1'))).flush({
+      ...DETAIL,
+      status: 'Accepted',
+    });
+
+    const credit = await screen.findByRole('link', { name: 'Emitir nota crédito' });
+    expect(credit.getAttribute('href')).toBe('/documentos/nota-credito?factura=doc-1');
+    expect(screen.getByRole('link', { name: 'Emitir nota débito' }).getAttribute('href')).toBe(
+      '/documentos/nota-debito?factura=doc-1',
+    );
+  });
+
+  it('does not offer notes for a note', async () => {
+    const { http } = await renderDocumentsRoute('/documentos/doc-1');
+    (await waitFor(() => http.expectOne('/api/v1/documents/doc-1'))).flush({
+      ...DETAIL,
+      kind: 'credit_note',
+      status: 'Accepted',
+    });
+
+    await screen.findByRole('button', { name: 'Regenerar PDF' });
+    expect(screen.queryByRole('link', { name: 'Emitir nota crédito' })).toBeNull();
+  });
+
   it('runs the actions of an accepted document', async () => {
     URL.createObjectURL = vi.fn(() => 'blob:doc');
     URL.revokeObjectURL = vi.fn();
