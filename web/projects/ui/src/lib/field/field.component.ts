@@ -95,6 +95,44 @@ let nextId = 0;
       outline: var(--if-focus-ring-width) solid var(--if-color-focus);
       outline-offset: var(--if-focus-ring-offset);
     }
+    /* Campo de contraseña con el botón para mostrarla (uiPasswordToggle). */
+    .ui-password {
+      position: relative;
+      display: flex;
+    }
+    .ui-password > .ui-field__control {
+      flex: 1;
+      padding-inline-end: calc(var(--if-control-min-height) + var(--if-space-1));
+    }
+    .ui-password__toggle {
+      position: absolute;
+      inset-block: 0;
+      inset-inline-end: 0;
+      display: grid;
+      place-items: center;
+      inline-size: var(--if-control-min-height);
+      padding: 0;
+      color: var(--if-color-text-muted, var(--if-color-text));
+      background: transparent;
+      border: 0;
+      border-radius: var(--if-radius-sm);
+      cursor: pointer;
+    }
+    .ui-password__name {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .ui-password__toggle:hover {
+      color: var(--if-color-text);
+    }
+    .ui-password__toggle:focus-visible {
+      outline: var(--if-focus-ring-width) solid var(--if-color-focus);
+      outline-offset: calc(-1 * var(--if-focus-ring-width));
+    }
   `,
 })
 export class FieldComponent {

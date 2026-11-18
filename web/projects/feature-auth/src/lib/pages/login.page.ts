@@ -2,7 +2,13 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, signal } f
 import { FormField, submit } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import { AppError, CORE_ROUTE_PATHS, SessionStore } from '@impifact/core';
-import { ButtonComponent, FieldComponent, InputDirective, PageTitleComponent } from '@impifact/ui';
+import {
+  ButtonComponent,
+  FieldComponent,
+  InputDirective,
+  PageTitleComponent,
+  PasswordToggleDirective,
+} from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { AUTH_I18N_SCOPE, provideAuthI18n } from '../auth-i18n';
 import {
@@ -26,6 +32,7 @@ import { safeReturnUrl } from '../navigation/return-url';
     ButtonComponent,
     FieldComponent,
     InputDirective,
+    PasswordToggleDirective,
     PageTitleComponent,
   ],
   providers: [provideAuthI18n()],

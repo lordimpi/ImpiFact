@@ -7,9 +7,14 @@ import { InjectionToken } from '@angular/core';
 export interface UiTexts {
   /** Nombre accesible del botón de ayuda de un campo, a partir de la etiqueta del campo. */
   fieldHelp(label: string): string;
+  /** Nombre accesible del botón que muestra u oculta una contraseña (es un conmutador: `aria-pressed`). */
+  showPassword: string;
 }
 
 export const UI_TEXTS = new InjectionToken<UiTexts>('UI_TEXTS', {
   providedIn: 'root',
-  factory: () => ({ fieldHelp: (label) => `Ayuda: ${label}` }),
+  factory: () => ({
+    fieldHelp: (label) => `Ayuda: ${label}`,
+    showPassword: 'Mostrar la contraseña',
+  }),
 });

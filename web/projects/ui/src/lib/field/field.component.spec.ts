@@ -72,7 +72,13 @@ describe('FieldComponent', () => {
 
     it('names the info button from the translated texts', async () => {
       const { button } = await renderHelp([
-        { provide: UI_TEXTS, useValue: { fieldHelp: (label: string) => `Ayuda sobre ${label}` } },
+        {
+          provide: UI_TEXTS,
+          useValue: {
+            fieldHelp: (label: string) => `Ayuda sobre ${label}`,
+            showPassword: 'Mostrar',
+          },
+        },
       ]);
 
       expect(screen.getByRole('button', { name: 'Ayuda sobre NIT' })).toBe(button);

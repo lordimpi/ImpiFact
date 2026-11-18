@@ -6,6 +6,7 @@ import {
   ErrorStateComponent,
   FieldComponent,
   InputDirective,
+  PasswordToggleDirective,
   LoadingComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -37,6 +38,7 @@ import { CompanySetupStore } from '../state/company-setup.store';
     ErrorStateComponent,
     FieldComponent,
     InputDirective,
+    PasswordToggleDirective,
     LoadingComponent,
   ],
   providers: [provideCompaniesI18n()],
@@ -71,6 +73,7 @@ import { CompanySetupStore } from '../state/company-setup.store';
         >
           <input
             uiInput
+            uiPasswordToggle
             type="password"
             inputmode="numeric"
             autocomplete="new-password"

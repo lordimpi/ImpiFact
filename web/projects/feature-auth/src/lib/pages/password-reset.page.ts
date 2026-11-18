@@ -13,7 +13,13 @@ import { Meta } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Api, confirmPasswordReset } from '@impifact/api';
 import { AppError, CORE_ROUTE_PATHS, SKIP_ERROR_TOAST, SessionStore } from '@impifact/core';
-import { ButtonComponent, FieldComponent, InputDirective, PageTitleComponent } from '@impifact/ui';
+import {
+  ButtonComponent,
+  FieldComponent,
+  InputDirective,
+  PageTitleComponent,
+  PasswordToggleDirective,
+} from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { AUTH_I18N_SCOPE, provideAuthI18n } from '../auth-i18n';
@@ -44,6 +50,7 @@ export const PASSWORD_RESET_REASON = 'password-reset';
     ButtonComponent,
     FieldComponent,
     InputDirective,
+    PasswordToggleDirective,
     PageTitleComponent,
   ],
   providers: [provideAuthI18n()],
@@ -74,7 +81,8 @@ export const PASSWORD_RESET_REASON = 'password-reset';
             >
               <input
                 uiInput
-                [type]="inputType()"
+                uiPasswordToggle
+                type="password"
                 autocomplete="new-password"
                 [formField]="resetForm.newPassword"
               />
@@ -86,15 +94,12 @@ export const PASSWORD_RESET_REASON = 'password-reset';
             >
               <input
                 uiInput
-                [type]="inputType()"
+                uiPasswordToggle
+                type="password"
                 autocomplete="new-password"
                 [formField]="resetForm.confirmation"
               />
             </ui-field>
-            <label class="auth-check">
-              <input type="checkbox" [checked]="visible()" (change)="toggleVisible($event)" />
-              <span>{{ 'auth.reset.show' | transloco }}</span>
-            </label>
             <div class="auth-actions">
               <ui-button
                 type="submit"
@@ -128,8 +133,6 @@ export class PasswordResetPage implements OnInit {
   protected readonly submitting = computed(() => this.resetForm().submitting());
   protected readonly invalidLink = signal(this.#token === '');
   protected readonly generalError = signal<string | null>(null);
-  protected readonly visible = signal(false);
-  protected readonly inputType = computed(() => (this.visible() ? 'text' : 'password'));
 
   protected readonly newPasswordError = computed(() =>
     resetFieldMessage('newPassword', this.resetForm.newPassword(), (key) => this.text(key)),
@@ -148,10 +151,6 @@ export class PasswordResetPage implements OnInit {
     if (this.route.snapshot.queryParamMap.has('token')) {
       void this.router.navigate([], { relativeTo: this.route, queryParams: {}, replaceUrl: true });
     }
-  }
-
-  protected toggleVisible(event: Event): void {
-    this.visible.set((event.target as HTMLInputElement).checked);
   }
 
   protected async onSubmit(event: Event): Promise<void> {

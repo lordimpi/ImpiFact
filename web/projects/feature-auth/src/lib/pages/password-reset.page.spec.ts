@@ -50,9 +50,15 @@ describe('PasswordResetPage', () => {
     expect(password.getAttribute('type')).toBe('password');
     expect(confirmation.getAttribute('type')).toBe('password');
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Mostrar las contraseñas' }));
-    expect(password.getAttribute('type')).toBe('text');
-    expect(confirmation.getAttribute('type')).toBe('text');
+    const toggles = await screen.findAllByRole('button', {
+      name: 'Mostrar la contraseña',
+    });
+    expect(toggles).toHaveLength(2);
+    fireEvent.click(toggles[0]!);
+    await waitFor(() => expect(password.getAttribute('type')).toBe('text'));
+    expect(confirmation.getAttribute('type')).toBe('password');
+    fireEvent.click(toggles[1]!);
+    await waitFor(() => expect(confirmation.getAttribute('type')).toBe('text'));
   });
 
   it('checks the length and that both passwords match before calling the Api', async () => {

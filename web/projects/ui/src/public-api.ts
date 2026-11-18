@@ -9,6 +9,7 @@ export * from './lib/dialog/dialog.component';
 export * from './lib/field/digits-only.directive';
 export * from './lib/field/field.component';
 export * from './lib/field/input.directive';
+export * from './lib/field/password-toggle.directive';
 export * from './lib/field/select.directive';
 export * from './lib/help/help.component';
 export * from './lib/i18n/ui-texts';

@@ -19,6 +19,7 @@ import {
   DialogComponent,
   FieldComponent,
   InputDirective,
+  PasswordToggleDirective,
   SelectDirective,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -54,6 +55,7 @@ export interface UserCompany {
     DialogComponent,
     FieldComponent,
     InputDirective,
+    PasswordToggleDirective,
     SelectDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -90,6 +92,7 @@ export interface UserCompany {
         >
           <input
             uiInput
+            uiPasswordToggle
             type="password"
             autocomplete="new-password"
             [formField]="userForm.password"

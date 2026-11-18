@@ -33,7 +33,6 @@
     "newPassword": "Contraseña nueva",
     "newPasswordHint": "Entre 10 y 256 caracteres.",
     "confirmation": "Confirme la contraseña nueva",
-    "show": "Mostrar las contraseñas",
     "submit": "Guardar la contraseña",
     "invalidLink": "El enlace para restablecer la contraseña no sirve: venció, ya se usó o se pidió otro más nuevo.",
     "requestNew": "Pedir un enlace nuevo",

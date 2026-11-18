@@ -13,6 +13,7 @@ import {
   ErrorStateComponent,
   FieldComponent,
   InputDirective,
+  PasswordToggleDirective,
   LoadingComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
@@ -48,6 +49,7 @@ function readAsBase64(file: File): Promise<string> {
     ErrorStateComponent,
     FieldComponent,
     InputDirective,
+    PasswordToggleDirective,
     LoadingComponent,
   ],
   providers: [provideCompaniesI18n()],
@@ -140,6 +142,7 @@ function readAsBase64(file: File): Promise<string> {
           <input
             #password
             uiInput
+            uiPasswordToggle
             type="password"
             autocomplete="new-password"
             (input)="passwordError.set(null)"

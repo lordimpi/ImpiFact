@@ -21,7 +21,12 @@ export const appConfig: ApplicationConfig = {
       provide: UI_TEXTS,
       useFactory: () => {
         const transloco = inject(TranslocoService);
-        return { fieldHelp: (label: string) => transloco.translate('ui.fieldHelp', { label }) };
+        return {
+          fieldHelp: (label: string) => transloco.translate('ui.fieldHelp', { label }),
+          get showPassword() {
+            return transloco.translate('ui.showPassword');
+          },
+        };
       },
     },
   ],
