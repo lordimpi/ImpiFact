@@ -10,7 +10,8 @@
     "customers": "Clientes",
     "products": "Productos",
     "documents": "Documentos",
-    "notifications": "Avisos"
+    "notifications": "Avisos",
+    "apiKeys": "Llaves de API"
   },
   "userMenu": {
     "account": "Mi cuenta",

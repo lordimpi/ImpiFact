@@ -191,6 +191,15 @@ Avisos de la empresa activa (tarea 9 del backlog). La aplicación monta `notific
 | `NotificationsDropdownComponent` | Los últimos avisos, «Marcar como leído», «Marcar todos como leídos» y el enlace a `/notificaciones`. Escape, un clic fuera o navegar la cierran.                                                                                     |
 | `/notificaciones`                | `NotificationListPage`: tabla con paginación por cursor en el Api y el filtro de sin leer en la URL (`?estado=sin-leer`). Marcar uno o todos pasa por `NotificationsStore` (el número de la campana baja enseguida).                 |
 
+## Librería `feature-api-keys`
+
+Llaves de API de la empresa activa en `/llaves-api` (tarea 9 del backlog), solo para el propietario (`API_KEYS_ROLES`; el Api exige `config:write`).
+
+- **Crear:** nombre, permisos (casillas con los alcances que la sesión ya tiene, nunca `platform:*`) y vencimiento opcional (final de ese día, hora de Colombia). Un alcance que el Api rechaza (403 `api_key.scope_not_allowed`) se explica en el formulario.
+- **Mostrar una vez:** la respuesta trae la llave completa; la página la muestra en un diálogo con «Copiar llave» y la borra de la memoria al cerrarlo. `ApiKeysStore` guarda solo nombre, prefijo, permisos y vencimiento.
+- **Revocar:** con confirmación (`revokeApiKey`); la fila queda como «Revocada».
+- **Pendiente en el Api:** no hay endpoint para listar las llaves. La tabla muestra solo las creadas en esta sesión del panel (se vacía al recargar, al cambiar de empresa o al cerrar sesión) y la página lo explica.
+
 ## Crear un feature nuevo
 
 1. `npx ng generate library feature-<nombre> --prefix=feat`. Después:

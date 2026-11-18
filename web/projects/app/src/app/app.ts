@@ -13,6 +13,7 @@ import { Title } from '@angular/platform-browser';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { InactivityMonitor, SessionStore, ToastStore } from '@impifact/core';
 import { loadAuthTexts, loadInactivityWarning } from '@impifact/feature-auth';
+import { API_KEYS_ROLES } from '@impifact/feature-api-keys';
 import { MASTERS_ROLES } from '@impifact/feature-masters';
 import { NOTIFICATIONS_ROLES } from '@impifact/feature-notifications';
 import { ToastRegionComponent, UiToast } from '@impifact/ui';
@@ -38,6 +39,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { path: '/productos', label: 'nav.products', roles: MASTERS_ROLES },
   { path: '/documentos', label: 'nav.documents', roles: ['owner', 'seller'] },
   { path: '/notificaciones', label: 'nav.notifications', roles: NOTIFICATIONS_ROLES },
+  { path: '/llaves-api', label: 'nav.apiKeys', roles: API_KEYS_ROLES },
 ];
 
 /**
