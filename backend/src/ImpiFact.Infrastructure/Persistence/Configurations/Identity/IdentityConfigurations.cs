@@ -108,3 +108,15 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
         builder.HasIndex(token => token.TokenHash).IsUnique();
     }
 }
+
+internal sealed class PasswordResetTokenConfiguration : IEntityTypeConfiguration<PasswordResetToken>
+{
+    public void Configure(EntityTypeBuilder<PasswordResetToken> builder)
+    {
+        builder.ToTable("password_reset_tokens");
+        builder.Property(token => token.TokenHash).IsFixed(64);
+        builder.Property(token => token.RequestedIp).HasMaxLength(45);
+        builder.References<PasswordResetToken, User>(token => token.UserId);
+        builder.HasIndex(token => token.TokenHash).IsUnique();
+    }
+}

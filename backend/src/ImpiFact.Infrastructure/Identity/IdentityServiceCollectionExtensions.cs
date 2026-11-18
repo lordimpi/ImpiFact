@@ -1,6 +1,7 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Infrastructure.Options;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -43,10 +44,12 @@ public static class IdentityServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registra los adaptadores de Identity sobre las tablas (API keys, usuarios con sus roles y tokens de
-    /// renovación) y el resumidor de contraseñas, sin nada de JWT (JSON Web Token) ni de caché. La API los recibe
-    /// con <see cref="AddIdentityInfrastructure"/>; el Migrator puede usar solo esta parte para crear la primera
-    /// llave de plataforma. Se llama después de <c>AddInfrastructure</c>, que registra el contexto de base de datos.
+    /// Registra los adaptadores de Identity sobre las tablas (API keys, usuarios con sus roles y sus empresas, tokens de
+    /// renovación y de restablecimiento de contraseña, y el correo de ese restablecimiento) y el resumidor de
+    /// contraseñas, sin nada de JWT (JSON Web Token) ni de caché. La API los recibe con
+    /// <see cref="AddIdentityInfrastructure"/>; el Worker, para el correo de restablecimiento; el Migrator puede usar
+    /// solo esta parte para crear la primera llave de plataforma. Se llama después de <c>AddInfrastructure</c>, que
+    /// registra el contexto de base de datos.
     /// </summary>
     public static IServiceCollection AddIdentityPersistence(this IServiceCollection services)
     {
@@ -55,7 +58,21 @@ public static class IdentityServiceCollectionExtensions
         services.TryAddScoped<IRefreshTokenStore, EfRefreshTokenStore>();
         services.TryAddScoped<IUserStore, EfUserStore>();
         services.TryAddScoped<IUserCompanyReads, EfUserCompanyReads>();
+        services.TryAddScoped<IPasswordResetTokenStore, EfPasswordResetTokenStore>();
+        services.TryAddScoped<IPasswordResetEmailQueue, PasswordResetEmailQueue>();
+        services.TryAddSingleton<IPasswordResetTokenFactory, PasswordResetTokenFactory>();
         services.TryAddSingleton<IPasswordHasher, AspNetPasswordHasher>();
+        return services;
+    }
+
+    /// <summary>
+    /// Registra los enlaces al panel de los correos (<see cref="IPanelLinks"/>) con la sección «Panel» validada al
+    /// arrancar: sin <c>Panel:BaseUrl</c> el proceso no arranca. Solo la llama el Worker, que es quien envía los correos.
+    /// </summary>
+    public static IServiceCollection AddPanelLinks(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddValidatedOptions<PanelOptions>(configuration, PanelOptions.SectionName);
+        services.TryAddSingleton<IPanelLinks, PanelLinks>();
         return services;
     }
 }

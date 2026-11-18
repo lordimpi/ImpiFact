@@ -58,6 +58,21 @@ internal sealed class EfUserStore(ImpiFactDbContext db) : IUserStore
             }
         });
 
+    /// <summary>
+    /// El sello de seguridad nuevo marca que las credenciales cambiaron; las sesiones las cierra quien llama, revocando
+    /// los tokens de renovación.
+    /// </summary>
+    public Task ChangePasswordAsync(Guid userId, string passwordHash, CancellationToken ct) =>
+        CredentialStoreGuard.RunAsync(async () =>
+        {
+            var user = await db.Set<User>().FirstOrDefaultAsync(candidate => candidate.Id == userId, ct);
+            if (user is not null)
+            {
+                user.PasswordHash = passwordHash;
+                user.SecurityStamp = Guid.NewGuid().ToString("N");
+            }
+        });
+
     public Task AddAsync(NewUser user, CancellationToken ct)
     {
         db.Add(new User

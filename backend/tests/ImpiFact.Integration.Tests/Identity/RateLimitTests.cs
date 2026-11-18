@@ -105,5 +105,32 @@ public sealed class RateLimitTests
         });
     }
 
+    // La base es inalcanzable en esta fábrica: las solicitudes que pasan el límite responden 503, la que lo supera 429
+    // antes de llegar al caso de uso.
+    [TestCase("/api/v1/auth/password-reset/request", """{ "email": "ana@example.com" }""")]
+    [TestCase("/api/v1/auth/password-reset/confirm", """{ "token": "abc", "new_password": "Una-Clave-Segura-1" }""")]
+    public async Task The_password_reset_routes_share_the_strict_login_limit(string path, string body)
+    {
+        using var factory = new IdentityApiFactory(settings: new Dictionary<string, string?>
+        {
+            ["RateLimit:LoginPerMinute"] = "2",
+        });
+        using var client = factory.CreateClient();
+
+        var statuses = new List<HttpStatusCode>();
+        for (var i = 0; i < 3; i++)
+        {
+            using var content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+            using var response = await client.PostAsync(path, content);
+            statuses.Add(response.StatusCode);
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(statuses.Take(2), Has.None.EqualTo(HttpStatusCode.TooManyRequests));
+            Assert.That(statuses[2], Is.EqualTo(HttpStatusCode.TooManyRequests));
+        });
+    }
+
     private const int ApiKeyAuthenticatorMaxLength = ImpiFact.Infrastructure.Identity.ApiKeyAuthenticator.MaxLength;
 }

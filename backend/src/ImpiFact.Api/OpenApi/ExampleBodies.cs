@@ -143,6 +143,20 @@ internal static class ExampleBodies
             """), "El panel no manda cuerpo: envía `X-Client: panel` y el navegador agrega la cookie de la sesión."),
     ];
 
+    public static RequestExample[] PasswordResetRequest { get; } =
+    [
+        new("correo", "Correo de la cuenta", Parse($$"""
+            { "email": "{{UserEmail}}" }
+            """), "La respuesta es la misma aunque el correo no tenga cuenta."),
+    ];
+
+    public static RequestExample[] PasswordResetConfirm { get; } =
+    [
+        new("nueva-clave", "Token del enlace y contraseña nueva", Parse("""
+            { "token": "pegue-aqui-el-token-del-enlace", "new_password": "Otra-clave-segura-2026" }
+            """), "Reemplace `token` por el valor de `?token=` del enlace que llegó por correo."),
+    ];
+
     public static RequestExample[] ApiKey { get; } =
     [
         new("integracion", "Llave de empresa para emitir y consultar", Parse($$"""

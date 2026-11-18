@@ -7,6 +7,7 @@ using ImpiFact.Application.Abstractions.Results;
 using ImpiFact.Application.Features.Identity;
 using ImpiFact.Application.Features.Identity.ApiKeys;
 using ImpiFact.Application.Features.Identity.Me;
+using ImpiFact.Application.Features.Identity.PasswordReset;
 using ImpiFact.Application.Features.Identity.Sessions;
 using ImpiFact.Application.Features.Identity.Users;
 using ImpiFact.Infrastructure.Identity;
@@ -16,9 +17,10 @@ using Microsoft.Net.Http.Headers;
 namespace ImpiFact.Api.Identity;
 
 /// <summary>
-/// Endpoints de Identity (Arquitectura detallada, secciones 3 y 9.3): inicio de sesión, renovación y cierre de sesión
-/// (anónimos, con el límite estricto de inicio de sesión; el panel usa la cookie de <see cref="PanelSession"/>), API
-/// keys y usuarios (con la política <see cref="IdentityPolicies.ManageCredentials"/>). Cada endpoint solo arma la
+/// Endpoints de Identity (Arquitectura detallada, secciones 3 y 9.3): inicio de sesión, renovación, cierre de sesión y
+/// recuperación de contraseña (anónimos, con el límite estricto de inicio de sesión; el panel usa la cookie de
+/// <see cref="PanelSession"/>), las empresas de quien llama (cualquier credencial), API keys y usuarios (con la política
+/// <see cref="IdentityPolicies.ManageCredentials"/>). Cada endpoint solo arma la
 /// solicitud, llama al caso de uso y traduce el resultado.
 /// </summary>
 internal sealed class IdentityEndpoints : IEndpointModule
@@ -73,6 +75,28 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "entregó vale hasta su vencimiento (15 minutos como máximo). Responde 204 también si el token no existe o ya " +
                 "estaba revocado, así se puede repetir sin error. Comparte el límite de intentos del inicio de sesión.\n\n" +
                 PanelCookieNote + " Con `X-Client: panel`, además, borra la cookie.");
+        auth.MapPost("/password-reset/request", RequestPasswordResetAsync)
+            .Produces<PasswordResetRequested>(StatusCodes.Status202Accepted)
+            .WithRequestExamples(ExampleBodies.PasswordResetRequest)
+            .WithOperationId("requestPasswordReset")
+            .WithSummary("Pedir el enlace para restablecer la contraseña")
+            .WithDescription(
+                "Recibe el `email` de la cuenta y responde siempre 202 con el mismo `message`, exista o no la cuenta, para no " +
+                "revelar qué correos están registrados. Si el correo es de un usuario activo, crea un enlace de un solo uso que " +
+                "vence en 30 minutos y lo envía por correo (la página `/restablecer?token=...` del panel); pedir otro deja sin " +
+                "efecto el anterior. Comparte el límite de intentos del inicio de sesión (429).");
+        auth.MapPost("/password-reset/confirm", ConfirmPasswordResetAsync)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithRequestExamples(ExampleBodies.PasswordResetConfirm)
+            .WithOperationId("confirmPasswordReset")
+            .WithSummary("Fijar la contraseña nueva")
+            .WithDescription(
+                "Recibe el `token` del enlace del correo y la contraseña nueva (`new_password`, de 10 a 256 caracteres). Si el " +
+                "token sirve, cambia la contraseña, gasta el token y cierra todas las sesiones del usuario (revoca sus " +
+                "`refresh_token`): debe volver a iniciar sesión. Responde 204. Un token desconocido, vencido, ya usado o " +
+                "reemplazado por otro más nuevo responde el mismo 422 (`identity.invalid_reset_token`), sin decir cuál de los " +
+                "casos es; una contraseña que no cumple la política responde 422 con el detalle en `errors.new_password` y no " +
+                "gasta el token. Comparte el límite de intentos del inicio de sesión (429).");
 
         var apiKeys = endpoints.MapGroup("/api/v1/api-keys").WithTags(ApiTags.Identity).RequireAuthorization(IdentityPolicies.ManageCredentials);
         apiKeys.MapPost("/", CreateApiKeyAsync).AddEndpointFilter(NoStore)
@@ -233,6 +257,21 @@ internal sealed class IdentityEndpoints : IEndpointModule
             new CreateUserCommand(body.Email ?? "", body.Password ?? "", body.Name ?? "", body.Phone, body.Role ?? ""), ct))
         .ToHttpResult(created => TypedResults.Created($"/api/v1/users/{created.Id}", created));
 
+    private static async Task<IResult> RequestPasswordResetAsync(
+        PasswordResetRequestBody body,
+        HttpContext context,
+        [FromServices] IHandler<RequestPasswordResetCommand, PasswordResetRequested> handler,
+        CancellationToken ct) =>
+        (await handler.HandleAsync(new RequestPasswordResetCommand(body.Email ?? "", ClientIp(context)), ct))
+        .ToHttpResult(requested => TypedResults.Accepted((string?)null, requested));
+
+    private static async Task<IResult> ConfirmPasswordResetAsync(
+        PasswordResetConfirmBody body,
+        [FromServices] IHandler<ConfirmPasswordResetCommand, PasswordResetConfirmed> handler,
+        CancellationToken ct) =>
+        (await handler.HandleAsync(new ConfirmPasswordResetCommand(body.Token ?? "", body.NewPassword ?? ""), ct))
+        .ToHttpResult(_ => TypedResults.NoContent());
+
     private static async Task<IResult> ListMyCompaniesAsync(
         [FromServices] IHandler<ListMyCompaniesQuery, MyCompanies> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new ListMyCompaniesQuery(), ct)).ToHttpResult();
@@ -270,6 +309,18 @@ internal sealed class IdentityEndpoints : IEndpointModule
     internal sealed record LogoutBody([property: JsonPropertyName("refresh_token")] string? RefreshToken)
     {
         public override string ToString() => "LogoutBody";
+    }
+
+    internal sealed record PasswordResetRequestBody([property: JsonPropertyName("email")] string? Email)
+    {
+        public override string ToString() => "PasswordResetRequestBody";
+    }
+
+    internal sealed record PasswordResetConfirmBody(
+        [property: JsonPropertyName("token")] string? Token,
+        [property: JsonPropertyName("new_password")] string? NewPassword)
+    {
+        public override string ToString() => "PasswordResetConfirmBody";
     }
 
     internal sealed record CreateApiKeyBody(

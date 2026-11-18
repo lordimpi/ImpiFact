@@ -107,7 +107,11 @@ public sealed class OpenApiDocumentTests
     [Test]
     public void Secured_operations_require_the_bearer_scheme_and_anonymous_ones_do_not()
     {
-        string[] anonymous = ["POST /api/v1/auth/login", "POST /api/v1/auth/refresh", "POST /api/v1/auth/logout"];
+        string[] anonymous =
+        [
+            "POST /api/v1/auth/login", "POST /api/v1/auth/refresh", "POST /api/v1/auth/logout",
+            "POST /api/v1/auth/password-reset/request", "POST /api/v1/auth/password-reset/confirm",
+        ];
 
         Assert.Multiple(() =>
         {

@@ -18,7 +18,7 @@ public sealed class SchemaTests
     private static readonly string[] ModelTables =
     [
         .. CatalogSeedTests.CatalogTables,
-        "resellers", "users", "roles", "user_roles", "user_companies", "api_keys", "refresh_tokens",
+        "resellers", "users", "roles", "user_roles", "user_companies", "api_keys", "refresh_tokens", "password_reset_tokens",
         "companies", "company_liabilities", "company_environments", "company_software", "certificates", "resolutions",
         "company_mail_settings", "company_logos",
         "customers", "items",
@@ -50,6 +50,8 @@ public sealed class SchemaTests
             "expires_at ts null|last_used_at ts null|revoked_at ts null|created_by uuid null|created_at ts|updated_at ts",
         ["refresh_tokens"] = "id uuid|user_id uuid|token_hash char(64)|expires_at ts|revoked_at ts null|replaced_by uuid null|" +
             "created_ip varchar(45) null|user_agent varchar(300) null|" + Common,
+        ["password_reset_tokens"] = "id uuid|user_id uuid|token_hash char(64)|expires_at ts|used_at ts null|revoked_at ts null|" +
+            "requested_ip varchar(45) null|" + Common,
         ["companies"] = "id uuid|reseller_id uuid null|identification_number varchar(20)|dv char(1)|name varchar(255)|" +
             "email varchar(255)|phone varchar(30)|address varchar(255)|merchant_registration varchar(50) null|language_id int|" +
             "country_id int|municipality_id int|tax_id int|type_currency_id int|type_operation_id int|" +
@@ -155,7 +157,7 @@ public sealed class SchemaTests
         "municipalities(department_id,code)",
         "resellers(identification_number)", "resellers(email)", "users(email)", "roles(name)",
         "user_companies(user_id,company_id,role_id)", "api_keys(key_hash)", "refresh_tokens(token_hash)",
-        "companies(identification_number)", "company_environments(company_id,document_kind)",
+        "password_reset_tokens(token_hash)", "companies(identification_number)", "company_environments(company_id,document_kind)",
         "company_software(company_id,document_kind,type_environment_id)", "certificates(company_id) where is_active",
         "resolutions(company_id,id)",
         "customers(company_id,id)", "customers(company_id,type_document_identification_id,identification_number)",

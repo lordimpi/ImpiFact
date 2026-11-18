@@ -69,6 +69,14 @@ public sealed class FakeUserStore : IUserStore
         return Task.CompletedTask;
     }
 
+    public Dictionary<Guid, string> ChangedPasswords { get; } = [];
+
+    public Task ChangePasswordAsync(Guid userId, string passwordHash, CancellationToken ct)
+    {
+        ChangedPasswords[userId] = passwordHash;
+        return Task.CompletedTask;
+    }
+
     public Task AddAsync(NewUser user, CancellationToken ct)
     {
         Added.Add(user);

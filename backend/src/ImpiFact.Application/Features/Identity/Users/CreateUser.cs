@@ -28,9 +28,6 @@ public sealed record CreatedUser(
 
 internal sealed class CreateUserValidator : AbstractValidator<CreateUserCommand>
 {
-    /// <summary>Largo mínimo de una contraseña nueva.</summary>
-    public const int MinimumPasswordLength = 10;
-
     private static readonly string[] KnownRoles =
         [RoleNames.PlatformAdmin, RoleNames.Reseller, RoleNames.Owner, RoleNames.Seller, RoleNames.Customer];
 
@@ -42,9 +39,7 @@ internal sealed class CreateUserValidator : AbstractValidator<CreateUserCommand>
             .EmailAddress().WithMessage("El correo no es válido.")
             .OverridePropertyName("email");
         RuleFor(command => command.Password)
-            .NotEmpty().WithMessage("La contraseña es obligatoria.")
-            .MinimumLength(MinimumPasswordLength).WithMessage($"La contraseña debe tener al menos {MinimumPasswordLength} caracteres.")
-            .MaximumLength(256).WithMessage("La contraseña admite hasta 256 caracteres.")
+            .NewPassword()
             .OverridePropertyName("password");
         RuleFor(command => command.Name)
             .NotEmpty().WithMessage("El nombre es obligatorio.")

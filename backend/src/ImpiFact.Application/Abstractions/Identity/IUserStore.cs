@@ -24,6 +24,12 @@ public interface IUserStore
     /// <summary>Cambia el resumen de la contraseña (por ejemplo, al pasar a un algoritmo más fuerte).</summary>
     Task UpdatePasswordHashAsync(Guid userId, string passwordHash, CancellationToken ct);
 
+    /// <summary>
+    /// Cambia la contraseña porque el usuario eligió otra (por ejemplo, al restablecerla): guarda el resumen nuevo y
+    /// cambia el sello de seguridad (<c>security_stamp</c>). Se guarda al confirmar la transacción del caso de uso.
+    /// </summary>
+    Task ChangePasswordAsync(Guid userId, string passwordHash, CancellationToken ct);
+
     /// <summary>Agrega un usuario con sus roles. Se guarda al confirmar la transacción del caso de uso.</summary>
     Task AddAsync(NewUser user, CancellationToken ct);
 }
