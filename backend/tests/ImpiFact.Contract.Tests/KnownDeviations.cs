@@ -52,8 +52,6 @@ public static class KnownDeviations
             Todo + "GET /api/documents con filtros y paginación de Laravel no existe; el listado canónico es GET /api/v1/documents."),
         KnownDeviation.StatusCode("Registrar o actualizar un cliente", 404, Todo + "clientes (RF-13): register-update-customer no existe."),
         KnownDeviation.StatusCode("Buscar un cliente por tipo y numero de documento", 404, Todo + "clientes (RF-13): GET /api/customer/{tipo}/{numero} no existe."),
-        KnownDeviation.StatusCode("Consultar el proximo consecutivo a usar", 404,
-            Todo + "POST next-consecutive no existe; la misma regla ya responde en GET invoice/current_number (php-rules 5.4.3)."),
         KnownDeviation.StatusCode("Consultar los parametros de correo de la empresa", 404, Todo + "GET emailconfig (correo por empresa, RF-01) no existe."),
         KnownDeviation.StatusCode("Consultar la razon social por NIT", 404, Todo + "GET name-by-nit/{nit} no existe."),
         KnownDeviation.StatusCode("Consultar los datos de una empresa por NIT", 404, Todo + "GET SearchCompany/{nit} no existe."),

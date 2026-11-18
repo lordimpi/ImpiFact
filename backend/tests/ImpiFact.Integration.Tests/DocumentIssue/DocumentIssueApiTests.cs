@@ -419,6 +419,74 @@ public sealed class DocumentIssueApiTests
         });
     }
 
+    // Contrato del PHP: POST next-consecutive {type_document_id, prefix} → {success, type_document_id, prefix, number}, con la
+    // misma regla de current_number (php-rules 5.4.3). Solo consulta: no reserva el número.
+    [Test]
+    public async Task Next_consecutive_reports_the_same_number_as_current_number_without_reserving_it()
+    {
+        using var issuer = await NewIssuerAsync();
+        (await PostAsync(issuer.Client, "invoice", Edited(Invoice, json => json.Remove("number")))).Dispose();
+
+        using var first = await issuer.Client.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("""{"type_document_id": 1, "prefix": "SETP"}"""));
+        using var again = await issuer.Client.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("""{"type_document_id": "4", "prefix": "NC"}"""));
+        using var current = await issuer.Client.GetAsync("/api/ubl2.1/invoice/current_number/1/SETP");
+        using var firstJson = await Json(first);
+        using var againJson = await Json(again);
+        using var currentJson = await Json(current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(firstJson.RootElement.GetProperty("success").GetBoolean(), Is.True);
+            Assert.That(firstJson.RootElement.GetProperty("type_document_id").GetInt32(), Is.EqualTo(1));
+            Assert.That(firstJson.RootElement.GetProperty("prefix").GetString(), Is.EqualTo("SETP"));
+            Assert.That(firstJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(990000001));
+            Assert.That(currentJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(990000001), "Asking does not reserve the number.");
+            Assert.That(againJson.RootElement.GetProperty("type_document_id").GetInt32(), Is.EqualTo(4));
+            Assert.That(againJson.RootElement.GetProperty("prefix").GetString(), Is.EqualTo("NC"));
+            Assert.That(againJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task Next_consecutive_validates_its_body_and_answers_404_without_resolution()
+    {
+        using var issuer = await NewIssuerAsync();
+
+        using var empty = await issuer.Client.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("{}"));
+        using var outOfList = await issuer.Client.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("""{"type_document_id": 27, "prefix": "SETP"}"""));
+        using var unknown = await issuer.Client.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("""{"type_document_id": 1, "prefix": "ZZZZ"}"""));
+        using var emptyJson = await Json(empty);
+        using var outOfListJson = await Json(outOfList);
+        using var unknownJson = await Json(unknown);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(empty.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
+            Assert.That(emptyJson.RootElement.GetProperty("errors").GetProperty("type_document_id")[0].GetString(),
+                Is.EqualTo("El campo type document id es obligatorio."));
+            Assert.That(emptyJson.RootElement.GetProperty("errors").GetProperty("prefix")[0].GetString(), Is.EqualTo("El campo prefix es obligatorio."));
+            Assert.That(outOfList.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
+            Assert.That(outOfListJson.RootElement.GetProperty("errors").GetProperty("type_document_id")[0].GetString(),
+                Is.EqualTo("type document id es inválido."));
+            Assert.That(unknown.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+            Assert.That(unknownJson.RootElement.GetProperty("message").GetString(), Is.EqualTo("La resolución no está configurada."));
+        });
+    }
+
+    [Test]
+    public async Task A_credential_without_documents_read_cannot_ask_the_next_consecutive()
+    {
+        using var issuer = await NewIssuerAsync();
+        using var writer = await Api.ClientWithNewKeyAsync(issuer.CompanyId, ApiScopes.DocumentsWrite);
+
+        using var response = await writer.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("""{"type_document_id": 1, "prefix": "SETP"}"""));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    private static StringContent JsonBody(string json) => new(json, System.Text.Encoding.UTF8, "application/json");
+
     [Test]
     public async Task Current_number_of_a_prefix_without_resolution_answers_404_with_the_php_message()
     {

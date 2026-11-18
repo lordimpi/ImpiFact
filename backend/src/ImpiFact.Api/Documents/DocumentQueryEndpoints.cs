@@ -81,6 +81,10 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
         legacyInvoice.MapGet("/current_number/{type:int}/{prefix}", CurrentNumber);
         legacyInvoice.MapGet("/current_number/{type:int}/{prefix}/{ignore}", CurrentNumber);
 
+        // Contrato del PHP: next-consecutive con {type_document_id, prefix}; la misma regla de current_number.
+        endpoints.MapPost("/api/ubl2.1/next-consecutive", NextConsecutive).WithTags(ApiTags.Documents)
+            .RequireAuthorization(ApiScopes.DocumentsRead).ExcludeFromDescription();
+
         var documents = endpoints.MapGroup("/api/v1/documents").WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsRead);
         documents.MapGet("/current-number/{type:int}", (int type, [FromQuery(Name = "prefix")] string? prefix,
             IHandler<GetCurrentNumberQuery, CurrentNumberResponse> handler, CancellationToken ct) => CurrentNumber(type, prefix, handler, ct))
@@ -90,7 +94,8 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
             .WithDescription(
                 "Responde el número que tomará el próximo documento del tipo `{type}` (1 factura, 4 nota crédito, 5 nota " +
                 "débito…) con la resolución activa del prefijo `prefix` (sin prefijo, la primera resolución activa del " +
-                "tipo). `range_exceeded` es verdadero si ese número ya está fuera del rango autorizado.");
+                "tipo). `range_exceeded` es verdadero si ese número ya está fuera del rango autorizado. Solo consulta: no " +
+                "reserva el número, así que dos consultas seguidas responden lo mismo hasta que se emita un documento.");
         documents.MapGet("/", List)
             .Produces<DocumentListResponse>()
             .WithOperationId("listDocuments")
@@ -156,6 +161,10 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
     private static async Task<IResult> CurrentNumber(
         int type, string? prefix, IHandler<GetCurrentNumberQuery, CurrentNumberResponse> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new GetCurrentNumberQuery(type, prefix), ct)).ToHttpResult();
+
+    private static async Task<IResult> NextConsecutive(
+        GetNextConsecutiveQuery body, IHandler<GetNextConsecutiveQuery, NextConsecutiveResponse> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(body, ct)).ToHttpResult();
 
     private static async Task<IResult> Information(
         string nit, string? desde, string? hasta, IHandler<GetInformationQuery, InformationResponse> handler, CancellationToken ct) =>
