@@ -133,6 +133,8 @@ Es la pantalla más compleja y no puede duplicar el redondeo del backend.
 - Botón «Vista previa» (`preeliminar-view`) abre el PDF sin consumir consecutivo; «Emitir» envía con `Idempotency-Key` generado al abrir el formulario.
 - Tras emitir, la pantalla de detalle sigue el estado (sección 9).
 
+Hecho en la fase 5 (tarea 8, `feature-documents`): factura con cliente (búsqueda en `listCustomers` y enlace a `/clientes/nuevo`), forma y medio de pago, líneas desde un producto (`listProducts`) o libres con IVA del 19, 5 o 0 %, y notas. Cada cambio en las líneas pide `calculateDocumentTotals` tras una pausa corta; «Emitir» solo se habilita con los totales del servidor al día y el cuerpo de `issueInvoice` lleva esos mismos valores (totales, impuestos y valor de cada línea). El cliente generado no expone el encabezado `Idempotency-Key`: la página pone la llave en el contexto de la solicitud (`IDEMPOTENCY_KEY` de `core`) y `idempotencyInterceptor` la manda. Pendiente: la vista previa (el Api v1 no tiene el endpoint; el botón no se muestra), las notas crédito y débito, y los descuentos o cargos.
+
 ### 8.2 Asistente de paso a producción
 
 Pasos con estado persistido en el servidor (empresa → certificado → resolución → set de pruebas → producción por producto). Cada paso valida con el Api antes de habilitar el siguiente; un paso completado puede reabrirse. Mensajes de error de la DIAN se muestran con su explicación en español.
@@ -142,6 +144,8 @@ Pasos con estado persistido en el servidor (empresa → certificado → resoluci
 Paginación y orden en el servidor (por clave `issued_at, id`), filtros por fecha, tipo, estado y cliente guardados en la URL (compartibles), exportación CSV desde el Api, acciones por fila: ver, XML, PDF, reenviar correo, regenerar PDF, enviar evento.
 
 Backend listo (fase 5, B5): `listDocuments` acepta `kind` (`invoice`, `credit_note`, `debit_note`), `status` (uno o varios, `status=Accepted,Rejected`), `from`/`to`, `customer` (texto en la identificación o el nombre), `number` (con prefijo o solo dígitos), `cursor` y `limit` (el panel pide hasta 100); cada fila trae `kind` y `email_status`. `include_total=true` agrega `total_count` para mostrar páginas numeradas, con una consulta más: pedirlo solo en la primera página o al cambiar filtros, y avanzar siempre con `next_cursor`. `exportDocumentsCsv` (`GET /api/v1/documents/export.csv`) recibe los mismos filtros; como el token vive solo en memoria, el panel lo pide con su cliente HTTP (no con un enlace) y guarda el archivo recibido. Responde 422 `documents.export_too_large` sobre 50.000 filas: el panel muestra el mensaje y sugiere acotar las fechas.
+
+Panel listo (fase 5, tarea 8): los filtros viven en la URL con nombres en español (`desde`, `hasta`, `tipo`, `estado=Queued,Sent`, `cliente`, `numero` y `total=1` para pedir el conteo), así una búsqueda se comparte o se recarga. El conteo es informativo (`withServerList` lo guarda en `totalCount` sin dejar de paginar por cursor). La lista no ofrece orden por columnas porque el Api ordena siempre por `issued_at, id`. Las descargas, el CSV y los errores que llegan como archivo pasan por HttpClient: `errorInterceptor` lee el ProblemDetails del `Blob`.
 
 ## 9. Estado en tiempo real
 
