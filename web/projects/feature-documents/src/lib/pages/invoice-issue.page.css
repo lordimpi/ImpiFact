@@ -1,0 +1,60 @@
+/* Emisión: formulario a la izquierda y totales del servidor a la derecha; en móvil, uno debajo del otro. */
+.issue-layout {
+  display: grid;
+  gap: var(--if-space-4);
+  align-items: start;
+}
+
+@media (min-width: 64rem) {
+  .issue-layout {
+    grid-template-columns: minmax(0, 1fr) 22rem;
+  }
+
+  .issue-side {
+    position: sticky;
+    inset-block-start: var(--if-space-3);
+  }
+}
+
+.issue-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-4);
+  min-inline-size: 0;
+}
+
+.issue-grid {
+  display: grid;
+  gap: 0 var(--if-space-3);
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+}
+
+.issue-wide {
+  grid-column: 1 / -1;
+}
+
+.issue-line {
+  margin: var(--if-space-3) 0 0;
+  padding: var(--if-space-3);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-sm);
+  min-inline-size: 0;
+}
+
+.issue-line legend {
+  font-weight: var(--if-font-weight-bold);
+  padding-inline: var(--if-space-1);
+}
+
+.issue-line__amount {
+  display: flex;
+  gap: var(--if-space-2);
+  justify-content: space-between;
+  margin: 0 0 var(--if-space-2);
+}
+
+.issue-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-3);
+}

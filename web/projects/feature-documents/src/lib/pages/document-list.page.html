@@ -1,0 +1,84 @@
+<section class="doc-page">
+  <header class="doc-header">
+    <div>
+      <ui-page-title>{{ 'documents.list.title' | transloco }}</ui-page-title>
+      <p class="doc-lead">{{ 'documents.list.description' | transloco }}</p>
+    </div>
+    <div class="doc-actions">
+      <ui-button
+        variant="secondary"
+        [label]="'documents.list.export' | transloco"
+        [loading]="exporting()"
+        (pressed)="exportCsv()"
+      />
+      @if (canIssue()) {
+        <a class="doc-link-button" routerLink="/documentos/nuevo">{{
+          'documents.list.issue' | transloco
+        }}</a>
+      }
+    </div>
+  </header>
+
+  <feat-document-filters class="doc-section" [filters]="filters()" (apply)="applyFilters($event)" />
+
+  @if (store.totalCount(); as count) {
+    <p class="doc-muted" role="status">
+      {{ 'documents.list.count' | transloco: { count } }}
+    </p>
+  }
+
+  <ui-table
+    [caption]="'documents.list.caption' | transloco"
+    [columns]="columns()"
+    [rows]="store.items()"
+    [labels]="labels()"
+    [loading]="store.loading()"
+    [error]="store.error() !== null"
+    [pagination]="store.pagination()"
+    [trackBy]="trackById"
+    (pageChange)="store.changePage($event)"
+    (retry)="store.refresh()"
+  >
+    <ng-template uiTableCell="full_number" let-row>
+      <a [routerLink]="['/documentos', row.id]">{{ row.full_number }}</a>
+    </ng-template>
+    <ng-template uiTableCell="kind" let-row>
+      {{ 'documents.' + kindKey(row.kind) | transloco }}
+    </ng-template>
+    <ng-template uiTableCell="customer" let-row>
+      {{ row.customer?.name }}
+      <span class="doc-muted">{{ row.customer?.identification_number }}</span>
+    </ng-template>
+    <ng-template uiTableCell="total" let-row>
+      <span class="doc-amount">{{ row.totals?.payable_amount | cop }}</span>
+    </ng-template>
+    <ng-template uiTableCell="status" let-row>
+      <feat-status-badge [status]="row.status" />
+    </ng-template>
+    <ng-template uiTableCell="actions" let-row>
+      <div class="doc-row-actions">
+        <a
+          [routerLink]="['/documentos', row.id]"
+          [attr.aria-label]="'documents.list.actions.view' | transloco: { number: row.full_number }"
+          >{{ 'documents.list.actions.viewShort' | transloco }}</a
+        >
+        <button type="button" [disabled]="busyRow() === row.id" (click)="download(row, 'xml')">
+          {{ 'documents.list.actions.downloadXml' | transloco }}
+        </button>
+        @if (filesAvailable(row.status)) {
+          <button type="button" [disabled]="busyRow() === row.id" (click)="download(row, 'pdf')">
+            {{ 'documents.list.actions.downloadPdf' | transloco }}
+          </button>
+          @if (canIssue()) {
+            <button type="button" [disabled]="busyRow() === row.id" (click)="resendEmail(row)">
+              {{ 'documents.list.actions.resendEmail' | transloco }}
+            </button>
+            <button type="button" [disabled]="busyRow() === row.id" (click)="regeneratePdf(row)">
+              {{ 'documents.list.actions.regeneratePdf' | transloco }}
+            </button>
+          }
+        }
+      </div>
+    </ng-template>
+  </ui-table>
+</section>

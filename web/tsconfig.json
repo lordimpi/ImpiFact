@@ -17,6 +17,8 @@
     { "path": "./projects/feature-auth/tsconfig.lib.json" },
     { "path": "./projects/feature-auth/tsconfig.spec.json" },
     { "path": "./projects/feature-masters/tsconfig.lib.json" },
-    { "path": "./projects/feature-masters/tsconfig.spec.json" }
+    { "path": "./projects/feature-masters/tsconfig.spec.json" },
+    { "path": "./projects/feature-documents/tsconfig.lib.json" },
+    { "path": "./projects/feature-documents/tsconfig.spec.json" }
   ]
 }
