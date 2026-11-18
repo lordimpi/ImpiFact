@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ToastStore } from '@impifact/core';
-import { fireEvent, screen, waitFor } from '@testing-library/angular';
+import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
 import { CompanySetupStore } from '../state/company-setup.store';
 import { catalogRequests } from '../testing/catalog-fixtures';
 import {
@@ -25,6 +25,17 @@ const optionTexts = (label: RegExp) =>
     option.textContent?.trim(),
   );
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+const municipality = () => screen.getByRole('combobox', { name: /^Municipio/ }) as HTMLInputElement;
+const municipalityOptions = () =>
+  within(screen.getByRole('listbox'))
+    .queryAllByRole('option')
+    .map((option) => option.textContent?.trim());
+
+/** Elige el municipio en el combobox: escribe para buscar y hace clic en la opción. */
+async function pickMunicipality(search: string, name: string) {
+  fireEvent.input(municipality(), { target: { value: search } });
+  fireEvent.click(await screen.findByRole('option', { name }));
+}
 
 /** Empresa recién creada: solo la razón social y el tipo de identificación. */
 const NEW_COMPANY = {
@@ -41,15 +52,16 @@ async function open(company: object = NEW_COMPANY) {
   await screen.findByRole('heading', { level: 2, name: 'Datos de la empresa' });
   // Las listas salen de los catálogos del Api.
   await screen.findByRole('checkbox', { name: 'O-13 Gran contribuyente' });
-  await waitFor(() => expect(optionTexts(/^Municipio/)).toContain('Bogotá, D.C. (Bogotá)'));
+  await waitFor(() => expect(optionTexts(/^Departamento/)).toContain('Bogotá'));
   return rendered;
 }
 
-function fillAll() {
+async function fillAll() {
   choose(/^Tipo de organización/, '1');
   choose(/^Régimen/, '1');
   fireEvent.click(screen.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }));
-  choose(/^Municipio/, '149');
+  choose(/^Departamento/, '4');
+  await pickMunicipality('bogo', 'Bogotá, D.C.');
   type(/^Dirección/, 'Calle 1 # 2-3');
   type(/^Teléfono/, '6011234567');
   type(/^Correo electrónico/, 'facturas@acme.test');
@@ -57,16 +69,34 @@ function fillAll() {
 }
 
 describe('CompanyDataPage', () => {
-  it('fills the lists from the DIAN catalogs and searches municipalities on the server', async () => {
+  it('fills the lists from the DIAN catalogs and searches the municipalities of the chosen department', async () => {
     await open();
     expect(optionTexts(/^Régimen/)).toContain('Responsable de IVA');
     expect(screen.getByRole('checkbox', { name: 'R-99-PN No aplica – Otros' })).toBeTruthy();
+    expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
 
-    fireEvent.input(screen.getByLabelText(/^Buscar municipio/), { target: { value: 'medel' } });
+    choose(/^Departamento/, '2');
+    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2'));
+    fireEvent.input(municipality(), { target: { value: 'medel' } });
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('medel'));
-    await waitFor(() =>
-      expect(optionTexts(/^Municipio/)).toEqual(['Seleccione una opción', 'Medellín (Antioquia)']),
+    await waitFor(() => expect(municipalityOptions()).toEqual(['Medellín']));
+    expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
+  });
+
+  it('accepts only digits in the phone and explains every field in a tooltip', async () => {
+    await open();
+
+    type(/^Teléfono/, '(601) 123-4567');
+
+    expect(field(/^Teléfono/).value).toBe('6011234567');
+    expect(field(/^Teléfono/).getAttribute('inputmode')).toBe('numeric');
+    const business = field(/^Razón social/);
+    const help = document.getElementById(
+      (business.getAttribute('aria-describedby') ?? '').split(' ')[0]!,
     );
+    expect(help?.textContent).toContain('(por ejemplo, ACUÑA OBANDO SANTIAGO)');
+    expect(screen.getAllByRole('tooltip', { hidden: true }).length).toBe(11);
+    expect(screen.getByText(/registro mercantil de la Cámara de Comercio/)).toBeTruthy();
   });
 
   it('fills the form with the data the API has saved', async () => {
@@ -76,7 +106,9 @@ describe('CompanyDataPage', () => {
     expect(field(/^Tipo de identificación/).value).toBe('6');
     expect(field(/^Tipo de organización/).value).toBe('1');
     expect(field(/^Régimen/).value).toBe('1');
-    expect(field(/^Municipio/).value).toBe('149');
+    // El departamento sale del municipio guardado.
+    await waitFor(() => expect(field(/^Departamento/).value).toBe('4'));
+    await waitFor(() => expect(municipality().value).toBe('Bogotá, D.C.'));
     expect(field(/^Dirección/).value).toBe('Calle 1 # 2-3');
     expect(field(/^Teléfono/).value).toBe('6011234567');
     expect(field(/^Correo electrónico/).value).toBe('facturas@acme.test');
@@ -145,7 +177,7 @@ describe('CompanyDataPage', () => {
 
   it('shows a server field error next to its field and then saves', async () => {
     const { http, directory } = await open();
-    fillAll();
+    await fillAll();
 
     save();
     const rejected = await expectRequest(http, `${COMPANY_PATH}/7`);

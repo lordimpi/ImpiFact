@@ -16,6 +16,7 @@
       <ui-field
         class="companies-form__wide"
         [label]="'companies.data.businessName' | transloco"
+        [help]="'companies.data.help.businessName' | transloco"
         [error]="errors().business_name"
         required
       >
@@ -29,6 +30,7 @@
 
       <ui-field
         [label]="'companies.data.identificationType' | transloco"
+        [help]="'companies.data.help.identificationType' | transloco"
         [error]="errors().type_document_identification_id"
         required
       >
@@ -41,6 +43,7 @@
 
       <ui-field
         [label]="'companies.data.organization' | transloco"
+        [help]="'companies.data.help.organization' | transloco"
         [error]="errors().type_organization_id"
         required
       >
@@ -54,6 +57,7 @@
 
       <ui-field
         [label]="'companies.data.regime' | transloco"
+        [help]="'companies.data.help.regime' | transloco"
         [error]="errors().type_regime_id"
         required
       >
@@ -67,9 +71,16 @@
 
       <fieldset
         class="companies-checks companies-form__wide"
-        aria-describedby="company-liabilities-hint company-liabilities-error"
+        aria-describedby="company-liabilities-hint company-liabilities-help company-liabilities-error"
       >
-        <legend>{{ 'companies.data.liabilities' | transloco }}</legend>
+        <legend>
+          {{ 'companies.data.liabilities' | transloco }}
+          <ui-help
+            tooltipId="company-liabilities-help"
+            [label]="'companies.data.liabilities' | transloco"
+            [text]="'companies.data.help.liabilities' | transloco"
+          />
+        </legend>
         <p id="company-liabilities-hint" class="companies-lead">
           {{ 'companies.data.liabilitiesHint' | transloco }}
         </p>
@@ -88,31 +99,49 @@
         </p>
       </fieldset>
 
-      <ui-search-select
-        [labels]="municipalityLabels"
-        [term]="municipalities.state().term"
-        [status]="municipalities.state().status"
-        [hasMore]="municipalities.hasMore()"
-        [empty]="municipalities.state().items.length === 0"
-        (termChange)="municipalities.search($event)"
-        (loadMore)="municipalities.loadMore()"
-        (retry)="municipalities.retry()"
+      <ui-field
+        [label]="'companies.data.department' | transloco"
+        [help]="'companies.data.help.department' | transloco"
+        required
       >
-        <ui-field
-          [label]="'companies.data.municipality' | transloco"
-          [error]="errors().municipality_id"
-          required
+        <select
+          uiSelect
+          [value]="location.department()"
+          (change)="location.selectDepartment($any($event.target).value)"
         >
-          <select uiSelect [formField]="companyForm.municipality_id">
-            <option value="">{{ 'companies.common.noneOption' | transloco }}</option>
-            @for (option of municipalities.options(); track option.id) {
-              <option [value]="'' + option.id">{{ option.name }}</option>
-            }
-          </select>
-        </ui-field>
-      </ui-search-select>
+          <option value="">{{ 'companies.common.noneOption' | transloco }}</option>
+          @for (option of location.departments(); track option.id) {
+            <option [value]="'' + option.id" [selected]="'' + option.id === location.department()">
+              {{ option.name }}
+            </option>
+          }
+        </select>
+      </ui-field>
 
-      <ui-field [label]="'companies.data.address' | transloco" [error]="errors().address" required>
+      <ui-field
+        [label]="'companies.data.municipality' | transloco"
+        [help]="'companies.data.help.municipality' | transloco"
+        [error]="errors().municipality_id"
+        required
+      >
+        <ui-combobox
+          [formField]="companyForm.municipality_id"
+          [options]="municipalities.options()"
+          [status]="municipalities.state().status"
+          [hasMore]="municipalities.hasMore()"
+          [labels]="municipalityLabels"
+          (termChange)="municipalities.search($event)"
+          (loadMore)="municipalities.loadMore()"
+          (retry)="municipalities.retry()"
+        />
+      </ui-field>
+
+      <ui-field
+        [label]="'companies.data.address' | transloco"
+        [help]="'companies.data.help.address' | transloco"
+        [error]="errors().address"
+        required
+      >
         <input
           uiInput
           type="text"
@@ -124,25 +153,26 @@
       <ui-field
         [label]="'companies.data.phone' | transloco"
         [hint]="'companies.data.phoneHint' | transloco"
+        [help]="'companies.data.help.phone' | transloco"
         [error]="errors().phone"
         required
       >
-        <input
-          uiInput
-          type="tel"
-          inputmode="numeric"
-          autocomplete="tel"
-          [formField]="companyForm.phone"
-        />
+        <input uiInput uiDigitsOnly type="tel" autocomplete="tel" [formField]="companyForm.phone" />
       </ui-field>
 
-      <ui-field [label]="'companies.data.email' | transloco" [error]="errors().email" required>
+      <ui-field
+        [label]="'companies.data.email' | transloco"
+        [help]="'companies.data.help.email' | transloco"
+        [error]="errors().email"
+        required
+      >
         <input uiInput type="email" autocomplete="email" [formField]="companyForm.email" />
       </ui-field>
 
       <ui-field
         [label]="'companies.data.merchantRegistration' | transloco"
         [hint]="'companies.data.merchantRegistrationHint' | transloco"
+        [help]="'companies.data.help.merchantRegistration' | transloco"
         [error]="errors().merchant_registration"
         required
       >
