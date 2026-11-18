@@ -1,0 +1,111 @@
+/* Tablero: tarjetas en una cuadrícula que se apila en móvil. */
+:host {
+  display: block;
+}
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-4);
+  max-inline-size: 72rem;
+  margin-inline: auto;
+}
+
+.dashboard-lead,
+.card-muted {
+  margin: 0;
+  color: var(--if-color-text-muted);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: var(--if-space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-2);
+  min-inline-size: 0;
+  padding: var(--if-space-4);
+  background: var(--if-color-surface);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-md);
+}
+
+.card--wide {
+  grid-column: 1 / -1;
+}
+
+.card-title {
+  margin: 0;
+  font-size: var(--if-font-size-md);
+}
+
+.card-figure {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.card-number {
+  font-size: 2.25rem;
+  font-weight: var(--if-font-weight-bold);
+  line-height: var(--if-line-height-tight);
+}
+
+.card-caption {
+  color: var(--if-color-text-muted);
+  font-size: var(--if-font-size-sm);
+}
+
+.card-strong {
+  margin: 0;
+  font-weight: var(--if-font-weight-medium);
+}
+
+.card-alert {
+  margin: 0;
+  color: var(--if-color-danger);
+  font-weight: var(--if-font-weight-medium);
+}
+
+.card-link {
+  align-self: flex-start;
+  color: var(--if-color-primary);
+}
+
+.status-list,
+.quota-list,
+.resolution-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--if-space-2);
+  padding-block-end: var(--if-space-1);
+  border-block-end: 1px solid var(--if-color-border);
+}
+
+.status-count {
+  font-weight: var(--if-font-weight-bold);
+}
+
+.quota-label {
+  display: block;
+  margin-block-end: var(--if-space-1);
+}
+
+.resolution-list li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-1);
+}

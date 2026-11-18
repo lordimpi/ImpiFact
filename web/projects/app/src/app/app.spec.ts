@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
@@ -75,6 +77,8 @@ describe('App shell', () => {
         { provide: SessionStore, useValue: session },
         { provide: InactivityMonitor, useValue: monitor },
         { provide: NotificationsStore, useValue: notifications },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     });
     return { ...result, session, monitor, notifications };
@@ -175,13 +179,31 @@ describe('App shell', () => {
     expect(await screen.findByText('Código copiado.')).toBeTruthy();
   });
 
-  it('shows the home page on the root route to a signed-in user', async () => {
-    const { navigate } = await renderShell({ authenticated: true, companies: ['company-1'] });
+  it('shows the home page on the root route to a signed-in user without the dashboard', async () => {
+    const { navigate } = await renderShell({
+      authenticated: true,
+      companies: ['company-1'],
+      roles: ['customer'],
+    });
     await navigate('/');
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Panel de ImpiFact' }),
     ).toBeTruthy();
+    TestBed.inject(HttpTestingController).expectNone('/api/v1/dashboard/summary');
+  });
+
+  it('opens the dashboard on the root route to an owner or a seller', async () => {
+    const { navigate } = await renderShell({
+      authenticated: true,
+      companies: ['company-1'],
+      roles: ['seller'],
+    });
+    await navigate('/');
+
+    await waitFor(() =>
+      TestBed.inject(HttpTestingController).expectOne('/api/v1/dashboard/summary'),
+    );
   });
 
   it('sends an anonymous visitor of a protected route to the login and keeps the route', async () => {

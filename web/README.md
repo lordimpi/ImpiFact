@@ -206,6 +206,16 @@ Plan y consumo de la empresa activa en `/plan` (tarea 9 del backlog), solo para 
 
 `ui-meter` (librería `ui`) es el medidor accesible (`role="meter"` con `aria-valuetext`) que usan el plan y el tablero.
 
+## Librería `feature-dashboard`
+
+Tablero de `/` (tarea 9 del backlog) para el propietario y el vendedor (`DASHBOARD_ROLES`). La ruta usa `canMatch` (`dashboardMatch`): las demás personas con sesión siguen a la página de inicio de la aplicación, sin redirecciones en ciclo. Todo sale de `getDashboardSummary` (sin aviso automático de error: la página muestra el estado de error con «Reintentar»):
+
+- **Mes actual:** total y documentos por estado; sin documentos, un enlace para emitir (con `documents:write`).
+- **Últimos 12 meses:** barras de CSS (sin librería de gráficos), una sola serie con el total; el gráfico tiene un nombre accesible con el resumen y los números por familia van en una tabla desplegable.
+- **Plan:** consumo por familia con `ui-meter` y fin del periodo; el propietario tiene el enlace a `/plan`.
+- **Certificado:** días que le quedan (en rojo desde 30 días o vencido) o el aviso de que no hay uno activo.
+- **Resoluciones por agotarse:** las que el Api marca con pocos números o por vencer.
+
 ## Crear un feature nuevo
 
 1. `npx ng generate library feature-<nombre> --prefix=feat`. Después:
