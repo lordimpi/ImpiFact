@@ -3,13 +3,15 @@
 <header class="shell-header">
   <span class="shell-brand">{{ 'app.name' | transloco }}</span>
   <nav class="shell-nav" [attr.aria-label]="'app.mainNav' | transloco">
-    <a
-      routerLink="/"
-      routerLinkActive="is-active"
-      ariaCurrentWhenActive="page"
-      [routerLinkActiveOptions]="{ exact: true }"
-      >{{ 'nav.home' | transloco }}</a
-    >
+    @for (item of navItems(); track item.path) {
+      <a
+        [routerLink]="item.path"
+        routerLinkActive="is-active"
+        ariaCurrentWhenActive="page"
+        [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+        >{{ item.label | transloco }}</a
+      >
+    }
   </nav>
   <app-user-menu />
 </header>

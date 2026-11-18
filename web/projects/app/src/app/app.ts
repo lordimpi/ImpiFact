@@ -11,15 +11,32 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { InactivityMonitor, ToastStore } from '@impifact/core';
+import { InactivityMonitor, SessionStore, ToastStore } from '@impifact/core';
 import { loadAuthTexts, loadInactivityWarning } from '@impifact/feature-auth';
+import { MASTERS_ROLES } from '@impifact/feature-masters';
 import { ToastRegionComponent, UiToast } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { UserMenuComponent } from './shell/user-menu.component';
 
+/** Entrada del menú principal; sin `roles` la ve cualquiera, con `roles` solo quien tiene alguno (sección 7). */
+interface NavItem {
+  path: string;
+  /** Clave del texto en `nav.*`. */
+  label: string;
+  exact?: boolean;
+  roles?: readonly string[];
+}
+
+/** Menú principal, filtrado por rol. Cada feature agrega aquí sus entradas. */
+const NAV_ITEMS: readonly NavItem[] = [
+  { path: '/', label: 'nav.home', exact: true },
+  { path: '/clientes', label: 'nav.customers', roles: MASTERS_ROLES },
+  { path: '/productos', label: 'nav.products', roles: MASTERS_ROLES },
+];
+
 /**
- * Shell del panel: encabezado con el menú de usuario, zona de contenido, avisos (*toasts*) de core y el diálogo de
- * inactividad. El menú por rol llega con los features.
+ * Shell del panel: encabezado con el menú principal (filtrado por rol) y el de usuario, zona de contenido, avisos
+ * (*toasts*) de core y el diálogo de inactividad.
  */
 @Component({
   selector: 'app-root',
@@ -40,6 +57,15 @@ export class App {
   private readonly transloco = inject(TranslocoService);
   protected readonly toastStore = inject(ToastStore);
   private readonly inactivity = inject(InactivityMonitor);
+  private readonly session = inject(SessionStore);
+
+  /** Entradas del menú que corresponden a la sesión: las que piden rol solo aparecen con sesión y ese rol. */
+  protected readonly navItems = computed(() =>
+    NAV_ITEMS.filter(
+      (item) =>
+        !item.roles || (this.session.isAuthenticated() && this.session.hasRole(...item.roles)),
+    ),
+  );
 
   /**
    * Diálogo de inactividad de feature-auth. Se carga (con sus textos) la primera vez que el monitor avisa, así no

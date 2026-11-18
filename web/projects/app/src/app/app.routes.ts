@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from '@impifact/core';
 import { authRoutes } from '@impifact/feature-auth';
+import { mastersRoutes } from '@impifact/feature-masters';
 
 /*
  * Rutas solo para desarrollo. En el build de producción `ngDevMode` vale `false` en tiempo de compilación,
@@ -18,7 +19,8 @@ const devRoutes: Routes =
 
 /*
  * Rutas raíz (sección 7 de la arquitectura del frontend). Cada feature aporta las suyas desde su librería y sus
- * páginas se cargan de forma perezosa: `authRoutes` trae `/login`, `/recuperar` y `/empresas/seleccionar`.
+ * páginas se cargan de forma perezosa: `authRoutes` trae `/login`, `/recuperar` y `/empresas/seleccionar`;
+ * `mastersRoutes`, `/clientes` y `/productos`.
  * Las rutas del panel exigen sesión con `authGuard`, que manda al login con `returnUrl`.
  */
 export const routes: Routes = [
@@ -29,6 +31,7 @@ export const routes: Routes = [
     loadComponent: () => import('./home/home.page').then((m) => m.HomePage),
   },
   ...authRoutes,
+  ...mastersRoutes,
   ...devRoutes,
   { path: '**', redirectTo: '' },
 ];

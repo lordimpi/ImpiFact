@@ -33,6 +33,11 @@
                 "glob": "**/*",
                 "input": "projects/feature-auth/src/i18n",
                 "output": "i18n/auth"
+              },
+              {
+                "glob": "**/*",
+                "input": "projects/feature-masters/src/i18n",
+                "output": "i18n/masters"
               }
             ],
             "styles": ["projects/ui/src/styles/tokens.css", "projects/app/src/styles.scss"]
@@ -48,6 +53,12 @@
                 {
                   "type": "bundle",
                   "name": "feature-auth",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "feature-masters",
                   "maximumWarning": "200kB",
                   "maximumError": "250kB"
                 },
@@ -184,6 +195,32 @@
           "builder": "@angular/build:unit-test",
           "options": {
             "tsConfig": "projects/feature-auth/tsconfig.spec.json"
+          }
+        }
+      }
+    },
+    "feature-masters": {
+      "projectType": "library",
+      "root": "projects/feature-masters",
+      "sourceRoot": "projects/feature-masters/src",
+      "prefix": "feat",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/feature-masters/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/feature-masters/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/feature-masters/tsconfig.spec.json"
           }
         }
       }

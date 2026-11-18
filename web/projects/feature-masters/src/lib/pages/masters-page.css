@@ -1,0 +1,109 @@
+/* Estilos comunes de las páginas del feature: listados y formularios, cómodos en móvil y en escritorio. */
+:host {
+  display: block;
+}
+
+.masters-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-4);
+  max-inline-size: 72rem;
+  margin-inline: auto;
+}
+
+.masters-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.masters-lead {
+  margin: 0;
+  color: var(--if-color-text-muted);
+}
+
+.masters-primary-link {
+  padding: var(--if-control-padding-y) var(--if-control-padding-x);
+  color: var(--if-color-on-primary);
+  background: var(--if-color-primary);
+  border-radius: var(--if-radius-sm);
+  font-weight: var(--if-font-weight-medium);
+  text-decoration: none;
+}
+
+.masters-primary-link:hover {
+  background: var(--if-color-primary-hover);
+}
+
+.masters-status {
+  font-weight: var(--if-font-weight-medium);
+  color: var(--if-color-success);
+}
+
+.masters-status--inactive {
+  color: var(--if-color-text-muted);
+}
+
+.masters-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+  align-items: center;
+}
+
+.masters-row-actions a,
+.masters-back {
+  color: var(--if-color-primary);
+}
+
+.masters-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  column-gap: var(--if-space-4);
+  padding: var(--if-space-4);
+  background: var(--if-color-surface);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-md);
+}
+
+.masters-form__wide,
+.masters-form__actions,
+.masters-message {
+  grid-column: 1 / -1;
+}
+
+.masters-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+  align-items: center;
+}
+
+.masters-lookup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+  align-items: center;
+  margin-block-end: var(--if-space-3);
+}
+
+.masters-message {
+  margin: 0 0 var(--if-space-3);
+  padding: var(--if-space-3);
+  border-radius: var(--if-radius-sm);
+  border-inline-start: 4px solid currentColor;
+  background: var(--if-color-surface-raised);
+}
+
+.masters-message--error {
+  color: var(--if-color-danger);
+}
+
+.masters-check {
+  display: flex;
+  gap: var(--if-space-2);
+  align-items: center;
+  margin-block-end: var(--if-space-3);
+}

@@ -19,10 +19,13 @@ class InMemoryLoader implements TranslocoLoader {
 }
 
 /** Sesión y monitor de inactividad falsos: el shell solo lee sus signals y llama a sus métodos. */
-function fakes(options: { authenticated?: boolean; companies?: string[] } = {}) {
+function fakes(options: { authenticated?: boolean; companies?: string[]; roles?: string[] } = {}) {
   const isAuthenticated = signal(options.authenticated ?? false);
+  const roles = signal(options.roles ?? ['owner']);
   const session = {
     isAuthenticated,
+    roles,
+    hasRole: (...wanted: string[]) => wanted.some((role) => roles().includes(role)),
     user: signal(isAuthenticated() ? { id: 'user-1', email: 'ana@example.test' } : null),
     companyId: signal<string | null>(options.companies?.[0] ?? null),
     companies: signal(options.companies ?? []),
@@ -64,6 +67,27 @@ describe('App shell', () => {
     expect(within(nav).getByRole('link', { name: 'Inicio' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Saltar al contenido' })).toBeTruthy();
     expect(screen.getByRole('main')).toBeTruthy();
+  });
+
+  it('shows customers and products in the menu to an owner or a seller', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['seller'] });
+
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).getByRole('link', { name: 'Clientes' }).getAttribute('href')).toBe(
+      '/clientes',
+    );
+    expect(within(nav).getByRole('link', { name: 'Productos' }).getAttribute('href')).toBe(
+      '/productos',
+    );
+  });
+
+  it('hides customers and products from other roles', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['customer'] });
+
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    expect(within(nav).getByRole('link', { name: 'Inicio' })).toBeTruthy();
+    expect(within(nav).queryByRole('link', { name: 'Clientes' })).toBeNull();
+    expect(within(nav).queryByRole('link', { name: 'Productos' })).toBeNull();
   });
 
   it('sets the document title from the translations', async () => {

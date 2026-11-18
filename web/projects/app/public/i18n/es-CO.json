@@ -6,7 +6,9 @@
     "mainNav": "Navegación principal"
   },
   "nav": {
-    "home": "Inicio"
+    "home": "Inicio",
+    "customers": "Clientes",
+    "products": "Productos"
   },
   "userMenu": {
     "account": "Mi cuenta",
