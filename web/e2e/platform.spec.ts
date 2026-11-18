@@ -89,10 +89,18 @@ test('assigns a plan to a company picked from the searchable list', async ({ pag
 });
 
 test('lists the plans with the platform menu', async ({ page }) => {
+  const createdPlans: unknown[] = [];
   await signInAt(page, '/plataforma/planes', asPlatformAdmin);
-  await page.route('**/api/v1/plans', (route) =>
-    route.fulfill({ json: { success: true, data: PLANS } }),
-  );
+  await page.route('**/api/v1/plans', (route) => {
+    if (route.request().method() === 'POST') {
+      createdPlans.push(route.request().postDataJSON());
+      return route.fulfill({
+        status: 201,
+        json: { success: true, plan: { id: 3, name: 'Micro 50' } },
+      });
+    }
+    return route.fulfill({ json: { success: true, data: PLANS } });
+  });
   await page.reload();
 
   const nav = page.getByRole('navigation', { name: 'Navegación principal' });
@@ -102,6 +110,24 @@ test('lists the plans with the platform menu', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Nuevo plan' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nuevo plan' });
-  await expect(dialog.getByLabel(/Id del plan/)).toHaveValue('3');
+  // El id lo asigna el Api: no se pide al crear. Cada campo trae un ejemplo y su explicación.
+  await expect(dialog.getByLabel(/Id del plan/)).toHaveCount(0);
+  await expect(dialog.getByLabel('Nombre')).toHaveAttribute(
+    'placeholder',
+    'Por ejemplo, Mensual 100',
+  );
+  await dialog.getByRole('button', { name: 'Ayuda sobre Documentos por periodo' }).hover();
+  await expect(
+    dialog.getByRole('tooltip').filter({ hasText: 'en cada periodo del plan' }),
+  ).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
+
+  await dialog.getByLabel('Nombre').fill('Micro 50');
+  await dialog.getByLabel('Facturas y notas').pressSequentially('50a');
+  await expect(dialog.getByLabel('Facturas y notas')).toHaveValue('50');
+  await dialog.getByRole('button', { name: 'Guardar' }).click();
+  await expect(dialog).toBeHidden();
+  expect(createdPlans).toHaveLength(1);
+  expect(createdPlans[0]).not.toHaveProperty('id');
+  expect(createdPlans[0]).toMatchObject({ name: 'Micro 50', qty_docs_invoice: 50 });
 });

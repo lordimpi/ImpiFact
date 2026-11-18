@@ -100,7 +100,9 @@ test('a shared link opens the list with its search and status', async ({ page })
   ).toHaveValue('ana');
 });
 
-test('creates a customer after fixing the check digit the server rejected', async ({ page }) => {
+test('creates a customer after fixing the NIT whose check digit the server rejected', async ({
+  page,
+}) => {
   const masters = await signInAt(page, '/clientes/nuevo');
   let attempts = 0;
   masters.respond('POST', '/api/v1/customers', (request, route) => {
@@ -115,8 +117,13 @@ test('creates a customer after fixing the check digit the server rejected', asyn
 
   await expect(page.getByRole('heading', { level: 1, name: 'Nuevo cliente' })).toBeVisible();
   await page.getByRole('combobox', { name: 'Tipo de identificación' }).selectOption('6');
-  await page.getByRole('textbox', { name: 'Número de identificación' }).fill('900123456');
-  await page.getByRole('textbox', { name: 'Dígito de verificación (DV)' }).fill('1');
+  const number = page.getByRole('textbox', { name: 'Número de identificación' });
+  const dv = page.getByRole('textbox', { name: 'Dígito de verificación (DV)' });
+  // Con NIT el número solo admite dígitos y el DV se calcula solo.
+  await number.pressSequentially('900.123.457');
+  await expect(number).toHaveValue('900123457');
+  await expect(dv).toHaveValue('5');
+  await expect(dv).toHaveAttribute('readonly', '');
   await page.getByRole('textbox', { name: 'Nombre o razón social' }).fill('Ana Comercial SAS');
   await page
     .getByRole('textbox', { name: 'Correo para recibir facturas' })
@@ -126,13 +133,11 @@ test('creates a customer after fixing the check digit the server rejected', asyn
   await expect(
     page.getByText('Error, el digito de verificacion no es valido para este NIT.'),
   ).toBeVisible();
-  await expect(page.getByRole('textbox', { name: 'Dígito de verificación (DV)' })).toHaveAttribute(
-    'aria-invalid',
-    'true',
-  );
+  await expect(number).toHaveAttribute('aria-invalid', 'true');
   expect(await seriousViolations(page)).toEqual([]);
 
-  await page.getByRole('textbox', { name: 'Dígito de verificación (DV)' }).fill('8');
+  await number.fill('900123456');
+  await expect(dv).toHaveValue('8');
   await page.getByRole('button', { name: 'Guardar' }).click();
 
   await expect(page).toHaveURL('/clientes');
@@ -182,7 +187,7 @@ test(
       ...CUSTOMER,
       id: '6a1f0000-0000-4000-8000-000000000077',
       identification_number: '901555777',
-      dv: '3',
+      dv: '4',
       name: 'NUEVO CLIENTE DIAN SAS',
       email: 'fe@nuevo.test',
     };
@@ -249,7 +254,9 @@ test(
     await expect(page.getByRole('status')).toContainText(
       'La DIAN tiene registrado a NUEVO CLIENTE DIAN SAS.',
     );
-    await page.getByRole('textbox', { name: 'Dígito de verificación (DV)' }).fill('3');
+    await expect(page.getByRole('textbox', { name: 'Dígito de verificación (DV)' })).toHaveValue(
+      '4',
+    );
     expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
     await page.getByRole('button', { name: 'Guardar' }).click();
 
@@ -261,7 +268,7 @@ test(
     expect(masters.calls('POST', '/api/v1/customers').at(-1)!.body).toMatchObject({
       type_document_identification_id: 6,
       identification_number: '901555777',
-      dv: '3',
+      dv: '4',
       name: 'NUEVO CLIENTE DIAN SAS',
       email: 'fe@nuevo.test',
     });
@@ -284,7 +291,7 @@ test(
     expect(issued[0]).toMatchObject({
       customer: {
         identification_number: '901555777',
-        dv: '3',
+        dv: '4',
         name: 'NUEVO CLIENTE DIAN SAS',
         email: 'fe@nuevo.test',
       },
@@ -315,17 +322,29 @@ test('the product unit measure comes from the DIAN catalog, page by page', async
   await signInAt(page, '/productos/nuevo');
 
   const unit = page.getByRole('combobox', { name: 'Unidad de medida', exact: true });
-  await expect(unit).toHaveValue('70');
-  await expect(unit.locator('option', { hasText: 'kilogramo (KGM)' })).toHaveCount(1);
-  await expect(unit.locator('option', { hasText: 'litro (LTR)' })).toHaveCount(0);
+  await expect(unit).toHaveValue('unidad (94)');
   await expect(page.getByRole('combobox', { name: 'Impuesto' })).not.toContainText('ReteIVA');
   expect(await seriousViolations(page)).toEqual([]);
 
-  await page.getByRole('button', { name: 'Cargar más unidades' }).click();
-  await expect(unit.locator('option', { hasText: 'litro (LTR)' })).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Cargar más unidades' })).toHaveCount(0);
-  await unit.selectOption('821');
-  await expect(unit).toHaveValue('821');
+  // La simulación da dos filas por página: al abrir la lista, el final queda a la vista y la página siguiente
+  // llega sola, sin botón «Cargar más».
+  await unit.click();
+  const list = page.getByRole('listbox', { name: 'Unidad de medida' });
+  await expect(list.getByRole('option')).toHaveText([
+    'unidad (94)',
+    'kilogramo (KGM)',
+    'litro (LTR)',
+  ]);
+  await expect(page.getByRole('button', { name: /Cargar más/ })).toHaveCount(0);
+  await list.getByRole('option', { name: 'litro (LTR)' }).click();
+  await expect(unit).toHaveValue('litro (LTR)');
+
+  // También se busca escribiendo y se elige con el teclado.
+  await unit.fill('kilo');
+  await expect(list.getByRole('option')).toHaveText(['kilogramo (KGM)', 'litro (LTR)']);
+  await unit.press('ArrowDown');
+  await unit.press('Enter');
+  await expect(unit).toHaveValue('kilogramo (KGM)');
 });
 
 for (const theme of ['light', 'dark'] as const) {
