@@ -1,3 +1,4 @@
+using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Conversions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -21,5 +22,13 @@ internal sealed class PostgresModelCustomizer(ModelCustomizerDependencies depend
         {
             property.SetColumnType("jsonb");
         }
+
+        // Índices parciales: PostgreSQL los escribe tal cual, «where is_active» o «where cufe IS NOT NULL».
+        PortableIndexFilters.Apply(modelBuilder, (index, filter) => index.SetFilter(filter.Kind switch
+        {
+            PortableIndexFilterKind.WhereTrue => filter.Column,
+            PortableIndexFilterKind.WhereNotNull => $"{filter.Column} IS NOT NULL",
+            _ => throw new NotSupportedException($"Index filter {filter.Kind} is not supported."),
+        }));
     }
 }

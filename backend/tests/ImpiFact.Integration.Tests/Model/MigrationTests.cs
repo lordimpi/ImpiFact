@@ -1,7 +1,10 @@
 using ImpiFact.Domain.Catalog;
+using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Postgres;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace ImpiFact.Integration.Tests.Model;
 
@@ -21,6 +24,28 @@ public sealed class MigrationTests
         using var db = new DesignTimeDbContextFactory().CreateDbContext([]);
 
         Assert.That(db.Database.HasPendingModelChanges(), Is.False, "Run dotnet ef migrations add in ImpiFact.Infrastructure.Postgres.");
+    }
+
+    // Las configuraciones comunes declaran los índices parciales sin SQL; el personalizador del motor escribe cada filtro
+    // y quita la marca, así ninguna queda en el modelo ni en la instantánea.
+    [Test]
+    public void The_provider_writes_every_portable_index_filter()
+    {
+        using var db = new DesignTimeDbContextFactory().CreateDbContext([]);
+        var indexes = db.GetService<IDesignTimeModel>().Model.GetEntityTypes().SelectMany(entityType => entityType.GetDeclaredIndexes()).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(indexes.Where(index => index.FindAnnotation(PortableIndexFilters.AnnotationName) is not null).Select(index => index.GetDatabaseName()), Is.Empty);
+            Assert.That(
+                indexes.Where(index => index.GetFilter() is not null).ToDictionary(index => index.GetDatabaseName()!, index => index.GetFilter()),
+                Is.EqualTo(new Dictionary<string, string?>
+                {
+                    ["ux_certificates_active"] = "is_active",
+                    ["ux_documents_cufe"] = "cufe IS NOT NULL",
+                    ["ix_documents_track"] = "track_id IS NOT NULL",
+                }));
+        });
     }
 
     [Test]

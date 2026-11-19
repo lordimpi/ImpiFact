@@ -88,9 +88,10 @@ internal sealed class CertificateConfiguration : IEntityTypeConfiguration<Certif
         builder.BelongsToCompany();
         builder.References<Certificate, User>(certificate => certificate.UploadedBy);
 
-        // Un solo certificado activo por empresa. El filtro es SQL de PostgreSQL; SQL Server y MySQL lo resuelven
-        // a su manera en la fase 6 (Modelo de datos detallado, sección 8, trampa 1).
-        builder.HasIndex(certificate => certificate.CompanyId).HasDatabaseName("ux_certificates_active").IsUnique().HasFilter("is_active");
+        // Un solo certificado activo por empresa. Cada motor escribe el filtro a su manera (MySQL, sin índices parciales,
+        // con una columna generada): Modelo de datos detallado, sección 8, trampa 1.
+        builder.HasIndex(certificate => certificate.CompanyId).HasDatabaseName("ux_certificates_active").IsUnique()
+            .HasPortableFilter(PortableIndexFilterKind.WhereTrue, "is_active");
         builder.HasIndex(certificate => certificate.NotAfter).HasDatabaseName("ix_certificates_not_after");
     }
 }

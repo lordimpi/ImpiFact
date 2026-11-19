@@ -55,12 +55,16 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
         builder.HasIndex(
                 document => new { document.CompanyId, document.DocumentTypeId, document.TypeEnvironmentId, document.Prefix, document.Number }).HasDatabaseName("ux_documents_number")
             .IsUnique();
-        builder.HasIndex(document => new { document.CompanyId, document.Cufe }).HasDatabaseName("ux_documents_cufe").IsUnique().HasFilter("cufe IS NOT NULL");
+        // Los índices parciales (filtrados) los escribe cada motor (PortableIndexFilters): SQL Server trata los NULL como
+        // iguales en un índice único y sin el filtro solo admitiría un documento sin CUFE.
+        builder.HasIndex(document => new { document.CompanyId, document.Cufe }).HasDatabaseName("ux_documents_cufe").IsUnique()
+            .HasPortableFilter(PortableIndexFilterKind.WhereNotNull, "cufe");
         builder.HasIndex(document => new { document.CompanyId, document.IssuedAt }).HasDatabaseName("ix_documents_company_issued").IsDescending(false, true);
         builder.HasIndex(document => new { document.CompanyId, document.Status }).HasDatabaseName("ix_documents_company_status");
         builder.HasIndex(document => new { document.CompanyId, document.CustomerId, document.IssuedAt }).HasDatabaseName("ix_documents_customer")
             .IsDescending(false, false, true);
-        builder.HasIndex(document => document.TrackId).HasDatabaseName("ix_documents_track").HasFilter("track_id IS NOT NULL");
+        builder.HasIndex(document => document.TrackId).HasDatabaseName("ix_documents_track")
+            .HasPortableFilter(PortableIndexFilterKind.WhereNotNull, "track_id");
     }
 }
 
