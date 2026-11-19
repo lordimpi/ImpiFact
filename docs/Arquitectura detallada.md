@@ -9,7 +9,7 @@ ImpiFact.Domain          ← no depende de nada (ni de EF, ni de JSON, ni de DI)
 ImpiFact.Application     ← Domain, Dian
 ImpiFact.Dian            ← nada (puro: UBL, CUFE, firma, SOAP; sin acceso a BD; ADR-26)
 ImpiFact.Infrastructure  ← Application, Dian, Domain  (EF, Dapper, blobs, correo, PDF, secretos)
-ImpiFact.Infrastructure.<Proveedor> ← Infrastructure (migraciones y SQL no portable)
+ImpiFact.Infrastructure.<Proveedor> ← Infrastructure (migraciones, SQL no portable, dialecto SQL e índices parciales)
 ImpiFact.Api             ← Application, Infrastructure, Infrastructure.<Proveedor> (composición)
 ImpiFact.Worker          ← Application, Infrastructure, Infrastructure.<Proveedor> (composición)
 ImpiFact.Migrator        ← Application, Infrastructure, Infrastructure.<Proveedor> (aplica migraciones y semillas)
@@ -490,7 +490,7 @@ Módulos del panel de la fase 5:
 
 ```jsonc
 {
-  "Database":   { "Provider": "Postgres", "ConnectionString": "", "CheckPendingMigrationsAtStartup": true },   // Postgres | SqlServer | MySql
+  "Database":   { "Provider": "Postgres", "ConnectionString": "", "CheckPendingMigrationsAtStartup": true },   // Postgres | SqlServer | MySql; obligatorio, sin valor por defecto
   "Dian":       { "HabilitacionUrl": "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc",
                   "ProduccionUrl":   "https://vpfe.dian.gov.co/WcfDianCustomerServices.svc",
                   "HabilitacionQrUrl": "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=",
@@ -546,9 +546,9 @@ Módulos del panel de la fase 5:
 | `Application.Tests` | Handlers con puertos simulados (Moq) | Caminos felices y de error |
 | `Dian.Tests` | CUFE, firma, UBL contra fixtures | Sin red |
 | `Golden.Tests` | JSON de entrada → XML y CUFE idénticos al PHP | Comparación byte a byte (ADR-27); fixtures en `backend/tests/golden/<tipo>/<caso>/{input.json,expected.xml,expected.cufe}` |
-| `Integration.Tests` | EF + Dapper + cola con Testcontainers en PostgreSQL (fase 2) y en los 3 motores desde la fase 6 | Matriz de proveedor en CI desde la fase 6 |
+| `Integration.Tests` | EF + Dapper + cola con Testcontainers en PostgreSQL (fase 2) y en los 3 motores desde la fase 6 | Matriz de proveedor en CI desde la fase 6. Los hosts de prueba eligen el motor como la aplicación, con `TestDatabase` (`Database__Provider`, PostgreSQL si falta) |
 | `Contract.Tests` | Colección Postman oficial (copia limpia en el repo, sin credenciales) reproducida en orden por .NET, sin Newman ni Node: la API con `WebApplicationFactory`, PostgreSQL de Testcontainers, el Worker en el mismo proceso y la DIAN falsa. Revisa el código 2xx y las claves del primer nivel de las respuestas de ejemplo del PHP (`Category=Contract`) | Tokens propios; falla ante cambios de contrato y ante una diferencia que no esté en `KnownDeviations` (lista única, con el motivo de cada una) |
-| `Architecture.Tests` | Reglas de la sección 1, aislamiento de módulos, consultas Dapper con `company_id`, ausencia de secretos en logs | NetArchTest |
+| `Architecture.Tests` | Reglas de la sección 1, aislamiento de módulos, consultas Dapper con `company_id` y sin sintaxis de un solo motor, filtros de índice y tipos de columna fuera de las configuraciones comunes, cada host con todos los motores, ausencia de secretos en logs | NetArchTest |
 | Seguridad | Aislamiento entre empresas por entidad, API keys revocadas, propiedad por NIT | En `Integration.Tests` |
 
 Procedimiento para generar fixtures golden: `backend/tools/golden-capture` levanta el PHP en Docker (solo en `127.0.0.1`) y le envía cada JSON de entrada con `"query_uuid": true`. En ese modo el PHP arma, firma y calcula el CUFE/CUDE, pero responde antes de llamar a la DIAN; no sale tráfico hacia la DIAN. Guarda el XML firmado sin el elemento `ds:Signature`, el CUFE y la respuesta, y se versionan en el repo. Fecha, hora, consecutivo, clave técnica, software y empresa son fijos, así que el resultado es determinista (comprobado el 15-nov: dos corridas dan los mismos bytes). Instrucciones en `backend/tools/golden-capture/README.md`.
@@ -600,6 +600,7 @@ Convenciones que sigue todo el código del repositorio. Los documentos de `docs/
 - Clean Architecture: `Domain` sin dependencias, `Application` solo con puertos y `Dian` puro. Las pruebas de arquitectura deben pasar.
 - Sin MediatR ni AutoMapper. Casos de uso con `IHandler<TIn, TOut>` y decoradores; mapeo con Mapster.
 - Escrituras con EF Core y lecturas con Dapper. Toda consulta incluye `company_id`.
+- Portabilidad de la base (19-nov, fase 6): ningún código de un motor fuera de `ImpiFact.Infrastructure.<Motor>`. Cada motor trae un `IDatabaseProvider` con sus servicios; la API, el Worker y el Migrator registran todos los disponibles y `Database:Provider` elige uno (sin valor o con uno que no existe, no arrancan y el mensaje lista los disponibles). Lo que cambia de un motor a otro en las lecturas Dapper de Infrastructure lo da `ISqlDialect` (límite y salto de filas, `LIKE` sin mayúsculas con escape `\`, texto de una propiedad JSON, año y mes con un desfase fijo, unión lateral, literales booleanos); el resto del SQL es común: paginación por clave sin comparar filas (`col >= @v and (col > @v or id > @id)`), `group by` por expresión y nunca por posición, y nada de convertir un uuid a texto en SQL. Se eligió un dialecto con pocos trozos frente a copiar cada consulta en cada motor (diez consultas largas por triplicado) o pasarlas a LINQ (cambiaría el plan, la intercalación y el orden que fijan las pruebas). Los índices parciales se declaran con `HasPortableFilter` y los escribe el personalizador del modelo de cada motor (`PortableIndexFilters.Apply`). Una prueba de arquitectura rechaza `ilike`, `::`, `->>`, `limit`, `to_char`, `at time zone`, `||`, `true`/`false` y columnas booleanas sueltas en el SQL de Infrastructure.
 - Dinero con `decimal` y `DianRounding`; nunca `float` ni `double`.
 - Ningún secreto en logs, `appsettings` ni base de datos en claro.
 - Migraciones por proveedor; no se editan migraciones ya aplicadas.
