@@ -118,6 +118,8 @@ public sealed class FakeRefreshTokenStore : IRefreshTokenStore
 
     public Task RevokeAllActiveForUserAsync(Guid userId, DateTimeOffset revokedAt, CancellationToken ct)
     {
+        // Como EF: con el token cancelado no se guarda nada.
+        ct.ThrowIfCancellationRequested();
         RevokedAllFor.Add((userId, revokedAt));
         return Task.CompletedTask;
     }

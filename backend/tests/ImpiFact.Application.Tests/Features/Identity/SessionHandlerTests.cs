@@ -197,6 +197,24 @@ public sealed class SessionHandlerTests
     }
 
     [Test]
+    public async Task A_reused_refresh_token_revokes_every_session_even_when_the_client_aborted_the_request()
+    {
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+
+        // La pestaña del usuario se recargó justo al presentar el token viejo: la petición llega cancelada.
+        var reused = await Refresh(login.RefreshToken, ct: new CancellationToken(canceled: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }),
+                "The response to a stolen token must finish even if nobody waits for the answer.");
+        });
+    }
+
+    [Test]
     public async Task An_unknown_or_expired_refresh_token_or_an_inactive_user_gets_the_generic_error()
     {
         var user = _users.AddUser("ana@example.com");
@@ -300,9 +318,9 @@ public sealed class SessionHandlerTests
         new LoginHandler(_users, _hasher, _clock, _issuer, _refreshFactory, _refreshStore)
             .HandleAsync(new LoginCommand(email, password, companyId, ip, agent), CancellationToken.None);
 
-    private Task<Result<SessionTokens>> Refresh(string token, Guid? companyId = null) =>
+    private Task<Result<SessionTokens>> Refresh(string token, Guid? companyId = null, CancellationToken ct = default) =>
         new RefreshTokenHandler(_refreshStore, _refreshFactory, _users, _issuer, _clock, NullLogger<RefreshTokenHandler>.Instance)
-            .HandleAsync(new RefreshTokenCommand(token, companyId, null, null), CancellationToken.None);
+            .HandleAsync(new RefreshTokenCommand(token, companyId, null, null), ct);
 
     private Task<Result<LoggedOut>> Logout(string token) =>
         new LogoutHandler(_refreshStore, _refreshFactory, _clock, NullLogger<LogoutHandler>.Instance)
