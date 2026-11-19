@@ -11,7 +11,6 @@ using ImpiFact.Integration.Tests.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Documents;
 
@@ -27,7 +26,7 @@ namespace ImpiFact.Integration.Tests.Documents;
 [Category("Integration")]
 public sealed class DocumentsDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseServer? container;
     private static ServiceProvider? services;
     private static int nitSequence;
 
@@ -43,7 +42,7 @@ public sealed class DocumentsDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
 
         var configuration = new ConfigurationBuilder()

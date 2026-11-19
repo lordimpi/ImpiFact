@@ -2,7 +2,6 @@ using System.Security.Cryptography;
 using Dapper;
 using ImpiFact.Application.Abstractions.Protection;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.Protection.DataProtection;
 
@@ -55,7 +54,7 @@ public sealed class SharedKeysTests
             instance.GetRequiredService<ISecretProtector>().Protect(SecretPurposes.SmtpPassword, "smtp-password");
         }
 
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.Connect(connectionString);
         var rows = (await connection.QueryAsync<(string? FriendlyName, string Xml)>(
             "select friendly_name, xml from data_protection_keys")).ToList();
 
@@ -97,7 +96,7 @@ public sealed class SharedKeysTests
     [Test]
     public async Task The_table_matches_the_data_model()
     {
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.Connect(connectionString);
         var columns = (await connection.QueryAsync<(string Column, string Type, int? Length, string Nullable)>(
                 "select column_name, data_type, character_maximum_length, is_nullable from information_schema.columns " +
                 "where table_name = 'data_protection_keys' order by ordinal_position"))
@@ -108,12 +107,10 @@ public sealed class SharedKeysTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(columns, Is.EquivalentTo(new (string, string, int?, string)[]
-            {
-                ("id", "integer", null, "NO"),
-                ("friendly_name", "character varying", 200, "YES"),
-                ("xml", "text", null, "YES"),
-            }));
+            // En SQL Server el texto es nvarchar (-1 es nvarchar(max)), como el resto del modelo.
+            Assert.That(columns, Is.EquivalentTo(TestDatabase.IsSqlServer
+                ? new (string, string, int?, string)[] { ("id", "int", null, "NO"), ("friendly_name", "nvarchar", 200, "YES"), ("xml", "nvarchar", -1, "YES") }
+                : [("id", "integer", null, "NO"), ("friendly_name", "character varying", 200, "YES"), ("xml", "text", null, "YES")]));
             Assert.That(primaryKey, Is.EqualTo("pk_data_protection_keys"));
         });
     }

@@ -37,6 +37,9 @@ public sealed class PasswordResetTokensMigrationTests
     [Test]
     public async Task PasswordResetTokens_down_removes_only_its_table_and_up_restores_it()
     {
+        // Solo PostgreSQL tiene la migración PasswordResetTokens aparte: los demás motores empiezan con una sola InitialSchema que ya
+        // trae el cambio, así que no hay migración que revertir.
+        Assume.That(TestDatabase.IsSqlServer, Is.False, "PasswordResetTokens is a PostgreSQL-only migration; SQL Server starts from one InitialSchema.");
         await using var session = ModelDatabase.Open(companyId: null);
         var migrator = session.Db.GetService<IMigrator>();
 

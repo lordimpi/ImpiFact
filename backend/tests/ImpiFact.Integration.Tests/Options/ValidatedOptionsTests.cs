@@ -44,7 +44,7 @@ public sealed class ValidatedOptionsTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(options.Provider, Is.EqualTo("Postgres"));
+            Assert.That(options.Provider, Is.EqualTo(TestDatabase.ProviderName));
             Assert.That(options.ConnectionString, Is.EqualTo("Host=localhost;Database=impifact"));
         });
     }

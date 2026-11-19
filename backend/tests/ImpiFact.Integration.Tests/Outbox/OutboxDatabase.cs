@@ -14,7 +14,6 @@ using ImpiFact.Integration.Tests.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Outbox;
 
@@ -32,7 +31,7 @@ namespace ImpiFact.Integration.Tests.Outbox;
 [Category("Integration")]
 public sealed class OutboxDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseServer? container;
     private static int nitSequence;
 
     public static string ConnectionString =>
@@ -41,7 +40,7 @@ public sealed class OutboxDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
 
         await using var host = OutboxHost.Create();

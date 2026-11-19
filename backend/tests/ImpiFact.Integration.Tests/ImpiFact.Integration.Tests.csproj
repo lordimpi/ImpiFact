@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Pruebas contra piezas reales. Las de la categoría «Integration» levantan PostgreSQL en Docker con
-    Testcontainers (una librería que crea contenedores desechables para las pruebas); el resto corre sin Docker.
+    Pruebas contra piezas reales. Las de la categoría «Integration» levantan la base en Docker con Testcontainers (una
+    librería que crea contenedores desechables para las pruebas): PostgreSQL, o SQL Server con
+    Database__Provider=SqlServer (ver TestDatabase). El resto corre sin Docker.
   -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
@@ -16,6 +17,7 @@
     <PackageReference Include="Testcontainers.Minio" />
     <PackageReference Include="Testcontainers" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.MsSql" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\ImpiFact.Api\ImpiFact.Api.csproj" />

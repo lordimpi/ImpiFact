@@ -75,7 +75,7 @@ public sealed class IdentityStoreTests
         }
 
         var row = await QuerySingleAsync<(DateTime? LastUsedAt, string Scopes, DateTime? RevokedAt)>(
-            "select last_used_at, scopes, revoked_at from api_keys where id = @id", new { id });
+            $"select {TestDatabase.Utc("last_used_at")}, scopes, {TestDatabase.Utc("revoked_at")} from api_keys where id = @id", new { id });
 
         Assert.Multiple(() =>
         {
@@ -146,7 +146,7 @@ public sealed class IdentityStoreTests
         }
 
         var row = await QuerySingleAsync<(DateTime? RevokedAt, Guid? ReplacedBy)>(
-            "select revoked_at, replaced_by from refresh_tokens where id = @id", new { id = old.Id });
+            $"select {TestDatabase.Utc("revoked_at")}, replaced_by from refresh_tokens where id = @id", new { id = old.Id });
         var newRow = await QuerySingleAsync<(string TokenHash, string UserAgent)>(
             "select token_hash, user_agent from refresh_tokens where id = @id", new { id = replacement.Id });
 
@@ -291,7 +291,7 @@ public sealed class IdentityStoreTests
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 }

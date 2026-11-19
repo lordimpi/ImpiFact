@@ -26,7 +26,7 @@ public sealed class MigratorTests
         Assert.That(exitCode, Is.Zero);
         Assert.That(output, Does.Match(@"Migrations applied: \d{14}_InitialSchema"));
         Assert.That(output, Does.Match(@"Catalogs synchronized: \d+ inserted, 0 updated"));
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.Connect(connectionString);
         Assert.That(await connection.ExecuteScalarAsync<int>("select count(*) from municipalities"), Is.EqualTo(1122));
         Assert.That(await connection.ExecuteScalarAsync<int>("select count(*) from roles"), Is.EqualTo(5));
     }
@@ -56,7 +56,7 @@ public sealed class MigratorTests
 
         Assert.That(exitCode, Is.Zero);
         var plain = output.Split('\n', StringSplitOptions.TrimEntries).Single(line => line.StartsWith("apk_", StringComparison.Ordinal));
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.Connect(connectionString);
         var row = await connection.QuerySingleAsync<(Guid? CompanyId, string Name, string Scopes, string KeyHash)>(
             "select company_id, name, scopes, key_hash from api_keys");
         Assert.Multiple(() =>

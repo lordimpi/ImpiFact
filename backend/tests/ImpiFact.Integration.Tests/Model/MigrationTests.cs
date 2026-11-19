@@ -23,7 +23,7 @@ public sealed class MigrationTests
     {
         using var db = new DesignTimeDbContextFactory().CreateDbContext([]);
 
-        Assert.That(db.Database.HasPendingModelChanges(), Is.False, "Run dotnet ef migrations add in ImpiFact.Infrastructure.Postgres.");
+        Assert.That(db.Database.HasPendingModelChanges(), Is.False, $"Run dotnet ef migrations add in ImpiFact.Infrastructure.{TestDatabase.ProviderName}.");
     }
 
     // Las configuraciones comunes declaran los índices parciales sin SQL; el personalizador del motor escribe cada filtro
@@ -75,8 +75,9 @@ public sealed class MigrationTests
     {
         await using (var session = ModelDatabase.Open(companyId: null))
         {
-            await session.Db.Database.ExecuteSqlRawAsync(
-                "UPDATE type_environments SET name = 'Cambiado a mano', is_active = false WHERE id = 2");
+            // Con parámetros: cada motor escribe el booleano a su modo (SQL Server no tiene true ni false).
+            await session.Db.Database.ExecuteSqlAsync(
+                $"UPDATE type_environments SET name = {"Cambiado a mano"}, is_active = {false} WHERE id = 2");
         }
 
         CatalogSyncReport report;
@@ -87,7 +88,7 @@ public sealed class MigrationTests
 
         await using var check = ModelDatabase.Open(companyId: null);
         var row = await check.Db.Set<TypeEnvironment>().AsNoTracking().SingleAsync(entry => entry.Id == 2);
-        await check.Db.Database.ExecuteSqlRawAsync("UPDATE type_environments SET is_active = true WHERE id = 2");
+        await check.Db.Database.ExecuteSqlAsync($"UPDATE type_environments SET is_active = {true} WHERE id = 2");
 
         Assert.That(report, Is.EqualTo(new CatalogSyncReport(Inserted: 0, Updated: 1)));
         Assert.That(row.Name, Is.EqualTo("Pruebas"));

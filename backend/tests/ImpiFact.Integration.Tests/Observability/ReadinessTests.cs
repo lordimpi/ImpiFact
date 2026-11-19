@@ -7,7 +7,6 @@ using ImpiFact.Infrastructure.Observability;
 using ImpiFact.Integration.Tests.Identity;
 using ImpiFact.Integration.Tests.Protection;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Observability;
 
@@ -20,12 +19,12 @@ namespace ImpiFact.Integration.Tests.Observability;
 [Category("Integration")]
 public sealed class ReadinessTests
 {
-    private PostgreSqlContainer container = null!;
+    private TestDatabaseServer container = null!;
 
     [OneTimeSetUp]
     public async Task StartDatabaseAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
     }
 

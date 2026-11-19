@@ -1,13 +1,11 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Protection.DataProtection;
 
 /// <summary>
-/// Levanta un PostgreSQL desechable en Docker para las pruebas de Data Protection (el sistema de ASP.NET Core
+/// Levanta una base desechable en Docker (del motor de TestDatabase) para las pruebas de Data Protection (el sistema de ASP.NET Core
 /// que cifra datos con llaves que él mismo crea y rota). Cada prueba pide su propia base vacía con
 /// <see cref="CreateDatabaseAsync"/>, así las llaves de una prueba no se mezclan con las de otra.
 /// </summary>
@@ -15,12 +13,12 @@ namespace ImpiFact.Integration.Tests.Protection.DataProtection;
 [Category("Integration")]
 public sealed class KeysDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseServer? container;
 
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
     }
 
@@ -39,18 +37,12 @@ public sealed class KeysDatabase
     /// </summary>
     public static async Task<string> CreateDatabaseAsync()
     {
-        var admin = container?.GetConnectionString() ?? throw new InvalidOperationException("The PostgreSQL container is not running.");
+        var server = container ?? throw new InvalidOperationException("The database server is not running.");
         var name = "keys_" + Guid.NewGuid().ToString("N");
-        await using (var connection = new NpgsqlConnection(admin))
-        {
-            await connection.OpenAsync();
-            await using var command = new NpgsqlCommand($"create database {name}", connection);
-            await command.ExecuteNonQueryAsync();
-        }
+        await server.CreateDatabaseAsync(name);
 
-        var connectionString = new NpgsqlConnectionStringBuilder(admin) { Database = name }.ConnectionString;
-        var options = new DbContextOptionsBuilder<KeysOnlyDbContext>().UseNpgsql(connectionString).Options;
-        await using var context = new KeysOnlyDbContext(options);
+        var connectionString = server.ConnectionStringFor(name);
+        await using var context = new KeysOnlyDbContext(TestDatabase.ContextOptions<KeysOnlyDbContext>(connectionString));
         await context.Database.EnsureCreatedAsync();
         return connectionString;
     }

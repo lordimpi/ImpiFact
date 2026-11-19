@@ -8,7 +8,6 @@ using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Integration.Tests.Companies;
 using ImpiFact.Integration.Tests.DocumentIssue;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Plans;
 
@@ -20,7 +19,7 @@ namespace ImpiFact.Integration.Tests.Plans;
 [Category("Integration")]
 public sealed class PlansHost
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseServer? container;
     private static CompanyApiFactory? factory;
 
     public static CompanyApiFactory Api => factory ?? throw new InvalidOperationException("The plans API host is not running.");
@@ -28,7 +27,7 @@ public sealed class PlansHost
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
         factory = new CompanyApiFactory(container.GetConnectionString());
 

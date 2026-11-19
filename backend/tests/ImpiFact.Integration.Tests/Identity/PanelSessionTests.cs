@@ -102,7 +102,7 @@ public sealed class PanelSessionTests
 
         using var response = await Client().SendAsync(request);
         var revokedAt = await QuerySingleAsync<DateTime?>(
-            "select revoked_at from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(valid) });
+            $"select {TestDatabase.Utc("revoked_at")} from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(valid) });
 
         Assert.Multiple(() =>
         {
@@ -138,7 +138,7 @@ public sealed class PanelSessionTests
         var body = await ReadAsync(response);
         var rotated = RefreshCookie(response);
         var oldRow = await QuerySingleAsync<(DateTime? RevokedAt, Guid? ReplacedBy)>(
-            "select revoked_at, replaced_by from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(original) });
+            $"select {TestDatabase.Utc("revoked_at")}, replaced_by from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(original) });
         var newId = await QuerySingleAsync<Guid>(
             "select id from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(rotated.Value.Value!) });
 
@@ -275,10 +275,10 @@ public sealed class PanelSessionTests
         using var first = await Client().SendAsync(PanelRequest("/api/v1/auth/logout", body: null, cookie: cookie));
         var cleared = RefreshCookie(first);
         var revokedAt = await QuerySingleAsync<DateTime?>(
-            "select revoked_at from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(cookie) });
+            $"select {TestDatabase.Utc("revoked_at")} from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(cookie) });
         using var second = await Client().SendAsync(PanelRequest("/api/v1/auth/logout", body: null, cookie: cookie));
         var otherRevokedAt = await QuerySingleAsync<DateTime?>(
-            "select revoked_at from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(otherSession) });
+            $"select {TestDatabase.Utc("revoked_at")} from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(otherSession) });
 
         Assert.Multiple(() =>
         {
@@ -315,7 +315,7 @@ public sealed class PanelSessionTests
             http.RequestAborted = new CancellationToken(canceled: true);
         });
         var revokedAt = await QuerySingleAsync<DateTime?>(
-            "select revoked_at from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(cookie) });
+            $"select {TestDatabase.Utc("revoked_at")} from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(cookie) });
 
         Assert.Multiple(() =>
         {
@@ -333,7 +333,7 @@ public sealed class PanelSessionTests
 
         using var response = await Client().PostAsJsonAsync("/api/v1/auth/logout", new { refresh_token = token });
         var revokedAt = await QuerySingleAsync<DateTime?>(
-            "select revoked_at from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(token) });
+            $"select {TestDatabase.Utc("revoked_at")} from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(token) });
         using var refresh = await Client().PostAsJsonAsync("/api/v1/auth/refresh", new { refresh_token = token });
 
         Assert.Multiple(() =>
@@ -375,7 +375,7 @@ public sealed class PanelSessionTests
 
         using var response = await Client().SendAsync(request);
         var revokedAt = await QuerySingleAsync<DateTime?>(
-            "select revoked_at from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(cookie) });
+            $"select {TestDatabase.Utc("revoked_at")} from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(cookie) });
 
         Assert.Multiple(() =>
         {
@@ -433,12 +433,12 @@ public sealed class PanelSessionTests
 
     private static Task<(Guid Id, Guid UserId, DateTime? RevokedAt, Guid? ReplacedBy)> TokenRowAsync(string token) =>
         QuerySingleAsync<(Guid, Guid, DateTime?, Guid?)>(
-            "select id, user_id, revoked_at, replaced_by from refresh_tokens where token_hash = @hash",
+            $"select id, user_id, {TestDatabase.Utc("revoked_at")}, replaced_by from refresh_tokens where token_hash = @hash",
             new { hash = CredentialHash.Sha256Hex(token) });
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 }

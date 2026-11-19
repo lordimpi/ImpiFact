@@ -27,7 +27,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.DianSend;
 
@@ -40,7 +39,7 @@ namespace ImpiFact.Integration.Tests.DianSend;
 [Category("Integration")]
 public sealed class DianSendDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseServer? container;
     private static int nitSequence;
 
     public static string ConnectionString =>
@@ -49,7 +48,7 @@ public sealed class DianSendDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
 
         await using var host = DianSendHost.Create();
@@ -356,8 +355,11 @@ public sealed class DianSendHost : IAsyncDisposable
     public async Task<List<OutboxMessage>> MessagesAsync(Guid companyId, string type)
     {
         await using var scope = OpenScope();
-        return await Db(scope).Set<OutboxMessage>().AsNoTracking()
-            .Where(row => row.CompanyId == companyId && row.Type == type).OrderBy(row => row.CreatedAt).ThenBy(row => row.Id).ToListAsync();
+        // Se ordena aquí: SQL Server ordena un uniqueidentifier por sus últimos bytes, así que el orden de los uuid v7 en
+        // la base no es el de creación; Guid.CompareTo de .NET sí lo es.
+        var rows = await Db(scope).Set<OutboxMessage>().AsNoTracking()
+            .Where(row => row.CompanyId == companyId && row.Type == type).ToListAsync();
+        return [.. rows.OrderBy(row => row.CreatedAt).ThenBy(row => row.Id)];
     }
 
     public async Task<List<Notification>> NotificationsAsync(Guid companyId)

@@ -119,9 +119,12 @@ public sealed class MyCompaniesTests
     private static async Task<(Guid Id, string Nit)> AddCompanyAsync(string name, bool isActive)
     {
         var id = await IdentityDatabase.AddCompanyAsync();
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         var nit = await connection.QuerySingleAsync<string>(
-            "update companies set name = @name, is_active = @isActive where id = @id returning identification_number", new { id, name, isActive });
+            TestDatabase.IsSqlServer
+                ? "update companies set name = @name, is_active = @isActive output inserted.identification_number where id = @id"
+                : "update companies set name = @name, is_active = @isActive where id = @id returning identification_number",
+            new { id, name, isActive });
         return (id, nit);
     }
 
@@ -135,7 +138,7 @@ public sealed class MyCompaniesTests
 
     private static async Task<string> EmailOfAsync(Guid userId)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<string>("select email from users where id = @userId", new { userId });
     }
 
