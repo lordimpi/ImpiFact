@@ -2,6 +2,7 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Companies;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Messaging;
+using ImpiFact.Application.Abstractions.Observability;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Application.Abstractions.Protection;
 using ImpiFact.Application.Features.Documents.Issue;
@@ -45,6 +46,7 @@ internal sealed class SendDocumentToDianHandler(
     INumberingSequences numbering,
     IUnitOfWork unitOfWork,
     IClock clock,
+    ImpiFactMetrics metrics,
     ILogger<SendDocumentToDianHandler> logger) : IOutboxMessageHandler
 {
     /// <summary>Espera hasta la primera consulta de un documento enviado sin decisión.</summary>
@@ -126,6 +128,10 @@ internal sealed class SendDocumentToDianHandler(
 
         await ApplyAsync(document, answer, startedAt, endpoint, ct);
         await unitOfWork.SaveChangesAsync(ct);
+
+        // Después de guardar: un guardado que falla (por ejemplo, otro proceso ya lo cambió) no cuenta.
+        metrics.DocumentIssued(document);
+        metrics.DocumentDecided(document);
     }
 
     /// <summary>

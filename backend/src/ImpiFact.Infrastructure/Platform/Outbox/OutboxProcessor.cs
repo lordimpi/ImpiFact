@@ -1,5 +1,8 @@
+using System.Diagnostics;
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Messaging;
+using ImpiFact.Application.Abstractions.Observability;
+using ImpiFact.Infrastructure.Observability;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence.Conversions;
 using ImpiFact.Infrastructure.Tenancy;
@@ -23,7 +26,12 @@ namespace ImpiFact.Infrastructure.Platform.Outbox;
 /// <see cref="OutboxOptions.PollSeconds"/>. Los logs nombran el id y el tipo del mensaje, nunca sus datos.
 /// </remarks>
 internal sealed class OutboxProcessor(
-    IServiceScopeFactory scopes, IOptions<OutboxOptions> options, OutboxWorkerId workerId, ILogger<OutboxProcessor> logger)
+    IServiceScopeFactory scopes,
+    IOptions<OutboxOptions> options,
+    OutboxWorkerId workerId,
+    IClock clock,
+    ImpiFactMetrics metrics,
+    ILogger<OutboxProcessor> logger)
     : BackgroundService
 {
     private IReadOnlyCollection<string>? handledTypes;
@@ -45,6 +53,13 @@ internal sealed class OutboxProcessor(
         {
             messages = await scope.ServiceProvider.GetRequiredService<OutboxQueue>()
                 .ClaimAsync(workerId.Value, types, options.Value.BatchSize, ct);
+        }
+
+        // Cuánto esperó cada mensaje desde que debía correr (impifact.outbox.queue.lag): crece si el Worker no da abasto.
+        var now = clock.UtcNow;
+        foreach (var message in messages)
+        {
+            metrics.OutboxMessageTaken(message.Type, now - message.NextAttemptAt);
         }
 
         await Task.WhenAll(messages.Select(message => ProcessAsync(message, ct)));
@@ -115,6 +130,13 @@ internal sealed class OutboxProcessor(
             scope["CompanyId"] = companyId;
         }
 
+        // Un tramo de traza por mensaje (si hay quien escuche, por ejemplo OpenTelemetry con OTLP): las llamadas del
+        // handler a la DIAN, a Gotenberg y a la base quedan dentro de él.
+        using var activity = ImpiFactActivities.Source.StartActivity($"outbox {message.Type}", ActivityKind.Consumer);
+        activity?.SetTag("messaging.system", "impifact.outbox");
+        activity?.SetTag("messaging.operation.type", "process");
+        activity?.SetTag("messaging.destination.name", message.Type);
+        activity?.SetTag("messaging.message.id", message.Id.ToString());
         using (logger.BeginScope(scope))
         {
             await ProcessInScopeAsync(message, ct);
@@ -180,6 +202,7 @@ internal sealed class OutboxProcessor(
         {
             if (await queue.CompleteAsync(workerId.Value, message, ct))
             {
+                metrics.OutboxMessageProcessed(message.Type);
                 logger.LogDebug("Outbox message {MessageId} of type {MessageType} processed.", message.Id, message.Type);
             }
             else
@@ -202,11 +225,13 @@ internal sealed class OutboxProcessor(
         switch (await queue.FailAsync(workerId.Value, message, failure, ct))
         {
             case OutboxFailureOutcome.Rescheduled:
+                metrics.OutboxMessageFailed(message.Type, final: false);
                 logger.LogWarning(
                     failure, "Outbox message {MessageId} of type {MessageType} failed on attempt {Attempt}; it will be retried.",
                     message.Id, message.Type, message.Attempts);
                 break;
             case OutboxFailureOutcome.Failed:
+                metrics.OutboxMessageFailed(message.Type, final: true);
                 logger.LogError(
                     failure, "Outbox message {MessageId} of type {MessageType} failed on attempt {Attempt} and will not be retried.",
                     message.Id, message.Type, message.Attempts);

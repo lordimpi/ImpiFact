@@ -19,6 +19,8 @@ using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.Postgres;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.HttpOverrides;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 namespace ImpiFact.Api;
 
@@ -33,8 +35,13 @@ internal static class ApiComposition
         var services = builder.Services;
         var configuration = builder.Configuration;
 
-        // Registros JSON con Serilog, sin secretos (Arquitectura detallada, sección 12).
-        builder.AddImpiFactObservability(ServiceName);
+        // Registros JSON con Serilog, sin secretos, y trazas y métricas por OTLP si está OTEL_EXPORTER_OTLP_ENDPOINT
+        // (Arquitectura detallada, sección 12). Las pruebas de salud no dejan trazas: se consultan cada pocos segundos.
+        builder.AddImpiFactObservability(
+            ServiceName,
+            tracing => tracing.AddAspNetCoreInstrumentation(options =>
+                options.Filter = context => !context.Request.Path.StartsWithSegments("/health")),
+            metrics => metrics.AddAspNetCoreInstrumentation());
 
         // Opciones validadas al arrancar, reloj, tenant y persistencia. Si falta un valor obligatorio (por ejemplo la
         // cadena de conexión, que llega por la variable de entorno Database__ConnectionString), la API no arranca.

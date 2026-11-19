@@ -1,6 +1,7 @@
 using ImpiFact.Application;
 using ImpiFact.Infrastructure.Email;
 using ImpiFact.Infrastructure.Identity;
+using ImpiFact.Infrastructure.Observability;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.Persistence;
@@ -37,6 +38,7 @@ public static class OutboxServiceCollectionExtensions
 
         // Correo del documento aceptado (SendEmail): MailKit y el servidor de correo de la empresa o de la plataforma.
         services.AddEmail(configuration);
+        services.AddEmailMetrics();
 
         // Correo para restablecer la contraseña (SendPasswordResetEmail): sus tokens y el enlace al panel (Panel:BaseUrl).
         services.AddIdentityPersistence();
