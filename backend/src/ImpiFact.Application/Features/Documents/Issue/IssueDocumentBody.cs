@@ -7,7 +7,8 @@ namespace ImpiFact.Application.Features.Documents.Issue;
 // Cuerpo JSON de la emisión heredada (anexo A.1 a A.3; php-rules, secciones 3 y 4), con los nombres del contrato,
 // incluidos sus errores de escritura (discrepancyresponsecode). Un mismo cuerpo sirve para la factura y las notas:
 // cada tipo usa su lista de líneas y sus totales. Los valores simples llegan como LegacyScalar porque el contrato
-// mezcla texto y números; los campos que ImpiFact todavía no usa (correo, plantillas, PDF…) se aceptan y se ignoran.
+// mezcla texto y números; los campos que ImpiFact todavía no usa (plantillas, PDF…) se aceptan y se ignoran. Los del
+// correo (sendmail, sendmailtome, email_pos_customer) se declaran para el contrato y los lee DocumentEmailRequest.
 
 /// <summary>Solicitud de emisión de factura (<c>invoice</c>), nota crédito (<c>credit-note</c>) o nota débito (<c>debit-note</c>).</summary>
 public sealed record IssueDocumentBody
@@ -60,6 +61,17 @@ public sealed record IssueDocumentBody
     [JsonConverter(typeof(ObjectOrListConverter<PaymentFormBody>))]
     public List<PaymentFormBody>? PaymentForm { get; init; }
 
+    /// <summary>
+    /// Un anticipo suelto (<c>prepaid_payment</c>), como en el PHP. Solo lo usa la factura: las plantillas de las notas
+    /// no escriben anticipos.
+    /// </summary>
+    [JsonPropertyName("prepaid_payment")]
+    public PrepaidPaymentBody? PrepaidPayment { get; init; }
+
+    /// <summary>Varios anticipos (<c>prepaid_payments</c>); van después de <c>prepaid_payment</c>. Solo en la factura.</summary>
+    [JsonPropertyName("prepaid_payments")]
+    public List<PrepaidPaymentBody>? PrepaidPayments { get; init; }
+
     [JsonPropertyName("allowance_charges")]
     public List<AllowanceChargeBody>? AllowanceCharges { get; init; }
 
@@ -98,6 +110,25 @@ public sealed record IssueDocumentBody
 
     [JsonPropertyName("invoice_period")]
     public InvoicePeriodBody? InvoicePeriod { get; init; }
+
+    /// <summary>
+    /// Enviar el documento por correo al adquiriente cuando la DIAN lo acepte (verdadero como en el PHP: <c>true</c>,
+    /// <c>1</c> o un texto distinto de <c>"0"</c>). Sin este campo no se envía correo. El envío lo lee
+    /// <c>DocumentEmailRequest</c> del JSON guardado; aquí se declara para que el contrato lo muestre.
+    /// </summary>
+    [JsonPropertyName("sendmail")]
+    public LegacyScalar? SendMail { get; init; }
+
+    /// <summary>Con <c>sendmail</c>, enviar también una copia al correo de la empresa emisora.</summary>
+    [JsonPropertyName("sendmailtome")]
+    public LegacyScalar? SendMailToMe { get; init; }
+
+    /// <summary>
+    /// Correo del comprador cuando es el consumidor final (<c>222222222222</c>): sin él, al consumidor final no se le
+    /// envía correo aunque la solicitud traiga <c>sendmail</c>.
+    /// </summary>
+    [JsonPropertyName("email_pos_customer")]
+    public LegacyScalar? EmailPosCustomer { get; init; }
 }
 
 /// <summary>Adquiriente (<c>customer</c>).</summary>
@@ -163,6 +194,36 @@ public sealed record PaymentFormBody
 
     [JsonPropertyName("duration_measure")]
     public LegacyScalar? DurationMeasure { get; init; }
+}
+
+/// <summary>Un anticipo ya recibido (cac:PrepaidPayment del XML), con los nombres del contrato del PHP.</summary>
+public sealed record PrepaidPaymentBody
+{
+    /// <summary>Identificación del pago (cbc:ID).</summary>
+    [JsonPropertyName("idpayment")]
+    public LegacyScalar? IdPayment { get; init; }
+
+    /// <summary>Valor pagado por anticipado (cbc:PaidAmount).</summary>
+    [JsonPropertyName("paidamount")]
+    public LegacyScalar? PaidAmount { get; init; }
+
+    /// <summary>Fecha <c>yyyy-MM-dd</c> en que se recibió el pago (cbc:ReceivedDate).</summary>
+    [JsonPropertyName("receiveddate")]
+    public LegacyScalar? ReceivedDate { get; init; }
+
+    /// <summary>Fecha <c>yyyy-MM-dd</c> en que se hizo el pago (cbc:PaidDate); opcional.</summary>
+    [JsonPropertyName("paiddate")]
+    public LegacyScalar? PaidDate { get; init; }
+
+    /// <summary>Instrucciones relativas al pago (cbc:InstructionID); opcional.</summary>
+    [JsonPropertyName("instructionid")]
+    public LegacyScalar? InstructionId { get; init; }
+
+    /// <summary>
+    /// Verdadero si no trae ningún campo. El PHP descarta un <c>prepaid_payment</c> vacío (<c>if($request->prepaid_payment)</c>).
+    /// </summary>
+    [JsonIgnore]
+    public bool IsEmpty => IdPayment is null && PaidAmount is null && ReceivedDate is null && PaidDate is null && InstructionId is null;
 }
 
 /// <summary>Descuento o cargo, de la cabecera o de una línea.</summary>

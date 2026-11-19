@@ -1,0 +1,151 @@
+<section class="masters-page">
+  <header class="masters-header">
+    <div>
+      <ui-page-title>{{
+        (isEdit() ? 'masters.products.form.editTitle' : 'masters.products.form.newTitle')
+          | transloco
+      }}</ui-page-title>
+      <p class="masters-lead">{{ 'masters.products.form.description' | transloco }}</p>
+    </div>
+    <a class="masters-back" routerLink="/productos">{{ 'masters.common.back' | transloco }}</a>
+  </header>
+
+  @switch (loadState()) {
+    @case ('loading') {
+      <ui-loading [label]="'masters.common.loading' | transloco" />
+    }
+    @case ('error') {
+      <ui-error-state
+        [title]="'masters.common.errors.loadTitle' | transloco"
+        [description]="'masters.common.errors.loadDescription' | transloco"
+        [retryLabel]="'masters.common.retry' | transloco"
+        (retry)="load()"
+      />
+    }
+    @default {
+      <form
+        class="masters-form"
+        novalidate
+        (submit)="onSubmit($event)"
+        [attr.aria-busy]="submitting() || null"
+      >
+        @if (generalError(); as message) {
+          <p class="masters-message masters-message--error" role="alert">{{ message }}</p>
+        }
+
+        <ui-field
+          [label]="'masters.products.form.code' | transloco"
+          [error]="errors().code"
+          required
+        >
+          <input uiInput type="text" autocomplete="off" [formField]="productForm.code" />
+        </ui-field>
+
+        <ui-field
+          [label]="'masters.products.form.name' | transloco"
+          [error]="errors().name"
+          required
+        >
+          <input uiInput type="text" autocomplete="off" [formField]="productForm.name" />
+        </ui-field>
+
+        <ui-field
+          class="masters-form__wide"
+          [label]="'masters.products.form.descriptionField' | transloco"
+          [error]="errors().description"
+        >
+          <textarea uiInput rows="3" [formField]="productForm.description"></textarea>
+        </ui-field>
+
+        <ui-field
+          [label]="'masters.products.form.unitMeasure' | transloco"
+          [hint]="'masters.products.form.unitMeasureHint' | transloco"
+          [error]="errors().unit_measure_id"
+          required
+        >
+          <ui-combobox
+            [formField]="productForm.unit_measure_id"
+            [options]="unitMeasures.options()"
+            [status]="unitMeasures.state().status"
+            [hasMore]="unitMeasures.hasMore()"
+            [labels]="unitMeasureLabels"
+            (termChange)="unitMeasures.search($event)"
+            (loadMore)="unitMeasures.loadMore()"
+            (retry)="unitMeasures.retry()"
+          />
+        </ui-field>
+
+        <ui-field
+          [label]="'masters.products.form.unitPrice' | transloco"
+          [hint]="'masters.products.form.unitPriceHint' | transloco"
+          [error]="errors().unit_price"
+          required
+        >
+          <input
+            uiInput
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            [formField]="productForm.unit_price"
+          />
+        </ui-field>
+
+        <ui-field [label]="'masters.products.form.tax' | transloco" [error]="errors().tax_id">
+          <select uiSelect [formField]="productForm.tax_id">
+            <option value="">{{ 'masters.products.form.noTax' | transloco }}</option>
+            @for (option of taxes(); track option.id) {
+              <option [value]="'' + option.id">{{ option.name }}</option>
+            }
+          </select>
+        </ui-field>
+
+        @if (showPercent()) {
+          <ui-field
+            [label]="'masters.products.form.taxPercent' | transloco"
+            [hint]="'masters.products.form.taxPercentHint' | transloco"
+            [error]="errors().tax_percent"
+          >
+            <input
+              uiInput
+              type="text"
+              inputmode="decimal"
+              autocomplete="off"
+              [formField]="productForm.tax_percent"
+            />
+          </ui-field>
+        }
+
+        @if (showPerUnit()) {
+          <ui-field
+            [label]="'masters.products.form.taxPerUnit' | transloco"
+            [hint]="'masters.products.form.taxPerUnitHint' | transloco"
+            [error]="errors().tax_per_unit_amount"
+          >
+            <input
+              uiInput
+              type="text"
+              inputmode="decimal"
+              autocomplete="off"
+              [formField]="productForm.tax_per_unit_amount"
+            />
+          </ui-field>
+        }
+
+        @if (isEdit()) {
+          <label class="masters-check masters-form__wide">
+            <input type="checkbox" [formField]="productForm.is_active" />
+            {{ 'masters.products.form.isActive' | transloco }}
+          </label>
+        }
+
+        <div class="masters-form__actions">
+          <ui-button
+            type="submit"
+            [label]="'masters.common.save' | transloco"
+            [loading]="submitting()"
+          />
+        </div>
+      </form>
+    }
+  }
+</section>

@@ -1,0 +1,189 @@
+<section class="doc-page">
+  <a routerLink="/documentos">{{ 'documents.detail.back' | transloco }}</a>
+
+  @if (document(); as doc) {
+    <header class="doc-header">
+      <div>
+        <ui-page-title
+          >{{ 'documents.' + kindKey(doc.kind) | transloco }} {{ doc.full_number }}</ui-page-title
+        >
+        <p class="doc-lead">
+          {{
+            'documents.detail.issuedOn' | transloco: { date: doc.issue_date, time: doc.issue_time }
+          }}
+        </p>
+      </div>
+      <div class="doc-actions" aria-live="polite">
+        <span class="doc-muted">{{ 'documents.detail.status' | transloco }}</span>
+        <feat-status-badge [status]="doc.status" />
+      </div>
+    </header>
+
+    <p class="doc-muted" role="status">
+      @if (pending()) {
+        {{
+          (visible() ? 'documents.detail.polling' : 'documents.detail.pollingPaused') | transloco
+        }}
+      }
+    </p>
+
+    <section class="doc-section" aria-labelledby="doc-customer">
+      <h2 id="doc-customer">{{ 'documents.detail.customer' | transloco }}</h2>
+      @if (doc.customer; as customer) {
+        <dl class="doc-data">
+          <dt>{{ 'documents.detail.customer' | transloco }}</dt>
+          <dd>{{ customer.name }}</dd>
+          <dt>{{ 'documents.detail.identification' | transloco }}</dt>
+          <dd>{{ customer.identification_number }}{{ customer.dv ? '-' + customer.dv : '' }}</dd>
+          @if (customer.email) {
+            <dt>{{ 'documents.detail.email' | transloco }}</dt>
+            <dd>{{ customer.email }}</dd>
+          }
+          @if (customer.phone) {
+            <dt>{{ 'documents.detail.phone' | transloco }}</dt>
+            <dd>{{ customer.phone }}</dd>
+          }
+          @if (customer.address) {
+            <dt>{{ 'documents.detail.address' | transloco }}</dt>
+            <dd>{{ customer.address }}</dd>
+          }
+        </dl>
+      }
+    </section>
+
+    <section class="doc-section" aria-labelledby="doc-lines">
+      <h2 id="doc-lines">{{ 'documents.detail.lines' | transloco }}</h2>
+      <ui-table
+        [caption]="'documents.detail.linesCaption' | transloco"
+        [columns]="lineColumns()"
+        [rows]="doc.lines ?? []"
+        [labels]="lineLabels()"
+        [trackBy]="trackLine"
+      >
+        <ng-template uiTableCell="price_amount" let-line>{{ line.price_amount | cop }}</ng-template>
+        <ng-template uiTableCell="line_extension_amount" let-line>{{
+          line.line_extension_amount | cop
+        }}</ng-template>
+      </ui-table>
+    </section>
+
+    <section class="doc-section" aria-labelledby="doc-totals">
+      <h2 id="doc-totals">{{ 'documents.detail.totals' | transloco }}</h2>
+      <feat-totals-panel [totals]="doc.totals" [taxes]="doc.taxes ?? []" />
+    </section>
+
+    <section class="doc-section" aria-labelledby="doc-dian">
+      <h2 id="doc-dian">{{ 'documents.detail.dian' | transloco }}</h2>
+      <dl class="doc-data">
+        @if (doc.dian_status_code || doc.dian_status_description) {
+          <dt>{{ 'documents.detail.dianCode' | transloco }}</dt>
+          <dd>{{ doc.dian_status_code }}</dd>
+          <dt>{{ 'documents.detail.dianDescription' | transloco }}</dt>
+          <dd>{{ doc.dian_status_description }}</dd>
+        } @else {
+          <dt>{{ 'documents.detail.dianDescription' | transloco }}</dt>
+          <dd>{{ 'documents.detail.noDianResponse' | transloco }}</dd>
+        }
+        @if (doc.cufe) {
+          <dt>{{ 'documents.detail.cufe' | transloco }}</dt>
+          <dd>{{ doc.cufe }}</dd>
+        }
+        @if (doc.track_id) {
+          <dt>{{ 'documents.detail.trackId' | transloco }}</dt>
+          <dd>{{ doc.track_id }}</dd>
+        }
+        <dt>{{ 'documents.detail.emailStatus' | transloco }}</dt>
+        <dd>
+          {{
+            'documents.emailStatuses.' +
+              (doc.email_status === 'NotSent' ||
+              doc.email_status === 'Sent' ||
+              doc.email_status === 'Failed'
+                ? doc.email_status
+                : 'unknown') | transloco
+          }}
+        </dd>
+        @if (doc.notes) {
+          <dt>{{ 'documents.detail.notes' | transloco }}</dt>
+          <dd>{{ doc.notes }}</dd>
+        }
+      </dl>
+    </section>
+
+    <section class="doc-section" aria-labelledby="doc-files">
+      <h2 id="doc-files">{{ 'documents.detail.files' | transloco }}</h2>
+      <div class="doc-actions">
+        @if (signed()) {
+          <ui-button
+            variant="secondary"
+            [label]="'documents.detail.download.xml' | transloco"
+            [disabled]="busy()"
+            (pressed)="download('xml')"
+          />
+        }
+        @if (accepted()) {
+          @for (kind of acceptedFiles; track kind) {
+            <ui-button
+              variant="secondary"
+              [label]="'documents.detail.download.' + kind | transloco"
+              [disabled]="busy()"
+              (pressed)="download(kind)"
+            />
+          }
+        } @else {
+          <p class="doc-muted">{{ 'documents.detail.filesPending' | transloco }}</p>
+        }
+      </div>
+    </section>
+
+    @if (accepted() && canWrite()) {
+      <section class="doc-section" aria-labelledby="doc-actions">
+        <h2 id="doc-actions">{{ 'documents.detail.actions' | transloco }}</h2>
+        <div class="doc-actions">
+          <ui-button
+            variant="secondary"
+            [label]="'documents.detail.resendEmail' | transloco"
+            [disabled]="busy()"
+            (pressed)="resendEmail()"
+          />
+          <ui-button
+            variant="secondary"
+            [label]="'documents.detail.regeneratePdf' | transloco"
+            [disabled]="busy()"
+            (pressed)="regeneratePdf()"
+          />
+          <ui-button
+            variant="secondary"
+            [label]="'documents.detail.regenerateAttached' | transloco"
+            [disabled]="busy()"
+            (pressed)="regenerateAttached()"
+          />
+          @if (doc.kind === 'invoice') {
+            <!-- Una nota corrige una factura aceptada: el enlace la lleva elegida. -->
+            <a
+              class="doc-link-button"
+              routerLink="/documentos/nota-credito"
+              [queryParams]="{ factura: doc.id }"
+              >{{ 'documents.detail.creditNote' | transloco }}</a
+            >
+            <a
+              class="doc-link-button"
+              routerLink="/documentos/nota-debito"
+              [queryParams]="{ factura: doc.id }"
+              >{{ 'documents.detail.debitNote' | transloco }}</a
+            >
+          }
+        </div>
+      </section>
+    }
+  } @else if (failed()) {
+    <ui-error-state
+      [title]="'documents.detail.errorTitle' | transloco"
+      [description]="'documents.detail.errorDescription' | transloco"
+      [retryLabel]="'ui.retry' | transloco"
+      (retry)="retry()"
+    />
+  } @else {
+    <ui-loading [label]="'documents.detail.loading' | transloco" [lines]="6" />
+  }
+</section>

@@ -16,6 +16,15 @@ public static class IdentityErrors
     public static readonly Error InvalidRefreshToken =
         new("identity.invalid_refresh_token", "El token de renovación no es válido o ya venció.", ErrorType.Unauthorized);
 
+    /// <summary>
+    /// El mismo error para un token de restablecimiento de contraseña desconocido, vencido, ya usado o revocado, o de un
+    /// usuario inactivo: no dice cuál de los casos es.
+    /// </summary>
+    public static readonly Error InvalidResetToken = new(
+        "identity.invalid_reset_token",
+        "El enlace para restablecer la contraseña no es válido o ya venció. Solicite uno nuevo.",
+        ErrorType.Validation);
+
     public static readonly Error CompanyNotAllowed =
         new("identity.company_not_allowed", "El usuario no pertenece a esa empresa.", ErrorType.Forbidden);
 
@@ -30,6 +39,9 @@ public static class IdentityErrors
 
     public static readonly Error EmailTaken =
         new("user.email_taken", "Ya existe un usuario con ese correo.", ErrorType.Conflict);
+
+    public static readonly Error CompanyNotFound =
+        new("user.company_not_found", "La empresa indicada no existe.", ErrorType.NotFound);
 
     public static readonly Error RoleNotAllowed =
         new("user.role_not_allowed", "La credencial no puede crear usuarios con ese rol.", ErrorType.Forbidden);

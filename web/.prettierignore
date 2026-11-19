@@ -1,0 +1,14 @@
+# Archivos que Prettier no revisa: salidas de compilación, dependencias y reportes.
+dist/
+out-tsc/
+.angular/
+node_modules/
+coverage/
+playwright-report/
+test-results/
+.lighthouseci/
+lighthouse-reports/
+package-lock.json
+# Cliente de API generado y el OpenAPI del que sale (npm run api:generate): no se editan a mano.
+projects/api/src/generated/
+projects/api/openapi.json

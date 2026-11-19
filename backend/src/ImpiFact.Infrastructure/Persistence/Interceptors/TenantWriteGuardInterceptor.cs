@@ -34,7 +34,7 @@ internal sealed class TenantWriteGuardInterceptor(ITenantContext tenant) : SaveC
 
     private void Check(DbContext? context)
     {
-        if (context is null || tenant.Actor is ActorType.Platform or ActorType.System)
+        if (context is null || ImpiFact.Infrastructure.Platform.TenantWriteCheck.ActsForPlatform(tenant))
         {
             return;
         }

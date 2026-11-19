@@ -54,6 +54,7 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
         var canonical = endpoints.MapGroup("/api/v1/documents").WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsRead);
         canonical.MapGet("/by-cufe/{trackId}/dian-status", DocumentStatus)
             .Produces<DianStatusResponse>()
+            .WithOperationId("getDocumentDianStatus")
             .WithSummary("Estado de un documento en la DIAN")
             .WithDescription(
                 "Responde la última respuesta de la DIAN para el documento con ese CUFE o CUDE (`ResponseDian`, nulo si " +
@@ -61,6 +62,7 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
                 "guardó el Worker al enviar o al volver a consultar. Documento que no existe o de otra empresa: 404.");
         canonical.MapGet("/by-cufe/{trackId}/xml", DocumentXml)
             .Produces<DocumentXmlResponse>()
+            .WithOperationId("getDocumentXml")
             .WithSummary("XML firmado de un documento aceptado")
             .WithDescription(
                 "Devuelve en Base64 el XML firmado del documento con ese CUFE o CUDE, el mismo que validó la DIAN, con la " +
@@ -68,12 +70,14 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
                 "(`document.not_accepted`).");
         canonical.MapGet("/zip/{trackId}/dian-status", ZipStatus)
             .Produces<DianStatusResponse>()
+            .WithOperationId("getTestSetZipStatus")
             .WithSummary("Estado de un envío del set de pruebas")
             .WithDescription(
                 "Estado de un envío del set de pruebas de habilitación por su ZipKey (la clave que devuelve la DIAN al " +
                 "recibir el set). Muestra la última respuesta de GetStatusZip que guardó el Worker; no llama a la DIAN.");
         canonical.MapGet("/{id:guid}/files/{kind}", DownloadById)
             .Produces<byte[]>(StatusCodes.Status200OK, "application/xml", "application/pdf", "application/zip")
+            .WithOperationId("downloadDocumentFile")
             .WithSummary("Descargar un archivo del documento")
             .WithDescription(
                 "Descarga la versión más reciente de un archivo del documento. `{kind}` es `xml` (XML firmado), `pdf`, " +
@@ -98,6 +102,7 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
         canonicalWrite.MapPost("/{id:guid}/pdf/regenerate", (Guid id, IHandler<RegeneratePdfCommand, MaintenanceQueuedResponse> handler,
             CancellationToken ct) => Queue(new RegeneratePdfCommand { DocumentId = id }, handler, ct))
             .Produces<MaintenanceQueuedResponse>()
+            .WithOperationId("regenerateDocumentPdf")
             .WithSummary("Regenerar el PDF")
             .WithDescription(
                 "Vuelve a generar el PDF del documento con sus datos guardados; queda como una revisión nueva y las " +
@@ -106,6 +111,7 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
             IHandler<RegenerateAttachedDocumentCommand, MaintenanceQueuedResponse> handler, CancellationToken ct) =>
             Queue(new RegenerateAttachedDocumentCommand { DocumentId = id }, handler, ct))
             .Produces<MaintenanceQueuedResponse>()
+            .WithOperationId("regenerateAttachedDocument")
             .WithSummary("Regenerar el AttachedDocument")
             .WithDescription(
                 "Vuelve a armar y firmar el AttachedDocument con la respuesta firmada de la DIAN (ApplicationResponse) " +
@@ -115,6 +121,7 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
         canonicalWrite.MapPost("/{id:guid}/email", (Guid id, IHandler<SendDocumentEmailCommand, MaintenanceQueuedResponse> handler,
             CancellationToken ct) => Queue(new SendDocumentEmailCommand { DocumentId = id }, handler, ct))
             .Produces<MaintenanceQueuedResponse>()
+            .WithOperationId("resendDocumentEmail")
             .WithSummary("Reenviar el correo al comprador")
             .WithDescription(
                 "Vuelve a enviar el correo del documento a los destinatarios de la solicitud con que se emitió, aunque ya se " +

@@ -34,4 +34,11 @@ public interface IDocumentDelivery
     /// </remarks>
     /// <param name="exceptSubmissionId">Intento que no se cuenta (el que está en curso).</param>
     Task<DateTimeOffset?> FirstPossibleArrivalAsync(Guid companyId, Guid documentId, Guid? exceptSubmissionId, CancellationToken ct);
+
+    /// <summary>
+    /// Textos guardados de los envíos del documento (SendBillSync y SendTestSetAsync) que la DIAN respondió como no
+    /// válidos (<c>is_valid</c> falso): sus mensajes de error y su descripción, en el orden de los intentos. Vacía si
+    /// no hay. Sirve para saber si un envío recibió la regla 90.
+    /// </summary>
+    Task<IReadOnlyList<string>> InvalidSendMessagesAsync(Guid companyId, Guid documentId, CancellationToken ct);
 }

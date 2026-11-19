@@ -68,8 +68,11 @@ public sealed record SalesNote
 
     public required InvoiceParty Customer { get; init; }
 
-    /// <summary>Solo se usa en cac:PaymentMeans; las notas no llevan cac:PaymentTerms.</summary>
-    public required PaymentTerms Payment { get; init; }
+    /// <summary>
+    /// Formas de pago, al menos una: cada una es un cac:PaymentMeans (con cbc:PaymentID desde 0); las notas no llevan
+    /// cac:PaymentTerms.
+    /// </summary>
+    public required IReadOnlyList<PaymentTerms> Payments { get; init; }
 
     /// <summary>Periodo facturado (cac:InvoicePeriod); lo exige la DIAN en las notas sin referencia.</summary>
     public InvoicePeriod? InvoicePeriod { get; init; }

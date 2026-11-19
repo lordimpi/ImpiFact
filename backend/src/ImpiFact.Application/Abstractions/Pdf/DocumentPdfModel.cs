@@ -32,6 +32,11 @@ public enum PdfDocumentKind
 /// <param name="Period">Periodo facturado de una nota sin referencia, por ejemplo <c>2026-01-01 - 2026-01-31</c>.</param>
 /// <param name="AmountInWords">Total a pagar en letras, como el «SON:» del PHP.</param>
 /// <param name="SoftwareMode">Modo de operación y software que generó el documento.</param>
+/// <param name="Logo">Logo de la empresa emisora; nulo si no tiene.</param>
+/// <param name="IsPreview">
+/// Verdadero en la vista previa antes de emitir (<c>POST /api/v1/documents/invoices/preview</c>): el PDF lleva la marca
+/// «VISTA PREVIA - SIN VALIDEZ» y el número, el CUFE y el QR son textos de muestra, no los de un documento emitido.
+/// </param>
 public sealed record DocumentPdfModel(
     PdfDocumentKind Kind,
     string Prefix,
@@ -58,7 +63,12 @@ public sealed record DocumentPdfModel(
     string? Notes,
     string? HeadNote,
     string? FootNote,
-    string SoftwareMode);
+    string SoftwareMode,
+    PdfImage? Logo = null,
+    bool IsPreview = false);
+
+/// <summary>Imagen que acompaña al HTML del PDF, por ejemplo el logo (<c>image/png</c> o <c>image/jpeg</c>).</summary>
+public sealed record PdfImage(byte[] Content, string ContentType);
 
 /// <summary>Empresa emisora.</summary>
 /// <param name="Nit">NIT (Número de Identificación Tributaria) con su dígito de verificación, por ejemplo <c>900123456-7</c>.</param>

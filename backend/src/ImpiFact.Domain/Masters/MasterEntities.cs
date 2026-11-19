@@ -57,7 +57,14 @@ public sealed class Item : TenantEntity, ISoftDeletable
 
     public decimal SaleUnitPrice { get; set; }
 
+    /// <summary>Impuesto del producto (<c>taxes</c>); nulo si no lleva impuesto.</summary>
     public int? TaxId { get; set; }
+
+    /// <summary>Tarifa del impuesto en porcentaje (19 para el IVA del 19 %); nula en los impuestos por unidad.</summary>
+    public decimal? TaxPercent { get; set; }
+
+    /// <summary>Valor del impuesto por unidad, para los impuestos que no van en porcentaje (INC de bolsas, IC).</summary>
+    public decimal? TaxPerUnitAmount { get; set; }
 
     public bool IsActive { get; set; } = true;
 

@@ -1,4 +1,5 @@
 using ImpiFact.Application.Abstractions.Results;
+using ImpiFact.Application.Features.Documents.Queries.ExportDocuments;
 
 namespace ImpiFact.Application.Features.Documents.Queries;
 
@@ -26,6 +27,14 @@ public static class DocumentErrors
         "document.file_not_found",
         "No se encontró el archivo del documento.",
         ErrorType.NotFound);
+
+    /// <summary>La exportación CSV pedida tiene más filas que el máximo permitido.</summary>
+    public static Error ExportTooLarge(long count, int max) => new(
+        "documents.export_too_large",
+        string.Create(
+            DocumentCsv.Numbers,
+            $"La exportación tiene {count:N0} documentos y el máximo es {max:N0}. Acote los filtros, por ejemplo con un rango de fechas más corto."),
+        ErrorType.Validation);
 
     /// <summary>Texto del PHP (<c>download</c>) cuando el archivo pedido por nombre no existe.</summary>
     public static Error FileNotFoundNamed(string file) => new(

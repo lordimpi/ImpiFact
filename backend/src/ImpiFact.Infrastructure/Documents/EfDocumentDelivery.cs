@@ -55,4 +55,23 @@ internal sealed class EfDocumentDelivery(ImpiFactDbContext db, ITenantContext te
                     || submission.Operation == DianOperation.GetStatus
                     || submission.Operation == DianOperation.GetStatusZip))
             .MinAsync(submission => (DateTimeOffset?)submission.StartedAt, ct);
+
+    public async Task<IReadOnlyList<string>> InvalidSendMessagesAsync(Guid companyId, Guid documentId, CancellationToken ct)
+    {
+        // error_messages es JSON convertido por EF: se trae y se aplana en memoria, igual en todos los motores.
+        var answers = await db.Set<DianSubmission>()
+            .IgnoreQueryFilters([QueryFilters.Tenant])
+            .AsNoTracking()
+            .Where(submission => submission.CompanyId == companyId && submission.DocumentId == documentId
+                && submission.IsValid == false
+                && (submission.Operation == DianOperation.SendBillSync || submission.Operation == DianOperation.SendTestSetAsync))
+            .OrderBy(submission => submission.Attempt)
+            .Select(submission => new { submission.ErrorMessages, submission.DianStatusDescription })
+            .ToListAsync(ct);
+        return
+        [
+            .. answers.SelectMany(answer => (answer.ErrorMessages ?? []).Append(answer.DianStatusDescription))
+                .OfType<string>(),
+        ];
+    }
 }

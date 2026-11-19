@@ -1,5 +1,6 @@
 using ImpiFact.Application;
 using ImpiFact.Infrastructure.Email;
+using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.Persistence;
@@ -22,7 +23,7 @@ public static class OutboxServiceCollectionExtensions
     /// <remarks>
     /// Exige al arrancar que un envío a la DIAN y su consulta GetStatus de la regla 90 quepan en el plazo de un handler:
     /// <c>2 × Resilience:TotalSeconds</c> menor que <c>Outbox:HandlerTimeoutSeconds</c>. También exige el servidor de
-    /// correo por defecto de la plataforma (sección «Email»).
+    /// correo por defecto de la plataforma (sección «Email») y la dirección del panel (<c>Panel:BaseUrl</c>).
     /// </remarks>
     public static IServiceCollection AddWorkerServices(
         this IServiceCollection services, IConfiguration configuration, params IDatabaseProvider[] providers)
@@ -36,6 +37,10 @@ public static class OutboxServiceCollectionExtensions
 
         // Correo del documento aceptado (SendEmail): MailKit y el servidor de correo de la empresa o de la plataforma.
         services.AddEmail(configuration);
+
+        // Correo para restablecer la contraseña (SendPasswordResetEmail): sus tokens y el enlace al panel (Panel:BaseUrl).
+        services.AddIdentityPersistence();
+        services.AddPanelLinks(configuration);
         services.AddOptions<ResilienceOptions>()
             .Validate<IOptions<OutboxOptions>>(
                 (resilience, outbox) => 2 * resilience.TotalSeconds < outbox.Value.HandlerTimeoutSeconds,

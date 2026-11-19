@@ -1,0 +1,38 @@
+<a class="skip-link" href="#main-content">{{ 'app.skipToContent' | transloco }}</a>
+
+<header class="shell-header">
+  <span class="shell-brand">{{ 'app.name' | transloco }}</span>
+  <nav class="shell-nav" [attr.aria-label]="'app.mainNav' | transloco">
+    @for (item of navItems(); track item.path) {
+      <a
+        [routerLink]="item.path"
+        routerLinkActive="is-active"
+        ariaCurrentWhenActive="page"
+        [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+        >{{ item.label | transloco }}</a
+      >
+    }
+  </nav>
+  <app-user-menu />
+  <app-notification-bell />
+</header>
+
+<main id="main-content" class="shell-main" tabindex="-1">
+  <router-outlet />
+</main>
+
+@if (inactivityWarning(); as warning) {
+  <ng-container *ngComponentOutlet="warning" />
+}
+
+<ui-toast-region
+  [toasts]="toasts()"
+  [labels]="{
+    region: 'ui.toasts.region' | transloco,
+    close: 'ui.toasts.close' | transloco,
+    copy: 'ui.toasts.copy' | transloco,
+    reference: 'ui.toasts.reference' | transloco,
+  }"
+  (dismiss)="toastStore.dismiss($event)"
+  (copyReference)="copyReference($event)"
+/>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Exporta el documento OpenAPI (la descripción estándar de una API HTTP) de la API a un archivo, sin levantar un
+    servidor ni una base de datos. Lo usan `npm run api:generate` en web/ (para generar el cliente del panel) y el CI
+    del backend (para verificar que web/projects/api/openapi.json está al día). No es parte de la solución.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ImpiFact.Api\ImpiFact.Api.csproj" />
+  </ItemGroup>
+</Project>

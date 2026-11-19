@@ -225,6 +225,68 @@ public sealed class PollDianStatusTests
     }
 
     [Test]
+    public async Task An_unconfirmed_document_whose_send_got_rule_90_is_rejected_when_the_dian_does_not_know_its_cufe()
+    {
+        await using var host = await DianSendHost.StartAsync();
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer, status: DocumentStatus.Unconfirmed, sentAt: host.Clock.UtcNow.AddMinutes(-30));
+        await host.AddSubmissionAsync(document, DianOperation.SendBillSync, false, "99", DianReplies.Rule90);
+        await host.AddSubmissionAsync(document, DianOperation.GetStatus, false, "66", DianReplies.UnknownTrackId);
+        await host.EnqueuePollAsync(document, DianStatusQuery.GetStatus);
+        host.Dian.Reply(DianReplies.GetStatus(false, "66", DianReplies.UnknownTrackId));
+
+        await host.RunOutboxAsync();
+
+        var stored = await host.DocumentAsync(document.Id);
+        var polls = await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.PollDianStatus);
+        var renders = await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.RenderPdf);
+        var notifications = await host.NotificationsAsync(issuer.CompanyId);
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored.Status, Is.EqualTo(DocumentStatus.Rejected));
+            Assert.That(stored.DianStatusCode, Is.EqualTo("66"));
+            Assert.That(stored.DianStatusDescription, Is.EqualTo(
+                $"El número {document.FullNumber} ya fue usado en la DIAN por otro documento. " +
+                "Revise la numeración de la resolución y emita la factura de nuevo."));
+            Assert.That(stored.AcceptedAt, Is.Null);
+            Assert.That(host.Dian.Requests.Single().Parameter("trackId"), Is.EqualTo(document.Cufe));
+            Assert.That(polls.Select(poll => poll.Status), Is.EqualTo(new[] { OutboxStatus.Done }));
+            Assert.That(renders, Is.Empty);
+            Assert.That(notifications.Single().Type, Is.EqualTo(DianNotificationTypes.Rejected));
+            Assert.That(notifications.Single().Title, Is.EqualTo("La DIAN rechazó un documento"));
+            Assert.That(notifications.Single().Body, Is.EqualTo(
+                $"La DIAN rechazó el documento {document.FullNumber}. Motivo: El número {document.FullNumber} ya fue usado en " +
+                "la DIAN por otro documento. Revise la numeración de la resolución y emita la factura de nuevo."));
+        });
+    }
+
+    [Test]
+    public async Task A_cufe_the_dian_does_not_know_after_a_send_without_rule_90_keeps_being_polled()
+    {
+        await using var host = await DianSendHost.StartAsync();
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer, status: DocumentStatus.Unconfirmed, sentAt: host.Clock.UtcNow.AddMinutes(-2));
+        await host.AddSubmissionAsync(document, DianOperation.SendBillSync, false, "98");
+        await host.EnqueuePollAsync(document, DianStatusQuery.GetStatus);
+        host.Dian.Reply(DianReplies.GetStatus(false, "66", DianReplies.UnknownTrackId));
+
+        await host.RunOutboxAsync();
+
+        var stored = await host.DocumentAsync(document.Id);
+        var polls = await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.PollDianStatus);
+        var notifications = await host.NotificationsAsync(issuer.CompanyId);
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored.Status, Is.EqualTo(DocumentStatus.Unconfirmed));
+            Assert.That(stored.DianStatusCode, Is.EqualTo("66"));
+            Assert.That(stored.DianStatusDescription, Is.EqualTo("Validación contiene errores en campos mandatorios."));
+            Assert.That(polls.Select(poll => poll.Status), Is.EqualTo(new[] { OutboxStatus.Done, OutboxStatus.Pending }));
+            Assert.That(polls[1].NextAttemptAt, Is.EqualTo(host.Clock.UtcNow.AddMinutes(1)));
+            Assert.That(notifications, Is.Empty);
+        });
+    }
+
+    [Test]
     public async Task A_poll_for_a_document_already_decided_does_nothing()
     {
         await using var host = await DianSendHost.StartAsync();

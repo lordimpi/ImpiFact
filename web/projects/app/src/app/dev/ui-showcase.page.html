@@ -1,0 +1,152 @@
+<ui-page-title>{{ 'devUi.title' | transloco }}</ui-page-title>
+<p>{{ 'devUi.description' | transloco }}</p>
+
+<fieldset class="showcase-theme">
+  <legend>{{ 'devUi.theme.label' | transloco }}</legend>
+  @for (option of themes; track option) {
+    <label>
+      <input
+        type="radio"
+        name="theme"
+        [value]="option"
+        [checked]="theme() === option"
+        (change)="setTheme(option)"
+      />
+      {{ 'devUi.theme.' + option | transloco }}
+    </label>
+  }
+</fieldset>
+
+<p class="showcase-log" aria-live="polite">
+  {{ 'devUi.lastEvent' | transloco }}:
+  <output data-testid="last-event">{{ lastEvent() ?? ('devUi.noEvent' | transloco) }}</output>
+</p>
+
+<section aria-labelledby="buttons-title">
+  <h2 id="buttons-title">{{ 'devUi.buttons.title' | transloco }}</h2>
+  <div class="showcase-row">
+    <ui-button [label]="'devUi.buttons.primary' | transloco" (pressed)="log('pressed primary')" />
+    <ui-button variant="secondary" [label]="'devUi.buttons.secondary' | transloco" />
+    <ui-button variant="danger" [label]="'devUi.buttons.danger' | transloco" />
+    <ui-button variant="text" [label]="'devUi.buttons.text' | transloco" />
+    <ui-button [label]="'devUi.buttons.disabled' | transloco" [disabled]="true" />
+    <ui-button [label]="'devUi.buttons.loading' | transloco" [loading]="true" />
+  </div>
+</section>
+
+<section aria-labelledby="fields-title">
+  <h2 id="fields-title">{{ 'devUi.fields.title' | transloco }}</h2>
+  <div class="showcase-grid">
+    <ui-field [label]="'devUi.fields.nit' | transloco" [hint]="'devUi.fields.nitHint' | transloco">
+      <input uiInput inputmode="numeric" />
+    </ui-field>
+    <ui-field
+      [label]="'devUi.fields.name' | transloco"
+      [required]="true"
+      [error]="'devUi.fields.nameError' | transloco"
+    >
+      <input uiInput />
+    </ui-field>
+    <ui-field [label]="'devUi.fields.email' | transloco">
+      <input uiInput type="email" autocomplete="email" />
+    </ui-field>
+  </div>
+</section>
+
+<section aria-labelledby="states-title">
+  <h2 id="states-title">{{ 'devUi.states.title' | transloco }}</h2>
+  <div class="showcase-grid">
+    <ui-empty-state
+      [title]="'devUi.states.emptyTitle' | transloco"
+      [description]="'devUi.states.emptyDescription' | transloco"
+    >
+      <ui-button [label]="'devUi.states.emptyAction' | transloco" />
+    </ui-empty-state>
+    <ui-loading [label]="'devUi.states.loading' | transloco" />
+    <ui-error-state
+      [title]="'devUi.states.errorTitle' | transloco"
+      [description]="'devUi.states.errorDescription' | transloco"
+      [retryLabel]="'ui.retry' | transloco"
+      (retry)="log('retry')"
+    />
+  </div>
+</section>
+
+<section aria-labelledby="table-title">
+  <h2 id="table-title">{{ 'devUi.table.title' | transloco }}</h2>
+  <ui-table
+    [caption]="'devUi.table.caption' | transloco"
+    [showCaption]="true"
+    [columns]="columns()"
+    [rows]="rows"
+    [labels]="tableLabels()"
+    [sort]="sort()"
+    [filters]="filters()"
+    [pagination]="pagination()"
+    (sortChange)="onSort($event)"
+    (filterChange)="onFilter($event)"
+    (pageChange)="onPage($event)"
+  >
+    <ng-template uiTableCell="status" let-row>
+      <span class="showcase-status">{{ row.status }}</span>
+    </ng-template>
+  </ui-table>
+  <ui-table
+    [caption]="'devUi.table.loadingCaption' | transloco"
+    [showCaption]="true"
+    [columns]="columns()"
+    [labels]="tableLabels()"
+    [loading]="true"
+    [skeletonRows]="3"
+  />
+  <ui-table
+    [caption]="'devUi.table.emptyCaption' | transloco"
+    [showCaption]="true"
+    [columns]="columns()"
+    [rows]="[]"
+    [labels]="tableLabels()"
+  />
+  <ui-table
+    [caption]="'devUi.table.errorCaption' | transloco"
+    [showCaption]="true"
+    [columns]="columns()"
+    [labels]="tableLabels()"
+    [error]="true"
+    (retry)="log('retry table')"
+  />
+</section>
+
+<section aria-labelledby="paginator-title">
+  <h2 id="paginator-title">{{ 'devUi.paginator.title' | transloco }}</h2>
+  <h3>{{ 'devUi.paginator.cursor' | transloco }}</h3>
+  <ui-paginator
+    [pagination]="cursorPagination"
+    [labels]="cursorPaginatorLabels()"
+    (pageChange)="log('pageChange', $event)"
+  />
+</section>
+
+<section aria-labelledby="dialog-title">
+  <h2 id="dialog-title">{{ 'devUi.dialog.title' | transloco }}</h2>
+  <ui-button [label]="'devUi.dialog.open' | transloco" (pressed)="dialogOpen.set(true)" />
+  <ui-dialog
+    [header]="'devUi.dialog.header' | transloco"
+    [closeLabel]="'ui.close' | transloco"
+    [(visible)]="dialogOpen"
+    (closed)="log('closed')"
+  >
+    <p>{{ 'devUi.dialog.body' | transloco }}</p>
+    <div uiDialogFooter class="showcase-row">
+      <ui-button
+        variant="secondary"
+        [label]="'devUi.dialog.cancel' | transloco"
+        (pressed)="dialogOpen.set(false)"
+      />
+      <ui-button
+        variant="danger"
+        [label]="'devUi.dialog.confirm' | transloco"
+        (pressed)="dialogOpen.set(false)"
+      />
+    </div>
+  </ui-dialog>
+</section>

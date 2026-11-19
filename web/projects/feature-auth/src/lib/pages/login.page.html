@@ -1,0 +1,41 @@
+<section class="auth-page">
+  <div class="auth-card">
+    <ui-page-title>{{ 'auth.login.title' | transloco }}</ui-page-title>
+    <p class="auth-lead">{{ 'auth.login.description' | transloco }}</p>
+
+    @if (reason() === 'inactivity') {
+      <p class="auth-notice" role="status">{{ 'auth.login.inactivity' | transloco }}</p>
+    } @else if (reason() === 'password-reset') {
+      <p class="auth-notice" role="status">{{ 'auth.login.passwordReset' | transloco }}</p>
+    }
+
+    <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="submitting() || null">
+      @if (generalError(); as message) {
+        <p class="auth-error" role="alert">{{ message }}</p>
+      }
+
+      <ui-field [label]="'auth.login.email' | transloco" [error]="emailError()" required>
+        <input uiInput type="email" autocomplete="username" [formField]="loginForm.email" />
+      </ui-field>
+
+      <ui-field [label]="'auth.login.password' | transloco" [error]="passwordError()" required>
+        <input
+          uiInput
+          uiPasswordToggle
+          type="password"
+          autocomplete="current-password"
+          [formField]="loginForm.password"
+        />
+      </ui-field>
+
+      <div class="auth-actions">
+        <ui-button
+          type="submit"
+          [label]="'auth.login.submit' | transloco"
+          [loading]="submitting()"
+        />
+        <a routerLink="/recuperar">{{ 'auth.login.forgotPassword' | transloco }}</a>
+      </div>
+    </form>
+  </div>
+</section>

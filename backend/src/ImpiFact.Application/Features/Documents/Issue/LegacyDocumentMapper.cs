@@ -78,7 +78,8 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             ForeignCurrency = MapForeignCurrency(body),
             Supplier = MapSupplier(frame.Issuer),
             Customer = MapCustomer(body.Customer!),
-            Payment = MapPayment(body),
+            Payments = PaymentFormsOf(body).Select(form => MapPayment(form.Body)).ToList(),
+            PrepaidPayments = PrepaidPaymentsOf(frame.Spec, body).Select(prepaid => MapPrepaidPayment(prepaid.Body)).ToList(),
             AllowanceCharges = MapAll(body.AllowanceCharges, MapAllowanceCharge),
             TaxSubtotals = MapAll(body.TaxTotals, MapTaxSubtotal),
             WithholdingSubtotals = MapAll(body.WithHoldingTaxTotal, MapTaxSubtotal),
@@ -106,7 +107,7 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             ForeignCurrency = MapForeignCurrency(body),
             Supplier = MapSupplier(frame.Issuer),
             Customer = MapCustomer(body.Customer!),
-            Payment = MapPayment(body),
+            Payments = PaymentFormsOf(body).Select(form => MapPayment(form.Body)).ToList(),
             InvoicePeriod = body.InvoicePeriod is { StartDate: { } start, EndDate: { } end } ? new InvoicePeriod(Date(start), Date(end)) : null,
             Discrepancy = MapDiscrepancy(spec, body),
             BillingReference = body.BillingReference is { Number: { } number, Uuid: { } uuid, IssueDate: { } issued }
@@ -139,6 +140,7 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             },
             TaxTotals = (body.TaxTotals ?? []).Select(TotalsTax).ToList(),
             AllowanceCharges = (body.AllowanceCharges ?? []).Select(TotalsCharge).ToList(),
+            PrepaidPayments = PrepaidPaymentsOf(spec, body).Select(prepaid => new PrepaidPaymentInput(prepaid.Body.PaidAmount!.Value.Decimal, prepaid.Path)).ToList(),
             Lines = (spec.LinesOf(body) ?? []).Select(line => new TotalsLineInput
             {
                 Quantity = line.InvoicedQuantity!.Value.Decimal,
@@ -149,6 +151,39 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
                 TaxTotals = (line.TaxTotals ?? []).Select(TotalsTax).ToList(),
             }).ToList(),
         };
+    }
+
+    /// <summary>
+    /// Formas de pago en el orden de la solicitud, con la ruta JSON de cada una: <c>payment_form</c> cuando llega una
+    /// sola (un objeto o una lista de un elemento) y <c>payment_form.{i}</c> en una lista de varias, como Laravel. Sin
+    /// <c>payment_form</c> (o con una lista vacía) queda una sola, nula, que toma los valores por defecto del PHP
+    /// (<see cref="DefaultPaymentFormId"/> y <see cref="DefaultPaymentMethodId"/>).
+    /// </summary>
+    public static IReadOnlyList<(string Path, PaymentFormBody? Body)> PaymentFormsOf(IssueDocumentBody body) =>
+        body.PaymentForm is not { Count: > 0 } forms
+            ? [("payment_form", null)]
+            : forms.Select((form, index) => (forms.Count == 1 ? "payment_form" : $"payment_form.{index}", (PaymentFormBody?)form)).ToList();
+
+    /// <summary>
+    /// Anticipos que van en el XML, en el orden de la plantilla del PHP (<c>01.blade.php</c>): primero
+    /// <c>prepaid_payment</c> si no está vacío y luego cada <c>prepaid_payments</c>, con la ruta JSON de cada uno para
+    /// los errores. Las notas no llevan anticipos: sus plantillas no los escriben.
+    /// </summary>
+    public static IReadOnlyList<(string Path, PrepaidPaymentBody Body)> PrepaidPaymentsOf(IssueSpec spec, IssueDocumentBody body)
+    {
+        if (spec.Kind != IssueKind.Invoice)
+        {
+            return [];
+        }
+
+        var prepaid = new List<(string, PrepaidPaymentBody)>();
+        if (body.PrepaidPayment is { IsEmpty: false } single)
+        {
+            prepaid.Add(("prepaid_payment", single));
+        }
+
+        prepaid.AddRange((body.PrepaidPayments ?? []).Select((item, index) => ($"prepaid_payments.{index}", item)));
+        return prepaid;
     }
 
     /// <summary>Operación de la solicitud o la que el PHP usa por defecto en cada tipo.</summary>
@@ -247,9 +282,8 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             PhpText.Clean(addressLine), country.Code, country.Name, language.Code);
     }
 
-    private PaymentTerms MapPayment(IssueDocumentBody body)
+    private PaymentTerms MapPayment(PaymentFormBody? payment)
     {
-        var payment = body.PaymentForm is { Count: > 0 } forms ? forms[0] : null;
         var dueDate = payment?.PaymentDueDate is { } due && due.Text.Length > 0 ? Date(due) : (DateOnly?)null;
         var duration = payment?.DurationMeasure is { } measure && measure.Text.Length > 0 ? (int)measure.Integer : (int?)null;
         return new PaymentTerms(
@@ -258,6 +292,13 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             dueDate,
             duration);
     }
+
+    private static PrepaidPayment MapPrepaidPayment(PrepaidPaymentBody prepaid) => new(
+        PhpText.Clean(prepaid.IdPayment!.Value.Text),
+        prepaid.PaidAmount!.Value.Decimal,
+        Date(prepaid.ReceivedDate!.Value),
+        LegacyScalar.IsMissing(prepaid.PaidDate) ? null : Date(prepaid.PaidDate!.Value),
+        prepaid.InstructionId is { Text.Length: > 0 } instruction ? PhpText.Clean(instruction.Text) : null);
 
     private AllowanceCharge MapAllowanceCharge(AllowanceChargeBody item)
     {
@@ -405,9 +446,11 @@ internal static class CatalogNeeds
             Need(DianCatalog.Municipality, municipality, "customer.municipality_id");
         }
 
-        var payment = body.PaymentForm is { Count: > 0 } forms ? forms[0] : null;
-        Need(DianCatalog.PaymentForm, LegacyDocumentMapper.IdOr(payment?.PaymentFormId, LegacyDocumentMapper.DefaultPaymentFormId), "payment_form.payment_form_id");
-        Need(DianCatalog.PaymentMethod, LegacyDocumentMapper.IdOr(payment?.PaymentMethodId, LegacyDocumentMapper.DefaultPaymentMethodId), "payment_form.payment_method_id");
+        foreach (var (path, payment) in LegacyDocumentMapper.PaymentFormsOf(body))
+        {
+            Need(DianCatalog.PaymentForm, LegacyDocumentMapper.IdOr(payment?.PaymentFormId, LegacyDocumentMapper.DefaultPaymentFormId), $"{path}.payment_form_id");
+            Need(DianCatalog.PaymentMethod, LegacyDocumentMapper.IdOr(payment?.PaymentMethodId, LegacyDocumentMapper.DefaultPaymentMethodId), $"{path}.payment_method_id");
+        }
 
         Charges(needs, "allowance_charges", body.AllowanceCharges);
         Taxes(needs, "tax_totals", body.TaxTotals);

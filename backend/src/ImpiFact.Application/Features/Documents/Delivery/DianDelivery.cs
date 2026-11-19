@@ -42,6 +42,9 @@ public static class DianNotificationTypes
 
     /// <summary>La DIAN no confirmó el documento en las 24 horas siguientes al envío.</summary>
     public const string Unconfirmed = "DocumentUnconfirmed";
+
+    /// <summary>La DIAN revisó el documento y lo rechazó (reglas de validación o número ya usado).</summary>
+    public const string Rejected = "DocumentRejected";
 }
 
 /// <summary>Servicio de la DIAN que corresponde al ambiente del documento y el certificado con que se firma el sobre.</summary>
@@ -137,10 +140,13 @@ internal sealed class DianDelivery(
     }
 
     /// <summary>
-    /// Regla 90 (Arquitectura detallada, sección 7, paso 10): la DIAN ya procesó un documento con ese CUFE, así que se
-    /// consulta su estado con GetStatus y se toma esa respuesta. Como la DIAN ya tiene el documento, todo lo que no sea
-    /// una decisión (otra vez la regla 90, sin respuesta, un error) queda como «en proceso» o «sin respuesta» y se
-    /// vuelve a consultar después; nunca se reenvía.
+    /// Regla 90 (Arquitectura detallada, sección 7, paso 10): la DIAN ya procesó un documento con ese número (NIT del
+    /// emisor, prefijo y número), así que se consulta el estado del nuestro con GetStatus y su CUFE y se toma esa
+    /// respuesta. Si GetStatus responde el código 66 (la DIAN no tiene ese CUFE), el documento que la DIAN procesó con
+    /// ese número es otro: el nuestro queda rechazado con <see cref="NumberUsedByAnotherDocument"/>, porque si fuera el
+    /// nuestro GetStatus devolvería su decisión. Todo lo demás que no sea una decisión (otra vez la regla 90, sin
+    /// respuesta, otro «en proceso» como el 98, un error) queda como «en proceso» o «sin respuesta» y se vuelve a
+    /// consultar después; nunca se reenvía.
     /// </summary>
     /// <returns><see cref="DianAnswer.Decided"/>, <see cref="DianAnswer.InProcess"/> o <see cref="DianAnswer.NoAnswer"/>.</returns>
     public async Task<DianAnswer> ReconcileAsync(Document document, DianEndpoint endpoint, CancellationToken ct)
@@ -149,10 +155,48 @@ internal sealed class DianDelivery(
         var submission = await BeginAsync(document, DianOperation.GetStatus, zipKey: null, sentZip: null, ct);
         return await CallAsync(submission, new GetStatusRequest(cufe), endpoint, ct) switch
         {
+            DianAnswer.InProcess { Result: { } unknown } when DianAnswer.IsUnknownDocument(unknown) => NumberUsedByAnotherDocument(document, unknown),
             (DianAnswer.Decided or DianAnswer.InProcess or DianAnswer.NoAnswer) and var answer => answer,
             DianAnswer.AlreadyProcessed processed => new DianAnswer.InProcess(processed.Result),
             var other => new DianAnswer.NoAnswer($"GetStatus after rule 90 did not decide: {other.GetType().Name}."),
         };
+    }
+
+    /// <summary>
+    /// La misma regla de <see cref="ReconcileAsync"/> para una consulta de estado posterior: si GetStatus con el CUFE
+    /// respondió el código 66 y algún envío del documento (SendBillSync o SendTestSetAsync) recibió antes la regla 90,
+    /// el número lo usó otro documento y el nuestro queda rechazado. Así se resuelve también un documento que quedó
+    /// sin confirmar antes de esta regla. Cualquier otra respuesta se devuelve igual.
+    /// </summary>
+    public async Task<DianAnswer> SettleUnknownAfterRule90Async(Document document, DianAnswer answer, CancellationToken ct)
+    {
+        if (answer is not DianAnswer.InProcess { Result: { } unknown } || !DianAnswer.IsUnknownDocument(unknown))
+        {
+            return answer;
+        }
+
+        var messages = await documents.InvalidSendMessagesAsync(document.CompanyId, document.Id, ct);
+        return DianAnswer.IsRule90(messages) ? NumberUsedByAnotherDocument(document, unknown) : answer;
+    }
+
+    /// <summary>
+    /// Rechazo porque la DIAN procesó otro documento con el mismo número: el resultado de GetStatus (con su código 66,
+    /// el último que respondió la DIAN) con la explicación para el usuario en la descripción.
+    /// </summary>
+    private DianAnswer.Decided NumberUsedByAnotherDocument(Document document, DianResult unknown)
+    {
+        logger.LogWarning(
+            "The DIAN already processed another document numbered {FullNumber} (rule 90) and does not know the CUFE of document {DocumentId}; it is rejected.",
+            document.FullNumber, document.Id);
+        return new DianAnswer.Decided(
+            DocumentStatus.Rejected,
+            unknown with
+            {
+                StatusDescription = $"El número {document.FullNumber} ya fue usado en la DIAN por otro documento. " +
+                    "Revise la numeración de la resolución y emita la factura de nuevo.",
+                // El «TrackId no existe» de GetStatus no explica nada al usuario: el motivo es la descripción.
+                ErrorMessages = [],
+            });
     }
 
     /// <summary>
@@ -183,6 +227,35 @@ internal sealed class DianDelivery(
 
             await ScheduleAfterAcceptanceAsync(document, decided.Result, endpoint.Certificate, ct);
         }
+        else if (decided.Status == DocumentStatus.Rejected)
+        {
+            NotifyRejected(document, decided.Result);
+        }
+    }
+
+    /// <summary>Reglas de la DIAN que se copian en el aviso de rechazo; el resto queda en el detalle del documento.</summary>
+    private const int RejectionReasonsInNotice = 3;
+
+    /// <summary>Largo máximo del cuerpo de un aviso (<c>notifications.body</c>).</summary>
+    private const int NoticeBodyMaxLength = 1000;
+
+    /// <summary>
+    /// Avisa a la empresa que la DIAN rechazó un documento, con su número y el motivo: las primeras reglas que la DIAN
+    /// incumplió (son textos para el usuario, por ejemplo «Regla: FAU14, Rechazo: …») o, si no trae reglas, la
+    /// descripción del resultado, que en el caso del número ya usado ya dice qué hacer.
+    /// </summary>
+    private void NotifyRejected(Document document, DianResult result)
+    {
+        var rules = result.ErrorMessages.Where(message => !string.IsNullOrWhiteSpace(message)).Take(RejectionReasonsInNotice).ToList();
+        var reason = rules.Count > 0
+            ? string.Join(" ", rules) + " Corrija el documento y emita uno nuevo."
+            : result.StatusDescription ?? "La DIAN no indicó el motivo; revise el detalle del documento.";
+        var body = $"La DIAN rechazó el documento {document.FullNumber}. Motivo: {reason}";
+        notifications.Add(
+            document.CompanyId,
+            DianNotificationTypes.Rejected,
+            "La DIAN rechazó un documento",
+            body.Length <= NoticeBodyMaxLength ? body : body[..(NoticeBodyMaxLength - 1)] + "…");
     }
 
     /// <summary>Anota el código y la descripción del último resultado de la DIAN, sin cambiar el estado.</summary>

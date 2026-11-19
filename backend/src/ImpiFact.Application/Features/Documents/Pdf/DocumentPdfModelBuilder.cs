@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Xml;
 using System.Xml.Linq;
+using ImpiFact.Application.Abstractions.Companies;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Pdf;
 using ImpiFact.Application.Features.Documents.Issue;
@@ -14,7 +15,8 @@ namespace ImpiFact.Application.Features.Documents.Pdf;
 /// plantillas del PHP (ApiDian, la implementación de referencia): la cabecera, el adquiriente y los totales del
 /// documento guardado; las líneas, impuestos, retenciones, pagos, cargos y la factura de referencia de la solicitud JSON
 /// guardada (<c>document_files</c> de tipo solicitud, la misma que el PHP le pasa a la plantilla como <c>$request</c>);
-/// la empresa y su resolución de <see cref="IIssuerContextReads"/>, y los nombres de los catálogos DIAN.
+/// la empresa y su resolución de <see cref="IIssuerContextReads"/>, el logo de la empresa de <see cref="ICompanyLogos"/>
+/// y los nombres de los catálogos DIAN.
 /// </summary>
 /// <remarks>
 /// El texto del código QR se lee del <c>sts:QRCode</c> del XML firmado, así es exactamente el que recibió la DIAN
@@ -26,13 +28,29 @@ internal sealed class DocumentPdfModelBuilder(
     IDocumentStore store,
     IIssuerContextReads issuers,
     IDocumentCatalogs catalogs,
-    IDianQrUrls qrUrls)
+    IDianQrUrls qrUrls,
+    ICompanyLogos logos)
 {
     /// <summary>País del adquiriente cuando la solicitud no lo trae (Colombia, como el PHP).</summary>
     private const int Colombia = 46;
 
     /// <summary>Software con que se generó el documento, para el pie de página.</summary>
     private const string SoftwareMode = "Software propio - ImpiFact";
+
+    /// <summary>Número que muestra la vista previa: todavía no se tomó ninguno del consecutivo.</summary>
+    public const string PreviewNumber = "BORRADOR";
+
+    /// <summary>Texto en lugar del CUFE en la vista previa: el CUFE se calcula al emitir, con el número.</summary>
+    public const string PreviewUuid = "VISTA PREVIA - SIN CUFE";
+
+    /// <summary>Texto en lugar del CUDE (código único de documento electrónico) en la vista previa de una nota.</summary>
+    public const string PreviewNoteUuid = "VISTA PREVIA - SIN CUDE";
+
+    /// <summary>Texto en lugar de la fecha y la hora de validación de la DIAN en la vista previa.</summary>
+    public const string PreviewValidation = "Sin validar";
+
+    /// <summary>Texto del QR de la vista previa: no lleva a la consulta de la DIAN, porque el documento no existe.</summary>
+    public const string PreviewQrText = "VISTA PREVIA - DOCUMENTO SIN VALIDEZ";
 
     /// <summary>Modelo del documento; nulo si el documento no existe en la empresa.</summary>
     /// <exception cref="PdfSourceException">Si falta la solicitud guardada o el tipo de documento no tiene plantilla.</exception>
@@ -54,16 +72,95 @@ internal sealed class DocumentPdfModelBuilder(
             throw new PdfSourceException($"The stored request of document {documentId} is not valid JSON.");
         }
 
-        var body = parsed;
         var issuer = await issuers.GetAsync(companyId, header.DocumentTypeId, DocumentKind.Invoice, ct)
             ?? throw new PdfSourceException($"Company {companyId} does not exist.");
+        var (validationDate, validationTime) = detail.AcceptedAt is { } acceptedAt
+            ? (ColombiaTime.Format(DateOnly.FromDateTime(ColombiaTime.Local(acceptedAt).DateTime)), Time(TimeOnly.FromDateTime(ColombiaTime.Local(acceptedAt).DateTime)))
+            : (ColombiaTime.Format(header.IssueDate), Time(header.IssueTime));
+        var uuid = header.Cufe ?? "";
+
+        return await ComposeAsync(
+            new PrintSource(
+                kind,
+                header.Prefix,
+                header.Number.ToString(CultureInfo.InvariantCulture),
+                header.IssueDate,
+                header.IssueTime,
+                validationDate,
+                validationTime,
+                uuid,
+                await QrTextAsync(companyId, documentId, header.TypeEnvironmentId, uuid, ct),
+                issuer,
+                kind == PdfDocumentKind.Invoice ? Resolution(issuer, detail.ResolutionId) : null,
+                header.Customer,
+                parsed,
+                header.Totals,
+                detail.Notes,
+                detail.HeadNote,
+                detail.FootNote,
+                IsPreview: false),
+            ct);
+    }
+
+    /// <summary>
+    /// Modelo de la vista previa de una factura o nota que todavía no se emitió (<c>POST /api/v1/documents/invoices/preview</c>,
+    /// el <c>preeliminar-view</c> del PHP, y sus gemelas de las notas), con la solicitud ya validada como en la emisión:
+    /// los mismos datos y nombres que tendrá el PDF del documento emitido, pero con el número <see cref="PreviewNumber"/>,
+    /// sin CUFE ni CUDE, con un QR de muestra y con la marca de vista previa. La nota no imprime resolución, como su PDF
+    /// emitido, y la nota débito toma sus totales de <c>requested_monetary_totals</c>. No lee ni escribe nada del
+    /// documento ni del consecutivo.
+    /// </summary>
+    public async Task<DocumentPdfModel> BuildPreviewAsync(
+        IssueSpec spec, IssuerContext issuer, IssuerResolution resolution, IssueDocumentBody body, DateOnly issueDate, TimeOnly issueTime,
+        CancellationToken ct)
+    {
+        var kind = KindOf(spec.DocumentTypeId) ?? throw new InvalidOperationException($"Document type {spec.DocumentTypeId} has no PDF template.");
+        var totals = spec.TotalsOf(body);
+        return await ComposeAsync(
+            new PrintSource(
+                kind,
+                resolution.Prefix ?? "",
+                PreviewNumber,
+                issueDate,
+                issueTime,
+                PreviewValidation,
+                PreviewValidation,
+                kind == PdfDocumentKind.Invoice ? PreviewUuid : PreviewNoteUuid,
+                PreviewQrText,
+                issuer,
+                kind == PdfDocumentKind.Invoice ? Resolution(issuer, resolution.Id) : null,
+                PreviewCustomer(body.Customer!),
+                body,
+                new DocumentTotals(
+                    Amount(totals?.LineExtensionAmount),
+                    Amount(totals?.TaxExclusiveAmount),
+                    Amount(totals?.TaxInclusiveAmount),
+                    Amount(totals?.AllowanceTotalAmount),
+                    Amount(totals?.ChargeTotalAmount),
+                    Amount(totals?.PrePaidAmount),
+                    Amount(totals?.PayableAmount)),
+                body.Notes?.Text,
+                body.HeadNote?.Text,
+                body.FootNote?.Text,
+                IsPreview: true),
+            ct);
+    }
+
+    /// <summary>
+    /// Arma el modelo con lo que comparten el documento emitido y la vista previa: los nombres de los catálogos, las
+    /// líneas, los impuestos y retenciones, los pagos, los cargos, los totales en número y en letras, y el logo.
+    /// </summary>
+    private async Task<DocumentPdfModel> ComposeAsync(PrintSource source, CancellationToken ct)
+    {
+        var body = source.Body;
+        var kind = source.Kind;
         var lines = (kind switch
         {
             PdfDocumentKind.CreditNote => body.CreditNoteLines,
             PdfDocumentKind.DebitNote => body.DebitNoteLines,
             _ => body.InvoiceLines,
         }) ?? [];
-        var names = new Names(await catalogs.FindAsync(CatalogKeys(issuer, header.Customer, body, lines), ct));
+        var names = new Names(await catalogs.FindAsync(CatalogKeys(source.Issuer, source.Customer, body, lines), ct));
 
         var taxes = (body.TaxTotals ?? []).Select(tax => Tax(tax, names)).ToList();
         var withholdings = (body.WithHoldingTaxTotal ?? []).Select(tax => Tax(tax, names)).ToList();
@@ -71,29 +168,25 @@ internal sealed class DocumentPdfModelBuilder(
         var withholdingTotal = (body.WithHoldingTaxTotal ?? []).Sum(tax => Amount(tax.TaxAmount));
 
         // Como el PHP: en la factura se paga el valor a pagar menos las retenciones; en las notas, el total de la nota.
-        var payable = kind == PdfDocumentKind.Invoice ? header.Totals.PayableAmount - withholdingTotal : header.Totals.PayableAmount;
+        var payable = kind == PdfDocumentKind.Invoice ? source.Totals.PayableAmount - withholdingTotal : source.Totals.PayableAmount;
         var currencyName = body.IdCurrency is { IsPhpEmpty: false } currency && currency.TryInteger(out var currencyId)
             ? names.Of(DianCatalog.Currency, (int)currencyId)
             : null;
-        var (validationDate, validationTime) = detail.AcceptedAt is { } acceptedAt
-            ? (ColombiaTime.Format(DateOnly.FromDateTime(ColombiaTime.Local(acceptedAt).DateTime)), Time(TimeOnly.FromDateTime(ColombiaTime.Local(acceptedAt).DateTime)))
-            : (ColombiaTime.Format(header.IssueDate), Time(header.IssueTime));
-        var uuid = header.Cufe ?? "";
 
         return new DocumentPdfModel(
             kind,
-            header.Prefix,
-            header.Number.ToString(CultureInfo.InvariantCulture),
-            ColombiaTime.Format(header.IssueDate),
-            Time(header.IssueTime),
-            validationDate,
-            validationTime,
+            source.Prefix,
+            source.Number,
+            ColombiaTime.Format(source.IssueDate),
+            Time(source.IssueTime),
+            source.ValidationDate,
+            source.ValidationTime,
             kind == PdfDocumentKind.Invoice ? "CUFE" : "CUDE",
-            uuid,
-            await QrTextAsync(companyId, documentId, header.TypeEnvironmentId, uuid, ct),
-            Issuer(issuer, names),
-            kind == PdfDocumentKind.Invoice ? Resolution(issuer, detail.ResolutionId) : null,
-            Customer(header.Customer, body.Customer, names),
+            source.Uuid,
+            source.QrText,
+            Issuer(source.Issuer, names),
+            source.Resolution,
+            Customer(source.Customer, body.Customer, names),
             (body.PaymentForm ?? []).Select(payment => Payment(payment, names)).ToList(),
             body.BillingReference is { } reference
                 ? new PdfReference(Text(reference.Number), Text(reference.IssueDate), Text(reference.Uuid))
@@ -105,17 +198,41 @@ internal sealed class DocumentPdfModelBuilder(
             Charges(body.AllowanceCharges),
             new PdfTotals(
                 lines.Count.ToString(CultureInfo.InvariantCulture),
-                Money(header.Totals.LineExtensionAmount),
+                Money(source.Totals.LineExtensionAmount),
                 Money(taxTotal),
                 Money(withholdingTotal),
-                Money(header.Totals.AllowanceTotalAmount),
+                Money(source.Totals.AllowanceTotalAmount),
                 Money(payable)),
             AmountInWords.Spell(Round(payable), currencyName),
-            detail.Notes,
-            detail.HeadNote,
-            detail.FootNote,
-            SoftwareMode);
+            source.Notes,
+            source.HeadNote,
+            source.FootNote,
+            SoftwareMode,
+            await LogoAsync(logos, source.Issuer.Company.Id, ct),
+            source.IsPreview);
     }
+
+    /// <summary>
+    /// El adquiriente de la solicitud con los mismos valores por defecto que la copia que guarda la emisión
+    /// (<see cref="DocumentGraphBuilder"/>): así la vista previa muestra lo mismo que mostrará el PDF emitido.
+    /// </summary>
+    private static DocumentCustomer PreviewCustomer(CustomerBody customer) => new(
+        LegacyDocumentMapper.IdOr(customer.TypeDocumentIdentificationId, LegacyDocumentMapper.DefaultIdentificationTypeId),
+        customer.IdentificationNumber!.Value.Text,
+        customer.Dv?.Text,
+        customer.Name!.Value.Text,
+        customer.Phone?.Text,
+        customer.Address?.Text,
+        customer.Email?.Text,
+        LegacyDocumentMapper.IdOrNull(customer.MunicipalityId),
+        LegacyDocumentMapper.IdOr(customer.TypeOrganizationId, LegacyDocumentMapper.DefaultOrganizationTypeId),
+        LegacyDocumentMapper.IdOr(customer.TypeRegimeId, LegacyDocumentMapper.DefaultRegimeId),
+        LegacyDocumentMapper.IdOr(customer.TypeLiabilityId, LegacyDocumentMapper.DefaultLiabilityId),
+        customer.MerchantRegistration?.Text);
+
+    /// <summary>Logo de la empresa para el encabezado del PDF; nulo si no tiene.</summary>
+    internal static async Task<PdfImage?> LogoAsync(ICompanyLogos logos, Guid companyId, CancellationToken ct) =>
+        await logos.FindAsync(companyId, ct) is { } logo ? new PdfImage(logo.Content, logo.ContentType) : null;
 
     private static PdfDocumentKind? KindOf(int documentTypeId) => documentTypeId switch
     {
@@ -316,6 +433,27 @@ internal sealed class DocumentPdfModelBuilder(
 
     private static string Join(string separator, params string?[] parts) =>
         string.Join(separator, parts.Select(part => part?.Trim()).Where(part => !string.IsNullOrEmpty(part)));
+
+    /// <summary>Lo que cambia entre el documento emitido y la vista previa; el resto sale de la solicitud.</summary>
+    private sealed record PrintSource(
+        PdfDocumentKind Kind,
+        string Prefix,
+        string Number,
+        DateOnly IssueDate,
+        TimeOnly IssueTime,
+        string ValidationDate,
+        string ValidationTime,
+        string Uuid,
+        string QrText,
+        IssuerContext Issuer,
+        PdfResolution? Resolution,
+        DocumentCustomer Customer,
+        IssueDocumentBody Body,
+        DocumentTotals Totals,
+        string? Notes,
+        string? HeadNote,
+        string? FootNote,
+        bool IsPreview);
 
     /// <summary>Nombres de los catálogos pedidos; vacío si una fila no existe (la plantilla no se rompe por un id raro).</summary>
     private sealed class Names(IReadOnlyDictionary<CatalogKey, CatalogItem> items)

@@ -38,6 +38,7 @@ public class DianSoapEnvelopeTests
         yield return new TestCaseData(new GetStatusZipRequest("zip-key-1"), "GetStatusZip").SetArgDisplayNames("GetStatusZip");
         yield return new TestCaseData(new GetNumberingRangeRequest("900000001", "900000001", "software-1"), "GetNumberingRange")
             .SetArgDisplayNames("GetNumberingRange");
+        yield return new TestCaseData(new GetAcquirerRequest("31", "900123456"), "GetAcquirer").SetArgDisplayNames("GetAcquirer");
     }
 
     [Test]
@@ -255,6 +256,18 @@ public class DianSoapEnvelopeTests
         {
             Assert.That(BodyChildren(new GetStatusRequest("cufe-1")), Is.EqualTo(new[] { ("trackId", "cufe-1") }));
             Assert.That(BodyChildren(new GetStatusZipRequest("zip-key-1")), Is.EqualTo(new[] { ("trackId", "zip-key-1") }));
+        });
+    }
+
+    [Test]
+    public void Get_acquirer_body_holds_the_identification_type_code_and_number_with_the_php_action()
+    {
+        var request = new GetAcquirerRequest("31", "900123456");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(BodyChildren(request), Is.EqualTo(new[] { ("identificationType", "31"), ("identificationNumber", "900123456") }));
+            Assert.That(request.Action, Is.EqualTo("http://wcf.dian.colombia/IWcfDianCustomerServices/GetAcquirer"));
         });
     }
 

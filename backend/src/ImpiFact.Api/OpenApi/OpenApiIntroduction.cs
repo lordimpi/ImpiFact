@@ -70,7 +70,7 @@ internal static class OpenApiIntroduction
 
         ## Autenticación
 
-        Toda ruta, salvo el inicio de sesión y la renovación de la sesión, pide el encabezado
+        Toda ruta, salvo el inicio, la renovación y el cierre de la sesión, pide el encabezado
         `Authorization: Bearer <credencial>`. En esta página, escríbala una vez en la sección de autenticación.
 
         - **Llave de plataforma** (`apk_...`, sin empresa, alcance `{{ApiScopes.Platform}}`): la crea el operador de
@@ -79,7 +79,9 @@ internal static class OpenApiIntroduction
           `{{ApiScopes.DocumentsWrite}}`, `{{ApiScopes.DocumentsRead}}` y `{{ApiScopes.ConfigWrite}}`. Se pueden crear
           otras con `POST /api/v1/api-keys`.
         - **JWT de un usuario del panel** (JSON Web Token, credencial firmada de vida corta): lo entrega
-          `POST /api/v1/auth/login` con correo y contraseña, y se renueva con `POST /api/v1/auth/refresh`.
+          `POST /api/v1/auth/login` con correo y contraseña, se renueva con `POST /api/v1/auth/refresh` y se cierra con
+          `POST /api/v1/auth/logout`. El panel web manda `X-Client: panel` y recibe el `refresh_token` en una cookie
+          `HttpOnly` en lugar del cuerpo.
 
         Alcances (lo que una credencial puede hacer):
 

@@ -3268,6 +3268,67 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                     b.ToTable("api_keys", (string)null);
                 });
 
+            modelBuilder.Entity("ImpiFact.Domain.Identity.PasswordResetToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("RequestedIp")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)")
+                        .HasColumnName("requested_ip");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<long>("RowVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .HasColumnName("token_hash")
+                        .IsFixedLength();
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("used_at");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_password_reset_tokens");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ux_password_reset_tokens_token_hash");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_password_reset_tokens_user_id");
+
+                    b.ToTable("password_reset_tokens", (string)null);
+                });
+
             modelBuilder.Entity("ImpiFact.Domain.Identity.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3804,6 +3865,16 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                     b.Property<int?>("TaxId")
                         .HasColumnType("integer")
                         .HasColumnName("tax_id");
+
+                    b.Property<decimal?>("TaxPerUnitAmount")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)")
+                        .HasColumnName("tax_per_unit_amount");
+
+                    b.Property<decimal?>("TaxPercent")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("numeric(9,4)")
+                        .HasColumnName("tax_percent");
 
                     b.Property<int>("TypeItemIdentificationId")
                         .HasColumnType("integer")
@@ -4755,6 +4826,16 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                         .HasForeignKey("CreatedBy")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_api_keys_users");
+                });
+
+            modelBuilder.Entity("ImpiFact.Domain.Identity.PasswordResetToken", b =>
+                {
+                    b.HasOne("ImpiFact.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_password_reset_tokens_users");
                 });
 
             modelBuilder.Entity("ImpiFact.Domain.Identity.RefreshToken", b =>

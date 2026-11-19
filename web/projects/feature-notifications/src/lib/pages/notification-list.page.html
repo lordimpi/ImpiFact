@@ -1,0 +1,59 @@
+<section class="notifications-page">
+  <header class="notifications-header">
+    <div>
+      <ui-page-title>{{ 'notifications.list.title' | transloco }}</ui-page-title>
+      <p class="notifications-lead">{{ 'notifications.list.description' | transloco }}</p>
+    </div>
+    <ui-button
+      variant="secondary"
+      [label]="'notifications.list.markAll' | transloco"
+      [loading]="markingAll()"
+      (pressed)="markAll()"
+    />
+  </header>
+
+  <div class="notifications-toolbar">
+    <ui-field [label]="'notifications.list.filter' | transloco">
+      <select uiSelect [value]="onlyUnread() ? 'unread' : 'all'" (change)="changeFilter($event)">
+        <option value="all">{{ 'notifications.list.filters.all' | transloco }}</option>
+        <option value="unread">{{ 'notifications.list.filters.unread' | transloco }}</option>
+      </select>
+    </ui-field>
+  </div>
+
+  <ui-table
+    [caption]="'notifications.list.caption' | transloco"
+    [columns]="columns()"
+    [rows]="store.items()"
+    [labels]="tableLabels()"
+    [loading]="store.loading()"
+    [error]="store.error() !== null"
+    [pagination]="store.pagination()"
+    [trackBy]="trackById"
+    (pageChange)="store.changePage($event)"
+    (retry)="store.refresh()"
+  >
+    <ng-template uiTableCell="title" let-row>
+      <span class="notifications-title">{{ row.title }}</span>
+      <span class="notifications-body">{{ row.body }}</span>
+    </ng-template>
+    <ng-template uiTableCell="created_at" let-row>{{ formatDate(row.created_at) }}</ng-template>
+    <ng-template uiTableCell="is_read" let-row>
+      <span class="notifications-status" [class.notifications-status--unread]="!row.is_read">{{
+        (row.is_read ? 'notifications.list.read' : 'notifications.list.unread') | transloco
+      }}</span>
+    </ng-template>
+    <ng-template uiTableCell="actions" let-row>
+      @if (!row.is_read) {
+        <ui-button
+          variant="text"
+          size="small"
+          [label]="'notifications.list.markRead' | transloco"
+          [ariaLabel]="markReadLabel(row)"
+          [loading]="busyId() === row.id"
+          (pressed)="markRead(row)"
+        />
+      }
+    </ng-template>
+  </ui-table>
+</section>

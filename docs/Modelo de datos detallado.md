@@ -107,6 +107,12 @@ api_keys
 refresh_tokens
   id uuid PK, user_id uuid FK, token_hash char(64) UQ, expires_at ts, revoked_at ts null,
   replaced_by uuid null, created_ip varchar(45) null, user_agent varchar(300) null
+
+password_reset_tokens          — sin equivalente en el PHP (fase 5, migración PasswordResetTokens)
+  id uuid PK, user_id uuid FK users, token_hash char(64) UQ  — SHA-256 hex del token del enlace
+  expires_at ts (30 min), used_at ts null, revoked_at ts null  — revocado al pedir otro enlace
+  requested_ip varchar(45) null, created_at ts, updated_at ts, row_version bigint
+  IX (user_id)                 — la tarea diaria Housekeeping borra las filas ya vencidas
 ```
 
 Reglas: la clave en claro se muestra una sola vez al crearla; solo se guarda `key_hash`. Una llave con `company_id` solo opera sobre esa empresa (la regla «el NIT debe pertenecer a la empresa del token» del manual).
@@ -171,8 +177,9 @@ company_mail_settings
 company_whatsapp_settings          — Enterprise (fase 8): no se crea en la migración inicial
   company_id uuid PK/FK, url varchar(255) null, token_cipher varchar(512) null
 
-company_logos                  — una fila por empresa; el archivo va a blob
+company_logos                  — una fila por empresa; el archivo va a blob (fase 5: PUT/GET/DELETE /api/v1/companies/{nit}/logo)
   company_id uuid PK/FK, storage_key varchar(500), content_type varchar(100), updated_at ts
+  — storage_key {empresa}/company/logo-{id}.{png|jpg}, nueva en cada subida; content_type image/png o image/jpeg
 ```
 
 Cifrado de `*_cipher`: ASP.NET Data Protection con llave en el proveedor de secretos (o llave maestra AES-GCM en instalaciones sin nube). Nunca se registran en logs ni en `audit_logs.changes`.
@@ -188,6 +195,7 @@ customers                      — PHP: customers (la PK era el NIT; luego se ag
   municipality_id int null FK, type_organization_id int null FK,
   type_regime_id int null FK, type_liability_id int null FK,
   merchant_registration varchar(50) null, is_active bool default true, deleted_at ts null
+  — desactivar = is_active false; la API no usa deleted_at (el UQ incluye las filas borradas)
   UQ (company_id, id)           — destino de FKs compuestas
   UQ (company_id, type_document_identification_id, identification_number)
   — SIN password/newpassword (el portal usa Identity)
@@ -196,7 +204,9 @@ customers                      — PHP: customers (la PK era el NIT; luego se ag
 items                          — PHP: items (solo el subconjunto Community)
   id uuid PK, company_id FK, code varchar(100), name varchar(500),
   description varchar(1000) null, unit_measure_id int FK, type_item_identification_id int FK,
-  sale_unit_price numeric(18,6), tax_id int null FK, is_active bool, deleted_at ts null
+  sale_unit_price numeric(18,6), tax_id int null FK,
+  tax_percent numeric(9,4) null, tax_per_unit_amount numeric(18,6) null   — fase 5 (migración ItemTaxRate)
+  is_active bool, deleted_at ts null
   UQ (company_id, code)         — en PHP name e internal_id eran únicos GLOBALES (bug en multi-empresa)
   — Stock, lotes, series, comisiones, imágenes: Enterprise (POS); no se crean en la paridad Community
 ```

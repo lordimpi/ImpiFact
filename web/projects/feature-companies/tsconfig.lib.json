@@ -1,0 +1,20 @@
+/*
+ * Compilación de la librería feature-companies con ng-packagr. Aquí @impifact/api, core y ui apuntan a su versión
+ * construida en dist/ (ver el script build:libs), porque ng-packagr no compila código fuente de otra librería.
+ */
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../out-tsc/lib",
+    "declaration": true,
+    "declarationMap": true,
+    "types": [],
+    "paths": {
+      "@impifact/api": ["../../dist/api"],
+      "@impifact/core": ["../../dist/core"],
+      "@impifact/ui": ["../../dist/ui"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["**/*.spec.ts", "src/lib/testing/**"]
+}

@@ -90,6 +90,24 @@ public sealed class DianAnswerTests
         Assert.That(answer, Is.InstanceOf<DianAnswer.InProcess>());
     }
 
+    [TestCase(Rule90, true)]
+    [TestCase("regla:90 rechazo", true)]
+    [TestCase("Regla: 900, Rechazo: otra regla", false)]
+    [TestCase(Rejection, false)]
+    public void Rule_90_is_found_in_the_stored_messages_of_an_attempt(string message, bool expected)
+    {
+        Assert.That(DianAnswer.IsRule90([null, "Validación contiene errores en campos mandatorios.", message]), Is.EqualTo(expected));
+    }
+
+    [TestCase("66", true)]
+    [TestCase("98", false)]
+    [TestCase("99", false)]
+    [TestCase(null, false)]
+    public void Status_66_is_a_document_the_dian_does_not_know(string? statusCode, bool expected)
+    {
+        Assert.That(DianAnswer.IsUnknownDocument(Result(false, statusCode)), Is.EqualTo(expected));
+    }
+
     [Test]
     public void An_empty_status_list_is_still_in_process()
     {

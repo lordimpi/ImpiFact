@@ -56,7 +56,7 @@ internal sealed class RefreshTokenHandler(
         var now = clock.UtcNow;
         if (presented.RevokedAt is not null)
         {
-            return await RevokeChainAsync(presented.UserId, now, ct);
+            return await RevokeChainAsync(presented.UserId, now);
         }
 
         if (presented.ExpiresAt <= now)
@@ -74,15 +74,24 @@ internal sealed class RefreshTokenHandler(
         if (!issued.IsSuccess && issued.Error == SessionIssuer.AlreadyUsed)
         {
             // Otra solicitud usó este mismo token un instante antes: se trata igual que un token robado y reusado.
-            return await RevokeChainAsync(presented.UserId, now, ct);
+            return await RevokeChainAsync(presented.UserId, now);
         }
 
         return issued;
     }
 
-    private async Task<Result<SessionTokens>> RevokeChainAsync(Guid userId, DateTimeOffset now, CancellationToken ct)
+    /// <summary>Tiempo máximo de la revocación por robo cuando el cliente ya no espera la respuesta.</summary>
+    private static readonly TimeSpan TheftRevocationTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Respuesta a un token robado y reusado: revoca todas las sesiones del usuario. No usa la cancelación de la
+    /// petición: si la pestaña del usuario se recarga o se cierra justo en ese momento, la sesión del atacante seguiría
+    /// viva. Se acota con su propio plazo.
+    /// </summary>
+    private async Task<Result<SessionTokens>> RevokeChainAsync(Guid userId, DateTimeOffset now)
     {
-        await refreshStore.RevokeAllActiveForUserAsync(userId, now, ct);
+        using var revocation = new CancellationTokenSource(TheftRevocationTimeout);
+        await refreshStore.RevokeAllActiveForUserAsync(userId, now, revocation.Token);
         logger.LogWarning("A revoked refresh token was presented again; revoked every active refresh token of user {UserId}.", userId);
         return IdentityErrors.InvalidRefreshToken;
     }

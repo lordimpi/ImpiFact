@@ -1,9 +1,13 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Infrastructure.Billing;
+using ImpiFact.Infrastructure.Catalogs;
 using ImpiFact.Infrastructure.Companies;
+using ImpiFact.Infrastructure.Dashboard;
 using ImpiFact.Infrastructure.Dian;
 using ImpiFact.Infrastructure.Documents;
+using ImpiFact.Infrastructure.Masters;
+using ImpiFact.Infrastructure.Notifications;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Platform;
@@ -55,6 +59,10 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddDocuments();
         services.AddBilling();
         services.AddPlatform();
+        services.AddNotificationInbox();
+        services.AddMasters();
+        services.AddCatalogReads();
+        services.AddDashboardReads();
         services.AddDianWebService(configuration);
         services.AddReads();
         return services;

@@ -108,6 +108,30 @@ public sealed class NoteGoldenTests
         Assert.That(line, Does.Contain("<cac:Price>\n      <cbc:PriceAmount currencyID=\"COP\">0.00</cbc:PriceAmount>"));
     }
 
+    // Las notas del PHP también escriben un cac:PaymentMeans por forma de pago (_payment_means.blade.php), con
+    // cbc:PaymentID desde 0, y no llevan cac:PaymentTerms.
+    [TestCase("credit-note")]
+    [TestCase("debit-note")]
+    public void Each_payment_form_of_a_note_is_one_payment_means(string documentType)
+    {
+        var caseDir = documentType == "credit-note" ? GoldenCases.CreditNotes()[0] : GoldenCases.DebitNotes()[0];
+        var note = Map(caseDir);
+        note = note with { Payments = [note.Payments[0], new PaymentTerms("2", "48", new DateOnly(2026, 12, 31), 30)] };
+
+        var xml = NoteUblBuilder.Build(note).Xml;
+
+        Assert.That(xml, Does.Contain(
+            "    <cbc:PaymentID>0</cbc:PaymentID>\n" +
+            "  </cac:PaymentMeans>\n" +
+            "  <cac:PaymentMeans>\n" +
+            "    <cbc:ID>2</cbc:ID>\n" +
+            "    <cbc:PaymentMeansCode>48</cbc:PaymentMeansCode>\n" +
+            "    <cbc:PaymentDueDate>2026-12-31</cbc:PaymentDueDate>\n" +
+            "    <cbc:PaymentID>1</cbc:PaymentID>\n" +
+            "  </cac:PaymentMeans>\n"));
+        Assert.That(xml, Does.Not.Contain("cac:PaymentTerms"));
+    }
+
     [Test]
     public void Free_of_charge_line_without_a_reference_price_is_rejected()
     {

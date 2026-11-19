@@ -1,4 +1,5 @@
 using System.Text;
+using ImpiFact.Application.Abstractions.Companies;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Pdf;
 using ImpiFact.Application.Features.Documents.Pdf;
@@ -28,9 +29,11 @@ internal sealed class PdfScenario
 
     public FakeQrUrls QrUrls { get; } = new();
 
+    public FakeCompanyLogos Logos { get; } = new();
+
     public Guid DocumentId { get; private set; }
 
-    public DocumentPdfModelBuilder Builder() => new(Reads, Db, Issuers, Catalogs, QrUrls);
+    public DocumentPdfModelBuilder Builder() => new(Reads, Db, Issuers, Catalogs, QrUrls, Logos);
 
     /// <summary>Guarda el caso golden <paramref name="goldenCase"/> (por ejemplo <c>invoice/single-line-iva19</c>) como documento aceptado.</summary>
     public PdfScenario WithGolden(
@@ -142,4 +145,24 @@ internal sealed class PdfScenario
     public async Task<DocumentPdfModel> BuildAsync() =>
         await Builder().BuildAsync(CompanyId, DocumentId, CancellationToken.None)
         ?? throw new AssertionException("The builder found no document.");
+}
+
+/// <summary>Logos de empresa en memoria.</summary>
+internal sealed class FakeCompanyLogos : ICompanyLogos
+{
+    public Dictionary<Guid, CompanyLogoImage> Logos { get; } = [];
+
+    public Task<CompanyLogoImage?> FindAsync(Guid companyId, CancellationToken ct) => Task.FromResult(Logos.GetValueOrDefault(companyId));
+
+    public Task SaveAsync(Guid companyId, CompanyLogoImage logo, CancellationToken ct)
+    {
+        Logos[companyId] = logo;
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Guid companyId, CancellationToken ct)
+    {
+        Logos.Remove(companyId);
+        return Task.CompletedTask;
+    }
 }

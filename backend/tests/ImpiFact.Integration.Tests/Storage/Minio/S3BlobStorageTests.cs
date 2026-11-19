@@ -112,17 +112,20 @@ public sealed class S3BlobStorageTests
         var url = Storage.CreateSignedUrl(key, TimeSpan.FromMinutes(5));
         using var http = new HttpClient();
         using var response = await http.GetAsync(url);
+        var body = await response.Content.ReadAsStringAsync();
+        // Esta prueba falló a veces solo con toda la suite corriendo; el detalle de la respuesta queda en el mensaje.
+        var detail = $"{(int)response.StatusCode} {response.Content.Headers.ContentType} {body}";
 
-        Assert.Multiple(async () =>
+        Assert.Multiple(() =>
         {
             Assert.That(url.Query, Does.Contain("X-Amz-Signature="));
             // Nunca dura más de lo pedido. Puede durar unos segundos menos: el SDK toma su propia hora al firmar y, con
             // el equipo cargado (por ejemplo, con toda la suite corriendo), entre las dos horas puede pasar más de un
             // segundo.
-            Assert.That(ExpiresSeconds(url), Is.InRange(295, 300));
-            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/pdf"));
-            Assert.That(await response.Content.ReadAsStringAsync(), Is.EqualTo("%PDF-1.7"));
+            Assert.That(ExpiresSeconds(url), Is.InRange(295, 300), url.Query);
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), detail);
+            Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/pdf"), detail);
+            Assert.That(body, Is.EqualTo("%PDF-1.7"), detail);
         });
     }
 

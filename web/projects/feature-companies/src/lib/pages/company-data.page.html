@@ -1,0 +1,199 @@
+<section class="companies-section">
+  <h2>{{ 'companies.data.title' | transloco }}</h2>
+  <p class="companies-lead">{{ 'companies.data.description' | transloco }}</p>
+
+  @if (setup.companyData()) {
+    <form
+      class="companies-form"
+      novalidate
+      (submit)="onSubmit($event)"
+      [attr.aria-busy]="submitting() || null"
+    >
+      @if (generalError(); as message) {
+        <p class="companies-message companies-message--error" role="alert">{{ message }}</p>
+      }
+
+      <ui-field
+        class="companies-form__wide"
+        [label]="'companies.data.businessName' | transloco"
+        [help]="'companies.data.help.businessName' | transloco"
+        [error]="errors().business_name"
+        required
+      >
+        <input
+          uiInput
+          type="text"
+          autocomplete="organization"
+          [formField]="companyForm.business_name"
+        />
+      </ui-field>
+
+      <ui-field
+        [label]="'companies.data.identificationType' | transloco"
+        [help]="'companies.data.help.identificationType' | transloco"
+        [error]="errors().type_document_identification_id"
+        required
+      >
+        <select uiSelect [formField]="companyForm.type_document_identification_id">
+          @for (option of identificationTypes(); track option.id) {
+            <option [value]="'' + option.id">{{ option.name }}</option>
+          }
+        </select>
+      </ui-field>
+
+      <ui-field
+        [label]="'companies.data.organization' | transloco"
+        [help]="'companies.data.help.organization' | transloco"
+        [error]="errors().type_organization_id"
+        required
+      >
+        <select uiSelect [formField]="companyForm.type_organization_id">
+          <option value="">{{ 'companies.common.noneOption' | transloco }}</option>
+          @for (option of organizationTypes(); track option.id) {
+            <option [value]="'' + option.id">{{ option.name }}</option>
+          }
+        </select>
+      </ui-field>
+
+      <ui-field
+        [label]="'companies.data.regime' | transloco"
+        [help]="'companies.data.help.regime' | transloco"
+        [error]="errors().type_regime_id"
+        required
+      >
+        <select uiSelect [formField]="companyForm.type_regime_id">
+          <option value="">{{ 'companies.common.noneOption' | transloco }}</option>
+          @for (option of regimes(); track option.id) {
+            <option [value]="'' + option.id">{{ option.name }}</option>
+          }
+        </select>
+      </ui-field>
+
+      <fieldset
+        class="companies-checks companies-form__wide"
+        aria-describedby="company-liabilities-hint company-liabilities-help company-liabilities-error"
+      >
+        <legend>
+          {{ 'companies.data.liabilities' | transloco }}
+          <ui-help
+            tooltipId="company-liabilities-help"
+            [label]="'companies.data.liabilities' | transloco"
+            [text]="'companies.data.help.liabilities' | transloco"
+          />
+        </legend>
+        <p id="company-liabilities-hint" class="companies-lead">
+          {{ 'companies.data.liabilitiesHint' | transloco }}
+        </p>
+        @for (option of liabilities(); track option.id) {
+          <label class="companies-check">
+            <input
+              type="checkbox"
+              [checked]="liabilityIds().has(option.id)"
+              (change)="toggleLiability(option.id, $any($event.target).checked)"
+            />
+            {{ option.name }}
+          </label>
+        }
+        <p id="company-liabilities-error" class="ui-field__error">
+          {{ errors().type_liability_ids }}
+        </p>
+      </fieldset>
+
+      <ui-field
+        [label]="'companies.data.department' | transloco"
+        [help]="'companies.data.help.department' | transloco"
+        required
+      >
+        <ui-combobox
+          [value]="location.department()"
+          (valueChange)="location.selectDepartment($event)"
+          [options]="location.departmentOptions()"
+          [labels]="departmentLabels"
+          (termChange)="location.searchDepartments($event)"
+        />
+      </ui-field>
+
+      <ui-field
+        [label]="'companies.data.municipality' | transloco"
+        [help]="'companies.data.help.municipality' | transloco"
+        [error]="errors().municipality_id"
+        required
+      >
+        <ui-combobox
+          [formField]="companyForm.municipality_id"
+          [options]="municipalities.options()"
+          [status]="municipalities.state().status"
+          [hasMore]="municipalities.hasMore()"
+          [labels]="municipalityLabels"
+          (termChange)="municipalities.search($event)"
+          (loadMore)="municipalities.loadMore()"
+          (retry)="municipalities.retry()"
+        />
+      </ui-field>
+
+      <ui-field
+        [label]="'companies.data.address' | transloco"
+        [help]="'companies.data.help.address' | transloco"
+        [error]="errors().address"
+        required
+      >
+        <input
+          uiInput
+          type="text"
+          autocomplete="street-address"
+          [formField]="companyForm.address"
+        />
+      </ui-field>
+
+      <ui-field
+        [label]="'companies.data.phone' | transloco"
+        [hint]="'companies.data.phoneHint' | transloco"
+        [help]="'companies.data.help.phone' | transloco"
+        [error]="errors().phone"
+        required
+      >
+        <input uiInput uiDigitsOnly type="tel" autocomplete="tel" [formField]="companyForm.phone" />
+      </ui-field>
+
+      <ui-field
+        [label]="'companies.data.email' | transloco"
+        [help]="'companies.data.help.email' | transloco"
+        [error]="errors().email"
+        required
+      >
+        <input uiInput type="email" autocomplete="email" [formField]="companyForm.email" />
+      </ui-field>
+
+      <ui-field
+        [label]="'companies.data.merchantRegistration' | transloco"
+        [hint]="'companies.data.merchantRegistrationHint' | transloco"
+        [help]="'companies.data.help.merchantRegistration' | transloco"
+        [error]="errors().merchant_registration"
+        required
+      >
+        <input
+          uiInput
+          type="text"
+          autocomplete="off"
+          [formField]="companyForm.merchant_registration"
+        />
+      </ui-field>
+
+      <div class="companies-form__actions">
+        <ui-button
+          type="submit"
+          [label]="'companies.common.save' | transloco"
+          [loading]="submitting()"
+        />
+      </div>
+    </form>
+  } @else if (setup.companyStatus() === 'error') {
+    <ui-error-state
+      [title]="'companies.data.loadError' | transloco"
+      [retryLabel]="'companies.common.retry' | transloco"
+      (retry)="load()"
+    />
+  } @else {
+    <ui-loading [label]="'companies.common.loading' | transloco" />
+  }
+</section>

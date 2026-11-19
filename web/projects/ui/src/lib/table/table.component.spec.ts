@@ -1,0 +1,196 @@
+import { fireEvent, render, screen, within } from '@testing-library/angular';
+import { UiPagination } from '../paginator/pagination';
+import { TableCellDirective } from './table-cell.directive';
+import { TableComponent } from './table.component';
+import { UiFilters, UiSort, UiTableColumn, UiTableLabels } from './table.models';
+
+interface Invoice {
+  id: number;
+  number: string;
+  customer: string;
+  status: string;
+}
+
+const columns: UiTableColumn[] = [
+  { key: 'number', header: 'Número', sortable: true },
+  { key: 'customer', header: 'Cliente', filterable: true, filterLabel: 'Filtrar por cliente' },
+  { key: 'status', header: 'Estado', sortable: true, filterable: true },
+];
+
+// Filas en un orden que no es alfabético: la tabla debe mostrarlas tal cual llegan del servidor.
+const rows: Invoice[] = [
+  { id: 3, number: 'SETP-3', customer: 'Zapatos SAS', status: 'Rechazado' },
+  { id: 1, number: 'SETP-1', customer: 'Alfa Ltda', status: 'Aceptado' },
+  { id: 2, number: 'SETP-2', customer: 'Mercado SA', status: 'En cola' },
+];
+
+const labels: UiTableLabels = {
+  loading: 'Cargando documentos',
+  emptyTitle: 'No hay documentos',
+  emptyDescription: 'Cambie los filtros',
+  errorTitle: 'No se pudieron cargar los documentos',
+  retry: 'Reintentar',
+  paginator: {
+    navigation: 'Paginación',
+    previous: 'Anterior',
+    next: 'Siguiente',
+    page: 'Página {page}',
+  },
+};
+
+interface Options {
+  rows?: Invoice[];
+  loading?: boolean;
+  error?: boolean;
+  sort?: UiSort | null;
+  filters?: UiFilters;
+  pagination?: UiPagination | null;
+}
+
+async function renderTable(options: Options = {}) {
+  const sortChange = vi.fn();
+  const filterChange = vi.fn();
+  const pageChange = vi.fn();
+  const retry = vi.fn();
+  const view = await render(TableComponent<Invoice>, {
+    inputs: { caption: 'Documentos emitidos', columns, labels, rows, ...options },
+    on: { sortChange, filterChange, pageChange, retry },
+  });
+  const table = screen.getByRole('table', { name: 'Documentos emitidos' });
+  return { view, table, sortChange, filterChange, pageChange, retry };
+}
+
+function bodyRows(table: HTMLElement): string[][] {
+  const [, body] = within(table).getAllByRole('rowgroup');
+  return within(body!)
+    .queryAllByRole('row')
+    .map((row) =>
+      within(row)
+        .queryAllByRole('cell')
+        .map((cell) => cell.textContent?.trim() ?? ''),
+    );
+}
+
+describe('TableComponent', () => {
+  it('renders the caption, the headers and the rows in the order received', async () => {
+    const { table } = await renderTable();
+
+    expect(within(table).getByRole('columnheader', { name: /Número/ })).toBeTruthy();
+    expect(within(table).getByRole('columnheader', { name: /Cliente/ })).toBeTruthy();
+    expect(bodyRows(table).map((cells) => cells[0])).toEqual(['SETP-3', 'SETP-1', 'SETP-2']);
+  });
+
+  it('emits an ascending sort for an unsorted column without reordering rows', async () => {
+    const { table, sortChange } = await renderTable();
+
+    within(table)
+      .getByRole('button', { name: /Número/ })
+      .click();
+
+    expect(sortChange).toHaveBeenCalledWith({ key: 'number', direction: 'asc' });
+    expect(bodyRows(table).map((cells) => cells[0])).toEqual(['SETP-3', 'SETP-1', 'SETP-2']);
+  });
+
+  it('shows the current sort and emits the opposite direction', async () => {
+    const { table, sortChange } = await renderTable({ sort: { key: 'number', direction: 'asc' } });
+
+    const header = within(table).getByRole('columnheader', { name: /Número/ });
+    expect(header.getAttribute('aria-sort')).toBe('ascending');
+    expect(
+      within(table)
+        .getByRole('columnheader', { name: /Estado/ })
+        .getAttribute('aria-sort'),
+    ).toBe('none');
+    within(header).getByRole('button').click();
+
+    expect(sortChange).toHaveBeenCalledWith({ key: 'number', direction: 'desc' });
+  });
+
+  it('has no sort button on a column that is not sortable', async () => {
+    const { table } = await renderTable();
+
+    const header = within(table).getByRole('columnheader', { name: /Cliente/ });
+    expect(within(header).queryByRole('button')).toBeNull();
+    expect(header.getAttribute('aria-sort')).toBeNull();
+  });
+
+  it('emits all filters when one changes without filtering rows locally', async () => {
+    const { table, filterChange } = await renderTable({ filters: { status: 'Aceptado' } });
+
+    const customer = within(table).getByRole('textbox', { name: 'Filtrar por cliente' });
+    fireEvent.change(customer, { target: { value: 'Alfa' } });
+
+    expect(filterChange).toHaveBeenCalledWith({ status: 'Aceptado', customer: 'Alfa' });
+    expect(bodyRows(table)).toHaveLength(3);
+  });
+
+  it('removes a filter that is cleared and labels filters by their header by default', async () => {
+    const { table, filterChange } = await renderTable({ filters: { status: 'Aceptado' } });
+
+    const status = within(table).getByRole('textbox', { name: 'Estado' });
+    expect((status as HTMLInputElement).value).toBe('Aceptado');
+    fireEvent.change(status, { target: { value: '  ' } });
+
+    expect(filterChange).toHaveBeenCalledWith({});
+  });
+
+  it('shows skeleton rows and announces loading instead of data', async () => {
+    const { table, view } = await renderTable({ loading: true });
+
+    expect(table.getAttribute('aria-busy')).toBe('true');
+    expect(screen.getByRole('status').textContent).toContain('Cargando documentos');
+    expect(view.container.querySelectorAll('tbody p-skeleton').length).toBe(5 * columns.length);
+    expect(within(table).queryByText('SETP-1')).toBeNull();
+  });
+
+  it('shows the empty state when there are no rows', async () => {
+    const { table } = await renderTable({ rows: [] });
+
+    expect(within(table).getByText('No hay documentos')).toBeTruthy();
+    expect(within(table).getByText('Cambie los filtros')).toBeTruthy();
+  });
+
+  it('shows the error state with a retry action instead of rows', async () => {
+    const { table, retry } = await renderTable({ error: true });
+
+    expect(within(table).getByRole('alert').textContent).toContain(
+      'No se pudieron cargar los documentos',
+    );
+    expect(within(table).queryByText('SETP-1')).toBeNull();
+    within(table).getByRole('button', { name: 'Reintentar' }).click();
+
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('forwards page changes from its paginator', async () => {
+    const { pageChange } = await renderTable({
+      pagination: { kind: 'cursor', previousCursor: null, nextCursor: 'c2' },
+    });
+
+    screen.getByRole('button', { name: 'Siguiente' }).click();
+
+    expect(pageChange).toHaveBeenCalledWith({ kind: 'cursor', cursor: 'c2', direction: 'next' });
+  });
+
+  it('has no paginator without pagination', async () => {
+    await renderTable();
+
+    expect(screen.queryByRole('navigation')).toBeNull();
+  });
+
+  it('renders a custom cell template for a column', async () => {
+    await render(
+      `<ui-table caption="Documentos" [columns]="columns" [rows]="rows" [labels]="labels">
+        <ng-template uiTableCell="status" let-row>
+          <strong>{{ row.status }}!</strong>
+        </ng-template>
+      </ui-table>`,
+      {
+        imports: [TableComponent, TableCellDirective],
+        componentProperties: { columns, rows, labels },
+      },
+    );
+
+    expect(screen.getByText('Aceptado!').tagName).toBe('STRONG');
+  });
+});

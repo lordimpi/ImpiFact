@@ -28,10 +28,7 @@ public sealed class StorePlanValidator : AbstractValidator<StorePlanCommand>
         Quantity(RuleFor(command => command.QtyDocsRadian), "qty_docs_radian");
         Quantity(RuleFor(command => command.QtyDocsDs), "qty_docs_ds");
 
-        RuleFor(command => command.Period)
-            .NotNull().WithMessage(PlanMessages.Required("period"))
-            .Must(period => period is null or 1 or 2 or 3).WithMessage(PlanMessages.In("period"))
-            .OverridePropertyName("period");
+        Period(RuleFor(command => command.Period));
 
         RuleFor(command => command.Name)
             .MaximumLength(MaxNameLength).WithMessage(PlanMessages.MaxLength("name", MaxNameLength))
@@ -42,9 +39,17 @@ public sealed class StorePlanValidator : AbstractValidator<StorePlanCommand>
             .OverridePropertyName("observations");
     }
 
-    private static void Quantity(IRuleBuilderInitial<StorePlanCommand, long?> rule, string name) =>
+    /// <summary>Una cantidad de documentos obligatoria, de 0 a 10 dígitos (la comparten el alta y el guardado por id).</summary>
+    internal static void Quantity<T>(IRuleBuilderInitial<T, long?> rule, string name) =>
         rule
             .NotNull().WithMessage(PlanMessages.Required(name))
             .InclusiveBetween(0, MaxQuantity).WithMessage(PlanMessages.DigitsBetween(name, 1, 10))
             .OverridePropertyName(name);
+
+    /// <summary>Periodo obligatorio: 1 mensual, 2 anual o 3 paquete.</summary>
+    internal static void Period<T>(IRuleBuilderInitial<T, int?> rule) =>
+        rule
+            .NotNull().WithMessage(PlanMessages.Required("period"))
+            .Must(period => period is null or 1 or 2 or 3).WithMessage(PlanMessages.In("period"))
+            .OverridePropertyName("period");
 }

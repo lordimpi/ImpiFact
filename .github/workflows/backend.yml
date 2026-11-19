@@ -37,6 +37,13 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -warnaserror
 
+      # El OpenAPI del que se genera el cliente del panel (web/projects/api/openapi.json) debe estar al día con la API.
+      # Si falla, ejecute `npm run api:generate` en web/ y haga commit del resultado.
+      - name: OpenAPI document up to date
+        run: |
+          dotnet run --project tools/openapi-export -- ../web/projects/api/openapi.json
+          git diff --exit-code -- ../web/projects/api/openapi.json
+
       # Unitarias, de arquitectura y golden (XML y CUFE comparados byte a byte con el PHP original).
       - name: Unit, architecture and golden tests
         run: dotnet test --no-build --filter "Category!=Integration&Category!=Contract"

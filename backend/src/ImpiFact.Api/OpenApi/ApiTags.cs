@@ -15,6 +15,13 @@ public static class ApiTags
 
     public const string Plans = "Planes";
 
+    public const string Notifications = "Notificaciones";
+
+    public const string Masters = "Clientes y productos";
+    public const string Dashboard = "Tablero";
+
+    public const string Catalogs = "Catálogos";
+
     /// <summary>Descripción de cada sección, en el orden en que se muestran.</summary>
     public static IReadOnlyList<(string Name, string Description)> Descriptions { get; } =
     [
@@ -32,5 +39,18 @@ public static class ApiTags
         (Plans,
             "Planes de documentos y su consumo. La plataforma crea los planes y los asigna a las empresas; cada empresa " +
             "consulta su plan vigente y los documentos que le quedan."),
+        (Masters,
+            "Clientes y productos de la empresa para llenar la emisión: alta, edición, desactivación y búsqueda paginada en " +
+            "el servidor, y la consulta en vivo a la DIAN del nombre y el correo registrados de un adquiriente (GetAcquirer)."),
+        (Notifications,
+            "Avisos de la campana del panel: certificado por vencer, rangos de numeración, documentos rechazados o sin " +
+            "confirmar. Se listan por empresa, del más reciente al más antiguo, y se marcan como leídos."),
+        (Dashboard,
+            "Resumen del tablero del panel: documentos por estado y por mes, consumo del plan, certificado de firma y " +
+            "resoluciones por agotarse de la empresa activa."),
+        (Catalogs,
+            "Catálogos de la DIAN para las listas de los formularios: tipos de identificación y de organización, regímenes, " +
+            "responsabilidades fiscales, municipios, departamentos, países, unidades de medida, impuestos, formas y medios de " +
+            "pago, tipos de documento y monedas. Son los mismos para todas las empresas y se pueden guardar en caché."),
     ];
 }

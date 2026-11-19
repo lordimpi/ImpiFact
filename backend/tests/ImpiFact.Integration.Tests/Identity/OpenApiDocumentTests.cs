@@ -107,7 +107,11 @@ public sealed class OpenApiDocumentTests
     [Test]
     public void Secured_operations_require_the_bearer_scheme_and_anonymous_ones_do_not()
     {
-        string[] anonymous = ["POST /api/v1/auth/login", "POST /api/v1/auth/refresh"];
+        string[] anonymous =
+        [
+            "POST /api/v1/auth/login", "POST /api/v1/auth/refresh", "POST /api/v1/auth/logout",
+            "POST /api/v1/auth/password-reset/request", "POST /api/v1/auth/password-reset/confirm",
+        ];
 
         Assert.Multiple(() =>
         {
@@ -125,6 +129,23 @@ public sealed class OpenApiDocumentTests
                     Assert.That(schemes, Does.Contain(AuthenticationSchemes.Bearer), $"{name} does not ask for the bearer credential.");
                 }
             }
+        });
+    }
+
+    [TestCase("POST /api/v1/auth/login")]
+    [TestCase("POST /api/v1/auth/refresh")]
+    [TestCase("POST /api/v1/auth/logout")]
+    public void The_session_operations_document_the_optional_panel_header_and_the_cookie(string name)
+    {
+        var operation = Operations().Single(candidate => candidate.Name == name).Operation;
+        var header = operation.GetProperty("parameters").EnumerateArray()
+            .Single(parameter => Text(parameter, "in") == "header" && Text(parameter, "name") == "X-Client");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(header.TryGetProperty("required", out var required) && required.GetBoolean(), Is.False);
+            Assert.That(header.GetProperty("example").GetString(), Is.EqualTo("panel"));
+            Assert.That(Text(operation, "description"), Does.Contain("X-Client: panel").And.Contain("impifact_refresh"));
         });
     }
 

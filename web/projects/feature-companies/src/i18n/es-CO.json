@@ -1,0 +1,287 @@
+{
+  "common": {
+    "loading": "Cargando…",
+    "retry": "Reintentar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "noneOption": "Seleccione una opción",
+    "otherOption": "Otro (id {{ id }})",
+    "noChange": "Sin cambios",
+    "saved": "Los cambios se guardaron.",
+    "yes": "Sí",
+    "no": "No",
+    "errors": {
+      "required": "Este campo es obligatorio.",
+      "maxLength": "Escriba como máximo {{ max }} caracteres.",
+      "email": "Escriba un correo electrónico válido.",
+      "pattern": "El formato no es válido.",
+      "unexpected": "No se pudo completar la operación. Intente de nuevo.",
+      "dianUnavailable": "La DIAN no responde en este momento. Intente de nuevo en unos minutos.",
+      "noCertificate": "La empresa no tiene un certificado activo. Cárguelo en la sección Certificado.",
+      "certificateExpired": "El certificado de la empresa venció. Cargue uno vigente en la sección Certificado."
+    },
+    "catalog": {
+      "loading": "Cargando la lista…",
+      "error": "No se pudo cargar la lista."
+    }
+  },
+  "layout": {
+    "title": "Configuración de la empresa",
+    "nit": "NIT {{ nit }}-{{ dv }}",
+    "sections": "Secciones de la configuración",
+    "notFoundTitle": "No encontramos la empresa",
+    "notFoundDescription": "No pudimos leer los datos de la empresa activa. Revise su conexión e intente de nuevo.",
+    "tabs": {
+      "data": "Datos",
+      "environments": "Ambientes",
+      "software": "Software",
+      "certificate": "Certificado",
+      "resolutions": "Resoluciones",
+      "production": "Paso a producción"
+    }
+  },
+  "data": {
+    "title": "Datos de la empresa",
+    "description": "Razón social, ubicación y responsabilidades fiscales con las que la empresa factura ante la DIAN.",
+    "businessName": "Razón social",
+    "identificationType": "Tipo de identificación",
+    "organization": "Tipo de organización",
+    "regime": "Régimen",
+    "liabilities": "Responsabilidades fiscales",
+    "liabilitiesHint": "Marque al menos una.",
+    "department": "Departamento",
+    "municipality": "Municipio",
+    "municipalityIdle": "Seleccione primero el departamento.",
+    "municipalityNone": "Ningún municipio coincide con la búsqueda.",
+    "address": "Dirección",
+    "phone": "Teléfono",
+    "phoneHint": "Entre 7 y 10 dígitos, sin espacios.",
+    "email": "Correo electrónico",
+    "merchantRegistration": "Matrícula mercantil",
+    "merchantRegistrationHint": "Si no tiene, escriba 0000000-00.",
+    "phoneFormat": "Escriba solo dígitos, entre 7 y 10.",
+    "liabilitiesRequired": "Marque al menos una responsabilidad.",
+    "loadError": "No se pudieron consultar los datos de la empresa.",
+    "help": {
+      "businessName": "Persona jurídica: el nombre de la sociedad tal como aparece en el RUT. Persona natural: su nombre completo tal como aparece en el RUT (por ejemplo, ACUÑA OBANDO SANTIAGO).",
+      "identificationType": "Documento con el que la empresa está inscrita en el RUT. Las sociedades y casi todas las personas naturales que facturan usan NIT.",
+      "organization": "Casilla 24 del RUT (tipo de contribuyente). Persona jurídica: una sociedad (SAS, LTDA, SA…) o una entidad. Persona natural: una persona que factura a su propio nombre.",
+      "regime": "Responsabilidad frente al IVA según el RUT. «Responsable de IVA» si cobra IVA en sus ventas; «No responsable de IVA» si no lo cobra.",
+      "liabilities": "Responsabilidades de la casilla 53 del RUT que pide la factura electrónica: gran contribuyente (O-13), autorretenedor (O-15), agente de retención en el impuesto sobre las ventas (O-23) o régimen simple de tributación (O-47). Si no tiene ninguna de ellas, marque «R-99-PN No aplica – Otros».",
+      "department": "Departamento del domicilio fiscal de la empresa, el de la dirección del RUT. Elíjalo primero: luego la lista de municipios muestra solo los de ese departamento.",
+      "municipality": "Municipio del domicilio fiscal. Escriba parte del nombre o el código DANE para buscarlo entre los municipios del departamento elegido y elíjalo en la lista.",
+      "address": "Dirección del domicilio fiscal tal como aparece en el RUT; sale en los documentos electrónicos que emita.",
+      "phone": "Teléfono de contacto de la empresa, fijo o celular: solo dígitos, entre 7 y 10, sin espacios ni indicativo del país (por ejemplo, 6028201234 o 3001234567).",
+      "email": "Correo de contacto de la empresa. Sale en los documentos electrónicos como correo del emisor.",
+      "merchantRegistration": "Número de inscripción de la empresa en el registro mercantil de la Cámara de Comercio; aparece en el certificado de existencia y representación legal o en el de matrícula mercantil. Es obligatorio: si la empresa no está inscrita en la Cámara de Comercio (por ejemplo, una persona natural sin establecimiento de comercio), escriba 0000000-00."
+    },
+    "departmentPlaceholder": "Escriba para buscar el departamento…",
+    "departmentNone": "Ningún departamento coincide con lo que escribió.",
+    "municipalityPlaceholder": "Escriba para buscar el municipio…"
+  },
+  "environments": {
+    "title": "Ambientes",
+    "description": "Cada familia de documentos se envía a la DIAN en habilitación (pruebas) o en producción.",
+    "current": "Ambiente actual: {{ name }}",
+    "unknown": "Ambiente actual: sin definir",
+    "loading": "Ambiente actual: consultando…",
+    "loadError": "Ambiente actual: no se pudo consultar",
+    "habilitation": "Habilitación (pruebas)",
+    "production": "Producción",
+    "nothingToSave": "Elija al menos un ambiente para cambiar.",
+    "kinds": {
+      "1": "Factura electrónica y notas",
+      "2": "Nómina electrónica",
+      "3": "Documento equivalente (POS)",
+      "4": "Documento soporte",
+      "5": "Eventos RADIAN"
+    },
+    "confirm": {
+      "header": "Confirmar el paso a producción",
+      "body": "En producción cada documento tiene efecto fiscal real ante la DIAN y no se puede borrar: solo se corrige con notas. Familias que pasan a producción: {{ kinds }}.",
+      "accept": "Entiendo que los documentos tendrán efecto fiscal real.",
+      "confirm": "Pasar a producción"
+    }
+  },
+  "software": {
+    "title": "Software",
+    "description": "Datos del software que la DIAN le asignó a la empresa en el portal de habilitación.",
+    "id": "Identificador del software",
+    "idHint": "El que aparece en el portal de la DIAN, en «Configurar modos de operación».",
+    "pin": "PIN del software",
+    "pinHint": "Cinco dígitos. No se muestra después de guardar.",
+    "pinKeepHint": "PIN configurado. Déjelo vacío para conservar el PIN guardado o escriba uno nuevo de cinco dígitos para cambiarlo.",
+    "testSetId": "Identificador del set de pruebas (TestSetId)",
+    "testSetIdHint": "Lo da la DIAN al asociar el software en habilitación.",
+    "pinFormat": "El PIN tiene 5 dígitos.",
+    "pinConfigured": "PIN configurado",
+    "pinMissing": "Sin PIN",
+    "registered": "Software registrado",
+    "registeredEmpty": "La empresa aún no tiene software registrado.",
+    "loadError": "No se pudo consultar el software guardado.",
+    "columns": {
+      "kind": "Familia",
+      "environment": "Ambiente",
+      "identifier": "Identificador",
+      "testSet": "Set de pruebas",
+      "pin": "PIN"
+    }
+  },
+  "certificate": {
+    "title": "Certificado digital",
+    "description": "Certificado de firma digital de la empresa (archivo .p12 o .pfx) con el que se firman los documentos.",
+    "current": "Certificados de la empresa",
+    "empty": "La empresa todavía no tiene certificados.",
+    "loadError": "No se pudieron consultar los certificados.",
+    "subject": "Titular",
+    "issuer": "Emisor",
+    "expiration": "Vence",
+    "daysLeft": "{{ days }} días restantes",
+    "expired": "Vencido",
+    "active": "Activo",
+    "inactive": "Reemplazado",
+    "file": "Archivo del certificado",
+    "fileHint": "Archivo .p12 o .pfx de máximo 1 MB.",
+    "password": "Contraseña del certificado",
+    "passwordHint": "No se guarda en el panel: se envía una sola vez al Api.",
+    "upload": "Cargar certificado",
+    "uploaded": "El certificado se cargó. Vence en {{ days }} días.",
+    "errors": {
+      "fileRequired": "Elija el archivo del certificado.",
+      "fileType": "El archivo debe ser .p12 o .pfx.",
+      "fileSize": "El archivo pesa más de 1 MB.",
+      "passwordRequired": "Escriba la contraseña del certificado."
+    }
+  },
+  "resolutions": {
+    "title": "Resoluciones de numeración",
+    "description": "Rangos de numeración que la DIAN autorizó para cada tipo de documento.",
+    "saved": "Resoluciones guardadas",
+    "savedEmpty": "La empresa aún no tiene resoluciones guardadas.",
+    "loadError": "No se pudieron consultar las resoluciones.",
+    "columns": {
+      "next": "Próximo número",
+      "remaining": "Quedan",
+      "daysLeft": "Días de vigencia",
+      "status": "Estado"
+    },
+    "active": "Activa",
+    "inactive": "Inactiva",
+    "noExpiry": "Sin vencimiento",
+    "form": "Agregar o actualizar una resolución",
+    "habilitationExample": "Usar el ejemplo de habilitación (SETP)",
+    "habilitationExampleHint": "En habilitación la DIAN usa el prefijo SETP con la resolución 18760000001, del 990000000 al 995000000.",
+    "typeDocument": "Tipo de documento",
+    "prefix": "Prefijo",
+    "resolution": "Número de resolución",
+    "resolutionDate": "Fecha de la resolución",
+    "technicalKey": "Clave técnica",
+    "technicalKeyHint": "Solo para facturas; la da la DIAN con la resolución.",
+    "from": "Desde el número",
+    "to": "Hasta el número",
+    "dateFrom": "Vigente desde",
+    "dateTo": "Vigente hasta",
+    "numberFormat": "Escriba solo dígitos.",
+    "rangeOrder": "El número final debe ser mayor o igual al inicial.",
+    "save": "Guardar resolución",
+    "use": "Usar este rango",
+    "documentTypes": {
+      "1": "Factura de venta",
+      "2": "Factura de exportación",
+      "3": "Factura de contingencia",
+      "4": "Nota crédito",
+      "5": "Nota débito",
+      "11": "Documento soporte",
+      "13": "Nota de ajuste al documento soporte"
+    },
+    "ranges": {
+      "title": "Rangos autorizados en la DIAN",
+      "description": "Consulta en vivo los rangos que la DIAN tiene registrados para el software de la empresa.",
+      "softwareId": "Identificador del software (opcional)",
+      "lookup": "Consultar en la DIAN",
+      "empty": "La DIAN no tiene rangos registrados para ese software.",
+      "dianMessage": "Respuesta de la DIAN: {{ message }}",
+      "columns": {
+        "resolution": "Resolución",
+        "prefix": "Prefijo",
+        "range": "Rango",
+        "validity": "Vigencia",
+        "actions": "Acciones"
+      }
+    }
+  },
+  "wizard": {
+    "title": "Paso a producción",
+    "description": "Siga los pasos en orden. El estado de cada paso lo calcula el Api con lo que la empresa tiene guardado.",
+    "stepsLabel": "Pasos del paso a producción",
+    "open": "Ir a {{ section }}",
+    "refresh": "Volver a revisar",
+    "status": {
+      "done": "Completo",
+      "missing": "Pendiente",
+      "locked": "Bloqueado",
+      "inProgress": "En curso"
+    },
+    "lockedHint": "Complete los pasos anteriores para continuar.",
+    "steps": {
+      "company": {
+        "title": "Datos de la empresa",
+        "done": "Los datos obligatorios de la empresa están completos.",
+        "missing": "Faltan datos obligatorios de la empresa (correo, teléfono, dirección, matrícula mercantil o responsabilidades fiscales): complételos en la sección Datos."
+      },
+      "certificate": {
+        "title": "Certificado digital",
+        "done": "Certificado activo de {{ subject }}, vence en {{ days }} días.",
+        "valid": "La empresa tiene un certificado activo y vigente.",
+        "missing": "La empresa no tiene un certificado activo y vigente."
+      },
+      "resolution": {
+        "title": "Resolución de numeración",
+        "done": "La factura de venta tiene una resolución vigente, con clave técnica, en el ambiente actual.",
+        "missing": "Falta una resolución vigente de factura de venta en el ambiente actual (en habilitación, la de prefijo SETP): guárdela en la sección Resoluciones."
+      },
+      "software": {
+        "title": "Software y set de pruebas",
+        "done": "Software {{ identifier }} con el set de pruebas {{ testSetId }}.",
+        "missing": "La empresa no tiene software en el ambiente actual: guárdelo en la sección Software.",
+        "missingTestSet": "Falta el identificador del set de pruebas (TestSetId): guárdelo en la sección Software o escríbalo aquí para enviar la factura de prueba.",
+        "testSetId": "Identificador del set de pruebas (TestSetId)",
+        "use": "Usar este set de pruebas"
+      },
+      "testSet": {
+        "title": "Set de pruebas de la DIAN",
+        "description": "Envía una factura de ejemplo (1 unidad de 10.000 pesos con IVA del 19 % a consumidor final) al set de pruebas. La DIAN aprueba el set cuando recibe todos los documentos que pide; puede enviar varias.",
+        "send": "Enviar factura de prueba",
+        "sending": "Enviando la factura de prueba…",
+        "result": "Factura {{ number }}: {{ status }}",
+        "dian": "Respuesta de la DIAN: {{ code }} {{ description }}",
+        "accepted": "La DIAN aceptó la factura de prueba.",
+        "noResult": "Sin resultado de la DIAN todavía.",
+        "setAccepted": "La DIAN aceptó el set de pruebas.",
+        "setRejected": "La DIAN rechazó el set de pruebas. Revise la respuesta de cada documento y vuelva a enviar.",
+        "needsTestSet": "Falta el identificador del set de pruebas.",
+        "statuses": {
+          "Received": "Recibida",
+          "Queued": "En cola para la DIAN",
+          "Sent": "Enviada, esperando a la DIAN",
+          "Accepted": "Aceptada",
+          "AcceptedWithWarnings": "Aceptada con advertencias",
+          "Rejected": "Rechazada",
+          "Unconfirmed": "Sin confirmar, se sigue consultando",
+          "Failed": "Falló el envío",
+          "ContingencyPending": "En contingencia",
+          "unknown": "Estado desconocido"
+        }
+      },
+      "production": {
+        "title": "Producción",
+        "description": "Cuando la DIAN apruebe el set de pruebas en su portal, pase a producción cada familia de documentos. Después de este cambio, los documentos tienen efecto fiscal real.",
+        "switch": "Pasar a producción: {{ kind }}",
+        "inProduction": "En producción",
+        "switched": "{{ kind }} quedó en producción."
+      }
+    },
+    "loadError": "No se pudo consultar el estado del paso a producción."
+  }
+}

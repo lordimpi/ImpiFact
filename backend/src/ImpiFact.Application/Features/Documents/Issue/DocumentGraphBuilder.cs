@@ -128,19 +128,16 @@ internal static class DocumentGraphBuilder
             TaxAmount = Amount(tax.TaxAmount),
         }).ToList();
 
-        var payment = body.PaymentForm is { Count: > 0 } forms ? forms[0] : null;
-        var payments = new List<DocumentPayment>
+        // Una fila por forma de pago, en el orden de la solicitud (el mismo de los cac:PaymentMeans del XML).
+        var payments = LegacyDocumentMapper.PaymentFormsOf(body).Select(form => new DocumentPayment
         {
-            new()
-            {
-                CompanyId = companyId,
-                DocumentId = documentId,
-                PaymentFormId = LegacyDocumentMapper.IdOr(payment?.PaymentFormId, LegacyDocumentMapper.DefaultPaymentFormId),
-                PaymentMethodId = LegacyDocumentMapper.IdOr(payment?.PaymentMethodId, LegacyDocumentMapper.DefaultPaymentMethodId),
-                DueDate = payment?.PaymentDueDate is { } due && due.Text.Length > 0 ? LegacyDocumentMapper.Date(due) : null,
-                DurationMeasure = payment?.DurationMeasure?.Text,
-            },
-        };
+            CompanyId = companyId,
+            DocumentId = documentId,
+            PaymentFormId = LegacyDocumentMapper.IdOr(form.Body?.PaymentFormId, LegacyDocumentMapper.DefaultPaymentFormId),
+            PaymentMethodId = LegacyDocumentMapper.IdOr(form.Body?.PaymentMethodId, LegacyDocumentMapper.DefaultPaymentMethodId),
+            DueDate = form.Body?.PaymentDueDate is { } due && due.Text.Length > 0 ? LegacyDocumentMapper.Date(due) : null,
+            DurationMeasure = form.Body?.DurationMeasure?.Text,
+        }).ToList();
 
         var references = new List<DocumentReference>();
         if (spec.IsNote && body.BillingReference is { Number: { } number, Uuid: { } referenced, IssueDate: { } issued })

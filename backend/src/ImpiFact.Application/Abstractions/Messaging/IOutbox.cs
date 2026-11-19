@@ -41,6 +41,9 @@ public static class OutboxMessageTypes
     /// <summary>Enviar por correo a la empresa un aviso de las tareas programadas (por ejemplo, el certificado por vencer).</summary>
     public const string SendNoticeEmail = "SendNoticeEmail";
 
+    /// <summary>Enviar al usuario el enlace para restablecer su contraseña (mensaje de la plataforma, sin empresa).</summary>
+    public const string SendPasswordResetEmail = "SendPasswordResetEmail";
+
     /// <summary>Generar otra revisión del PDF de un documento aceptado (ruta <c>regeneratepdf</c>), sin enviar correo.</summary>
     public const string RegeneratePdf = "RegeneratePdf";
 

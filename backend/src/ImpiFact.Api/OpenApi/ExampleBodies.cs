@@ -136,6 +136,27 @@ internal static class ExampleBodies
             """), "Reemplace el valor por el `refresh_token` que entregó `POST /api/v1/auth/login`."),
     ];
 
+    public static RequestExample[] Logout { get; } =
+    [
+        new("cerrar", "Cerrar la sesión de una integración con su refresh_token", Parse("""
+            { "refresh_token": "pegue-aqui-el-refresh_token-de-login" }
+            """), "El panel no manda cuerpo: envía `X-Client: panel` y el navegador agrega la cookie de la sesión."),
+    ];
+
+    public static RequestExample[] PasswordResetRequest { get; } =
+    [
+        new("correo", "Correo de la cuenta", Parse($$"""
+            { "email": "{{UserEmail}}" }
+            """), "La respuesta es la misma aunque el correo no tenga cuenta."),
+    ];
+
+    public static RequestExample[] PasswordResetConfirm { get; } =
+    [
+        new("nueva-clave", "Token del enlace y contraseña nueva", Parse("""
+            { "token": "pegue-aqui-el-token-del-enlace", "new_password": "Otra-clave-segura-2026" }
+            """), "Reemplace `token` por el valor de `?token=` del enlace que llegó por correo."),
+    ];
+
     public static RequestExample[] ApiKey { get; } =
     [
         new("integracion", "Llave de empresa para emitir y consultar", Parse($$"""
@@ -157,6 +178,45 @@ internal static class ExampleBodies
         new("vendedor", "Vendedor de la empresa", Parse($$"""
             { "email": "ventas@empresa-prueba.com", "password": "{{UserPassword}}", "name": "Ventas", "phone": "3001234567", "role": "seller" }
             """), "Con la sesión del panel del dueño (`owner`) de la empresa."),
+    ];
+
+    /// <summary>
+    /// Borradores para <c>POST /api/v1/documents/calculate</c>. El primero tiene las líneas del ejemplo de factura «con
+    /// descuentos» (golden <c>two-lines-discounts-iva19</c>) y da sus mismos totales: valor bruto 1900.00, IVA 361.00 y
+    /// 2161.00 a pagar.
+    /// </summary>
+    public static RequestExample[] CalculateTotals { get; } =
+    [
+        new("descuentos-iva19", "Dos líneas con descuento e IVA del 19 % y un descuento global", Parse("""
+            {
+              "lines": [
+                {
+                  "quantity": 1,
+                  "unit_price": 1000,
+                  "allowance_charges": [{ "charge_indicator": false, "amount": 50 }],
+                  "taxes": [{ "tax_id": 1, "percent": 19 }]
+                },
+                {
+                  "quantity": 1,
+                  "unit_price": 1000,
+                  "allowance_charges": [{ "charge_indicator": false, "percent": 5 }],
+                  "taxes": [{ "tax_id": 1, "percent": 19 }]
+                }
+              ],
+              "allowance_charges": [{ "charge_indicator": false, "amount": 100 }]
+            }
+            """)),
+        new("iva-mixto-bolsas", "IVA del 19 % y del 5 %, impuesto a las bolsas y un flete", Parse("""
+            {
+              "lines": [
+                { "quantity": 2, "unit_price": 2350000, "taxes": [{ "tax_id": 1, "percent": 19 }] },
+                { "quantity": 3.5, "unit_price": 12500.75, "taxes": [{ "tax_id": 1, "percent": 5 }] },
+                { "quantity": 3, "unit_price": 0, "taxes": [{ "tax_id": 10, "per_unit_amount": 66, "unit_measure_id": 70 }] },
+                { "quantity": 1, "unit_price": 65000, "free_of_charge": true }
+              ],
+              "allowance_charges": [{ "charge_indicator": true, "amount": 35000 }]
+            }
+            """), "La última línea es una muestra gratuita: vale 0 y su precio solo es de referencia."),
     ];
 
     private static JsonNode Parse(string json) => JsonNode.Parse(json)!;

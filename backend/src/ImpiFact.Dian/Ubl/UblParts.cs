@@ -196,12 +196,27 @@ internal static class UblParts
             .Add(partyElement);
     }
 
-    public static UblElement PaymentMeans(PaymentTerms payment, DateOnly issueDate) =>
-        new UblElement("cac:PaymentMeans")
-            .Add("cbc:ID", payment.FormCode)
-            .Add("cbc:PaymentMeansCode", payment.MethodCode)
-            .Add("cbc:PaymentDueDate", Date(payment.DueDate ?? issueDate))
-            .Add("cbc:PaymentID", "0");
+    /// <summary>
+    /// Un cac:PaymentMeans por forma de pago, como <c>_payment_means.blade.php</c> de ApiDian: cbc:PaymentID es el
+    /// índice de la forma desde 0 y, sin fecha de vencimiento, cbc:PaymentDueDate es la fecha de emisión.
+    /// </summary>
+    /// <exception cref="ArgumentException">Si no hay ninguna forma de pago.</exception>
+    public static void AddPaymentMeans(UblElement parent, IReadOnlyList<PaymentTerms> payments, DateOnly issueDate, string paramName)
+    {
+        if (payments.Count == 0)
+        {
+            throw new ArgumentException("A document needs at least one payment form.", paramName);
+        }
+
+        for (var i = 0; i < payments.Count; i++)
+        {
+            parent.Add(new UblElement("cac:PaymentMeans")
+                .Add("cbc:ID", payments[i].FormCode)
+                .Add("cbc:PaymentMeansCode", payments[i].MethodCode)
+                .Add("cbc:PaymentDueDate", Date(payments[i].DueDate ?? issueDate))
+                .Add("cbc:PaymentID", i.ToString(CultureInfo.InvariantCulture)));
+        }
+    }
 
     /// <summary>cac:PaymentExchangeRate; null cuando no hay moneda extranjera con tasa y fecha.</summary>
     public static UblElement? PaymentExchangeRate(ForeignCurrency? foreignCurrency, string localCurrency) =>

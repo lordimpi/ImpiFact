@@ -1,0 +1,130 @@
+{
+  "app": {
+    "name": "ImpiFact",
+    "documentTitle": "ImpiFact · Panel",
+    "skipToContent": "Saltar al contenido",
+    "mainNav": "Navegación principal"
+  },
+  "nav": {
+    "home": "Inicio",
+    "customers": "Clientes",
+    "products": "Productos",
+    "documents": "Documentos",
+    "company": "Empresa",
+    "production": "Paso a producción",
+    "notifications": "Avisos",
+    "apiKeys": "Llaves de API",
+    "plan": "Mi plan",
+    "platformPlans": "Planes",
+    "platformCompanies": "Empresas"
+  },
+  "userMenu": {
+    "account": "Mi cuenta",
+    "switchCompany": "Cambiar de empresa",
+    "logout": "Cerrar sesión"
+  },
+  "bell": {
+    "label": "Avisos",
+    "labelUnread": "Avisos, {{ count }} sin leer",
+    "loading": "Cargando avisos"
+  },
+  "home": {
+    "title": "Panel de ImpiFact",
+    "description": "Facturación electrónica para la DIAN. El panel se está construyendo."
+  },
+  "ui": {
+    "close": "Cerrar",
+    "fieldHelp": "Ayuda sobre {{ label }}",
+    "showPassword": "Mostrar la contraseña",
+    "retry": "Reintentar",
+    "paginator": {
+      "navigation": "Paginación",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "page": "Página {page}"
+    },
+    "toasts": {
+      "region": "Avisos",
+      "close": "Cerrar",
+      "copy": "Copiar código",
+      "reference": "Código de soporte",
+      "copied": "Código copiado."
+    }
+  },
+  "errors": {
+    "network": "No hay conexión con el servidor. Revise su red e intente de nuevo.",
+    "unexpected": "Ocurrió un error inesperado. Intente de nuevo."
+  },
+  "core": {
+    "unsavedChanges": "Hay cambios sin guardar. ¿Desea salir de todos modos?"
+  },
+  "devUi": {
+    "title": "Vitrina de componentes",
+    "description": "Página solo para desarrollo: cada componente de ui en cada estado.",
+    "lastEvent": "Último evento",
+    "noEvent": "ninguno",
+    "theme": {
+      "label": "Tema",
+      "system": "Sistema",
+      "light": "Claro",
+      "dark": "Oscuro"
+    },
+    "buttons": {
+      "title": "Botones",
+      "primary": "Guardar",
+      "secondary": "Cancelar",
+      "danger": "Anular",
+      "text": "Ver detalle",
+      "disabled": "No disponible",
+      "loading": "Guardando"
+    },
+    "fields": {
+      "title": "Campos",
+      "nit": "NIT",
+      "nitHint": "Sin dígito de verificación",
+      "name": "Razón social",
+      "nameError": "La razón social es obligatoria",
+      "email": "Correo electrónico"
+    },
+    "states": {
+      "title": "Estados",
+      "emptyTitle": "Aún no hay clientes",
+      "emptyDescription": "Cree el primero para poder facturarle.",
+      "emptyAction": "Nuevo cliente",
+      "loading": "Cargando clientes",
+      "errorTitle": "No se pudieron cargar los clientes",
+      "errorDescription": "Revise su conexión e intente de nuevo."
+    },
+    "table": {
+      "title": "Tabla",
+      "caption": "Documentos emitidos",
+      "loadingCaption": "Documentos emitidos, cargando",
+      "emptyCaption": "Documentos emitidos, sin resultados",
+      "errorCaption": "Documentos emitidos, con error",
+      "number": "Número",
+      "customer": "Cliente",
+      "filterCustomer": "Filtrar por cliente",
+      "status": "Estado",
+      "filterStatus": "Filtrar por estado",
+      "total": "Total",
+      "loading": "Cargando documentos",
+      "emptyTitle": "No hay documentos",
+      "emptyDescription": "Cambie los filtros o emita un documento.",
+      "errorTitle": "No se pudieron cargar los documentos",
+      "errorDescription": "Revise su conexión e intente de nuevo."
+    },
+    "paginator": {
+      "title": "Paginador",
+      "cursor": "Con cursor",
+      "cursorNav": "Paginación con cursor"
+    },
+    "dialog": {
+      "title": "Diálogo",
+      "open": "Abrir diálogo",
+      "header": "Anular factura",
+      "body": "La factura quedará anulada con una nota crédito. Esta acción no se puede deshacer.",
+      "confirm": "Anular",
+      "cancel": "Cancelar"
+    }
+  }
+}

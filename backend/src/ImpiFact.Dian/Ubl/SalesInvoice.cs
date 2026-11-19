@@ -55,7 +55,17 @@ public sealed record SalesInvoice
 
     public required InvoiceParty Customer { get; init; }
 
-    public required PaymentTerms Payment { get; init; }
+    /// <summary>
+    /// Formas de pago, al menos una: cada una es un cac:PaymentMeans (con cbc:PaymentID desde 0) y cac:PaymentTerms
+    /// usa la primera, como ApiDian.
+    /// </summary>
+    public required IReadOnlyList<PaymentTerms> Payments { get; init; }
+
+    /// <summary>
+    /// Anticipos ya recibidos; cada uno es un cac:PrepaidPayment (grupo FBD del anexo técnico de la DIAN). Su suma va en
+    /// <see cref="MonetaryTotals.PrepaidAmount"/> y no cambia el valor a pagar ni el CUFE.
+    /// </summary>
+    public IReadOnlyList<PrepaidPayment> PrepaidPayments { get; init; } = [];
 
     /// <summary>Descuentos y cargos a nivel de documento.</summary>
     public IReadOnlyList<AllowanceCharge> AllowanceCharges { get; init; } = [];
@@ -166,8 +176,19 @@ public sealed record PartyAddress(
     string CountryName,
     string LanguageCode);
 
-/// <summary>Forma de pago (contado/crédito) y medio de pago.</summary>
+/// <summary>Forma de pago (contado/crédito) y medio de pago de una entrada de cac:PaymentMeans.</summary>
 public sealed record PaymentTerms(string FormCode, string MethodCode, DateOnly? DueDate, int? DurationDays);
+
+/// <summary>
+/// Un anticipo (cac:PrepaidPayment). <see cref="PaidDate"/> e <see cref="InstructionId"/> son opcionales en el anexo
+/// (reglas FBD06 y FBD08) y solo se escriben cuando llegan.
+/// </summary>
+/// <param name="Id">Identificación del pago del anticipo (cbc:ID, regla FBD02).</param>
+/// <param name="PaidAmount">Valor pagado por anticipado, sin redondear (cbc:PaidAmount).</param>
+/// <param name="ReceivedDate">Fecha en que se recibió el pago (cbc:ReceivedDate).</param>
+/// <param name="PaidDate">Fecha en que se hizo el pago (cbc:PaidDate).</param>
+/// <param name="InstructionId">Instrucciones relativas al pago (cbc:InstructionID).</param>
+public sealed record PrepaidPayment(string Id, decimal PaidAmount, DateOnly ReceivedDate, DateOnly? PaidDate, string? InstructionId);
 
 /// <summary>Un descuento (allowance) o un cargo, a nivel de documento o de línea.</summary>
 public sealed record AllowanceCharge

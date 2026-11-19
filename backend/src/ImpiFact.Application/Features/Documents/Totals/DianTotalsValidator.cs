@@ -238,7 +238,9 @@ public static class DianTotalsValidator
         CheckAllowanceChargesNotNegative(context, document.AllowanceCharges, "allowance_charges");
         for (var i = 0; i < document.PrepaidPayments.Count; i++)
         {
-            context.NotNegative($"prepaid_payments[{i}].paidamount", document.PrepaidPayments[i].PaidAmount);
+            // El campo es el de la solicitud cuando se conoce (`prepaid_payment` o `prepaid_payments.N`).
+            var prepaidField = document.PrepaidPayments[i].Field is { } field ? $"{field}.paidamount" : $"prepaid_payments[{i}].paidamount";
+            context.NotNegative(prepaidField, document.PrepaidPayments[i].PaidAmount);
         }
 
         for (var i = 0; i < document.Lines.Count; i++)

@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Dapper;
 using ImpiFact.Application.Abstractions.Documents;
@@ -12,7 +14,13 @@ namespace ImpiFact.Infrastructure.Reads.Documents;
 /// detallado, sección 6). Toda consulta lleva <c>company_id</c> en el WHERE: los filtros globales de EF Core no aplican
 /// aquí y una prueba de arquitectura revisa cada cadena SQL. Índices que usan:
 /// <list type="bullet">
-/// <item>Rangos de fecha, listados y conteos: <c>ix_documents_company_issued</c> (company_id, issued_at DESC).</item>
+/// <item>
+/// Rangos de fecha, listados y conteos: <c>ix_documents_company_issued</c> (company_id, issued_at DESC). El listado del
+/// panel recorre ese índice hacia atrás desde el cursor y se detiene al juntar la página; los demás filtros (tipo,
+/// estados, adquiriente, número) se evalúan en las filas que recorre. Con filtros que casi no coinciden recorre más
+/// filas de la empresa, pero nunca las de otra; el conteo (<c>include_total</c>) y la exportación recorren todas las que
+/// cumplen el rango de fechas.
+/// </item>
 /// <item>Por CUFE: <c>ux_documents_cufe</c> (company_id, cufe). Por id: la clave primaria.</item>
 /// <item>Impuestos y líneas de un documento: los índices (company_id, document_id) de cada tabla hija.</item>
 /// </list>
@@ -31,7 +39,8 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
         d.issue_time as IssueTime, d.issued_at as IssuedAt, d.currency_id as CurrencyId, d.customer_snapshot as CustomerSnapshot,
         d.line_extension_amount as LineExtensionAmount, d.tax_exclusive_amount as TaxExclusiveAmount,
         d.tax_inclusive_amount as TaxInclusiveAmount, d.allowance_total_amount as AllowanceTotalAmount,
-        d.charge_total_amount as ChargeTotalAmount, d.prepaid_amount as PrepaidAmount, d.payable_amount as PayableAmount
+        d.charge_total_amount as ChargeTotalAmount, d.prepaid_amount as PrepaidAmount, d.payable_amount as PayableAmount,
+        d.email_status as EmailStatus
         """;
 
     /// <summary>Columnas que solo trae el detalle.</summary>
@@ -151,22 +160,59 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
 
     public async Task<IReadOnlyList<DocumentSummary>> ListAsync(DocumentListFilter filter, CancellationToken ct)
     {
+        var (sql, parameters) = ListSql(filter);
+        return await QuerySummariesAsync(sql, parameters, ct);
+    }
+
+    public async Task<long> CountAsync(DocumentListFilter filter, CancellationToken ct)
+    {
+        var parameters = new DynamicParameters(new { filter.CompanyId });
+        var sql = new StringBuilder("""
+            select count(*)
+            from documents d
+            where d.company_id = @CompanyId
+            """);
+        AppendListFilters(sql, parameters, filter with { After = null });
+        await using var connection = await connections.OpenAsync(ct);
+        return await connection.ExecuteScalarAsync<long>(new CommandDefinition(sql.ToString(), parameters, cancellationToken: ct));
+    }
+
+    public async IAsyncEnumerable<DocumentSummary> StreamAsync(DocumentListFilter filter, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var (sql, parameters) = ListSql(filter);
+        await using var connection = await connections.OpenAsync(ct);
+        await foreach (var row in connection.QueryUnbufferedAsync<HeaderRow>(sql, parameters).WithCancellation(ct))
+        {
+            yield return Summary(row);
+        }
+    }
+
+    /// <summary>Consulta del listado: los filtros, el cursor, el orden <c>(issued_at, id)</c> descendente y el límite.</summary>
+    private static (string Sql, DynamicParameters Parameters) ListSql(DocumentListFilter filter)
+    {
         var parameters = new DynamicParameters(new { filter.CompanyId, filter.Take });
         var sql = new StringBuilder($"""
             select {HeaderColumns}
             from documents d
             where d.company_id = @CompanyId
             """);
+        AppendListFilters(sql, parameters, filter);
+        sql.Append(" order by d.issued_at desc, d.id desc limit @Take");
+        return (sql.ToString(), parameters);
+    }
+
+    /// <summary>Condiciones del listado después de <c>company_id</c>; los filtros nulos o vacíos no agregan nada.</summary>
+    private static void AppendListFilters(StringBuilder sql, DynamicParameters parameters, DocumentListFilter filter)
+    {
         if (filter.DocumentTypeId is { } typeId)
         {
             sql.Append(" and d.document_type_id = @DocumentTypeId");
             parameters.Add("DocumentTypeId", typeId);
         }
 
-        if (filter.Status is { } status)
+        if (filter.Statuses.Count > 0)
         {
-            sql.Append(" and d.status = @Status");
-            parameters.Add("Status", (short)status);
+            sql.Append(" and d.status in ").Append(InList(parameters, "Status", filter.Statuses.Select(status => (short)status)));
         }
 
         if (filter.IssuedFrom is { } from)
@@ -181,6 +227,30 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
             parameters.Add("IssuedUntil", until.ToUniversalTime());
         }
 
+        if (filter.Customer is { } customer)
+        {
+            // Busca en la copia del adquiriente que quedó en el documento (columna jsonb), sin distinguir mayúsculas. Los
+            // comodines de LIKE que escriba el usuario (%, _) se escapan: se buscan como texto.
+            sql.Append(" and (d.customer_snapshot ->> 'identification_number' ilike @Customer escape '\\'")
+                .Append(" or d.customer_snapshot ->> 'name' ilike @Customer escape '\\')");
+            parameters.Add("Customer", "%" + EscapeLike(customer) + "%");
+        }
+
+        if (filter.Number is { } number)
+        {
+            if (number.All(char.IsAsciiDigit) && long.TryParse(number, NumberStyles.None, CultureInfo.InvariantCulture, out var digits))
+            {
+                // Solo dígitos: el número en cualquier prefijo (también el de un documento sin prefijo).
+                sql.Append(" and d.number = @Number");
+                parameters.Add("Number", digits);
+            }
+            else
+            {
+                sql.Append(" and upper(d.full_number) = @FullNumber");
+                parameters.Add("FullNumber", number.ToUpperInvariant());
+            }
+        }
+
         if (filter.After is { } after)
         {
             // Siguiente página por clave (issued_at, id), del más reciente al más antiguo: lo que va después del último
@@ -189,10 +259,11 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
             parameters.Add("AfterIssuedAt", after.IssuedAt.ToUniversalTime());
             parameters.Add("AfterId", after.Id);
         }
-
-        sql.Append(" order by d.issued_at desc, d.id desc limit @Take");
-        return await QuerySummariesAsync(sql.ToString(), parameters, ct);
     }
+
+    /// <summary>Escapa los comodines de LIKE con la barra invertida.</summary>
+    private static string EscapeLike(string value) =>
+        value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("%", "\\%", StringComparison.Ordinal).Replace("_", "\\_", StringComparison.Ordinal);
 
     public Task<DocumentDetail?> FindByIdAsync(Guid companyId, Guid documentId, CancellationToken ct) =>
         FindDetailAsync($"""
@@ -317,7 +388,8 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
                 row.AllowanceTotalAmount,
                 row.ChargeTotalAmount,
                 row.PrepaidAmount,
-                row.PayableAmount));
+                row.PayableAmount),
+            (EmailStatus)row.EmailStatus);
     }
 
     private static DocumentTaxAmount Tax(TaxRow row) =>
@@ -387,6 +459,8 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
         public decimal PrepaidAmount { get; init; }
 
         public decimal PayableAmount { get; init; }
+
+        public short EmailStatus { get; init; }
 
         public string? UuidAlgorithm { get; init; }
 

@@ -98,3 +98,18 @@ public sealed record GetNumberingRangeRequest(string AccountCode, string Account
     internal override IReadOnlyList<KeyValuePair<string, string>> Parameters =>
         [Parameter("accountCode", AccountCode), Parameter("accountCodeT", AccountCodeT), Parameter("softwareCode", SoftwareCode)];
 }
+
+/// <summary>
+/// Consulta de un adquiriente (GetAcquirer): con el tipo y el número de identificación de un comprador, la DIAN devuelve
+/// el nombre y el correo de recepción de facturas que tiene registrados. <paramref name="IdentificationType"/> es el
+/// código DIAN del tipo de identificación (por ejemplo <c>31</c> para NIT o <c>13</c> para cédula de ciudadanía), no el id
+/// del catálogo; <paramref name="IdentificationNumber"/> va sin dígito de verificación. El sobre es el de
+/// <c>GetAdquirerRequest.php</c> del PHP.
+/// </summary>
+public sealed record GetAcquirerRequest(string IdentificationType, string IdentificationNumber) : DianSoapRequest
+{
+    public override string OperationName => "GetAcquirer";
+
+    internal override IReadOnlyList<KeyValuePair<string, string>> Parameters =>
+        [Parameter("identificationType", IdentificationType), Parameter("identificationNumber", IdentificationNumber)];
+}

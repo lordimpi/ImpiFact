@@ -218,6 +218,35 @@ public sealed class IdentityEndpointTests
     }
 
     [Test]
+    public async Task The_platform_creates_the_first_owner_of_a_new_company_who_can_log_in()
+    {
+        var companyId = await IdentityDatabase.AddCompanyAsync();
+        var otherId = await IdentityDatabase.AddCompanyAsync();
+        var (_, adminEmail) = await AddUserAsync(company: null, platformRoles: [RoleNames.PlatformAdmin]);
+        var (_, ownerOfOther) = await AddUserAsync(new CompanyMembership(otherId, RoleNames.Owner));
+        using var admin = _factory.CreateClient(await AccessTokenAsync(adminEmail));
+        using var foreignOwner = _factory.CreateClient(await AccessTokenAsync(ownerOfOther));
+        var email = $"duena-{Guid.NewGuid():N}@example.com";
+
+        using var created = await admin.PostAsJsonAsync("/api/v1/users", new { email, password = Password, name = "Dueña", role = "owner", company_id = companyId });
+        var user = await ReadAsync(created);
+        using var unknown = await admin.PostAsJsonAsync("/api/v1/users", new { email = "x" + email, password = Password, name = "X", role = "owner", company_id = Guid.CreateVersion7() });
+        using var crossTenant = await foreignOwner.PostAsJsonAsync("/api/v1/users", new { email = "y" + email, password = Password, name = "Y", role = "seller", company_id = companyId });
+        var login = await ReadAsync(await Login(email, Password));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(created.StatusCode, Is.EqualTo(HttpStatusCode.Created));
+            Assert.That(user.GetProperty("company_id").GetGuid(), Is.EqualTo(companyId));
+            Assert.That(user.GetProperty("role").GetString(), Is.EqualTo("owner"));
+            Assert.That(unknown.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+            Assert.That(crossTenant.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(login.GetProperty("company_id").GetGuid(), Is.EqualTo(companyId));
+            Assert.That(login.GetProperty("roles").EnumerateArray().Select(role => role.GetString()), Is.EqualTo(new[] { "owner" }));
+        });
+    }
+
+    [Test]
     public async Task An_owner_creates_a_seller_who_can_log_in_and_a_repeated_email_is_a_conflict()
     {
         var companyId = await IdentityDatabase.AddCompanyAsync();

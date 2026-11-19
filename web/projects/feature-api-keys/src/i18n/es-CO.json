@@ -1,0 +1,69 @@
+{
+  "title": "Llaves de API",
+  "description": "Llaves para que sus sistemas (tienda en línea, ERP) emitan y consulten documentos de esta empresa sin usar el panel.",
+  "form": {
+    "title": "Nueva llave",
+    "name": "Nombre de la llave",
+    "nameHint": "Para reconocerla después, por ejemplo «Tienda en línea».",
+    "nameRequired": "Escriba un nombre para la llave.",
+    "nameTooLong": "Use como máximo {{ max }} caracteres.",
+    "scopes": "Permisos",
+    "scopesHint": "Solo puede dar los permisos que usted tiene.",
+    "scopesRequired": "Elija al menos un permiso.",
+    "expiresAt": "Vence el (opcional)",
+    "expiresAtHint": "Sin fecha, la llave no vence. Deja de servir al final de ese día, hora de Colombia.",
+    "submit": "Crear llave",
+    "unexpected": "No se pudo crear la llave. Intente de nuevo."
+  },
+  "scopes": {
+    "documents:read": "Consultar documentos y descargar sus archivos",
+    "documents:write": "Emitir documentos (facturas y notas)",
+    "config:write": "Cambiar la configuración de la empresa"
+  },
+  "secret": {
+    "title": "Copie su llave ahora",
+    "body": "Por seguridad esta es la única vez que se muestra completa. Guárdela en un lugar seguro: si la pierde, revóquela y cree otra.",
+    "label": "Llave de {{ name }}",
+    "copy": "Copiar llave",
+    "copied": "Llave copiada.",
+    "copyFailed": "No se pudo copiar. Selecciónela y cópiela a mano.",
+    "done": "Ya la copié",
+    "close": "Cerrar"
+  },
+  "list": {
+    "caption": "Llaves de la empresa",
+    "name": "Nombre",
+    "prefix": "Comienza por",
+    "scopes": "Permisos",
+    "expiresAt": "Vence",
+    "never": "No vence",
+    "lastUsedAt": "Último uso",
+    "neverUsed": "Sin uso",
+    "status": "Estado",
+    "active": "Activa",
+    "revoked": "Revocada",
+    "actions": "Acciones",
+    "revoke": "Revocar",
+    "revokeRow": "Revocar la llave {{ name }}",
+    "emptyTitle": "La empresa aún no tiene llaves de API",
+    "emptyDescription": "Las que cree aparecerán aquí para que pueda revocarlas.",
+    "loading": "Cargando las llaves…",
+    "errorTitle": "No se pudieron consultar las llaves",
+    "errorDescription": "Revise su conexión e intente de nuevo.",
+    "retry": "Reintentar",
+    "paginator": {
+      "navigation": "Paginación de llaves",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "page": "Página {page}"
+    }
+  },
+  "revoke": {
+    "title": "Revocar la llave",
+    "body": "La llave «{{ name }}» dejará de funcionar en máximo un minuto. Los sistemas que la usen ya no podrán conectarse. Esta acción no se puede deshacer.",
+    "confirm": "Revocar",
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "done": "La llave quedó revocada."
+  }
+}

@@ -1,0 +1,192 @@
+<form class="doc-page" novalidate (submit)="issue($event)" [attr.aria-busy]="submitting() || null">
+  <header class="doc-header">
+    <div>
+      <ui-page-title>{{ 'documents.issue.title' | transloco }}</ui-page-title>
+      <p class="doc-lead">{{ 'documents.issue.description' | transloco }}</p>
+    </div>
+    <a routerLink="/documentos">{{ 'documents.issue.cancel' | transloco }}</a>
+  </header>
+
+  <div class="issue-layout">
+    <div class="issue-main">
+      <section class="doc-section" aria-labelledby="issue-customer">
+        <h2 id="issue-customer">{{ 'documents.issue.customer' | transloco }}</h2>
+        @if (customer(); as chosen) {
+          <p class="doc-muted">{{ 'documents.issue.customerSelected' | transloco }}</p>
+          <dl class="doc-data">
+            <dt>{{ 'documents.detail.customer' | transloco }}</dt>
+            <dd>{{ chosen.name }}</dd>
+            <dt>{{ 'documents.detail.identification' | transloco }}</dt>
+            <dd>{{ chosen.identification_number }}{{ chosen.dv ? '-' + chosen.dv : '' }}</dd>
+            @if (chosen.email) {
+              <dt>{{ 'documents.detail.email' | transloco }}</dt>
+              <dd>{{ chosen.email }}</dd>
+            }
+          </dl>
+          <ui-button
+            variant="text"
+            [label]="'documents.issue.customerChange' | transloco"
+            (pressed)="clearCustomer()"
+          />
+        } @else {
+          <feat-search-picker
+            [labels]="customerLabels"
+            [term]="customerSearch().term"
+            [options]="customerOptions()"
+            [loading]="customerSearch().loading"
+            [error]="customerSearch().error"
+            (termChange)="searchCustomers($event)"
+            (picked)="chooseCustomer($event)"
+          />
+          <a routerLink="/clientes/nuevo">{{ 'documents.issue.customerCreate' | transloco }}</a>
+        }
+      </section>
+
+      <section class="doc-section" aria-labelledby="issue-payment">
+        <h2 id="issue-payment">{{ 'documents.issue.payment' | transloco }}</h2>
+        <div class="issue-grid">
+          <ui-field [label]="'documents.issue.paymentForm' | transloco" required>
+            <select uiSelect [formField]="invoiceForm.paymentFormId">
+              @for (option of paymentForms; track option) {
+                <option [value]="option">
+                  {{ 'documents.issue.paymentForms.' + option | transloco }}
+                </option>
+              }
+            </select>
+          </ui-field>
+          <ui-field [label]="'documents.issue.paymentMethod' | transloco" required>
+            <select uiSelect [formField]="invoiceForm.paymentMethodId">
+              @for (option of paymentMethods; track option) {
+                <option [value]="option">
+                  {{ 'documents.issue.paymentMethods.' + option | transloco }}
+                </option>
+              }
+            </select>
+          </ui-field>
+          @if (onCredit()) {
+            <ui-field
+              [label]="'documents.issue.dueDate' | transloco"
+              [error]="fieldError('paymentDueDate')"
+              required
+            >
+              <input uiInput type="date" [formField]="invoiceForm.paymentDueDate" />
+            </ui-field>
+            <ui-field
+              [label]="'documents.issue.durationDays' | transloco"
+              [error]="fieldError('durationDays')"
+              required
+            >
+              <input
+                uiInput
+                uiNonNegative
+                type="number"
+                step="1"
+                [formField]="invoiceForm.durationDays"
+              />
+            </ui-field>
+          }
+        </div>
+      </section>
+
+      <section class="doc-section" aria-labelledby="issue-lines">
+        <h2 id="issue-lines">{{ 'documents.issue.lines' | transloco }}</h2>
+        <feat-search-picker
+          [labels]="productLabels"
+          [term]="productSearch().term"
+          [options]="productOptions()"
+          [loading]="productSearch().loading"
+          [error]="productSearch().error"
+          (termChange)="searchProducts($event)"
+          (picked)="addProduct($event)"
+        />
+        <div class="doc-actions">
+          <ui-button
+            variant="secondary"
+            [label]="'documents.issue.addFreeLine' | transloco"
+            (pressed)="addFreeLine()"
+          />
+        </div>
+
+        @for (line of invoiceForm.lines().value(); track $index; let index = $index) {
+          <feat-line-fields
+            [line]="lineFields(index)"
+            [index]="index"
+            [amount]="lineAmount(index)"
+            (remove)="removeLine(index)"
+          />
+        } @empty {
+          <p class="doc-muted">{{ 'documents.issue.noLines' | transloco }}</p>
+        }
+      </section>
+
+      <section class="doc-section" aria-labelledby="issue-notes">
+        <h2 id="issue-notes">{{ 'documents.issue.notes' | transloco }}</h2>
+        <ui-field
+          [label]="'documents.issue.notes' | transloco"
+          [hint]="'documents.issue.notesHint' | transloco"
+        >
+          <textarea uiInput rows="3" [formField]="invoiceForm.notes"></textarea>
+        </ui-field>
+        <label class="issue-check">
+          <input type="checkbox" [formField]="invoiceForm.sendEmail" />
+          <span>{{ 'documents.issue.sendEmail' | transloco }}</span>
+        </label>
+        <p class="doc-muted">
+          @if (customerEmail(); as email) {
+            {{ 'documents.issue.sendEmailHint' | transloco: { email } }}
+          } @else if (customer()) {
+            {{ 'documents.issue.sendEmailNoAddress' | transloco }}
+          }
+        </p>
+      </section>
+    </div>
+
+    <aside class="issue-side doc-section" aria-labelledby="issue-totals">
+      <h2 id="issue-totals">{{ 'documents.totals.title' | transloco }}</h2>
+      <feat-totals-panel
+        [totals]="calculated()?.legal_monetary_totals"
+        [taxes]="totals.taxes()"
+        [state]="totals.state()"
+        (retry)="totals.retry()"
+      />
+
+      @if (issueError(); as failure) {
+        <div class="doc-error" role="alert">
+          <p>{{ failure.message }}</p>
+          @if (failure.details.length > 0) {
+            <ul>
+              @for (detail of failure.details; track $index) {
+                <li>{{ detail }}</li>
+              }
+            </ul>
+          }
+        </div>
+      }
+
+      @if (!canIssue() && !submitting()) {
+        <p class="doc-muted" id="issue-not-ready">{{ 'documents.issue.notReady' | transloco }}</p>
+      }
+      @if (previewError(); as message) {
+        <p class="doc-error" role="alert">{{ message }}</p>
+      }
+      <ui-button
+        variant="secondary"
+        [label]="'documents.issue.preview' | transloco"
+        [loading]="previewing()"
+        [disabled]="!canIssue() || previewing()"
+        (pressed)="preview()"
+      />
+      <feat-pdf-preview
+        [pdf]="previewPdf()"
+        (closed)="previewPdf.set(null)"
+        (download)="savePreview()"
+      />
+      <ui-button
+        type="submit"
+        [label]="'documents.issue.submit' | transloco"
+        [loading]="submitting()"
+        [disabled]="!canIssue()"
+      />
+    </aside>
+  </div>
+</form>

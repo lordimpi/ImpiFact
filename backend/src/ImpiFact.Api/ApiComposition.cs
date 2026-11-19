@@ -1,15 +1,20 @@
 using System.Net;
+using ImpiFact.Api.Catalogs;
 using ImpiFact.Api.Companies;
+using ImpiFact.Api.Dashboard;
 using ImpiFact.Api.Documents;
 using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
 using ImpiFact.Api.Identity;
+using ImpiFact.Api.Masters;
+using ImpiFact.Api.Notifications;
 using ImpiFact.Api.OpenApi;
 using ImpiFact.Api.Plans;
 using ImpiFact.Application;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Infrastructure.Options;
+using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.Postgres;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -32,6 +37,8 @@ internal static class ApiComposition
         services.AddApplication();
         services.AddValidatedOptions<RateLimitOptions>(configuration, RateLimitOptions.SectionName);
         services.AddValidatedOptions<CorsOriginsOptions>(configuration, CorsOriginsOptions.SectionName);
+        // Vista previa del PDF de la factura (POST /api/v1/documents/invoices/preview): Gotenberg desde la sección «Pdf».
+        services.AddPdfRendering(configuration);
 
         services.AddHealthChecks();
         services.AddProblemDetails(options =>
@@ -60,13 +67,21 @@ internal static class ApiComposition
             }
         });
 
+        // CORS solo para los orígenes de Cors:Origins (validados al arrancar: nunca «*»). Con credenciales, para que el
+        // panel reciba y envíe la cookie de sesión (PanelSession); sin orígenes configurados no se permite ninguno.
         services.AddCors();
         services.AddOptions<CorsOptions>().Configure<IOptionsService<CorsOriginsOptions>>((options, cors) =>
-            options.AddDefaultPolicy(policy => policy
-                .WithOrigins(cors.Value.Origins)
-                .AllowAnyHeader()
-                .AllowAnyMethod()
-                .WithExposedHeaders(CorrelationIdMiddleware.HeaderName)));
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.WithOrigins(cors.Value.Origins)
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .WithExposedHeaders(CorrelationIdMiddleware.HeaderName);
+                if (cors.Value.Origins.Length > 0)
+                {
+                    policy.AllowCredentials();
+                }
+            }));
 
         services.AddApiRateLimiting();
         services.AddBearerAuthentication();
@@ -79,6 +94,10 @@ internal static class ApiComposition
         services.AddSingleton<IEndpointModule, DocumentIssueEndpoints>();
         services.AddSingleton<IEndpointModule, DocumentUtilityEndpoints>();
         services.AddSingleton<IEndpointModule, PlanEndpoints>();
+        services.AddSingleton<IEndpointModule, NotificationEndpoints>();
+        services.AddSingleton<IEndpointModule, MasterEndpoints>();
+        services.AddSingleton<IEndpointModule, DashboardEndpoints>();
+        services.AddSingleton<IEndpointModule, CatalogEndpoints>();
         return builder;
     }
 

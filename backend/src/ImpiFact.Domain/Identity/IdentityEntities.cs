@@ -165,3 +165,27 @@ public sealed class RefreshToken : PlatformEntity
 
     public string? UserAgent { get; init; }
 }
+
+/// <summary>
+/// Token de un solo uso para restablecer la contraseña (<c>password_reset_tokens</c>, fase 5; sin equivalente en el
+/// PHP). Solo se guarda su resumen SHA-256; el valor va una sola vez en el enlace del correo.
+/// </summary>
+public sealed class PasswordResetToken : PlatformEntity
+{
+    public Guid UserId { get; init; }
+
+    /// <summary>SHA-256 del token en hexadecimal (64 caracteres).</summary>
+    public required string TokenHash { get; init; }
+
+    /// <summary>Vencimiento: 30 minutos después de pedirlo.</summary>
+    public DateTimeOffset ExpiresAt { get; init; }
+
+    /// <summary>Cuándo se usó para fijar la contraseña nueva; un token usado no vuelve a servir.</summary>
+    public DateTimeOffset? UsedAt { get; set; }
+
+    /// <summary>Cuándo quedó sin efecto porque el usuario pidió otro enlace.</summary>
+    public DateTimeOffset? RevokedAt { get; set; }
+
+    /// <summary>IP de origen de la solicitud (hasta 45 caracteres, el largo de una IPv6).</summary>
+    public string? RequestedIp { get; init; }
+}

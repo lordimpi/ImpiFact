@@ -41,6 +41,7 @@ public sealed class WorkerCompositionTests
                     OutboxMessageTypes.SendDocumentToDian, OutboxMessageTypes.PollDianStatus, OutboxMessageTypes.RenderPdf,
                     OutboxMessageTypes.SendEmail, OutboxMessageTypes.SendNoticeEmail,
                     OutboxMessageTypes.RegeneratePdf, OutboxMessageTypes.RegenerateAttachedDocument,
+                    OutboxMessageTypes.SendPasswordResetEmail,
                 }));
             Assert.That(handlers.Select(handler => handler.MessageType), Is.Unique);
         });
@@ -139,6 +140,34 @@ public sealed class WorkerCompositionTests
             Assert.That(exception?.Message, Does.Contain(nameof(EmailOptions.Host)));
             Assert.That(exception?.Message, Does.Contain(nameof(EmailOptions.FromAddress)));
         });
+    }
+
+    [TestCase(null, "The BaseUrl field is required")]
+    [TestCase("panel.impifact.test", "absolute https URL")]
+    [TestCase("http://panel.impifact.test", "absolute https URL")]
+    [TestCase("https://panel.impifact.test/?x=1", "absolute https URL")]
+    public async Task The_worker_does_not_start_without_a_valid_panel_address(string? baseUrl, string expected)
+    {
+        using var protection = new ProtectionScratch();
+        await using var services = Build(protection, new Dictionary<string, string?> { ["Panel:BaseUrl"] = baseUrl });
+
+        var exception = Assert.Throws<OptionsValidationException>(() => _ = services.GetRequiredService<IOptions<PanelOptions>>().Value);
+
+        Assert.That(exception?.Message, Does.Contain(expected));
+    }
+
+    [TestCase("https://panel.impifact.test", "https://panel.impifact.test/restablecer?token=a%2Bb%2Fc")]
+    [TestCase("https://impifact.test/panel/", "https://impifact.test/panel/restablecer?token=a%2Bb%2Fc")]
+    [TestCase("http://localhost:4200", "http://localhost:4200/restablecer?token=a%2Bb%2Fc")]
+    [TestCase("http://127.0.0.1:4200", "http://127.0.0.1:4200/restablecer?token=a%2Bb%2Fc")]
+    public async Task The_password_reset_link_points_to_the_panel_page_with_the_escaped_token(string baseUrl, string expected)
+    {
+        using var protection = new ProtectionScratch();
+        await using var services = Build(protection, new Dictionary<string, string?> { ["Panel:BaseUrl"] = baseUrl });
+
+        var link = services.GetRequiredService<ImpiFact.Application.Abstractions.Identity.IPanelLinks>().PasswordReset("a+b/c");
+
+        Assert.That(link.AbsoluteUri, Is.EqualTo(expected));
     }
 
     [Test]

@@ -60,7 +60,7 @@ public sealed class ApiDianNoteAdapter(ApiDianCatalog catalog)
             ForeignCurrency = _shared.MapForeignCurrency(request),
             Supplier = _shared.MapSupplier(),
             Customer = _shared.MapCustomer(request.GetProperty("customer")),
-            Payment = _shared.MapPayment(request.GetProperty("payment_form")),
+            Payments = _shared.MapPayments(request.GetProperty("payment_form")),
             InvoicePeriod = MapInvoicePeriod(request),
             Discrepancy = MapDiscrepancy(request, kind),
             BillingReference = MapBillingReference(request),

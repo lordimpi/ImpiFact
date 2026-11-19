@@ -1,0 +1,63 @@
+{
+  "name": "impifact-web",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve app",
+    "build": "ng build app",
+    "build:libs": "ng build api && ng build ui && ng build core && ng build feature-auth && ng build feature-masters && ng build feature-documents && ng build feature-companies && ng build feature-notifications && ng build feature-api-keys && ng build feature-plans && ng build feature-dashboard && ng build feature-platform",
+    "watch": "ng build app --watch --configuration development",
+    "test": "ng test --watch=false",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "e2e": "playwright test",
+    "e2e:critical": "playwright test --grep @critical",
+    "lighthouse": "lhci autorun && lhci autorun --config=lighthouserc.mobile.json",
+    "api:generate": "npm run api:export && npm run api:client",
+    "api:export": "dotnet run --project ../backend/tools/openapi-export -- projects/api/openapi.json",
+    "api:client": "ng-openapi-gen -c projects/api/ng-openapi-gen.json",
+    "api:check": "npm run api:generate && node projects/api/check-generated.mjs"
+  },
+  "private": true,
+  "packageManager": "npm@11.19.0",
+  "dependencies": {
+    "@angular/cdk": "^22.2.7",
+    "@angular/common": "^22.2.0",
+    "@angular/compiler": "^22.2.0",
+    "@angular/core": "^22.2.0",
+    "@angular/forms": "^22.2.0",
+    "@angular/platform-browser": "^22.2.0",
+    "@angular/router": "^22.2.0",
+    "@jsverse/transloco": "^8.4.0",
+    "@ngrx/signals": "^22.0.1",
+    "@openng/optimus-ui": "^2.0.2",
+    "@openng/optimus-ui-themes": "^2.0.2",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.2.7",
+    "@angular/cli": "^22.2.7",
+    "@angular/compiler-cli": "^22.2.0",
+    "@axe-core/playwright": "^4.14.0",
+    "@eslint/js": "^10.0.1",
+    "@lhci/cli": "0.16.0",
+    "@playwright/test": "^1.65.1",
+    "@testing-library/angular": "^19.6.0",
+    "@testing-library/dom": "^10.4.2",
+    "angular-eslint": "22.7.0",
+    "eslint": "^10.14.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.4.4",
+    "jsdom": "^30.0.0",
+    "ng-openapi-gen": "1.1.0",
+    "ng-packagr": "^22.2.0",
+    "prettier": "^3.8.1",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "8.72.1",
+    "vitest": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

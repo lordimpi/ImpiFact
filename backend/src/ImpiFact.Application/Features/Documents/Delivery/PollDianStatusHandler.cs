@@ -18,7 +18,9 @@ namespace ImpiFact.Application.Features.Documents.Delivery;
 /// pruebas).
 /// </summary>
 /// <remarks>
-/// Aplica las mismas reglas que el envío (ver <see cref="DianAnswer"/>; con la regla 90 consulta GetStatus). Mientras
+/// Aplica las mismas reglas que el envío (ver <see cref="DianAnswer"/>; con la regla 90 consulta GetStatus, y un
+/// código 66 de GetStatus después de un envío con la regla 90 es un rechazo, ver
+/// <see cref="DianDelivery.SettleUnknownAfterRule90Async"/>). Mientras
 /// no haya decisión se vuelve a programar según <see cref="DianPollSchedule"/>: cada minuto los primeros 10 minutos
 /// desde el envío y luego cada 15 minutos; a las 24 horas el documento pasa a <c>Failed</c> con un aviso. Una falla de
 /// red o del servicio no se reintenta por el retroceso del Worker: cuenta como una consulta sin decisión, así el plazo
@@ -80,6 +82,11 @@ internal sealed class PollDianStatusHandler(
         if (answer is DianAnswer.AlreadyProcessed)
         {
             answer = await delivery.ReconcileAsync(document, endpoint, ct);
+        }
+        else if (operation == DianOperation.GetStatus)
+        {
+            // Código 66 de un documento cuyo envío recibió la regla 90: el número lo usó otro documento.
+            answer = await delivery.SettleUnknownAfterRule90Async(document, answer, ct);
         }
 
         if (answer is DianAnswer.Decided decided)

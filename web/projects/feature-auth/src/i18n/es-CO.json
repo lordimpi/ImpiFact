@@ -1,0 +1,73 @@
+{
+  "login": {
+    "title": "Iniciar sesión",
+    "description": "Ingrese con el correo y la contraseña de su cuenta de ImpiFact.",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Ingresar",
+    "forgotPassword": "¿Olvidó su contraseña?",
+    "inactivity": "Su sesión se cerró por inactividad. Inicie sesión de nuevo para continuar.",
+    "passwordReset": "Su contraseña quedó cambiada. Inicie sesión con la contraseña nueva.",
+    "errors": {
+      "emailRequired": "Escriba su correo electrónico.",
+      "emailInvalid": "Escriba un correo electrónico válido, por ejemplo nombre@empresa.com.",
+      "passwordRequired": "Escriba su contraseña.",
+      "invalidCredentials": "El correo o la contraseña no son correctos.",
+      "tooManyAttempts": "Hubo demasiados intentos. Espere un minuto e intente de nuevo.",
+      "unexpected": "No se pudo iniciar sesión. Intente de nuevo."
+    }
+  },
+  "recovery": {
+    "title": "Recuperar la contraseña",
+    "description": "Escriba el correo de su cuenta de ImpiFact y le enviaremos un enlace para elegir una contraseña nueva. El enlace vence en 30 minutos.",
+    "submit": "Enviar el enlace",
+    "sent": "Si el correo está registrado, le enviamos un enlace para restablecer la contraseña. Revise su bandeja de entrada y la carpeta de correo no deseado.",
+    "back": "Volver a iniciar sesión",
+    "errors": {
+      "network": "No se pudo enviar la solicitud. Revise su conexión e intente de nuevo."
+    }
+  },
+  "reset": {
+    "title": "Restablecer la contraseña",
+    "description": "Elija la contraseña nueva de su cuenta. Al guardarla se cierran todas sus sesiones abiertas.",
+    "newPassword": "Contraseña nueva",
+    "newPasswordHint": "Entre 10 y 256 caracteres.",
+    "confirmation": "Confirme la contraseña nueva",
+    "submit": "Guardar la contraseña",
+    "invalidLink": "El enlace para restablecer la contraseña no sirve: venció, ya se usó o se pidió otro más nuevo.",
+    "requestNew": "Pedir un enlace nuevo",
+    "errors": {
+      "passwordRequired": "Escriba la contraseña nueva.",
+      "passwordTooShort": "La contraseña debe tener al menos 10 caracteres.",
+      "passwordTooLong": "La contraseña admite hasta 256 caracteres.",
+      "confirmationRequired": "Escriba de nuevo la contraseña nueva.",
+      "mismatch": "Las contraseñas no coinciden.",
+      "unexpected": "No se pudo guardar la contraseña. Intente de nuevo."
+    }
+  },
+  "selectCompany": {
+    "title": "Seleccionar empresa",
+    "description": "Elija la empresa con la que va a trabajar. Puede cambiarla después desde el menú de usuario.",
+    "listLabel": "Empresas disponibles",
+    "company": "Empresa {{ number }}",
+    "companyId": "Identificador: {{ id }}",
+    "nit": "NIT {{ nit }}-{{ dv }}",
+    "select": "Trabajar con la empresa {{ number }}",
+    "selectNamed": "Trabajar con {{ name }}",
+    "inactive": "Empresa inactiva",
+    "active": "Empresa activa",
+    "emptyTitle": "No tiene empresas asignadas",
+    "emptyDescription": "Pida al propietario de una empresa que le dé acceso, o comuníquese con soporte.",
+    "goHome": "Ir al inicio",
+    "errors": {
+      "notAllowed": "No tiene acceso a esa empresa. Elija otra."
+    }
+  },
+  "inactivity": {
+    "title": "Su sesión se cerrará por inactividad",
+    "body": "No hemos detectado actividad en el panel. Si no hace nada, la sesión se cerrará en {{ minutes }} minutos para proteger su información.",
+    "stay": "Seguir conectado",
+    "logout": "Cerrar sesión",
+    "close": "Cerrar el aviso y seguir conectado"
+  }
+}
