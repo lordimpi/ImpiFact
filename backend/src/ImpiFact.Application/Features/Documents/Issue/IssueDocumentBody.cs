@@ -7,7 +7,8 @@ namespace ImpiFact.Application.Features.Documents.Issue;
 // Cuerpo JSON de la emisión heredada (anexo A.1 a A.3; php-rules, secciones 3 y 4), con los nombres del contrato,
 // incluidos sus errores de escritura (discrepancyresponsecode). Un mismo cuerpo sirve para la factura y las notas:
 // cada tipo usa su lista de líneas y sus totales. Los valores simples llegan como LegacyScalar porque el contrato
-// mezcla texto y números; los campos que ImpiFact todavía no usa (correo, plantillas, PDF…) se aceptan y se ignoran.
+// mezcla texto y números; los campos que ImpiFact todavía no usa (plantillas, PDF…) se aceptan y se ignoran. Los del
+// correo (sendmail, sendmailtome, email_pos_customer) se declaran para el contrato y los lee DocumentEmailRequest.
 
 /// <summary>Solicitud de emisión de factura (<c>invoice</c>), nota crédito (<c>credit-note</c>) o nota débito (<c>debit-note</c>).</summary>
 public sealed record IssueDocumentBody
@@ -109,6 +110,25 @@ public sealed record IssueDocumentBody
 
     [JsonPropertyName("invoice_period")]
     public InvoicePeriodBody? InvoicePeriod { get; init; }
+
+    /// <summary>
+    /// Enviar el documento por correo al adquiriente cuando la DIAN lo acepte (verdadero como en el PHP: <c>true</c>,
+    /// <c>1</c> o un texto distinto de <c>"0"</c>). Sin este campo no se envía correo. El envío lo lee
+    /// <c>DocumentEmailRequest</c> del JSON guardado; aquí se declara para que el contrato lo muestre.
+    /// </summary>
+    [JsonPropertyName("sendmail")]
+    public LegacyScalar? SendMail { get; init; }
+
+    /// <summary>Con <c>sendmail</c>, enviar también una copia al correo de la empresa emisora.</summary>
+    [JsonPropertyName("sendmailtome")]
+    public LegacyScalar? SendMailToMe { get; init; }
+
+    /// <summary>
+    /// Correo del comprador cuando es el consumidor final (<c>222222222222</c>): sin él, al consumidor final no se le
+    /// envía correo aunque la solicitud traiga <c>sendmail</c>.
+    /// </summary>
+    [JsonPropertyName("email_pos_customer")]
+    public LegacyScalar? EmailPosCustomer { get; init; }
 }
 
 /// <summary>Adquiriente (<c>customer</c>).</summary>
