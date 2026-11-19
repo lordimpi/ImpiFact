@@ -287,13 +287,22 @@ export function buildInvoiceBody(
   if (model.notes.trim()) {
     body.notes = model.notes.trim();
   }
-  const email = typeof customer.email === 'string' ? customer.email.trim() : '';
-  if (model.sendEmail && email) {
-    body.sendmail = true;
-    // Al consumidor final el Api solo le escribe con el correo aparte (`email_pos_customer`), como el PHP.
-    if (String(customer.identification_number ?? '').trim() === FINAL_CONSUMER_IDENTIFICATION) {
-      body.email_pos_customer = email;
-    }
+  return { ...body, ...emailRequest(model.sendEmail, customer) };
+}
+
+/**
+ * Campos del correo del cuerpo de emisión: `sendmail` si la persona lo pidió y el cliente tiene correo y, para el
+ * consumidor final, ese correo en `email_pos_customer` (sin él el Api no le escribe, como el PHP).
+ */
+export function emailRequest(
+  sendEmail: boolean,
+  customer: { email?: unknown; identification_number?: unknown } | null | undefined,
+): { sendmail?: true; email_pos_customer?: string } {
+  const email = typeof customer?.email === 'string' ? customer.email.trim() : '';
+  if (!sendEmail || !email) {
+    return {};
   }
-  return body;
+  const finalConsumer =
+    String(customer?.identification_number ?? '').trim() === FINAL_CONSUMER_IDENTIFICATION;
+  return finalConsumer ? { sendmail: true, email_pos_customer: email } : { sendmail: true };
 }

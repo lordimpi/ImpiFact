@@ -222,7 +222,7 @@
     "previewDownload": "Descargar PDF",
     "sendEmail": "Enviar la factura por correo al cliente cuando la DIAN la acepte",
     "sendEmailHint": "Se enviará a {{ email }}, con el PDF y el XML.",
-    "sendEmailNoAddress": "El cliente no tiene correo: agréguelo en su ficha para poder enviarle la factura."
+    "sendEmailNoAddress": "El cliente no tiene correo: agréguelo en su ficha para poder enviarle el documento."
   },
   "notices": {
     "emailQueued": "El correo quedó en cola para enviarse.",
@@ -261,6 +261,7 @@
     "debitSubmit": "Emitir nota débito",
     "creditIssued": "Nota crédito {{ number }} emitida. La DIAN la está validando.",
     "debitIssued": "Nota débito {{ number }} emitida. La DIAN la está validando.",
-    "issueFailed": "No se pudo emitir la nota. Intente de nuevo."
+    "issueFailed": "No se pudo emitir la nota. Intente de nuevo.",
+    "sendEmail": "Enviar la nota por correo al cliente cuando la DIAN la acepte"
   }
 }

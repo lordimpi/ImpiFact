@@ -14,6 +14,7 @@ import {
   lineRules,
   linesBody,
   taxEntry,
+  emailRequest,
 } from './invoice.form';
 
 /*
@@ -32,13 +33,15 @@ export interface NoteModel {
   /** Concepto de corrección (id del catálogo de discrepancias), como texto de la lista desplegable. */
   discrepancyCode: string;
   notes: string;
+  /** Pedir al Api que envíe la nota por correo al cliente cuando la DIAN la acepte (`sendmail`). */
+  sendEmail: boolean;
   lines: InvoiceLineModel[];
 }
 
 export type NoteForm = FieldTree<NoteModel>;
 
 export function emptyNote(): NoteModel {
-  return { discrepancyCode: '', notes: '', lines: [] };
+  return { discrepancyCode: '', notes: '', sendEmail: true, lines: [] };
 }
 
 /** Crea el formulario; debe llamarse en un contexto de inyección (inicializador de un campo del componente). */
@@ -122,5 +125,5 @@ export function buildNoteBody(
   if (model.notes.trim()) {
     body.notes = model.notes.trim();
   }
-  return body;
+  return { ...body, ...emailRequest(model.sendEmail, original.customer) };
 }

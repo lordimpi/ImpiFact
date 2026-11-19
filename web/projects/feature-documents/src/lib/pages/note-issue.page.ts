@@ -139,6 +139,11 @@ export class NoteIssuePage implements HasUnsavedChanges {
     const state = this.original();
     return state.status === 'ready' ? state.document : null;
   });
+  /** Correo del cliente de la factura, para explicar a dónde irá la nota (vacío si no tiene). */
+  protected readonly customerEmail = computed(() => {
+    const email = this.originalDocument()?.customer?.email;
+    return typeof email === 'string' ? email.trim() : '';
+  });
   protected readonly notAccepted = computed(() => {
     const document = this.originalDocument();
     return document !== null && !filesAvailable(document.status);

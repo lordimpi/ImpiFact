@@ -174,6 +174,8 @@ describe('NoteIssuePage', () => {
         tax_totals: [SUBTOTAL],
       });
       expect(issue.request.body.requested_monetary_totals).toBeUndefined();
+      // La nota se envía por correo al cliente de la factura (casilla marcada por defecto).
+      expect(issue.request.body.sendmail).toBe(true);
       issue.flush(ISSUED);
 
       await waitFor(() => expect(router.url).toBe('/documentos/note-9'));
@@ -212,6 +214,7 @@ describe('NoteIssuePage', () => {
     });
     expect(issue.request.body.debit_note_lines).toHaveLength(1);
     expect(issue.request.body.legal_monetary_totals).toBeUndefined();
+    expect(issue.request.body.sendmail).toBe(true);
     issue.flush(
       {
         status: 422,

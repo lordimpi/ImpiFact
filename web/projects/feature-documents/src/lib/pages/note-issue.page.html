@@ -119,6 +119,17 @@
         >
           <textarea uiInput rows="3" [formField]="noteForm.notes"></textarea>
         </ui-field>
+        <label class="issue-check">
+          <input type="checkbox" [formField]="noteForm.sendEmail" />
+          <span>{{ 'documents.note.sendEmail' | transloco }}</span>
+        </label>
+        <p class="doc-muted">
+          @if (customerEmail(); as email) {
+            {{ 'documents.issue.sendEmailHint' | transloco: { email } }}
+          } @else if (originalDocument()) {
+            {{ 'documents.issue.sendEmailNoAddress' | transloco }}
+          }
+        </p>
       </section>
     </div>
 
