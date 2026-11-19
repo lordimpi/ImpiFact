@@ -48,6 +48,9 @@ internal sealed class EfCompanyRepository(ImpiFactDbContext db) : ICompanyReposi
             .Where(resolution => resolution.DocumentTypeId == documentTypeId && resolution.TypeEnvironmentId == typeEnvironmentId)
             .ToListAsync(ct);
 
+    public Task<Resolution?> FindResolutionAsync(Guid companyId, Guid resolutionId, CancellationToken ct) =>
+        OfCompany<Resolution>(companyId).FirstOrDefaultAsync(resolution => resolution.Id == resolutionId, ct);
+
     public void Add<TEntity>(TEntity entity)
         where TEntity : class => db.Set<TEntity>().Add(entity);
 
