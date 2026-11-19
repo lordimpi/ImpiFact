@@ -1,6 +1,6 @@
 # ImpiFact
 
-Plataforma de facturación electrónica para Colombia (DIAN): factura, notas crédito y débito, firma XAdES-EPES y envío a la DIAN. Es la reescritura en .NET 10 y Angular de ApiDian Community.
+Plataforma de facturación electrónica para Colombia (DIAN): factura, notas crédito y débito, firma XAdES-EPES y envío a la DIAN, con un backend en .NET 10 y un panel en Angular.
 
 ## Estructura
 
@@ -8,7 +8,7 @@ Plataforma de facturación electrónica para Colombia (DIAN): factura, notas cr�
 | --- | --- |
 | [`backend/`](backend/) | Solución .NET: núcleo DIAN, API, Worker, pruebas y herramientas |
 | [`web/`](web/) | Panel Angular (fase 5) |
-| [`docs/`](docs/) | PRD, arquitectura, modelo de datos, reglas del PHP y [lector HTML](docs/ImpiFact-docs.html) |
+| [`docs/`](docs/) | PRD, arquitectura, modelo de datos, reglas de negocio y [lector HTML](docs/ImpiFact-docs.html) |
 
 La app móvil llegará en la fase 8, en `mobile/`.
 
@@ -32,7 +32,7 @@ Nada de esto se versiona: cada equipo arma sus propios archivos.
 5. Opcional, para probar desde Scalar: `dotnet run --project src/ImpiFact.Migrator -- seed-demo` crea (o actualiza) la empresa de prueba NIT 900123456-8 lista para emitir en habilitación, con software, resoluciones SETP/NC/ND y un certificado autofirmado (la DIAN lo rechaza, sirve solo en local), y muestra una API key nueva en cada corrida. Pide `DOTNET_ENVIRONMENT=Development` (o `--force`) y las mismas variables `Secrets__LocalAesGcm__*` que la API.
 6. Arrancar la API (Scalar, la documentación interactiva, en `/scalar`) y el Worker desde Visual Studio o con `dotnet run`. Los correos de prueba se ven en MailHog: `http://127.0.0.1:8025`.
 
-Los casos golden (XML y CUFE de referencia capturados del PHP) están en `backend/tests/golden`; cómo se generan se explica en [`backend/tools/golden-capture`](backend/tools/golden-capture/README.md).
+Los casos golden (XML y CUFE de referencia) están en `backend/tests/golden`; cómo se generan se explica en [`backend/tools/golden-capture`](backend/tools/golden-capture/README.md).
 
 ## Documentación
 
