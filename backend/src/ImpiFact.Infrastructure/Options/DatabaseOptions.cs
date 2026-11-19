@@ -7,7 +7,10 @@ public sealed class DatabaseOptions
 {
     public const string SectionName = "Database";
 
-    /// <summary>Motor de base de datos. En la fase 2 solo existe el proveedor de PostgreSQL.</summary>
+    /// <summary>
+    /// Motor de base de datos, sin valor por defecto. Elige entre los motores que registra el host (hoy solo PostgreSQL;
+    /// SQL Server y MySQL llegan con sus proyectos <c>ImpiFact.Infrastructure.&lt;Motor&gt;</c>).
+    /// </summary>
     [Required]
     [AllowedValues("Postgres", "SqlServer", "MySql")]
     public string Provider { get; set; } = "";

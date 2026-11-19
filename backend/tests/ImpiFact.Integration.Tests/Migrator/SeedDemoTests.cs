@@ -207,7 +207,7 @@ public sealed class SeedDemoTests
 
     private static Dictionary<string, string?> Settings(string connectionString) => new()
     {
-        ["Database:Provider"] = "Postgres",
+        ["Database:Provider"] = TestDatabase.ProviderName,
         ["Database:ConnectionString"] = connectionString,
     };
 

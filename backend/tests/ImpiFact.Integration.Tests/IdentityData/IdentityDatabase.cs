@@ -3,7 +3,6 @@ using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Model;
 using Microsoft.EntityFrameworkCore;
@@ -39,14 +38,14 @@ public sealed class IdentityDatabase
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Database:Provider"] = "Postgres",
+                ["Database:Provider"] = TestDatabase.ProviderName,
                 ["Database:ConnectionString"] = ConnectionString,
                 ["ApiKey:Prefix"] = "apk_",
             })
             .Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         collection.AddIdentityPersistence();
         services = collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 

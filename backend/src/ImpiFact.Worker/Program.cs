@@ -26,6 +26,7 @@ builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProvider
 
 // Infrastructure, Application (con los handlers de la bandeja de salida) y el procesador: la misma composición que
 // arma la prueba del Worker (WorkerCompositionTests), que además resuelve cada handler porque aquí no se revisa al construir.
+// Van todos los motores disponibles y Database:Provider elige uno.
 builder.Services.AddWorkerServices(builder.Configuration, new PostgresDatabaseProvider());
 
 // Si la base tiene migraciones pendientes, el Worker no arranca (no corre ninguna tarea): escribe cuáles faltan y

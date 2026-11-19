@@ -8,7 +8,6 @@ using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Platform.Outbox;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Model;
 using ImpiFact.Integration.Tests.Persistence;
@@ -77,7 +76,7 @@ public sealed class OutboxHost : IAsyncDisposable
     {
         var values = new Dictionary<string, string?>
         {
-            ["Database:Provider"] = "Postgres",
+            ["Database:Provider"] = TestDatabase.ProviderName,
             ["Database:ConnectionString"] = OutboxDatabase.ConnectionString,
         };
         foreach (var (key, value) in settings)
@@ -88,7 +87,7 @@ public sealed class OutboxHost : IAsyncDisposable
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         collection.AddApplication();
         collection.AddOutboxProcessing(configuration);
         collection.AddSingleton<IClock>(Clock);

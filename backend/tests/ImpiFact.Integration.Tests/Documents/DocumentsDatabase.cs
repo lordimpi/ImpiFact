@@ -5,7 +5,6 @@ using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Model;
 using ImpiFact.Integration.Tests.Persistence;
@@ -50,7 +49,7 @@ public sealed class DocumentsDatabase
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Database:Provider"] = "Postgres",
+                ["Database:Provider"] = TestDatabase.ProviderName,
                 ["Database:ConnectionString"] = ConnectionString,
                 ["Storage:Provider"] = "Local",
                 ["Storage:Local:Root"] = StorageRoot,
@@ -58,7 +57,7 @@ public sealed class DocumentsDatabase
             .Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         collection.AddApplication();
         collection.AddSingleton<IClock>(Clock);
         services = collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

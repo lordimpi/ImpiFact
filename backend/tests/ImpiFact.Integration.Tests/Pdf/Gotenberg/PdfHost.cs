@@ -13,7 +13,6 @@ using ImpiFact.Domain.Platform;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Platform.Outbox;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Model;
 using ImpiFact.Integration.Tests.Persistence;
@@ -100,7 +99,7 @@ public sealed class PdfHost : IAsyncDisposable
     {
         var values = new Dictionary<string, string?>(scratch.LocalAesGcmSettings())
         {
-            ["Database:Provider"] = "Postgres",
+            ["Database:Provider"] = TestDatabase.ProviderName,
             ["Database:ConnectionString"] = PdfContainers.ConnectionString,
             ["Storage:Provider"] = "Local",
             ["Storage:Local:Root"] = Path.Combine(scratch.Root, "storage"),
@@ -114,7 +113,7 @@ public sealed class PdfHost : IAsyncDisposable
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddWorkerServices(configuration, new PostgresDatabaseProvider());
+        collection.AddWorkerServices(configuration, TestDatabase.Providers);
         collection.AddSingleton<IClock>(Clock);
         services = collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }

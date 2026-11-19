@@ -1,5 +1,6 @@
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Options;
+using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Postgres;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,7 +17,7 @@ public sealed class ValidatedOptionsTests
 {
     private static readonly Dictionary<string, string?> ValidDatabase = new()
     {
-        ["Database:Provider"] = "Postgres",
+        ["Database:Provider"] = TestDatabase.ProviderName,
         ["Database:ConnectionString"] = "Host=localhost;Database=impifact",
     };
 
@@ -68,7 +69,7 @@ public sealed class ValidatedOptionsTests
     public void Add_infrastructure_validates_every_phase_two_option_at_startup()
     {
         var services = Build(ValidDatabase,
-            (collection, configuration) => collection.AddInfrastructure(configuration, new PostgresDatabaseProvider()));
+            (collection, configuration) => collection.AddInfrastructure(configuration, TestDatabase.Providers));
 
         // Con varias opciones inválidas, la validación del arranque las reúne todas en una AggregateException.
         var exception = Assert.Throws<AggregateException>(() => services.GetRequiredService<IStartupValidator>().Validate());
@@ -99,9 +100,42 @@ public sealed class ValidatedOptionsTests
         });
 
         var exception = Assert.Throws<InvalidOperationException>(
-            () => new ServiceCollection().AddInfrastructure(configuration, new PostgresDatabaseProvider()));
+            () => new ServiceCollection().AddInfrastructure(configuration, TestDatabase.Providers));
 
-        Assert.That(exception?.Message, Does.Contain("SqlServer"));
+        Assert.That(exception?.Message, Is.EqualTo("Database provider 'SqlServer' is not available. Available providers: Postgres."));
+    }
+
+    // Sin Database:Provider ningún motor se elige por defecto: la API, el Worker y el Migrator no arrancan.
+    [TestCase(null)]
+    [TestCase("")]
+    [TestCase("  ")]
+    public void Add_infrastructure_requires_a_database_provider(string? provider)
+    {
+        var configuration = Configuration(new()
+        {
+            ["Database:Provider"] = provider,
+            ["Database:ConnectionString"] = "Server=localhost",
+        });
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => new ServiceCollection().AddInfrastructure(configuration, TestDatabase.Providers));
+
+        Assert.That(exception?.Message, Is.EqualTo("Database:Provider is not set. Available providers: Postgres."));
+    }
+
+    // El nombre del motor no distingue mayúsculas, como el resto de la configuración de .NET.
+    [Test]
+    public void Add_infrastructure_picks_the_provider_named_in_the_configuration_ignoring_case()
+    {
+        var configuration = Configuration(new()
+        {
+            ["Database:Provider"] = "postgres",
+            ["Database:ConnectionString"] = "Host=localhost;Database=impifact",
+        });
+
+        using var services = new ServiceCollection().AddInfrastructure(configuration, TestDatabase.Providers).BuildServiceProvider();
+
+        Assert.That(services.GetRequiredService<IDatabaseProvider>(), Is.InstanceOf<PostgresDatabaseProvider>());
     }
 
     private static ServiceProvider Build(

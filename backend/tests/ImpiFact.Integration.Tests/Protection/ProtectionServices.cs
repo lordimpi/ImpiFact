@@ -1,6 +1,5 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Infrastructure;
-using ImpiFact.Infrastructure.Postgres;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,7 +15,7 @@ public static class ProtectionServices
     {
         var settings = new Dictionary<string, string?>
         {
-            ["Database:Provider"] = "Postgres",
+            ["Database:Provider"] = TestDatabase.ProviderName,
             ["Database:ConnectionString"] = connectionString ?? UnreachableDatabase.ConnectionString,
             ["Dian:HabilitacionUrl"] = "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc",
             ["Dian:ProduccionUrl"] = "https://vpfe.dian.gov.co/WcfDianCustomerServices.svc",
@@ -44,7 +43,7 @@ public static class ProtectionServices
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         if (clock is not null)
         {
             collection.AddSingleton(clock);

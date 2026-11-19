@@ -30,7 +30,8 @@ internal static class ApiComposition
         var configuration = builder.Configuration;
 
         // Opciones validadas al arrancar, reloj, tenant y persistencia. Si falta un valor obligatorio (por ejemplo la
-        // cadena de conexión, que llega por la variable de entorno Database__ConnectionString), la API no arranca.
+        // cadena de conexión, que llega por la variable de entorno Database__ConnectionString), la API no arranca. Van todos
+        // los motores disponibles y Database:Provider elige uno.
         services.AddInfrastructure(configuration, new PostgresDatabaseProvider());
         services.AddIdentityInfrastructure();
         // Casos de uso de Application con sus decoradores; se llama una sola vez, después de registrar los adaptadores.

@@ -18,7 +18,6 @@ using ImpiFact.Infrastructure.Dian;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Platform.Outbox;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Storage;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Model;
@@ -95,7 +94,7 @@ public sealed class DianSendHost : IAsyncDisposable
     {
         var values = new Dictionary<string, string?>(protection.LocalAesGcmSettings())
         {
-            ["Database:Provider"] = "Postgres",
+            ["Database:Provider"] = TestDatabase.ProviderName,
             ["Database:ConnectionString"] = connectionString,
             ["Storage:Provider"] = "Local",
             ["Storage:Local:Root"] = Path.Combine(protection.Root, "storage"),
@@ -118,7 +117,7 @@ public sealed class DianSendHost : IAsyncDisposable
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var collection = new ServiceCollection();
         collection.AddLogging(logging => logging.AddProvider(Logs).SetMinimumLevel(LogLevel.Trace));
-        collection.AddWorkerServices(configuration, new PostgresDatabaseProvider());
+        collection.AddWorkerServices(configuration, TestDatabase.Providers);
         collection.AddSingleton<IClock>(Clock);
         collection.AddSingleton<IBlobStorage>(provider =>
         {

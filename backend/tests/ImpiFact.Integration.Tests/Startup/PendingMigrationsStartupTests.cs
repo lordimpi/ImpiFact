@@ -3,7 +3,6 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Platform.Outbox;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Identity;
 using ImpiFact.Integration.Tests.Protection;
@@ -200,7 +199,7 @@ public sealed class PendingMigrationsStartupTests
         builder.Logging.AddProvider(logs);
         // Como ImpiFact.Worker: sin revisar al construir los casos de uso de la API que el Worker no usa.
         builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = false }));
-        builder.Services.AddWorkerServices(builder.Configuration, new PostgresDatabaseProvider());
+        builder.Services.AddWorkerServices(builder.Configuration, TestDatabase.Providers);
         return builder.Build();
     }
 
@@ -209,13 +208,13 @@ public sealed class PendingMigrationsStartupTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Database:Provider"] = "Postgres",
+                ["Database:Provider"] = TestDatabase.ProviderName,
                 ["Database:ConnectionString"] = connectionString,
             })
             .Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         return collection.BuildServiceProvider();
     }
 

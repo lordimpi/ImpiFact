@@ -7,7 +7,6 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence.Seeding;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Storage;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Documents;
@@ -79,12 +78,12 @@ public sealed class MinioStorage
         await client.PutBucketAsync(Bucket);
 
         var settings = StorageSettings();
-        settings["Database:Provider"] = "Postgres";
+        settings["Database:Provider"] = TestDatabase.ProviderName;
         settings["Database:ConnectionString"] = postgres.GetConnectionString();
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         collection.AddApplication();
         collection.AddSingleton<IClock>(new FixedClock(new DateTimeOffset(2026, 1, 15, 10, 0, 0, TimeSpan.Zero)));
         collection.AddSingleton(new S3Credentials(Credentials));

@@ -97,12 +97,31 @@ public sealed class MigratorTests
         Assert.That(error, Does.Contain("ConnectionString"));
     }
 
-    private static async Task<(int ExitCode, string Output, string Error)> RunAsync(string? connectionString, params string[] args)
+    // Database:Provider elige el motor entre los disponibles; sin él o con uno que no existe, el comando no toca la base.
+    [TestCase(null, "Database:Provider is not set. Available providers: Postgres.")]
+    [TestCase("Oracle", "Database provider 'Oracle' is not available. Available providers: Postgres.")]
+    public async Task Without_an_available_provider_it_exits_with_1_and_lists_the_available_ones(string? provider, string message)
+    {
+        var (exitCode, output, error) = await RunWithProviderAsync("Host=localhost;Database=impifact", provider, "migrate");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exitCode, Is.EqualTo(1));
+            Assert.That(output, Is.Empty);
+            Assert.That(error.Trim(), Is.EqualTo("Invalid configuration: " + message));
+        });
+    }
+
+    private static Task<(int ExitCode, string Output, string Error)> RunAsync(string? connectionString, params string[] args) =>
+        RunWithProviderAsync(connectionString, TestDatabase.ProviderName, args);
+
+    private static async Task<(int ExitCode, string Output, string Error)> RunWithProviderAsync(
+        string? connectionString, string? provider, params string[] args)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Database:Provider"] = "Postgres",
+                ["Database:Provider"] = provider,
                 ["Database:ConnectionString"] = connectionString,
             })
             .Build();

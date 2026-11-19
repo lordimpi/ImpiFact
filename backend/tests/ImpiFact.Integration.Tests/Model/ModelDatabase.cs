@@ -2,7 +2,6 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -42,12 +41,12 @@ public sealed class ModelDatabase
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Database:Provider"] = "Postgres",
+                ["Database:Provider"] = TestDatabase.ProviderName,
                 ["Database:ConnectionString"] = ConnectionString,
             })
             .Build();
         var collection = new ServiceCollection();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         collection.AddSingleton<IClock>(Clock);
         services = collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 
