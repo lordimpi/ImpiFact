@@ -1,13 +1,13 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   effect,
-  inject,
   input,
   output,
   signal,
+  viewChild,
 } from '@angular/core';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ButtonComponent, DialogComponent } from '@impifact/ui';
 import { TranslocoPipe } from '@jsverse/transloco';
 
@@ -29,10 +29,10 @@ import { TranslocoPipe } from '@jsverse/transloco';
       (closed)="closed.emit()"
       width="min(64rem, 95vw)"
     >
-      @if (url(); as src) {
+      @if (url()) {
         <iframe
+          #frame
           class="pdf-preview__frame"
-          [src]="src"
           [title]="'documents.issue.previewTitle' | transloco"
         ></iframe>
       }
@@ -60,8 +60,8 @@ export class PdfPreviewComponent {
   readonly closed = output<void>();
   readonly download = output<void>();
 
-  private readonly sanitizer = inject(DomSanitizer);
-  protected readonly url = signal<SafeResourceUrl | null>(null);
+  protected readonly url = signal<string | null>(null);
+  private readonly frame = viewChild<ElementRef<HTMLIFrameElement>>('frame');
 
   constructor() {
     effect((onCleanup) => {
@@ -70,10 +70,19 @@ export class PdfPreviewComponent {
         this.url.set(null);
         return;
       }
-      // La URL `blob:` la crea esta misma página con el PDF que devolvió el Api: es segura para el iframe.
       const raw = URL.createObjectURL(pdf);
-      this.url.set(this.sanitizer.bypassSecurityTrustResourceUrl(raw));
+      this.url.set(raw);
       onCleanup(() => URL.revokeObjectURL(raw));
+    });
+    // La URL `blob:` la crea esta misma página con el PDF que devolvió el Api, así que se pone directo en el iframe en
+    // lugar de pasar por `DomSanitizer`: inyectarlo sumaba al paquete inicial unos 8 kB (el saneador de HTML de
+    // Angular, que vive en el chunk compartido de @angular/core).
+    effect(() => {
+      const frame = this.frame()?.nativeElement;
+      const url = this.url();
+      if (frame && url && frame.src !== url) {
+        frame.src = url;
+      }
     });
   }
 }

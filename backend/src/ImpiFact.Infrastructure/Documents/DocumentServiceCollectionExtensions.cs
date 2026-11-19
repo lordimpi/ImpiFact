@@ -15,6 +15,7 @@ public static class DocumentServiceCollectionExtensions
     public static IServiceCollection AddDocuments(this IServiceCollection services)
     {
         services.TryAddScoped<INumberingSequences, EfNumberingSequences>();
+        services.TryAddScoped<INumberingAdvance, EfNumberingSequences>();
         services.TryAddScoped<IDocumentFiles, EfDocumentFiles>();
         services.TryAddScoped<IIssuerContextReads, EfIssuerContextReads>();
         services.TryAddScoped<IDocumentCatalogs, EfDocumentCatalogs>();

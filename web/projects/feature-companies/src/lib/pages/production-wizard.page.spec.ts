@@ -282,4 +282,39 @@ describe('ProductionWizardPage', () => {
     });
     expect(badge('Producción')).toBe('Completo');
   });
+
+  it('keeps the newest setup status when an older read answers after it', async () => {
+    const { http } = await open();
+    // A read still in flight when the switch is saved (for example, the reload after the test invoice).
+    void TestBed.inject(CompanySetupStore).loadReadiness();
+    const stale = await expectRequest(http, STATUS_URL);
+
+    fireEvent.click(
+      await within(step('Producción')).findByRole('button', {
+        name: 'Pasar a producción: Factura electrónica y notas',
+      }),
+    );
+    const dialog = await screen.findByRole('dialog', { name: 'Confirmar el paso a producción' });
+    fireEvent.click(within(dialog).getByRole('checkbox'));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Pasar a producción' }));
+    (await expectRequest(http, `${COMPANY_PATH}/environment`)).flush({
+      success: true,
+      environments: [{ document_kind: 1, type_environment_id: 1 }],
+    });
+    const fresh = await expectRequest(http, STATUS_URL);
+    fresh.flush({
+      ...EMPTY_READINESS,
+      certificate_valid: true,
+      environments: [{ document_kind: 1, type_environment_id: 1 }, ...ENVIRONMENTS.slice(1)],
+    });
+    expect(await within(step('Producción')).findByText('En producción')).toBeTruthy();
+
+    stale.flush({ ...EMPTY_READINESS, certificate_valid: true, environments: ENVIRONMENTS });
+
+    // The older answer is discarded: the store and the page keep the newest environments.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(TestBed.inject(CompanySetupStore).environmentOf(1)).toBe(1);
+    expect(within(step('Producción')).getByText('En producción')).toBeTruthy();
+    expect(badge('Producción')).toBe('Completo');
+  });
 });

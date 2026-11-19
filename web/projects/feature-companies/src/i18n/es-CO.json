@@ -186,6 +186,15 @@
     "rangeOrder": "El número final debe ser mayor o igual al inicial.",
     "save": "Guardar resolución",
     "use": "Usar este rango",
+    "nextNumber": {
+      "action": "Cambiar próximo número",
+      "header": "Cambiar el próximo número",
+      "help": "Úselo si la empresa viene de otro sistema de facturación o ya usó números de este rango ante la DIAN: el próximo documento tomará este número. Debe estar dentro del rango y no puede ser menor que el próximo número actual, para no repetir un número ya enviado.",
+      "field": "Próximo número",
+      "range": "Rango de la resolución: {{ from }} – {{ to }}.",
+      "save": "Guardar próximo número",
+      "saved": "Próximo número actualizado."
+    },
     "documentTypes": {
       "1": "Factura de venta",
       "2": "Factura de exportación",

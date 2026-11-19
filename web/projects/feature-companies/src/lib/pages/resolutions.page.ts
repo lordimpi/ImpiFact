@@ -12,6 +12,10 @@ import {
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { companiesText, provideCompaniesI18n } from '../companies-i18n';
+import {
+  NextNumberDialogComponent,
+  NextNumberLabels,
+} from '../components/next-number-dialog.component';
 import { fieldMessage, serverFieldErrors } from '../forms/form-messages';
 import {
   RESOLUTION_FIELDS,
@@ -32,6 +36,16 @@ type LookupState =
   | { kind: 'ranges'; ranges: NumberingRangeItem[] }
   | { kind: 'message'; text: string; error: boolean };
 
+/** Resolución a la que se le cambia el próximo número. */
+interface NextNumberTarget {
+  id: string;
+  next: string;
+  from: number;
+  to: number;
+}
+
+const DIGITS = /^\d+$/;
+
 /**
  * Resoluciones de numeración (`/empresas/:id/resoluciones`): alta o actualización de una resolución, con el ejemplo
  * de habilitación (SETP) y la consulta en vivo de los rangos que la DIAN tiene autorizados (`getNumberingRanges`)
@@ -49,6 +63,7 @@ type LookupState =
     InputDirective,
     LoadingComponent,
     SelectDirective,
+    NextNumberDialogComponent,
   ],
   providers: [provideCompaniesI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -92,8 +107,33 @@ export class ResolutionsPage implements HasUnsavedChanges {
           ? this.text('resolutions.noExpiry')
           : `${resolution.days_left}`,
       status: this.text(resolution.is_active ? 'resolutions.active' : 'resolutions.inactive'),
+      target: {
+        id: resolution.id ?? '',
+        next: `${resolution.next_number ?? ''}`,
+        from: Number(resolution.from),
+        to: Number(resolution.to),
+      } satisfies NextNumberTarget,
     })),
   );
+
+  protected readonly nextNumberTarget = signal<NextNumberTarget | null>(null);
+  protected readonly nextNumberOpen = signal(false);
+  protected readonly nextNumberError = signal<string | null>(null);
+  protected readonly nextNumberBusy = signal(false);
+  protected readonly nextNumberLabels = computed<NextNumberLabels>(() => {
+    const target = this.nextNumberTarget();
+    return {
+      header: this.text('resolutions.nextNumber.header'),
+      help: this.text('resolutions.nextNumber.help'),
+      field: this.text('resolutions.nextNumber.field'),
+      range: target
+        ? this.text('resolutions.nextNumber.range', { from: target.from, to: target.to })
+        : '',
+      save: this.text('resolutions.nextNumber.save'),
+      cancel: this.text('common.cancel'),
+      close: this.text('common.close'),
+    };
+  });
 
   constructor() {
     void this.setup.loadResolutions();
@@ -152,6 +192,41 @@ export class ResolutionsPage implements HasUnsavedChanges {
     });
   }
 
+  protected openNextNumber(target: NextNumberTarget): void {
+    this.nextNumberTarget.set(target);
+    this.nextNumberError.set(null);
+    this.nextNumberOpen.set(true);
+  }
+
+  protected async saveNextNumber(value: string): Promise<void> {
+    const target = this.nextNumberTarget();
+    const text = value.trim();
+    if (!target || this.nextNumberBusy()) {
+      return;
+    }
+    if (text === '' || !DIGITS.test(text)) {
+      this.nextNumberError.set(
+        this.text(text === '' ? 'common.errors.required' : 'resolutions.numberFormat'),
+      );
+      return;
+    }
+    this.nextNumberError.set(null);
+    this.nextNumberBusy.set(true);
+    try {
+      await this.setup.setNextNumber(target.id, Number(text));
+      this.nextNumberOpen.set(false);
+      this.toasts.show({ kind: 'success', text: this.text('resolutions.nextNumber.saved') });
+    } catch (error) {
+      this.nextNumberError.set(
+        error instanceof AppError
+          ? (error.fieldErrors['next_number']?.[0] ?? error.message)
+          : this.text('common.errors.unexpected'),
+      );
+    } finally {
+      this.nextNumberBusy.set(false);
+    }
+  }
+
   protected async lookUp(): Promise<void> {
     this.lookup.set({ kind: 'loading' });
     try {
@@ -161,10 +236,12 @@ export class ResolutionsPage implements HasUnsavedChanges {
         this.lookup.set({ kind: 'ranges', ranges });
         return;
       }
+      // Una respuesta de la DIAN sin rangos es normal (en habilitación el rango SETP es genérico y la DIAN responde
+      // «No fue encontrado ningún rango…»): se muestra en neutro. En rojo quedan solo las fallas (red, 5xx, certificado).
       const answer = response.operation_description ?? response.message;
       this.lookup.set({
         kind: 'message',
-        error: response.success === false,
+        error: false,
         text: answer
           ? this.text('resolutions.ranges.dianMessage', { message: answer })
           : this.text('resolutions.ranges.empty'),

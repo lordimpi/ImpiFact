@@ -1240,6 +1240,73 @@
         ]
       }
     },
+    "/api/v1/companies/{nit}/resolutions/{id}/next-number": {
+      "put": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Fijar el pr\u00F3ximo n\u00FAmero de una resoluci\u00F3n",
+        "description": "Fija en \u0060next_number\u0060 el n\u00FAmero que tomar\u00E1 el pr\u00F3ximo documento emitido con la resoluci\u00F3n \u0060{id}\u0060 (el \u0060id\u0060 que devuelve \u0060GET /api/v1/companies/{nit}/resolutions\u0060). Se usa si la empresa viene de otro sistema de facturaci\u00F3n y debe seguir desde su \u00FAltimo n\u00FAmero, o si ya us\u00F3 n\u00FAmeros de este rango ante la DIAN (por ejemplo, un set de pruebas anterior con la misma resoluci\u00F3n de habilitaci\u00F3n, que la DIAN rechaza con la regla 90). El n\u00FAmero debe estar dentro del rango \u0060from\u0060-\u0060to\u0060 de la resoluci\u00F3n y no puede ser menor que el pr\u00F3ximo n\u00FAmero actual, porque bajarlo podr\u00EDa repetir un n\u00FAmero ya enviado a la DIAN: si no cumple, responde 422 con el motivo en \u0060errors.next_number\u0060. Una emisi\u00F3n al mismo tiempo nunca recibe un n\u00FAmero repetido. Resoluci\u00F3n inexistente o de otra empresa: 404 (\u0060resolution.not_found\u0060). Responde el \u0060next_number\u0060 que qued\u00F3. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "operationId": "setResolutionNextNumber",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetResolutionNextNumberCommand"
+              },
+              "examples": {
+                "continuar-numeracion": {
+                  "summary": "Seguir desde el n\u00FAmero 990000101 del rango SETP",
+                  "description": "El n\u00FAmero debe estar dentro del rango de la resoluci\u00F3n y no puede ser menor que su pr\u00F3ximo n\u00FAmero actual.",
+                  "value": {
+                    "next_number": 990000101
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolutionNextNumberResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/companies/{nit}/setup-status": {
       "get": {
         "tags": [
@@ -22010,6 +22077,29 @@
           }
         }
       },
+      "ResolutionNextNumberResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "resolution_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "next_number": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          }
+        }
+      },
       "ResolutionReadiness": {
         "type": "object",
         "properties": {
@@ -22384,6 +22474,20 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "SetResolutionNextNumberCommand": {
+        "type": "object",
+        "properties": {
+          "next_number": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },
