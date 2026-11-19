@@ -60,8 +60,11 @@ internal sealed class IdentityEndpoints : IEndpointModule
             .WithDescription(
                 "Cambia un `refresh_token` vigente por un `access_token` y un `refresh_token` nuevos; el usado queda revocado. " +
                 "Con `company_id` cambia la empresa activa del token. Un token vencido, revocado o desconocido responde 401 " +
-                "(`identity.invalid_refresh_token`); presentar uno ya revocado revoca todas las sesiones del usuario. Comparte el " +
-                "límite de intentos del inicio de sesión.\n\n" +
+                "(`identity.invalid_refresh_token`); presentar uno ya revocado revoca todas las sesiones del usuario (respuesta a " +
+                "un token robado). Excepción: si la respuesta de una renovación se perdió (el token se rotó hace menos que el " +
+                "período de gracia, 30 segundos por defecto, y su reemplazo nunca se usó), se entrega un par nuevo y el reemplazo " +
+                "sin usar queda revocado. Si la base no responde a tiempo al revocar, responde 503 (`identity.store_unavailable`) " +
+                "y se puede reintentar. Comparte el límite de intentos del inicio de sesión.\n\n" +
                 PanelCookieNote + " Con `X-Client: panel` y sin `refresh_token` en el cuerpo, la renovación usa la cookie " +
                 "(el cuerpo puede faltar o traer solo `company_id`) y la reemplaza por la nueva; si no hay cookie, o el token no " +
                 "sirve, responde 401 y borra la cookie.");
@@ -74,7 +77,8 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "Revoca el `refresh_token` de la sesión, del cuerpo o, para el panel, de la cookie: esa sesión ya no puede " +
                 "renovarse. Las demás sesiones del usuario (otros navegadores) siguen vivas, y el `access_token` que ya se " +
                 "entregó vale hasta su vencimiento (15 minutos como máximo). Responde 204 también si el token no existe o ya " +
-                "estaba revocado, así se puede repetir sin error. Comparte el límite de intentos del inicio de sesión.\n\n" +
+                "estaba revocado, así se puede repetir sin error; con un token recién rotado cuya renovación se perdió, revoca su " +
+                "reemplazo sin usar. Comparte el límite de intentos del inicio de sesión.\n\n" +
                 PanelCookieNote + " Con `X-Client: panel`, además, borra la cookie.");
         auth.MapPost("/password-reset/request", RequestPasswordResetAsync)
             .Produces<PasswordResetRequested>(StatusCodes.Status202Accepted)
