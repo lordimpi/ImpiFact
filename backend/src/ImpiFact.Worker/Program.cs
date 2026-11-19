@@ -1,4 +1,6 @@
+using ImpiFact.Infrastructure.Observability;
 using ImpiFact.Infrastructure.Persistence;
+using ImpiFact.Worker;
 using ImpiFact.Infrastructure.Platform.Outbox;
 using ImpiFact.Infrastructure.Postgres;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +29,9 @@ builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProvider
 // Infrastructure, Application (con los handlers de la bandeja de salida) y el procesador: la misma composición que
 // arma la prueba del Worker (WorkerCompositionTests), que además resuelve cada handler porque aquí no se revisa al construir.
 builder.Services.AddWorkerServices(builder.Configuration, new PostgresDatabaseProvider());
+
+// Registros JSON con Serilog, sin secretos (Arquitectura detallada, sección 12).
+builder.AddImpiFactObservability(WorkerHost.ServiceName);
 
 // Si la base tiene migraciones pendientes, el Worker no arranca (no corre ninguna tarea): escribe cuáles faltan y
 // termina con código 1. Es la misma revisión de la API (PendingMigrationsGuard).

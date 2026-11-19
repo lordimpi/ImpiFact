@@ -13,6 +13,7 @@ using ImpiFact.Api.Plans;
 using ImpiFact.Application;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Identity;
+using ImpiFact.Infrastructure.Observability;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.Postgres;
@@ -24,10 +25,16 @@ namespace ImpiFact.Api;
 /// <summary>Servicios y pipeline HTTP de la API (Arquitectura detallada, sección 9).</summary>
 internal static class ApiComposition
 {
+    /// <summary>Nombre de la API en los registros, trazas y métricas.</summary>
+    public const string ServiceName = "impifact-api";
+
     public static WebApplicationBuilder AddImpiFactApi(this WebApplicationBuilder builder)
     {
         var services = builder.Services;
         var configuration = builder.Configuration;
+
+        // Registros JSON con Serilog, sin secretos (Arquitectura detallada, sección 12).
+        builder.AddImpiFactObservability(ServiceName);
 
         // Opciones validadas al arrancar, reloj, tenant y persistencia. Si falta un valor obligatorio (por ejemplo la
         // cadena de conexión, que llega por la variable de entorno Database__ConnectionString), la API no arranca.

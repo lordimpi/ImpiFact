@@ -98,7 +98,30 @@ internal sealed class OutboxProcessor(
         }
     }
 
+    /// <summary>
+    /// Procesa un mensaje dentro de un ámbito de los registros con su id, su tipo y su empresa
+    /// (<c>OutboxMessageId</c>, <c>OutboxMessageType</c>, <c>CompanyId</c>): así cada línea que registre el handler
+    /// dice de qué mensaje viene (Arquitectura detallada, sección 12).
+    /// </summary>
     private async Task ProcessAsync(ClaimedOutboxMessage message, CancellationToken ct)
+    {
+        var scope = new Dictionary<string, object>(3)
+        {
+            ["OutboxMessageId"] = message.Id,
+            ["OutboxMessageType"] = message.Type,
+        };
+        if (message.CompanyId is { } companyId)
+        {
+            scope["CompanyId"] = companyId;
+        }
+
+        using (logger.BeginScope(scope))
+        {
+            await ProcessInScopeAsync(message, ct);
+        }
+    }
+
+    private async Task ProcessInScopeAsync(ClaimedOutboxMessage message, CancellationToken ct)
     {
         Exception? failure = null;
         if (message.Attempts > options.Value.MaxAttempts)
