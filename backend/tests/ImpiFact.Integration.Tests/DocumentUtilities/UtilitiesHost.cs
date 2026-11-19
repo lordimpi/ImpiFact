@@ -18,7 +18,6 @@ using ImpiFact.Integration.Tests.Model;
 using ImpiFact.Integration.Tests.Protection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.DocumentUtilities;
 
@@ -31,7 +30,7 @@ namespace ImpiFact.Integration.Tests.DocumentUtilities;
 [Category("Integration")]
 public sealed class UtilitiesHost
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseContainer? container;
     private static CompanyApiFactory? factory;
     private static int nitSequence;
     private static int documentNumber = 990000000;
@@ -41,7 +40,7 @@ public sealed class UtilitiesHost
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateContainer();
         await container.StartAsync();
         factory = new CompanyApiFactory(container.GetConnectionString());
 

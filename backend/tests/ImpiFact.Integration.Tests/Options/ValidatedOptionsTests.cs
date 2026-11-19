@@ -43,7 +43,7 @@ public sealed class ValidatedOptionsTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(options.Provider, Is.EqualTo("Postgres"));
+            Assert.That(options.Provider, Is.EqualTo(TestDatabase.ProviderName));
             Assert.That(options.ConnectionString, Is.EqualTo("Host=localhost;Database=impifact"));
         });
     }
@@ -102,7 +102,7 @@ public sealed class ValidatedOptionsTests
         var exception = Assert.Throws<InvalidOperationException>(
             () => new ServiceCollection().AddInfrastructure(configuration, TestDatabase.Providers));
 
-        Assert.That(exception?.Message, Is.EqualTo("Database provider 'SqlServer' is not available. Available providers: Postgres."));
+        Assert.That(exception?.Message, Is.EqualTo("Database provider 'SqlServer' is not available. Available providers: Postgres, MySql."));
     }
 
     // Sin Database:Provider ningún motor se elige por defecto: la API, el Worker y el Migrator no arrancan.
@@ -120,7 +120,7 @@ public sealed class ValidatedOptionsTests
         var exception = Assert.Throws<InvalidOperationException>(
             () => new ServiceCollection().AddInfrastructure(configuration, TestDatabase.Providers));
 
-        Assert.That(exception?.Message, Is.EqualTo("Database:Provider is not set. Available providers: Postgres."));
+        Assert.That(exception?.Message, Is.EqualTo("Database:Provider is not set. Available providers: Postgres, MySql."));
     }
 
     // El nombre del motor no distingue mayúsculas, como el resto de la configuración de .NET.

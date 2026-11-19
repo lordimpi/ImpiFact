@@ -2,7 +2,6 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Integration.Tests.Companies;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Notifications;
 
@@ -15,7 +14,7 @@ namespace ImpiFact.Integration.Tests.Notifications;
 [Category("Integration")]
 public sealed class NotificationsHost
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseContainer? container;
     private static CompanyApiFactory? factory;
 
     public static CompanyApiFactory Api => factory ?? throw new InvalidOperationException("The notifications API host is not running.");
@@ -26,7 +25,7 @@ public sealed class NotificationsHost
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateContainer();
         await container.StartAsync();
         factory = new CompanyApiFactory(container.GetConnectionString());
 

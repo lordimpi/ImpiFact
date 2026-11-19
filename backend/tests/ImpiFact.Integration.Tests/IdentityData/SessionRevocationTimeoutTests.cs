@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -7,7 +8,6 @@ using ImpiFact.Infrastructure.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.IdentityData;
 
@@ -141,7 +141,7 @@ public sealed class SessionRevocationTimeoutTests
     /// <summary>Otra conexión con una transacción abierta que bloquea las filas de la consulta hasta revertirla.</summary>
     private static async Task<LockHolder> LockAsync(string sql, object parameters)
     {
-        var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
         await connection.OpenAsync();
         var transaction = await connection.BeginTransactionAsync();
         await connection.ExecuteAsync(sql, parameters, transaction);
@@ -150,11 +150,11 @@ public sealed class SessionRevocationTimeoutTests
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 
-    private sealed class LockHolder(NpgsqlConnection connection, NpgsqlTransaction transaction) : IAsyncDisposable
+    private sealed class LockHolder(DbConnection connection, DbTransaction transaction) : IAsyncDisposable
     {
         private bool _released;
 

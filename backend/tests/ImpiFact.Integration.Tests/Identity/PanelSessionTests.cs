@@ -11,7 +11,6 @@ using HostString = Microsoft.AspNetCore.Http.HostString;
 using StatusCodes = Microsoft.AspNetCore.Http.StatusCodes;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Net.Http.Headers;
-using Npgsql;
 
 // Vive en el espacio de nombres de IdentityData para usar su PostgreSQL de prueba: el SetUpFixture que lo levanta
 // (IdentityDatabase) solo cubre ese espacio de nombres.
@@ -438,7 +437,7 @@ public sealed class PanelSessionTests
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 }

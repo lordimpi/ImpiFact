@@ -1,3 +1,4 @@
+using Dapper;
 using ImpiFact.Application.Abstractions.Billing;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Identity;
@@ -9,7 +10,6 @@ using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Platform.Scheduling;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 using static ImpiFact.Integration.Tests.DocumentUtilities.UtilitiesHost;
 
 namespace ImpiFact.Integration.Tests.Scheduling;
@@ -44,11 +44,13 @@ public sealed class JobLockReleaseTests
         Assert.That(await AdvisoryLocksAsync(), Is.EqualTo(0), string.Join(",", runs.Select(run => run.Outcome)));
     }
 
+    // Bloqueos con nombre tomados en el servidor: advisory locks en PostgreSQL, GET_LOCK en MySQL.
     private static async Task<long> AdvisoryLocksAsync()
     {
-        await using var connection = new NpgsqlConnection(SchedulingEnvironment.ConnectionString);
-        await connection.OpenAsync();
-        await using var command = new NpgsqlCommand("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted", connection);
-        return (long)(await command.ExecuteScalarAsync())!;
+        await using var connection = TestDatabase.CreateConnection(SchedulingEnvironment.ConnectionString);
+        var sql = TestDatabase.IsMySql
+            ? "SELECT count(*) FROM performance_schema.metadata_locks WHERE object_type = 'USER LEVEL LOCK' AND lock_status = 'GRANTED'"
+            : "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted";
+        return await connection.ExecuteScalarAsync<long>(sql);
     }
 }

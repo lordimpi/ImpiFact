@@ -7,7 +7,6 @@ using ImpiFact.Integration.Tests.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Model;
 
@@ -24,7 +23,7 @@ namespace ImpiFact.Integration.Tests.Model;
 [Category("Integration")]
 public sealed class ModelDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseContainer? container;
     private static ServiceProvider? services;
 
     public static string ConnectionString =>
@@ -35,7 +34,7 @@ public sealed class ModelDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateContainer();
         await container.StartAsync();
 
         var configuration = new ConfigurationBuilder()

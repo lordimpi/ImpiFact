@@ -7,7 +7,6 @@ using ImpiFact.Domain.Identity;
 using ImpiFact.Domain.Masters;
 using ImpiFact.Domain.Platform;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.Model;
 
@@ -86,7 +85,7 @@ public sealed class TenantIsolationTests
 
         var exception = Assert.ThrowsAsync<DbUpdateException>(() => session.Db.SaveChangesAsync());
 
-        Assert.That((exception?.InnerException as PostgresException)?.SqlState, Is.EqualTo(PostgresErrorCodes.ForeignKeyViolation));
+        Assert.That(TestDatabase.IsForeignKeyViolation(exception), Is.True, exception?.InnerException?.Message);
     }
 
     private static Task<List<Guid>> CompanyIdsAsync(Type entity, Guid? companyId) =>

@@ -9,7 +9,6 @@ using ImpiFact.Integration.Tests.DianSend;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MimeKit;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Email;
 
@@ -27,7 +26,7 @@ public sealed class EmailEnvironment
     private const int SmtpPort = 1025;
     private const int ApiPort = 8025;
 
-    private static PostgreSqlContainer? database;
+    private static TestDatabaseContainer? database;
     private static IContainer? mailHog;
 
     public static string ConnectionString =>
@@ -41,7 +40,7 @@ public sealed class EmailEnvironment
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        database = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        database = TestDatabase.CreateContainer();
         mailHog = NewMailHog();
         await Task.WhenAll(database.StartAsync(), mailHog.StartAsync());
 

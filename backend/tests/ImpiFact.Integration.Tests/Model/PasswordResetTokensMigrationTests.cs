@@ -37,6 +37,9 @@ public sealed class PasswordResetTokensMigrationTests
     [Test]
     public async Task PasswordResetTokens_down_removes_only_its_table_and_up_restores_it()
     {
+        // PasswordResetTokens es una migración de PostgreSQL (y la consulta lee pg_indexes): MySQL empezó con una sola
+        // migración inicial que ya trae la tabla.
+        TestDatabase.RequirePostgres("PasswordResetTokens is a PostgreSQL migration; MySQL starts from one InitialSchema.");
         await using var session = ModelDatabase.Open(companyId: null);
         var migrator = session.Db.GetService<IMigrator>();
 

@@ -1,9 +1,8 @@
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Migrator;
 
 /// <summary>
-/// Servidor PostgreSQL en un contenedor de Docker (Testcontainers) para las pruebas del Migrator. Cada prueba usa
+/// Servidor de base de datos (PostgreSQL o MySQL) en un contenedor de Docker (Testcontainers) para las pruebas del Migrator. Cada prueba usa
 /// una base nueva con nombre propio: el Migrator la crea al aplicar las migraciones, así se prueba también el caso
 /// de una instalación desde cero.
 /// </summary>
@@ -11,18 +10,18 @@ namespace ImpiFact.Integration.Tests.Migrator;
 [Category("Integration")]
 public sealed class MigratorDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseContainer? container;
 
     /// <summary>Cadena de conexión a una base que todavía no existe en el servidor de pruebas.</summary>
     public static string NewDatabase() =>
-        (container ?? throw new InvalidOperationException("The PostgreSQL container is not running."))
-            .GetConnectionString()
-            .Replace("Database=postgres", "Database=migrator_" + Guid.NewGuid().ToString("N"), StringComparison.Ordinal);
+        TestDatabase.WithDatabase(
+            (container ?? throw new InvalidOperationException("The database container is not running.")).GetConnectionString(),
+            "migrator_" + Guid.NewGuid().ToString("N"));
 
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateContainer();
         await container.StartAsync();
     }
 

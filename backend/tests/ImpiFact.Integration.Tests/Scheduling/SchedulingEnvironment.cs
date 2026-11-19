@@ -13,7 +13,6 @@ using ImpiFact.Integration.Tests.Model;
 using ImpiFact.Integration.Tests.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Scheduling;
 
@@ -26,7 +25,7 @@ namespace ImpiFact.Integration.Tests.Scheduling;
 [Category("Integration")]
 public sealed class SchedulingEnvironment
 {
-    private static PostgreSqlContainer? database;
+    private static TestDatabaseContainer? database;
     private static IContainer? mailHog;
     private static int nitSequence;
 
@@ -38,7 +37,7 @@ public sealed class SchedulingEnvironment
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        database = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        database = TestDatabase.CreateContainer();
         mailHog = EmailEnvironment.NewMailHog();
         await Task.WhenAll(database.StartAsync(), mailHog.StartAsync());
 

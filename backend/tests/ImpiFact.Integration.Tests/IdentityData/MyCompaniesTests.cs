@@ -7,7 +7,6 @@ using ImpiFact.Domain.Identity;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.IdentityData;
 
@@ -119,9 +118,9 @@ public sealed class MyCompaniesTests
     private static async Task<(Guid Id, string Nit)> AddCompanyAsync(string name, bool isActive)
     {
         var id = await IdentityDatabase.AddCompanyAsync();
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
-        var nit = await connection.QuerySingleAsync<string>(
-            "update companies set name = @name, is_active = @isActive where id = @id returning identification_number", new { id, name, isActive });
+        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
+        await connection.ExecuteAsync("update companies set name = @name, is_active = @isActive where id = @id", new { id, name, isActive });
+        var nit = await connection.QuerySingleAsync<string>("select identification_number from companies where id = @id", new { id });
         return (id, nit);
     }
 
@@ -135,7 +134,7 @@ public sealed class MyCompaniesTests
 
     private static async Task<string> EmailOfAsync(Guid userId)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<string>("select email from users where id = @userId", new { userId });
     }
 

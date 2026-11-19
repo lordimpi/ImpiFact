@@ -4,7 +4,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 using ImpiFact.Infrastructure.Platform.Outbox;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Integration.Tests.Protection;
 using WorkerHost::ImpiFact.Worker.Health;
 using Microsoft.Extensions.Configuration;
@@ -175,7 +174,7 @@ public sealed class WorkerHealthTests
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { EnvironmentName = "Production" });
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>(scratch.LocalAesGcmSettings())
         {
-            ["Database:Provider"] = "Postgres",
+            ["Database:Provider"] = TestDatabase.ProviderName,
             ["Database:ConnectionString"] = UnreachableDatabase.ConnectionString,
             ["Dian:HabilitacionUrl"] = "https://vpfe-hab.dian.test/WcfDianCustomerServices.svc",
             ["Dian:ProduccionUrl"] = "https://vpfe.dian.test/WcfDianCustomerServices.svc",
@@ -199,7 +198,7 @@ public sealed class WorkerHealthTests
             builder.Configuration["WorkerHealth:Host"] = healthHost;
         }
 
-        builder.Services.AddWorkerServices(builder.Configuration, new PostgresDatabaseProvider());
+        builder.Services.AddWorkerServices(builder.Configuration, TestDatabase.Providers);
         builder.Services.AddWorkerHealthEndpoints(builder.Configuration);
         // Solo el servidor de salud: el procesador de la bandeja y las tareas diarias necesitan la base.
         var background = builder.Services.Where(service => service.ServiceType == typeof(IHostedService)).ToList();

@@ -27,7 +27,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.DianSend;
 
@@ -40,7 +39,7 @@ namespace ImpiFact.Integration.Tests.DianSend;
 [Category("Integration")]
 public sealed class DianSendDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseContainer? container;
     private static int nitSequence;
 
     public static string ConnectionString =>
@@ -49,7 +48,7 @@ public sealed class DianSendDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateContainer();
         await container.StartAsync();
 
         await using var host = DianSendHost.Create();

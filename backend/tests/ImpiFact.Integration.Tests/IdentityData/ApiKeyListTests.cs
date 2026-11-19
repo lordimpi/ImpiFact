@@ -1,3 +1,4 @@
+using Dapper;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -168,11 +169,8 @@ public sealed class ApiKeyListTests
 
     private static async Task<string> EmailOfAsync(Guid userId)
     {
-        await using var connection = new Npgsql.NpgsqlConnection(IdentityDatabase.ConnectionString);
-        await connection.OpenAsync();
-        await using var command = new Npgsql.NpgsqlCommand("select email from users where id = @id", connection);
-        command.Parameters.AddWithValue("id", userId);
-        return (string)(await command.ExecuteScalarAsync())!;
+        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
+        return await connection.ExecuteScalarAsync<string>("select email from users where id = @id", new { id = userId }) ?? "";
     }
 
     private static string Email() => $"user-{Guid.NewGuid():N}@example.com";

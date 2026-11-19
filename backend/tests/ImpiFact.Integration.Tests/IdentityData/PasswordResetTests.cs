@@ -6,7 +6,6 @@ using ImpiFact.Application.Abstractions.Protection;
 using ImpiFact.Application.Features.Identity.PasswordReset;
 using ImpiFact.Infrastructure.Identity;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.IdentityData;
 
@@ -53,7 +52,7 @@ public sealed class PasswordResetTests
             "select id, token_hash, expires_at, used_at, revoked_at from password_reset_tokens where user_id = @activeId", new { activeId });
         var inactiveTokens = await QuerySingleAsync<long>("select count(*) from password_reset_tokens where user_id = @inactiveId", new { inactiveId });
         var message = await QuerySingleAsync<(Guid? CompanyId, string Payload)>(
-            "select company_id, payload::text from outbox_messages where type = 'SendPasswordResetEmail' and payload->>'reset_token_id' = @id",
+            $"select company_id, {TestSql.Text("payload")} from outbox_messages where type = 'SendPasswordResetEmail' and {TestSql.JsonText("payload", "reset_token_id")} = @id",
             new { id = row.Id.ToString() });
         var token = Decrypt(message.Payload);
 
@@ -121,7 +120,7 @@ public sealed class PasswordResetTests
         var (expiringId, expiringEmail) = await AddUserAsync();
         var expired = await RequestTokenAsync(expiringId, expiringEmail);
         await ExecuteAsync(
-            "update password_reset_tokens set expires_at = now() - interval '1 minute' where user_id = @expiringId", new { expiringId });
+            $"update password_reset_tokens set expires_at = {TestSql.MinutesAgo(1)} where user_id = @expiringId", new { expiringId });
         var supersededRow = await QuerySingleAsync<DateTime?>(
             "select revoked_at from password_reset_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(superseded) });
 
@@ -236,7 +235,7 @@ public sealed class PasswordResetTests
         using var response = await RequestAsync(email);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Accepted));
         var payload = await QuerySingleAsync<string>(
-            "select o.payload::text from outbox_messages o join password_reset_tokens t on o.payload->>'reset_token_id' = t.id::text " +
+            $"select {TestSql.Text("o.payload")} from outbox_messages o join password_reset_tokens t on {TestSql.JsonText("o.payload", "reset_token_id")} = {TestSql.Text("t.id")} " +
             "where t.user_id = @userId order by t.created_at desc, t.id desc limit 1",
             new { userId });
         return Decrypt(payload);
@@ -273,13 +272,13 @@ public sealed class PasswordResetTests
 
     private static async Task ExecuteAsync(string sql, object parameters)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
         await connection.ExecuteAsync(sql, parameters);
     }
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 }

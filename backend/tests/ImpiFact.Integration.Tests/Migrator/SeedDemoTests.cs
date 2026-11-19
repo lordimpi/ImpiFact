@@ -10,7 +10,6 @@ using ImpiFact.Migrator;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.Migrator;
 
@@ -47,7 +46,7 @@ public sealed class SeedDemoTests
 
         Assert.That(exitCode, Is.Zero, error);
         var key = PrintedKey(output);
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.CreateConnection(connectionString);
         var company = await connection.QuerySingleAsync<(Guid Id, string Dv, string Name)>(
             "select id, dv, name from companies where identification_number = @DemoNit", new { DemoNit });
         var environments = (await connection.QueryAsync<int>(
@@ -110,7 +109,7 @@ public sealed class SeedDemoTests
         var (exitCode, second, error) = await SeedAsync(connectionString, "Development");
 
         Assert.That(exitCode, Is.Zero, error);
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.CreateConnection(connectionString);
         var counts = await connection.QuerySingleAsync<(long Companies, long Software, long Resolutions, long Certificates, long Keys)>(
             """
             select (select count(*) from companies where identification_number = @DemoNit),
@@ -140,7 +139,7 @@ public sealed class SeedDemoTests
         Assert.That(exitCode, Is.EqualTo(1));
         Assert.That(error, Does.Contain("--force"));
         Assert.That(output, Does.Not.Contain("apk_"));
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.CreateConnection(connectionString);
         Assert.That(await connection.ExecuteScalarAsync<long>("select count(*) from companies"), Is.Zero);
     }
 

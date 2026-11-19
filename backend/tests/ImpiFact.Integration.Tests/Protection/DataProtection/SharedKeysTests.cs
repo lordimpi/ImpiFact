@@ -2,7 +2,6 @@ using System.Security.Cryptography;
 using Dapper;
 using ImpiFact.Application.Abstractions.Protection;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.Protection.DataProtection;
 
@@ -55,7 +54,7 @@ public sealed class SharedKeysTests
             instance.GetRequiredService<ISecretProtector>().Protect(SecretPurposes.SmtpPassword, "smtp-password");
         }
 
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.CreateConnection(connectionString);
         var rows = (await connection.QueryAsync<(string? FriendlyName, string Xml)>(
             "select friendly_name, xml from data_protection_keys")).ToList();
 
@@ -97,7 +96,7 @@ public sealed class SharedKeysTests
     [Test]
     public async Task The_table_matches_the_data_model()
     {
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.CreateConnection(connectionString);
         var columns = (await connection.QueryAsync<(string Column, string Type, int? Length, string Nullable)>(
                 "select column_name, data_type, character_maximum_length, is_nullable from information_schema.columns " +
                 "where table_name = 'data_protection_keys' order by ordinal_position"))

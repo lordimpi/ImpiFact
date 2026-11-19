@@ -20,7 +20,6 @@ using ImpiFact.Integration.Tests.Protection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Pdf.Gotenberg;
 
@@ -38,7 +37,7 @@ public sealed class PdfContainers
 
     private const ushort GotenbergPort = 3000;
 
-    private static PostgreSqlContainer? postgres;
+    private static TestDatabaseContainer? postgres;
     private static IContainer? gotenberg;
     private static int nitSequence;
 
@@ -52,7 +51,7 @@ public sealed class PdfContainers
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        postgres = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        postgres = TestDatabase.CreateContainer();
         gotenberg = new ContainerBuilder(GotenbergImage)
             .WithPortBinding(GotenbergPort, assignRandomHostPort: true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request => request.ForPort(GotenbergPort).ForPath("/health")))

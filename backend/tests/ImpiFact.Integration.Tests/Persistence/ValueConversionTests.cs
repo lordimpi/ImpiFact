@@ -42,7 +42,7 @@ public sealed class ValueConversionTests
         var stored = await session.Db.Widgets.SingleAsync(w => w.Id == widget.Id);
         await using var connection = await session.Reads.OpenAsync(CancellationToken.None);
         var raw = await connection.QuerySingleAsync<string>(
-            "select details::text from widgets where company_id = @CompanyId and id = @Id",
+            $"select {TestSql.Text("details")} from widgets where company_id = @CompanyId and id = @Id",
             new { widget.CompanyId, widget.Id });
 
         Assert.Multiple(() =>

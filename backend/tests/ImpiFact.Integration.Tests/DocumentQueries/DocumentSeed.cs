@@ -6,7 +6,6 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Domain.Companies;
 using ImpiFact.Domain.Documents;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.DocumentQueries;
 
@@ -72,15 +71,15 @@ internal static class DocumentSeed
         var customer = JsonNode.Parse(CustomerJson)!.AsObject();
         customer["name"] = customerName ?? (string?)customer["name"];
         customer["identification_number"] = customerIdentification ?? (string?)customer["identification_number"];
-        await using var connection = new NpgsqlConnection(DocumentQueriesHost.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(DocumentQueriesHost.ConnectionString);
         await connection.ExecuteAsync(
-            """
+            $"""
             insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status, cufe,
                 uuid_algorithm, issue_date, issue_time, issued_at, customer_snapshot, currency_id, line_extension_amount,
                 tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
                 notes, email_status, created_by_type, created_at, updated_at, row_version)
             values (@Id, @CompanyId, @TypeId, 2, @Prefix, @Number, @FullNumber, @Status, @Cufe,
-                'CUFE-SHA384', cast(@IssueDate as date), cast(@IssueTime as time), @IssuedAt, cast(@Customer as jsonb), 35, 100.00,
+                'CUFE-SHA384', cast(@IssueDate as date), cast(@IssueTime as time), @IssuedAt, cast(@Customer as {JsonType}), 35, 100.00,
                 100.00, 119.00, 0, 0, 0, 119.00,
                 'nota de prueba', @EmailStatus, 2, now(), now(), 1)
             """,
@@ -109,19 +108,9 @@ internal static class DocumentSeed
     /// </summary>
     public static async Task ManyDocumentsAsync(SeededCompany company, int count, DateTimeOffset start)
     {
-        await using var connection = new NpgsqlConnection(DocumentQueriesHost.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(DocumentQueriesHost.ConnectionString);
         await connection.ExecuteAsync(
-            """
-            insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status,
-                uuid_algorithm, issue_date, issue_time, issued_at, customer_snapshot, currency_id, line_extension_amount,
-                tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
-                created_by_type, created_at, updated_at, row_version)
-            select gen_random_uuid(), @CompanyId, 1, 2, 'BULK', n, 'BULK' || n, 4,
-                'CUFE-SHA384', cast(@IssueDate as date), time '00:00:00', @Start + n * interval '1 second', cast(@Customer as jsonb), 35, 100.00,
-                100.00, 119.00, 0, 0, 0, 119.00,
-                2, now(), now(), 1
-            from generate_series(1, @Count) as n
-            """,
+            TestDatabase.IsMySql ? ManyDocumentsMySql : ManyDocumentsPostgres,
             new
             {
                 CompanyId = company.Id,
@@ -134,11 +123,43 @@ internal static class DocumentSeed
             commandTimeout: 300);
     }
 
+    // Tipo de las columnas JSON en el SQL de las semillas: jsonb en PostgreSQL, json en MySQL.
+    private static string JsonType => TestDatabase.IsMySql ? "json" : "jsonb";
+
+    private const string ManyDocumentsPostgres =
+            """
+            insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status,
+                uuid_algorithm, issue_date, issue_time, issued_at, customer_snapshot, currency_id, line_extension_amount,
+                tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
+                created_by_type, created_at, updated_at, row_version)
+            select gen_random_uuid(), @CompanyId, 1, 2, 'BULK', n, 'BULK' || n, 4,
+                'CUFE-SHA384', cast(@IssueDate as date), time '00:00:00', @Start + n * interval '1 second', cast(@Customer as jsonb), 35, 100.00,
+                100.00, 119.00, 0, 0, 0, 119.00,
+                2, now(), now(), 1
+            from generate_series(1, @Count) as n
+            """;
+
+    // MySQL no tiene generate_series: una CTE recursiva da la serie (su profundidad máxima por defecto es 1000).
+    private const string ManyDocumentsMySql =
+            """
+            set session cte_max_recursion_depth = 1000000;
+            insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status,
+                uuid_algorithm, issue_date, issue_time, issued_at, customer_snapshot, currency_id, line_extension_amount,
+                tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
+                created_by_type, created_at, updated_at, row_version)
+            with recursive series (n) as (select 1 union all select n + 1 from series where n < @Count)
+            select uuid(), @CompanyId, 1, 2, 'BULK', n, concat('BULK', n), 4,
+                'CUFE-SHA384', cast(@IssueDate as date), time '00:00:00', date_add(@Start, interval n second), cast(@Customer as json), 35,
+                100.00, 100.00, 119.00, 0, 0, 0, 119.00,
+                2, now(), now(), 1
+            from series
+            """;
+
     /// <summary>Agrega una línea con IVA (impuesto 1) del 19 % y el mismo impuesto en la cabecera.</summary>
     public static async Task LineWithVatAsync(SeededCompany company, Guid documentId)
     {
         var lineId = Guid.CreateVersion7();
-        await using var connection = new NpgsqlConnection(DocumentQueriesHost.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(DocumentQueriesHost.ConnectionString);
         await connection.ExecuteAsync(
             """
             insert into document_lines (id, company_id, document_id, line_number, code, description, type_item_identification_id,

@@ -6,7 +6,6 @@ using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Domain.Identity;
 using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Integration.Tests.Identity;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.IdentityData;
 
@@ -349,7 +348,7 @@ public sealed class IdentityEndpointTests
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 }

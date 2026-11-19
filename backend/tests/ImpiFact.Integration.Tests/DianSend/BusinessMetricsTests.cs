@@ -134,7 +134,7 @@ public sealed class BusinessMetricsTests
         var stopped = new System.Collections.Concurrent.ConcurrentQueue<Activity>();
         using var listener = new ActivityListener
         {
-            ShouldListenTo = source => source.Name is "ImpiFact" or "Npgsql",
+            ShouldListenTo = source => source.Name == "ImpiFact" || source.Name == TestDatabase.DriverActivitySource,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStopped = stopped.Enqueue,
         };
@@ -143,7 +143,7 @@ public sealed class BusinessMetricsTests
         await host.RunOutboxAsync();
 
         var span = stopped.Single(activity => activity.GetTagItem("messaging.message.id") as string == message.Id.ToString());
-        var commands = stopped.Where(activity => activity.Source.Name == "Npgsql" && activity.TraceId == span.TraceId).ToList();
+        var commands = stopped.Where(activity => activity.Source.Name == TestDatabase.DriverActivitySource && activity.TraceId == span.TraceId).ToList();
         Assert.Multiple(() =>
         {
             Assert.That(span.DisplayName, Is.EqualTo("outbox SendDocumentToDian"));

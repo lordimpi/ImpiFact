@@ -13,9 +13,13 @@ namespace ImpiFact.Integration.Tests.Model;
 [Category("Integration")]
 public sealed class SchemaTests
 {
-    private const string Common = "created_at ts|updated_at ts|row_version bigint";
+    // Lee el catálogo de PostgreSQL (pg_*); MySqlSchemaTests revisa el mismo modelo en MySQL con information_schema.
+    [SetUp]
+    public void OnlyOnPostgres() => TestDatabase.RequirePostgres("reads pg_catalog; MySqlSchemaTests checks the same model on MySQL.");
 
-    private static readonly string[] ModelTables =
+    internal const string Common = "created_at ts|updated_at ts|row_version bigint";
+
+    internal static readonly string[] ModelTables =
     [
         .. CatalogSeedTests.CatalogTables,
         "resellers", "users", "roles", "user_roles", "user_companies", "api_keys", "refresh_tokens", "password_reset_tokens",
@@ -31,9 +35,9 @@ public sealed class SchemaTests
 
     /// <summary>Tablas que mapea otro módulo en el mismo contexto (Data Protection) y que esta prueba no describe.</summary>
     // data_protection_keys es de Protection; __EFMigrationsHistory es la tabla donde EF anota las migraciones aplicadas.
-    private static readonly string[] OtherModuleTables = ["data_protection_keys", "__EFMigrationsHistory"];
+    internal static readonly string[] OtherModuleTables = ["data_protection_keys", "__EFMigrationsHistory"];
 
-    private static readonly Dictionary<string, string> Columns = new(StringComparer.Ordinal)
+    internal static readonly Dictionary<string, string> Columns = new(StringComparer.Ordinal)
     {
         ["type_documents"] = "id int|code varchar(20)|name varchar(255)|is_active bool|valid_from date null|valid_to date null|" +
             "cufe_algorithm varchar(16) null|prefix varchar(10) null",
@@ -118,7 +122,7 @@ public sealed class SchemaTests
     };
 
     /// <summary>Todas las columnas decimales del modelo: importes (18,2), precios y cantidades (18,6), porcentajes (9,4).</summary>
-    private static readonly string[] Decimals =
+    internal static readonly string[] Decimals =
     [
         "documents.exchange_rate numeric(18,6)", "documents.line_extension_amount numeric(18,2)",
         "documents.tax_exclusive_amount numeric(18,2)", "documents.tax_inclusive_amount numeric(18,2)",
@@ -138,7 +142,7 @@ public sealed class SchemaTests
     ];
 
     /// <summary>Llaves primarias que no son <c>id</c>.</summary>
-    private static readonly string[] CompositePrimaryKeys =
+    internal static readonly string[] CompositePrimaryKeys =
     [
         "user_roles(user_id,role_id)", "company_liabilities(company_id,type_liability_id)",
         "plan_quotas(plan_id,document_kind)", "plan_usage(company_plan_id,document_kind)",
@@ -149,7 +153,7 @@ public sealed class SchemaTests
     /// Todos los únicos (UQ) del modelo, salvo las llaves primarias: <c>tabla(columnas) [where filtro]</c>. Cada
     /// uno aparece una sola vez: un único declarado dos veces (llave alterna e índice) haría fallar la prueba.
     /// </summary>
-    private static readonly string[] UniqueConstraints =
+    internal static readonly string[] UniqueConstraints =
     [
         .. CatalogSeedTests.CatalogTables
             .Except(["countries", "languages", "unit_measures", "type_operations", "municipalities"])
@@ -172,7 +176,7 @@ public sealed class SchemaTests
     ];
 
     /// <summary>Índices con el nombre que fija el modelo (secciones 3.3, 3.5 y 6): <c>nombre: definición</c>.</summary>
-    private static readonly string[] NamedIndexes =
+    internal static readonly string[] NamedIndexes =
     [
         "ux_certificates_active: unique certificates(company_id) where is_active",
         "ix_certificates_not_after: certificates(not_after)",
@@ -185,7 +189,7 @@ public sealed class SchemaTests
     ];
 
     /// <summary>Los demás índices (IX) que pide el modelo, sin nombre propio.</summary>
-    private static readonly string[] Indexes =
+    internal static readonly string[] Indexes =
     [
         "countries(code)", "languages(code)", "unit_measures(code)", "type_operations(code)",
         "api_keys(company_id,revoked_at)",
@@ -198,7 +202,7 @@ public sealed class SchemaTests
         "notifications(company_id,user_id,is_read,created_at desc)", "idempotency_keys(expires_at)",
     ];
 
-    private static readonly string[] CheckConstraints =
+    internal static readonly string[] CheckConstraints =
     [
         "resolutions.ck_resolutions_range", "document_events.ck_document_events_target",
     ];

@@ -23,7 +23,7 @@ public sealed class SecretColumnTests
     public async Task Secrets_are_stored_only_as_cipher_or_hash(string table, string protectedColumn)
     {
         var columns = await Sql.QueryAsync<string>(
-            "select column_name from information_schema.columns where table_schema = 'public' and table_name = @table",
+            $"select column_name from information_schema.columns where table_schema = {TestSql.CurrentSchema} and table_name = @table",
             new { table });
 
         var plaintext = columns.Where(column =>

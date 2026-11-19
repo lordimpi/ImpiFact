@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.IdentityData;
 
@@ -161,7 +160,7 @@ public sealed class PasswordResetHardeningTests
         var (userId, email) = await AddUserAsync();
         var token = await RequestTokenAsync(userId, email);
         var payload = await QuerySingleAsync<string>(
-            "select o.payload::text from outbox_messages o join password_reset_tokens t on o.payload->>'reset_token_id' = t.id::text where t.user_id = @userId",
+            $"select {TestSql.Text("o.payload")} from outbox_messages o join password_reset_tokens t on {TestSql.JsonText("o.payload", "reset_token_id")} = {TestSql.Text("t.id")} where t.user_id = @userId",
             new { userId });
         var keys = JsonDocument.Parse(payload).RootElement.EnumerateObject().Select(p => p.Name).Order().ToArray();
 
@@ -200,7 +199,7 @@ public sealed class PasswordResetHardeningTests
         using var response = await _factory.CreateClient().PostAsJsonAsync(RequestPath, new { email });
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Accepted));
         var payload = await QuerySingleAsync<string>(
-            "select o.payload::text from outbox_messages o join password_reset_tokens t on o.payload->>'reset_token_id' = t.id::text " +
+            $"select {TestSql.Text("o.payload")} from outbox_messages o join password_reset_tokens t on {TestSql.JsonText("o.payload", "reset_token_id")} = {TestSql.Text("t.id")} " +
             "where t.user_id = @userId order by t.created_at desc, t.id desc limit 1", new { userId });
         var cipher = JsonDocument.Parse(payload).RootElement.GetProperty("token_cipher").GetString()!;
         return _factory.Services.GetRequiredService<ISecretProtector>().Unprotect(PasswordResetEmail.SecretPurpose, cipher);
@@ -215,19 +214,19 @@ public sealed class PasswordResetHardeningTests
 
     private static async Task ExecuteAsync(string sql, object parameters)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
         await connection.ExecuteAsync(sql, parameters);
     }
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 
     private static async Task<IEnumerable<T>> QueryAsync<T>(string sql, object parameters)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
         return await connection.QueryAsync<T>(sql, parameters);
     }
 }

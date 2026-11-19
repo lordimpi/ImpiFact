@@ -3,7 +3,6 @@ using System.Text;
 using Dapper;
 using ImpiFact.Migrator;
 using Microsoft.Extensions.Configuration;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.Migrator;
 
@@ -26,7 +25,7 @@ public sealed class MigratorTests
         Assert.That(exitCode, Is.Zero);
         Assert.That(output, Does.Match(@"Migrations applied: \d{14}_InitialSchema"));
         Assert.That(output, Does.Match(@"Catalogs synchronized: \d+ inserted, 0 updated"));
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.CreateConnection(connectionString);
         Assert.That(await connection.ExecuteScalarAsync<int>("select count(*) from municipalities"), Is.EqualTo(1122));
         Assert.That(await connection.ExecuteScalarAsync<int>("select count(*) from roles"), Is.EqualTo(5));
     }
@@ -56,7 +55,7 @@ public sealed class MigratorTests
 
         Assert.That(exitCode, Is.Zero);
         var plain = output.Split('\n', StringSplitOptions.TrimEntries).Single(line => line.StartsWith("apk_", StringComparison.Ordinal));
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.CreateConnection(connectionString);
         var row = await connection.QuerySingleAsync<(Guid? CompanyId, string Name, string Scopes, string KeyHash)>(
             "select company_id, name, scopes, key_hash from api_keys");
         Assert.Multiple(() =>
@@ -98,8 +97,8 @@ public sealed class MigratorTests
     }
 
     // Database:Provider elige el motor entre los disponibles; sin él o con uno que no existe, el comando no toca la base.
-    [TestCase(null, "Database:Provider is not set. Available providers: Postgres.")]
-    [TestCase("Oracle", "Database provider 'Oracle' is not available. Available providers: Postgres.")]
+    [TestCase(null, "Database:Provider is not set. Available providers: Postgres, MySql.")]
+    [TestCase("Oracle", "Database provider 'Oracle' is not available. Available providers: Postgres, MySql.")]
     public async Task Without_an_available_provider_it_exits_with_1_and_lists_the_available_ones(string? provider, string message)
     {
         var (exitCode, output, error) = await RunWithProviderAsync("Host=localhost;Database=impifact", provider, "migrate");

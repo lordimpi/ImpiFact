@@ -30,6 +30,8 @@ public sealed class ItemTaxRateMigrationTests
     [Test]
     public async Task ItemTaxRate_down_removes_only_its_two_columns_and_up_restores_them()
     {
+        // ItemTaxRate es una migración de PostgreSQL: MySQL empezó con una sola migración inicial que ya trae esas columnas.
+        TestDatabase.RequirePostgres("ItemTaxRate is a PostgreSQL migration; MySQL starts from one InitialSchema.");
         await using var session = ModelDatabase.Open(companyId: null);
         var migrator = session.Db.GetService<IMigrator>();
 

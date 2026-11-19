@@ -1,8 +1,6 @@
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Protection.DataProtection;
 
@@ -15,12 +13,12 @@ namespace ImpiFact.Integration.Tests.Protection.DataProtection;
 [Category("Integration")]
 public sealed class KeysDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseContainer? container;
 
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateContainer();
         await container.StartAsync();
     }
 
@@ -39,17 +37,9 @@ public sealed class KeysDatabase
     /// </summary>
     public static async Task<string> CreateDatabaseAsync()
     {
-        var admin = container?.GetConnectionString() ?? throw new InvalidOperationException("The PostgreSQL container is not running.");
-        var name = "keys_" + Guid.NewGuid().ToString("N");
-        await using (var connection = new NpgsqlConnection(admin))
-        {
-            await connection.OpenAsync();
-            await using var command = new NpgsqlCommand($"create database {name}", connection);
-            await command.ExecuteNonQueryAsync();
-        }
-
-        var connectionString = new NpgsqlConnectionStringBuilder(admin) { Database = name }.ConnectionString;
-        var options = new DbContextOptionsBuilder<KeysOnlyDbContext>().UseNpgsql(connectionString).Options;
+        var admin = container?.GetConnectionString() ?? throw new InvalidOperationException("The database container is not running.");
+        var connectionString = await TestDatabase.CreateDatabaseAsync(admin, "keys_" + Guid.NewGuid().ToString("N"));
+        var options = TestDatabase.ContextOptions<KeysOnlyDbContext>(connectionString);
         await using var context = new KeysOnlyDbContext(options);
         await context.Database.EnsureCreatedAsync();
         return connectionString;

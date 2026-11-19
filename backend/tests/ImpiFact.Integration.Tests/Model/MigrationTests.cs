@@ -2,6 +2,7 @@ using ImpiFact.Domain.Catalog;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Postgres;
+using MySqlDesignTimeDbContextFactory = ImpiFact.Infrastructure.MySql.DesignTimeDbContextFactory;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -45,6 +46,40 @@ public sealed class MigrationTests
                     ["ux_documents_cufe"] = "cufe IS NOT NULL",
                     ["ix_documents_track"] = "track_id IS NOT NULL",
                 }));
+        });
+    }
+
+    // Lo mismo para las migraciones de MySQL, que salen del mismo modelo con su propio personalizador.
+    [Test]
+    public void The_model_has_no_changes_missing_from_the_mysql_migrations()
+    {
+        using var db = new MySqlDesignTimeDbContextFactory().CreateDbContext([]);
+
+        Assert.That(db.Database.HasPendingModelChanges(), Is.False, "Run dotnet ef migrations add in ImpiFact.Infrastructure.MySql.");
+    }
+
+    // MySQL no tiene índices parciales: cada garantía se conserva sin filtro (Modelo de datos detallado, sección 8, trampa 1).
+    // Un único certificado activo por empresa sale de la columna generada active_company_id; el CUFE puede repetir NULL
+    // porque un índice único de MySQL no considera iguales dos NULL.
+    [Test]
+    public void The_mysql_provider_keeps_each_partial_index_guarantee_without_filters()
+    {
+        using var db = new MySqlDesignTimeDbContextFactory().CreateDbContext([]);
+        var model = db.GetService<IDesignTimeModel>().Model;
+        var indexes = model.GetEntityTypes().SelectMany(entityType => entityType.GetDeclaredIndexes())
+            .ToDictionary(index => index.GetDatabaseName()!);
+        var activeCompany = model.GetEntityTypes().Single(entityType => entityType.GetTableName() == "certificates")
+            .GetProperties().Single(property => property.GetColumnName() == "active_company_id");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(indexes.Values.Where(index => index.GetFilter() is not null).Select(index => index.GetDatabaseName()), Is.Empty);
+            Assert.That(indexes["ux_certificates_active"].IsUnique, Is.True);
+            Assert.That(indexes["ux_certificates_active"].Properties.Select(property => property.GetColumnName()), Is.EqualTo(new[] { "active_company_id" }));
+            Assert.That(activeCompany.GetComputedColumnSql(), Is.EqualTo("case when `is_active` then `company_id` end"));
+            Assert.That(activeCompany.GetIsStored(), Is.False);
+            Assert.That(indexes["ux_documents_cufe"].IsUnique, Is.True);
+            Assert.That(indexes["ix_documents_track"].IsUnique, Is.False);
         });
     }
 
