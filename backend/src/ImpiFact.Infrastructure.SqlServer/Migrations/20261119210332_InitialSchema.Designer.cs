@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ImpiFact.Infrastructure.SqlServer.Migrations
 {
     [DbContext(typeof(ImpiFactDbContext))]
-    [Migration("20261119195903_InitialSchema")]
+    [Migration("20261119210332_InitialSchema")]
     partial class InitialSchema
     {
         /// <inheritdoc />
@@ -24,6 +24,12 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.HasSequence("audit_logs_id_seq");
+
+            modelBuilder.HasSequence("data_protection_keys_id_seq");
+
+            modelBuilder.HasSequence("plans_id_seq");
 
             modelBuilder.Entity("ImpiFact.Domain.Billing.CompanyPlan", b =>
                 {
@@ -83,9 +89,10 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasColumnName("id");
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("NEXT VALUE FOR [plans_id_seq]");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseSequence(b.Property<int>("Id"), "plans_id_seq");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset")
@@ -4089,9 +4096,10 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint")
-                        .HasColumnName("id");
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("NEXT VALUE FOR [audit_logs_id_seq]");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseSequence(b.Property<long>("Id"), "audit_logs_id_seq");
 
                     b.Property<string>("Action")
                         .IsRequired()
@@ -4384,9 +4392,10 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasColumnName("id");
+                        .HasColumnName("id")
+                        .HasDefaultValueSql("NEXT VALUE FOR [data_protection_keys_id_seq]");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseSequence(b.Property<int>("Id"), "data_protection_keys_id_seq");
 
                     b.Property<string>("FriendlyName")
                         .HasMaxLength(200)

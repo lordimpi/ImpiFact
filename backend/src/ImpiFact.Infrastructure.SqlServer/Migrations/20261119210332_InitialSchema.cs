@@ -22,12 +22,20 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                 "ALTER DATABASE CURRENT SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE;",
                 suppressTransaction: true);
 
+            migrationBuilder.CreateSequence(
+                name: "audit_logs_id_seq");
+
+            migrationBuilder.CreateSequence(
+                name: "data_protection_keys_id_seq");
+
+            migrationBuilder.CreateSequence(
+                name: "plans_id_seq");
+
             migrationBuilder.CreateTable(
                 name: "audit_logs",
                 columns: table => new
                 {
-                    id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                    id = table.Column<long>(type: "bigint", nullable: false, defaultValueSql: "NEXT VALUE FOR [audit_logs_id_seq]"),
                     company_id = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     actor_type = table.Column<short>(type: "smallint", nullable: false),
                     actor_id = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
@@ -98,8 +106,7 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                 name: "data_protection_keys",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                    id = table.Column<int>(type: "int", nullable: false, defaultValueSql: "NEXT VALUE FOR [data_protection_keys_id_seq]"),
                     friendly_name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true, collation: "Latin1_General_100_CS_AS_SC"),
                     xml = table.Column<string>(type: "nvarchar(max)", nullable: true, collation: "Latin1_General_100_CS_AS_SC")
                 },
@@ -247,8 +254,7 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                 name: "plans",
                 columns: table => new
                 {
-                    id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                    id = table.Column<int>(type: "int", nullable: false, defaultValueSql: "NEXT VALUE FOR [plans_id_seq]"),
                     name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false, collation: "Latin1_General_100_CS_AS_SC"),
                     period = table.Column<short>(type: "smallint", nullable: false, defaultValue: (short)0),
                     is_active = table.Column<bool>(type: "bit", nullable: false),
@@ -2966,6 +2972,15 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "countries");
+
+            migrationBuilder.DropSequence(
+                name: "audit_logs_id_seq");
+
+            migrationBuilder.DropSequence(
+                name: "data_protection_keys_id_seq");
+
+            migrationBuilder.DropSequence(
+                name: "plans_id_seq");
         }
     }
 }
