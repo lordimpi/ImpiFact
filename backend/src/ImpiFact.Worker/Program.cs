@@ -4,6 +4,7 @@ using ImpiFact.Worker;
 using ImpiFact.Worker.Health;
 using ImpiFact.Infrastructure.Platform.Outbox;
 using ImpiFact.Infrastructure.Postgres;
+using ImpiFact.Infrastructure.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -30,7 +31,10 @@ builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProvider
 // Infrastructure, Application (con los handlers de la bandeja de salida) y el procesador: la misma composición que
 // arma la prueba del Worker (WorkerCompositionTests), que además resuelve cada handler porque aquí no se revisa al construir.
 // Van todos los motores disponibles y Database:Provider elige uno.
-builder.Services.AddWorkerServices(builder.Configuration, new PostgresDatabaseProvider());
+builder.Services.AddWorkerServices(
+    builder.Configuration,
+    new PostgresDatabaseProvider(),
+    new SqlServerDatabaseProvider());
 
 // Registros JSON con Serilog, sin secretos, trazas y métricas por OTLP si está OTEL_EXPORTER_OTLP_ENDPOINT y las
 // pruebas de salud por HTTP en WorkerHealth:Port (Arquitectura detallada, sección 12).

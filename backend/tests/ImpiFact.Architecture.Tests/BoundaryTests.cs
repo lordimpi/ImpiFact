@@ -6,7 +6,7 @@ namespace ImpiFact.Architecture.Tests;
 
 /// <summary>
 /// Reglas de frontera de Arquitectura detallada, secciones 1 y 16, además de las dependencias entre capas: el
-/// controlador de PostgreSQL solo vive en su proyecto de proveedor, los endpoints no acceden a datos y toda consulta
+/// controlador de cada motor (PostgreSQL, SQL Server) solo vive en su proyecto de proveedor, los endpoints no acceden a datos y toda consulta
 /// Dapper (la librería de lecturas con SQL escrito a mano) filtra por empresa.
 /// </summary>
 public class BoundaryTests
@@ -37,6 +37,17 @@ public class BoundaryTests
         Assert.That(result.FailingTypeNames ?? [], Is.Empty, "Npgsql belongs in ImpiFact.Infrastructure.Postgres.");
     }
 
+    [Test]
+    public void Only_the_sql_server_provider_uses_the_sql_server_driver()
+    {
+        var result = Types.InAssemblies([Load("ImpiFact.Infrastructure"), Load("ImpiFact.Application"), Load("ImpiFact.Api"), Load("ImpiFact.Worker")])
+            .ShouldNot()
+            .HaveDependencyOnAny("Microsoft.Data.SqlClient", "Microsoft.EntityFrameworkCore.SqlServer")
+            .GetResult();
+
+        Assert.That(result.FailingTypeNames ?? [], Is.Empty, "SqlClient belongs in ImpiFact.Infrastructure.SqlServer.");
+    }
+
     // Los endpoints solo traducen HTTP a un caso de uso: no abren el DbContext ni escriben SQL.
     [Test]
     public void Api_endpoints_do_not_reach_the_database()
@@ -45,7 +56,7 @@ public class BoundaryTests
             .That()
             .DoNotHaveName("ApiComposition", "Program")
             .ShouldNot()
-            .HaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Dapper", "Npgsql", "ImpiFact.Infrastructure.Persistence")
+            .HaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Dapper", "Npgsql", "Microsoft.Data.SqlClient", "ImpiFact.Infrastructure.Persistence")
             .GetResult();
 
         Assert.That(result.FailingTypeNames ?? [], Is.Empty);

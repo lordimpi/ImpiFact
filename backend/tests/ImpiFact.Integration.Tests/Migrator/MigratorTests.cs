@@ -98,8 +98,8 @@ public sealed class MigratorTests
     }
 
     // Database:Provider elige el motor entre los disponibles; sin él o con uno que no existe, el comando no toca la base.
-    [TestCase(null, "Database:Provider is not set. Available providers: Postgres.")]
-    [TestCase("Oracle", "Database provider 'Oracle' is not available. Available providers: Postgres.")]
+    [TestCase(null, "Database:Provider is not set.")]
+    [TestCase("Oracle", "Database provider 'Oracle' is not available.")]
     public async Task Without_an_available_provider_it_exits_with_1_and_lists_the_available_ones(string? provider, string message)
     {
         var (exitCode, output, error) = await RunWithProviderAsync("Host=localhost;Database=impifact", provider, "migrate");
@@ -108,7 +108,7 @@ public sealed class MigratorTests
         {
             Assert.That(exitCode, Is.EqualTo(1));
             Assert.That(output, Is.Empty);
-            Assert.That(error.Trim(), Is.EqualTo("Invalid configuration: " + message));
+            Assert.That(error.Trim(), Is.EqualTo($"Invalid configuration: {message} {TestDatabase.AvailableProvidersMessage}"));
         });
     }
 

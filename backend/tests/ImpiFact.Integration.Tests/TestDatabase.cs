@@ -1,5 +1,6 @@
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Postgres;
+using ImpiFact.Infrastructure.SqlServer;
 
 namespace ImpiFact.Integration.Tests;
 
@@ -21,7 +22,14 @@ public static class TestDatabase
     private const string DefaultProvider = "Postgres";
 
     /// <summary>Todos los motores con proyecto en la solución, igual que en los hosts.</summary>
-    public static IDatabaseProvider[] Providers => [new PostgresDatabaseProvider()];
+    public static IDatabaseProvider[] Providers =>
+    [
+        new PostgresDatabaseProvider(),
+        new SqlServerDatabaseProvider(),
+    ];
+
+    /// <summary>El final del mensaje con que los hosts rechazan un <c>Database:Provider</c> que falta o no existe.</summary>
+    public static string AvailableProvidersMessage => $"Available providers: {string.Join(", ", Providers.Select(provider => provider.Name))}.";
 
     /// <summary>Nombre del motor con que corren las pruebas.</summary>
     public static string ProviderName =>

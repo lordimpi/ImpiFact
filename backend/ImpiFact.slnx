@@ -6,6 +6,7 @@
     <Project Path="src/ImpiFact.Domain/ImpiFact.Domain.csproj" />
     <Project Path="src/ImpiFact.Infrastructure/ImpiFact.Infrastructure.csproj" />
     <Project Path="src/ImpiFact.Infrastructure.Postgres/ImpiFact.Infrastructure.Postgres.csproj" />
+    <Project Path="src/ImpiFact.Infrastructure.SqlServer/ImpiFact.Infrastructure.SqlServer.csproj" />
     <Project Path="src/ImpiFact.Migrator/ImpiFact.Migrator.csproj" />
     <Project Path="src/ImpiFact.Worker/ImpiFact.Worker.csproj" />
   </Folder>

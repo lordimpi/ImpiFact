@@ -17,6 +17,7 @@ using ImpiFact.Infrastructure.Observability;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.Postgres;
+using ImpiFact.Infrastructure.SqlServer;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -47,7 +48,10 @@ internal static class ApiComposition
         // Opciones validadas al arrancar, reloj, tenant y persistencia. Si falta un valor obligatorio (por ejemplo la
         // cadena de conexión, que llega por la variable de entorno Database__ConnectionString), la API no arranca. Van todos
         // los motores disponibles y Database:Provider elige uno.
-        services.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        services.AddInfrastructure(
+            configuration,
+            new PostgresDatabaseProvider(),
+            new SqlServerDatabaseProvider());
         services.AddIdentityInfrastructure();
         // Casos de uso de Application con sus decoradores; se llama una sola vez, después de registrar los adaptadores.
         services.AddApplication();
