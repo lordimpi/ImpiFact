@@ -18,4 +18,11 @@ public sealed class DatabaseOptions
     /// </summary>
     [Required]
     public string ConnectionString { get; set; } = "";
+
+    /// <summary>
+    /// Si la API y el Worker revisan al arrancar que la base no tenga migraciones pendientes (por defecto, sí): con
+    /// alguna pendiente no arrancan (<see cref="Persistence.PendingMigrationsGuard"/>). Solo lo apagan las pruebas que
+    /// levantan la API sobre una base vacía y crean el esquema después, con el host ya arriba.
+    /// </summary>
+    public bool CheckPendingMigrationsAtStartup { get; set; } = true;
 }

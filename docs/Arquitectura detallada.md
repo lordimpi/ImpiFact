@@ -486,7 +486,7 @@ Módulos del panel de la fase 5:
 
 ```jsonc
 {
-  "Database":   { "Provider": "Postgres", "ConnectionString": "" },        // Postgres | SqlServer | MySql
+  "Database":   { "Provider": "Postgres", "ConnectionString": "", "CheckPendingMigrationsAtStartup": true },   // Postgres | SqlServer | MySql
   "Dian":       { "HabilitacionUrl": "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc",
                   "ProduccionUrl":   "https://vpfe.dian.gov.co/WcfDianCustomerServices.svc",
                   "HabilitacionQrUrl": "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=",
@@ -556,6 +556,7 @@ Cobertura mínima exigida en CI: `Domain` y `Dian` 90 %, `Application` 80 %; los
 - Imágenes: `Dockerfile.api`, `Dockerfile.worker`, `Dockerfile.web` (Nginx con el build de Angular), multi-etapa, usuario no root, sin secretos en capas.
 - `docker-compose.yml` para desarrollo: Postgres, SQL Server, MySQL (perfiles), Azurite/MinIO para blobs, MailHog para correo, Api, Worker y web.
 - CI (GitHub Actions): restaurar → compilar con `TreatWarningsAsErrors` → pruebas unitarias → integración (PostgreSQL; matriz de motores desde la fase 6) → golden → contract → análisis de vulnerabilidades → imágenes.
+- **Migraciones pendientes al arrancar**: la API y el Worker revisan al arrancar, con `GetPendingMigrationsAsync` de EF Core (igual en los tres motores), que la base no tenga migraciones pendientes (`PendingMigrationsGuard`, en Infrastructure). Si falta alguna no arrancan (ningún servicio en segundo plano llega a correr): escriben una sola línea crítica, «La base de datos tiene migraciones pendientes: <nombres>. Corra el Migrator (dotnet run --project src/ImpiFact.Migrator) antes de arrancar.», y terminan con código 1. Caso real: el Worker arrancó sobre una base sin `password_reset_tokens` y Housekeeping falló con `42P01: relation "password_reset_tokens" does not exist`. Es una revisión del esquema, no de la disponibilidad: si la base no responde (error transitorio), queda una advertencia y el proceso arranca como antes, porque `/health/live` no depende de la base. `Database:CheckPendingMigrationsAtStartup` (por defecto `true`) solo se apaga en las pruebas que levantan la API sobre una base vacía y crean el esquema con el host ya arriba.
 - Migraciones se aplican con `ImpiFact.Migrator migrate` como paso previo al despliegue (job de Kubernetes, tarea ECS, job de Cloud Run o contenedor de inicio en Azure Container Apps); el mismo comando sincroniza los catálogos DIAN. `ImpiFact.Migrator create-platform-key <nombre>` crea la primera API key de plataforma de una instalación nueva. Solo en desarrollo, `ImpiFact.Migrator seed-demo` crea una empresa de prueba lista para emitir en habilitación (resolución SETP de pruebas y certificado autofirmado, que la DIAN rechaza) y muestra una API key de esa empresa; fuera de Development exige `--force`.
 
 | Necesidad | Azure | AWS | GCP |

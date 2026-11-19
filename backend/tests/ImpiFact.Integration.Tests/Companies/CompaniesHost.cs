@@ -149,6 +149,9 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
     {
         builder.UseEnvironment("Development");
         builder.UseSetting("Database:ConnectionString", connectionString);
+        // Quien usa esta fábrica crea el esquema con la API ya arriba (OpenScope arranca el host), así que al arrancar
+        // la base todavía está vacía: la revisión de migraciones pendientes (PendingMigrationsGuard) se apaga aquí.
+        builder.UseSetting("Database:CheckPendingMigrationsAtStartup", "false");
         builder.UseSetting("Secrets:LocalAesGcm:MasterKeyFile", _protection.MasterKeyFile);
         builder.UseSetting("Secrets:LocalAesGcm:CertificateDirectory", _protection.CertificateDirectory);
         builder.UseSetting("Storage:Local:Root", StorageRoot);
