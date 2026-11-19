@@ -135,6 +135,13 @@ public sealed class SendDocumentToDianTests
             Assert.That(stored.SentAt, Is.EqualTo(host.Clock.UtcNow));
             Assert.That(stored.AcceptedAt, Is.Null);
             Assert.That((await host.SubmissionsAsync(document.Id)).Single().IsValid, Is.False);
+            // La empresa recibe un aviso con el número y el motivo que dio la DIAN.
+            var notification = (await host.NotificationsAsync(issuer.CompanyId)).Single();
+            Assert.That(notification.Type, Is.EqualTo(DianNotificationTypes.Rejected));
+            Assert.That(notification.Title, Is.EqualTo("La DIAN rechazó un documento"));
+            Assert.That(notification.Body, Is.EqualTo(
+                $"La DIAN rechazó el documento {document.FullNumber}. Motivo: {DianReplies.Rejection} " +
+                "Corrija el documento y emita uno nuevo."));
         });
     }
 
@@ -198,7 +205,11 @@ public sealed class SendDocumentToDianTests
             Assert.That(polls, Is.Empty);
             Assert.That(renders, Is.Empty);
             Assert.That(send.Status, Is.EqualTo(OutboxStatus.Done));
-            Assert.That(notifications, Is.Empty);
+            Assert.That(notifications.Single().Type, Is.EqualTo(DianNotificationTypes.Rejected));
+            Assert.That(notifications.Single().Title, Is.EqualTo("La DIAN rechazó un documento"));
+            Assert.That(notifications.Single().Body, Is.EqualTo(
+                $"La DIAN rechazó el documento {document.FullNumber}. Motivo: El número {document.FullNumber} ya fue usado en " +
+                "la DIAN por otro documento. Revise la numeración de la resolución y emita la factura de nuevo."));
         });
     }
 

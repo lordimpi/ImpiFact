@@ -42,6 +42,9 @@ public static class DianNotificationTypes
 
     /// <summary>La DIAN no confirmó el documento en las 24 horas siguientes al envío.</summary>
     public const string Unconfirmed = "DocumentUnconfirmed";
+
+    /// <summary>La DIAN revisó el documento y lo rechazó (reglas de validación o número ya usado).</summary>
+    public const string Rejected = "DocumentRejected";
 }
 
 /// <summary>Servicio de la DIAN que corresponde al ambiente del documento y el certificado con que se firma el sobre.</summary>
@@ -191,6 +194,8 @@ internal sealed class DianDelivery(
             {
                 StatusDescription = $"El número {document.FullNumber} ya fue usado en la DIAN por otro documento. " +
                     "Revise la numeración de la resolución y emita la factura de nuevo.",
+                // El «TrackId no existe» de GetStatus no explica nada al usuario: el motivo es la descripción.
+                ErrorMessages = [],
             });
     }
 
@@ -222,6 +227,35 @@ internal sealed class DianDelivery(
 
             await ScheduleAfterAcceptanceAsync(document, decided.Result, endpoint.Certificate, ct);
         }
+        else if (decided.Status == DocumentStatus.Rejected)
+        {
+            NotifyRejected(document, decided.Result);
+        }
+    }
+
+    /// <summary>Reglas de la DIAN que se copian en el aviso de rechazo; el resto queda en el detalle del documento.</summary>
+    private const int RejectionReasonsInNotice = 3;
+
+    /// <summary>Largo máximo del cuerpo de un aviso (<c>notifications.body</c>).</summary>
+    private const int NoticeBodyMaxLength = 1000;
+
+    /// <summary>
+    /// Avisa a la empresa que la DIAN rechazó un documento, con su número y el motivo: las primeras reglas que la DIAN
+    /// incumplió (son textos para el usuario, por ejemplo «Regla: FAU14, Rechazo: …») o, si no trae reglas, la
+    /// descripción del resultado, que en el caso del número ya usado ya dice qué hacer.
+    /// </summary>
+    private void NotifyRejected(Document document, DianResult result)
+    {
+        var rules = result.ErrorMessages.Where(message => !string.IsNullOrWhiteSpace(message)).Take(RejectionReasonsInNotice).ToList();
+        var reason = rules.Count > 0
+            ? string.Join(" ", rules) + " Corrija el documento y emita uno nuevo."
+            : result.StatusDescription ?? "La DIAN no indicó el motivo; revise el detalle del documento.";
+        var body = $"La DIAN rechazó el documento {document.FullNumber}. Motivo: {reason}";
+        notifications.Add(
+            document.CompanyId,
+            DianNotificationTypes.Rejected,
+            "La DIAN rechazó un documento",
+            body.Length <= NoticeBodyMaxLength ? body : body[..(NoticeBodyMaxLength - 1)] + "…");
     }
 
     /// <summary>Anota el código y la descripción del último resultado de la DIAN, sin cambiar el estado.</summary>

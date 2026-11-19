@@ -252,7 +252,11 @@ public sealed class PollDianStatusTests
             Assert.That(host.Dian.Requests.Single().Parameter("trackId"), Is.EqualTo(document.Cufe));
             Assert.That(polls.Select(poll => poll.Status), Is.EqualTo(new[] { OutboxStatus.Done }));
             Assert.That(renders, Is.Empty);
-            Assert.That(notifications, Is.Empty);
+            Assert.That(notifications.Single().Type, Is.EqualTo(DianNotificationTypes.Rejected));
+            Assert.That(notifications.Single().Title, Is.EqualTo("La DIAN rechazó un documento"));
+            Assert.That(notifications.Single().Body, Is.EqualTo(
+                $"La DIAN rechazó el documento {document.FullNumber}. Motivo: El número {document.FullNumber} ya fue usado en " +
+                "la DIAN por otro documento. Revise la numeración de la resolución y emita la factura de nuevo."));
         });
     }
 
