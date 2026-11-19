@@ -6,6 +6,7 @@
 # Los puertos quedan atados a 127.0.0.1: solo se puede entrar desde este mismo equipo.
 # MinIO (almacenamiento compatible con S3) va en el perfil «s3»; ver el servicio más abajo.
 # Gotenberg (HTML a PDF) y MailHog (correo de prueba) arrancan con los demás; ver sus servicios más abajo.
+# El panel de observabilidad (registros, trazas y métricas por OTLP) va en el perfil «observability».
 # Los demás servicios (SQL Server y MySQL como perfiles, Api, Worker y web) se agregan en la fase que los necesita.
 name: impifact
 
@@ -106,6 +107,22 @@ services:
     ports:
       - "127.0.0.1:${MAILHOG_SMTP_PORT:-1025}:1025"
       - "127.0.0.1:${MAILHOG_UI_PORT:-8025}:8025"
+
+  # Panel de observabilidad local (.NET Aspire Dashboard; Arquitectura detallada, sección 12): recibe OTLP y muestra los
+  # registros, las trazas y las métricas de la API y del Worker. Va en el perfil «observability», así que solo arranca
+  # con:  docker compose -f deploy/docker-compose.yml --profile observability up -d aspire-dashboard
+  # La API y el Worker le mandan datos solo si llevan OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317 (sin esa
+  # variable no exportan nada). El panel queda en http://127.0.0.1:18888; pide el enlace con la llave de acceso que
+  # escribe al arrancar:  docker compose -f deploy/docker-compose.yml logs aspire-dashboard
+  # Guarda todo en memoria: al detenerlo se pierde.
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6.5
+    profiles: ["observability"]
+    ports:
+      - "127.0.0.1:${DASHBOARD_PORT:-18888}:18888"
+      # OTLP por gRPC y por HTTP en los puertos estándar del equipo (4317 y 4318).
+      - "127.0.0.1:${OTLP_GRPC_PORT:-4317}:18889"
+      - "127.0.0.1:${OTLP_HTTP_PORT:-4318}:18890"
 
 volumes:
   postgres-data:

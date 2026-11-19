@@ -76,11 +76,11 @@ Organización del repositorio (15-nov, ADR-28): monorepo con una carpeta por apl
 | Domain | ninguno |
 | Application | `FluentValidation`, `Mapster`, `Scrutor`, `Microsoft.Extensions.*.Abstractions` |
 | Dian | `System.Security.Cryptography.Xml`, `System.IO.Compression` (BCL) |
-| Infrastructure | `Microsoft.EntityFrameworkCore`, `Dapper`, `Serilog`, `MailKit`, `Handlebars.Net` y `QRCoder` (PDF; el HTML lo convierte Gotenberg, un contenedor aparte: ADR-04), `Azure.Storage.Blobs`, `AWSSDK.S3`, `Google.Cloud.Storage.V1`, `Azure.Security.KeyVault.*`, `AWSSDK.SecretsManager`, `Google.Cloud.SecretManager.V1`, `Microsoft.Extensions.Http.Resilience`, `Microsoft.AspNetCore.DataProtection` |
+| Infrastructure | `Microsoft.EntityFrameworkCore`, `Dapper`, `Serilog` (con `Serilog.Extensions.Logging`, `Serilog.Formatting.Compact`, `Serilog.Sinks.Console` y `Serilog.Sinks.OpenTelemetry`), `OpenTelemetry.Extensions.Hosting`, `OpenTelemetry.Exporter.OpenTelemetryProtocol`, `OpenTelemetry.Instrumentation.Http`, `Microsoft.Extensions.Diagnostics.HealthChecks`, `MailKit`, `Handlebars.Net` y `QRCoder` (PDF; el HTML lo convierte Gotenberg, un contenedor aparte: ADR-04), `Azure.Storage.Blobs`, `AWSSDK.S3`, `Google.Cloud.Storage.V1`, `Azure.Security.KeyVault.*`, `AWSSDK.SecretsManager`, `Google.Cloud.SecretManager.V1`, `Microsoft.Extensions.Http.Resilience`, `Microsoft.AspNetCore.DataProtection` |
 | Infrastructure.Postgres | `Npgsql.EntityFrameworkCore.PostgreSQL` |
 | Infrastructure.SqlServer | `Microsoft.EntityFrameworkCore.SqlServer` |
 | Infrastructure.MySql | proveedor definido en ADR-08 (Pomelo u Oracle) |
-| Api | `Scalar.AspNetCore`, `Microsoft.AspNetCore.OpenApi`, `Asp.Versioning.Http`, `Microsoft.AspNetCore.Authentication.JwtBearer`, `Serilog.AspNetCore`, `OpenTelemetry.*` |
+| Api | `Scalar.AspNetCore`, `Microsoft.AspNetCore.OpenApi`, `Asp.Versioning.Http`, `Microsoft.AspNetCore.Authentication.JwtBearer`, `OpenTelemetry.Instrumentation.AspNetCore` |
 | Tests | `NUnit`, `Moq`, `Testcontainers.*`, `NetArchTest.Rules` (sin FluentAssertions ni Verify: ADR-27) |
 
 Versiones de paquetes centralizadas en `Directory.Packages.props`; `Directory.Build.props` fija `Nullable=enable`, `ImplicitUsings=enable`, `TreatWarningsAsErrors=true` y `LangVersion=latest`.
@@ -515,7 +515,8 @@ Módulos del panel de la fase 5:
   "Pdf":        { "GotenbergUrl": "http://127.0.0.1:3000", "TimeoutSeconds": 60 },   // Worker y API (vista previa)
   "Email":      { "Host": "", "Port": 587, "Encryption": "starttls", "FromAddress": "", "FromName": "ImpiFact", "TimeoutSeconds": 60 },   // solo el Worker; Username y Password por variables de entorno o el proveedor de secretos
   "Panel":      { "BaseUrl": "" },   // solo el Worker; obligatorio: dirección pública del panel para los enlaces de los correos
-  "Serilog":    { /* niveles y sinks */ }
+  "Observability": { "LogFormat": "" },   // "json" o "text"; vacío: texto en Development y JSON en los demás (sección 12)
+  "WorkerHealth":  { "Port": 8081 }       // solo el Worker: /health/live y /health/ready; sin valor no abre puerto
 }
 ```
 
@@ -532,11 +533,39 @@ Módulos del panel de la fase 5:
 
 ## 12. Observabilidad
 
-- **Logs**: Serilog con salida JSON a consola; enriquecedores `CorrelationId`, `CompanyId`, `UserId`, `RequestPath`. Se filtran encabezados `Authorization` y cualquier campo `*password*`, `*token*`, `*pin*`.
-- **Trazas y métricas**: OpenTelemetry (ASP.NET, HttpClient, EF Core) exportando por OTLP; funciona con Azure Monitor, CloudWatch/X-Ray o Cloud Trace mediante el *collector*.
-- **Métricas de negocio**: documentos emitidos por tipo y estado, latencia de la DIAN, tamaño de cola del outbox, reintentos, documentos `Unconfirmed`, días al vencimiento de certificados.
-- **Health checks**: `/health/live` (proceso) y `/health/ready` (BD, almacenamiento, proveedor de secretos); la DIAN se reporta como degradado, no como caído.
-- **Alertas sugeridas**: cola > 100 mensajes por más de 5 min, > 5 % de rechazos en 15 min, circuit breaker abierto, certificado a < 15 días.
+Lo arma `AddImpiFactObservability` (`Infrastructure/Observability`) en la API (`impifact-api`) y en el Worker (`impifact-worker`). Construido en la fase 6.
+
+- **Logs**: Serilog como proveedor de `Microsoft.Extensions.Logging`, así los niveles siguen saliendo de `Logging:LogLevel` (por categoría y por variables como `Logging__LogLevel__Default`). Una línea JSON por evento en la consola (`RenderedCompactJsonFormatter`: `@t`, `@m`, `@l`, `@x`, `@tr` y `@sp` de la traza, y las propiedades); en Development, texto legible de una línea (`[hh:mm:ss INF] Categoría: mensaje`), para correr con `dotnet run`. `Observability:LogFormat` (`json` o `text`) fija el formato; otro valor detiene el arranque.
+  - Propiedades: `CorrelationId` (sección 9.1), `CompanyId` y `UserId` (del contexto de tenant, desde `TenantResolutionMiddleware`), `RequestPath` y `RequestId` (de ASP.NET Core) y `SourceContext` (la categoría). En el Worker, cada línea de un handler lleva `OutboxMessageId`, `OutboxMessageType` y `CompanyId`; los handlers nombran el `DocumentId` en sus mensajes.
+  - Sin datos sensibles (`SensitiveDataRedactor`, una segunda barrera: el código no registra secretos): las propiedades cuyo nombre tiene `password`, `secret`, `token`, `authorization`, `cookie`, `apikey`, `privatekey`, `signingkey`, `masterkey`, `pfx`, `connectionstring` o la palabra `pin` quedan como `***`; en los textos se tapan `Bearer …`, `Basic …`, los JWT, las API keys `apk_…` y los valores de los parámetros sensibles de una consulta (`?password=***&token=***`, también en la `QueryString` que registra ASP.NET Core); los arreglos de bytes (certificados, archivos) quedan como `[N bytes]`. Lo prueban `StructuredLoggingTests` (una solicitud con `Authorization`, cookie, consulta y propiedades con secretos) y `CredentialLoggingTests`.
+- **Trazas y métricas**: OpenTelemetry, solo si está la variable estándar `OTEL_EXPORTER_OTLP_ENDPOINT` (con `OTEL_EXPORTER_OTLP_PROTOCOL`: `grpc` por defecto o `http/protobuf`); sin ella no se registra nada de OpenTelemetry y no sale nada del proceso. Exporta por OTLP las trazas y métricas de ASP.NET Core (sin las rutas `/health`), de `HttpClient` (DIAN, Gotenberg, S3), de la base (la fuente `Npgsql`, que el controlador emite por sí mismo y cubre también las consultas de EF Core; no se usa `OpenTelemetry.Instrumentation.EntityFrameworkCore`, que sigue en versión preliminar) y un tramo `outbox <tipo>` por cada mensaje que procesa el Worker (fuente `ImpiFact`), con sus llamadas dentro. Los registros salen por el mismo OTLP (`Serilog.Sinks.OpenTelemetry`), después de quitarles los datos sensibles. Las direcciones salen sin los valores de su consulta y el SQL sin los valores de sus parámetros. Funciona con Azure Monitor, CloudWatch/X-Ray o Cloud Trace mediante el *collector*.
+- **Métricas de negocio** (`ImpiFactMetrics`, medidor `ImpiFact`; también se ven con `dotnet-counters monitor --counters ImpiFact`). Los nombres son un contrato con los tableros y las alertas: no se cambian. Ninguna etiqueta lleva NIT, correos, nombres ni ids.
+
+  | Instrumento | Tipo y unidad | Etiquetas | Qué mide |
+  | --- | --- | --- | --- |
+  | `impifact.documents.issued` | contador, `{document}` | `document.kind` | Documentos que la DIAN recibió por primera vez (salen de `Queued`) |
+  | `impifact.documents.accepted` | contador, `{document}` | `document.kind` | Aceptados, con o sin notificaciones |
+  | `impifact.documents.rejected` | contador, `{document}` | `document.kind` | Rechazados por la DIAN |
+  | `impifact.dian.call.duration` | histograma, `s` | `dian.operation`, `dian.outcome` | Cada llamada a la DIAN con sus reintentos; `dian.outcome` es `answered`, `not_sent` (incluido el *circuit breaker* abierto) o `no_answer` |
+  | `impifact.outbox.messages.processed` | contador, `{message}` | `outbox.message_type` | Mensajes cuyo handler terminó |
+  | `impifact.outbox.messages.failed` | contador, `{message}` | `outbox.message_type`, `outbox.outcome` | Intentos fallidos: `retry` (se reintenta) o `failed` (no se reintenta más) |
+  | `impifact.outbox.queue.lag` | histograma, `s` | `outbox.message_type` | Cuánto esperó un mensaje desde que debía correr hasta que el Worker lo tomó |
+  | `impifact.emails.sent` y `impifact.emails.failed` | contadores, `{email}` | ninguna | Correos que el servidor aceptó o que fallaron |
+
+  `document.kind` es `invoice` (tipos 1 a 3), `credit_note`, `debit_note` u `other`. Los documentos se cuentan después de guardar: un guardado que falla no cuenta. Pendientes: documentos en `Unconfirmed` y días al vencimiento de los certificados, que piden una lectura periódica de la base.
+- **Health checks**: anónimos y sin detalles (ni descripciones ni excepciones). `/health/live` no revisa nada: 200 mientras el proceso responda. `/health/ready` revisa la base (abre una conexión), el almacenamiento (lee una clave que no existe; en S3, sin `s3:ListBucket` la respuesta es `AccessDenied` y queda como degradado) y el proveedor de secretos (con `LocalAesGcm`, que la llave maestra se pueda leer), cada uno con 5 s de plazo: si uno falla, 503. La DIAN se reporta como degradada (200), nunca caída, si en los últimos 5 minutos ese proceso hizo al menos 3 llamadas y más de la mitad no tuvo respuesta o recibió un 5xx que no es un SOAP Fault; la prueba no llama a la DIAN. Cuerpo: `{"status":"Healthy","checks":{"database":"Healthy","storage":"Healthy","secrets":"Healthy","dian":"Healthy"}}`. El Worker abre las mismas dos rutas con un Kestrel mínimo en `WorkerHealth:Port` (8081 en su `appsettings.json`; sin valor no abre puerto), para las sondas de Docker, Kubernetes y Container Apps. Su estado de la DIAN es el de sus envíos y consultas, que son casi todas las llamadas.
+- **Panel local**: perfil `observability` de `deploy/docker-compose.yml` (.NET Aspire Dashboard en `http://127.0.0.1:18888`, OTLP en los puertos 4317 y 4318) con `OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317` en la API y el Worker.
+- **Alertas sugeridas**:
+
+  | Alerta | Condición |
+  | --- | --- |
+  | Cola atrasada | p95 de `impifact.outbox.queue.lag` > 300 s durante 5 min (la cola no baja) |
+  | Rechazos | `impifact.documents.rejected` / (`accepted` + `rejected`) > 5 % en 15 min |
+  | DIAN sin respuesta | más del 50 % de `impifact.dian.call.duration` con `dian.outcome` distinto de `answered` en 5 min, o `dian` en `Degraded` en el `/health/ready` del Worker durante 5 min (*circuit breaker* abierto) |
+  | Mensajes perdidos | `impifact.outbox.messages.failed` con `outbox.outcome=failed` > 0 en 15 min |
+  | Correo | `impifact.emails.failed` > 10 % de los intentos en 15 min |
+  | Disponibilidad | `/health/ready` en 503 durante 2 min (API o Worker) |
+  | Certificado | a menos de 15 días de vencer (cuando exista la métrica; mientras, el aviso del panel) |
 
 ## 13. Pruebas
 
