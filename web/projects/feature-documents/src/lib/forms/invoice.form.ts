@@ -59,6 +59,8 @@ export interface InvoiceModel {
   /** Plazo en días (solo a crédito). */
   durationDays: number | null;
   notes: string;
+  /** Pedir al Api que envíe la factura por correo al cliente cuando la DIAN la acepte (`sendmail`). */
+  sendEmail: boolean;
   lines: InvoiceLineModel[];
 }
 
@@ -78,6 +80,9 @@ export function emptyLine(): InvoiceLineModel {
   };
 }
 
+/** Identificación del consumidor final (comprador sin identificar) en la DIAN. */
+export const FINAL_CONSUMER_IDENTIFICATION = '222222222222';
+
 export function emptyInvoice(): InvoiceModel {
   return {
     paymentFormId: '1',
@@ -85,6 +90,7 @@ export function emptyInvoice(): InvoiceModel {
     paymentDueDate: '',
     durationDays: null,
     notes: '',
+    sendEmail: true,
     lines: [],
   };
 }
@@ -280,6 +286,14 @@ export function buildInvoiceBody(
   };
   if (model.notes.trim()) {
     body.notes = model.notes.trim();
+  }
+  const email = typeof customer.email === 'string' ? customer.email.trim() : '';
+  if (model.sendEmail && email) {
+    body.sendmail = true;
+    // Al consumidor final el Api solo le escribe con el correo aparte (`email_pos_customer`), como el PHP.
+    if (String(customer.identification_number ?? '').trim() === FINAL_CONSUMER_IDENTIFICATION) {
+      body.email_pos_customer = email;
+    }
   }
   return body;
 }

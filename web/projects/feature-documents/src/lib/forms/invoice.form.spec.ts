@@ -61,6 +61,7 @@ function model(overrides: Partial<InvoiceModel> = {}): InvoiceModel {
     paymentDueDate: '',
     durationDays: null,
     notes: '',
+    sendEmail: true,
     lines: [
       {
         ...emptyLine(),
@@ -129,6 +130,7 @@ describe('invoice form mapping', () => {
     expect(body).toEqual({
       type_document_id: 1,
       notes: 'Gracias',
+      sendmail: true,
       customer: {
         identification_number: '800000001',
         dv: '1',
@@ -186,5 +188,36 @@ describe('invoice form mapping', () => {
         duration_measure: 30,
       },
     ]);
+  });
+
+  describe('email to the customer', () => {
+    it('asks the Api to email the accepted invoice when the customer has an email', () => {
+      const body = buildInvoiceBody(model(), CUSTOMER, CALCULATION);
+
+      expect(body.sendmail).toBe(true);
+      expect(body.email_pos_customer).toBeUndefined();
+    });
+
+    it('sends the email of a final consumer apart, because the Api does not email 222222222222 without it', () => {
+      const finalConsumer = {
+        ...CUSTOMER,
+        identification_number: '222222222222',
+        email: 'cliente@yopmail.com',
+      };
+
+      const body = buildInvoiceBody(model(), finalConsumer, CALCULATION);
+
+      expect(body.sendmail).toBe(true);
+      expect(body.email_pos_customer).toBe('cliente@yopmail.com');
+    });
+
+    it('does not ask for the email when the user unchecked it or the customer has no email', () => {
+      expect(
+        buildInvoiceBody(model({ sendEmail: false }), CUSTOMER, CALCULATION).sendmail,
+      ).toBeUndefined();
+      expect(
+        buildInvoiceBody(model(), { ...CUSTOMER, email: null }, CALCULATION).sendmail,
+      ).toBeUndefined();
+    });
   });
 });

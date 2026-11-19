@@ -127,6 +127,17 @@
         >
           <textarea uiInput rows="3" [formField]="invoiceForm.notes"></textarea>
         </ui-field>
+        <label class="issue-check">
+          <input type="checkbox" [formField]="invoiceForm.sendEmail" />
+          <span>{{ 'documents.issue.sendEmail' | transloco }}</span>
+        </label>
+        <p class="doc-muted">
+          @if (customerEmail(); as email) {
+            {{ 'documents.issue.sendEmailHint' | transloco: { email } }}
+          } @else if (customer()) {
+            {{ 'documents.issue.sendEmailNoAddress' | transloco }}
+          }
+        </p>
       </section>
     </div>
 

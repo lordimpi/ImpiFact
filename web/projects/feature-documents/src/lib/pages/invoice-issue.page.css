@@ -34,3 +34,11 @@
   flex-direction: column;
   gap: var(--if-space-3);
 }
+
+.issue-check {
+  display: flex;
+  gap: var(--if-space-2);
+  align-items: center;
+  margin-block-start: var(--if-space-2);
+  cursor: pointer;
+}

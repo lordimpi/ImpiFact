@@ -219,7 +219,10 @@
     "cancel": "Cancelar",
     "previewTitle": "Vista previa del PDF",
     "previewClose": "Cerrar la vista previa",
-    "previewDownload": "Descargar PDF"
+    "previewDownload": "Descargar PDF",
+    "sendEmail": "Enviar la factura por correo al cliente cuando la DIAN la acepte",
+    "sendEmailHint": "Se enviará a {{ email }}, con el PDF y el XML.",
+    "sendEmailNoAddress": "El cliente no tiene correo: agréguelo en su ficha para poder enviarle la factura."
   },
   "notices": {
     "emailQueued": "El correo quedó en cola para enviarse.",

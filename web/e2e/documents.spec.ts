@@ -330,6 +330,11 @@ test(
     });
     expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
+    await expect(
+      page.getByRole('checkbox', {
+        name: 'Enviar la factura por correo al cliente cuando la DIAN la acepte',
+      }),
+    ).toBeChecked();
     await page.getByRole('button', { name: 'Emitir factura' }).click();
 
     await expect(page).toHaveURL('/documentos/doc-9');
@@ -340,6 +345,8 @@ test(
     expect(body.tax_totals).toEqual([SUBTOTAL]);
     expect(body.invoice_lines[0].line_extension_amount).toBe('1500000.00');
     expect(body.invoice_lines[0].tax_totals).toEqual([SUBTOTAL]);
+    // La factura se envía por correo al cliente (casilla marcada por defecto, el cliente tiene correo).
+    expect(body.sendmail).toBe(true);
 
     // El detalle consulta con retroceso (2 s, 4 s) hasta el estado final.
     await expect(

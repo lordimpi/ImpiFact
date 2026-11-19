@@ -96,6 +96,11 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
   protected readonly paymentMethods = PAYMENT_METHODS;
 
   protected readonly customer = signal<CustomerResponse | null>(null);
+  /** Correo del cliente elegido, para explicar a dónde irá la factura (vacío si no tiene). */
+  protected readonly customerEmail = computed(() => {
+    const email = this.customer()?.email;
+    return typeof email === 'string' ? email.trim() : '';
+  });
   protected readonly submitting = signal(false);
   protected readonly issueError = signal<{ message: string; details: string[] } | null>(null);
   protected readonly previewing = signal(false);
