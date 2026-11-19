@@ -6,6 +6,7 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Domain.Companies;
 using ImpiFact.Domain.Documents;
+using Npgsql;
 
 namespace ImpiFact.Integration.Tests.DocumentQueries;
 
@@ -71,7 +72,7 @@ internal static class DocumentSeed
         var customer = JsonNode.Parse(CustomerJson)!.AsObject();
         customer["name"] = customerName ?? (string?)customer["name"];
         customer["identification_number"] = customerIdentification ?? (string?)customer["identification_number"];
-        await using var connection = TestDatabase.CreateConnection(DocumentQueriesHost.ConnectionString);
+        await using var connection = TestDatabase.Connect(DocumentQueriesHost.ConnectionString);
         await connection.ExecuteAsync(
             $"""
             insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status, cufe,
@@ -79,9 +80,9 @@ internal static class DocumentSeed
                 tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
                 notes, email_status, created_by_type, created_at, updated_at, row_version)
             values (@Id, @CompanyId, @TypeId, 2, @Prefix, @Number, @FullNumber, @Status, @Cufe,
-                'CUFE-SHA384', cast(@IssueDate as date), cast(@IssueTime as time), @IssuedAt, cast(@Customer as {JsonType}), 35, 100.00,
+                'CUFE-SHA384', cast(@IssueDate as date), cast(@IssueTime as time), @IssuedAt, {TestDatabase.Json("@Customer")}, 35, 100.00,
                 100.00, 119.00, 0, 0, 0, 119.00,
-                'nota de prueba', @EmailStatus, 2, now(), now(), 1)
+                'nota de prueba', @EmailStatus, 2, {TestDatabase.Now}, {TestDatabase.Now}, 1)
             """,
             new
             {
@@ -103,14 +104,14 @@ internal static class DocumentSeed
     }
 
     /// <summary>
-    /// Inserta <paramref name="count"/> facturas aceptadas con una sola sentencia (<c>generate_series</c>), una por
-    /// segundo desde <paramref name="start"/>, para probar topes sin miles de viajes a la base.
+    /// Inserta <paramref name="count"/> facturas aceptadas con una sola sentencia (<c>generate_series</c>, también en SQL
+    /// Server 2022), una por segundo desde <paramref name="start"/>, para probar topes sin miles de viajes a la base.
     /// </summary>
     public static async Task ManyDocumentsAsync(SeededCompany company, int count, DateTimeOffset start)
     {
-        await using var connection = TestDatabase.CreateConnection(DocumentQueriesHost.ConnectionString);
+        await using var connection = TestDatabase.Connect(DocumentQueriesHost.ConnectionString);
         await connection.ExecuteAsync(
-            TestDatabase.IsMySql ? ManyDocumentsMySql : ManyDocumentsPostgres,
+            TestDatabase.IsSqlServer ? ManyDocumentsSqlServer : TestDatabase.IsMySql ? ManyDocumentsMySql : ManyDocumentsPostgres,
             new
             {
                 CompanyId = company.Id,
@@ -123,54 +124,64 @@ internal static class DocumentSeed
             commandTimeout: 300);
     }
 
-    // Tipo de las columnas JSON en el SQL de las semillas: jsonb en PostgreSQL, json en MySQL.
-    private static string JsonType => TestDatabase.IsMySql ? "json" : "jsonb";
-
     private const string ManyDocumentsPostgres =
-            """
-            insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status,
-                uuid_algorithm, issue_date, issue_time, issued_at, customer_snapshot, currency_id, line_extension_amount,
-                tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
-                created_by_type, created_at, updated_at, row_version)
-            select gen_random_uuid(), @CompanyId, 1, 2, 'BULK', n, 'BULK' || n, 4,
-                'CUFE-SHA384', cast(@IssueDate as date), time '00:00:00', @Start + n * interval '1 second', cast(@Customer as jsonb), 35, 100.00,
-                100.00, 119.00, 0, 0, 0, 119.00,
-                2, now(), now(), 1
-            from generate_series(1, @Count) as n
-            """;
+        """
+        insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status,
+            uuid_algorithm, issue_date, issue_time, issued_at, customer_snapshot, currency_id, line_extension_amount,
+            tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
+            created_by_type, created_at, updated_at, row_version)
+        select gen_random_uuid(), @CompanyId, 1, 2, 'BULK', n, 'BULK' || n, 4,
+            'CUFE-SHA384', cast(@IssueDate as date), time '00:00:00', @Start + n * interval '1 second', cast(@Customer as jsonb), 35, 100.00,
+            100.00, 119.00, 0, 0, 0, 119.00,
+            2, now(), now(), 1
+        from generate_series(1, @Count) as n
+        """;
+
+    private const string ManyDocumentsSqlServer =
+        """
+        insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status,
+            uuid_algorithm, issue_date, issue_time, issued_at, customer_snapshot, currency_id, line_extension_amount,
+            tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
+            created_by_type, created_at, updated_at, row_version)
+        select newid(), @CompanyId, 1, 2, 'BULK', n.value, concat('BULK', n.value), 4,
+            'CUFE-SHA384', cast(@IssueDate as date), cast('00:00:00' as time), dateadd(second, n.value, @Start), @Customer, 35, 100.00,
+            100.00, 119.00, 0, 0, 0, 119.00,
+            2, sysdatetimeoffset(), sysdatetimeoffset(), 1
+        from generate_series(1, @Count) as n
+        """;
 
     // MySQL no tiene generate_series: una CTE recursiva da la serie (su profundidad máxima por defecto es 1000).
     private const string ManyDocumentsMySql =
-            """
-            set session cte_max_recursion_depth = 1000000;
-            insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status,
-                uuid_algorithm, issue_date, issue_time, issued_at, customer_snapshot, currency_id, line_extension_amount,
-                tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
-                created_by_type, created_at, updated_at, row_version)
-            with recursive series (n) as (select 1 union all select n + 1 from series where n < @Count)
-            select uuid(), @CompanyId, 1, 2, 'BULK', n, concat('BULK', n), 4,
-                'CUFE-SHA384', cast(@IssueDate as date), time '00:00:00', date_add(@Start, interval n second), cast(@Customer as json), 35,
-                100.00, 100.00, 119.00, 0, 0, 0, 119.00,
-                2, now(), now(), 1
-            from series
-            """;
+        """
+        set session cte_max_recursion_depth = 1000000;
+        insert into documents (id, company_id, document_type_id, type_environment_id, prefix, number, full_number, status,
+            uuid_algorithm, issue_date, issue_time, issued_at, customer_snapshot, currency_id, line_extension_amount,
+            tax_exclusive_amount, tax_inclusive_amount, allowance_total_amount, charge_total_amount, prepaid_amount, payable_amount,
+            created_by_type, created_at, updated_at, row_version)
+        with recursive series (n) as (select 1 union all select n + 1 from series where n < @Count)
+        select uuid(), @CompanyId, 1, 2, 'BULK', n, concat('BULK', n), 4,
+            'CUFE-SHA384', cast(@IssueDate as date), time '00:00:00', date_add(@Start, interval n second), cast(@Customer as json), 35,
+            100.00, 100.00, 119.00, 0, 0, 0, 119.00,
+            2, utc_timestamp(6), utc_timestamp(6), 1
+        from series
+        """;
 
     /// <summary>Agrega una línea con IVA (impuesto 1) del 19 % y el mismo impuesto en la cabecera.</summary>
     public static async Task LineWithVatAsync(SeededCompany company, Guid documentId)
     {
         var lineId = Guid.CreateVersion7();
-        await using var connection = TestDatabase.CreateConnection(DocumentQueriesHost.ConnectionString);
+        await using var connection = TestDatabase.Connect(DocumentQueriesHost.ConnectionString);
         await connection.ExecuteAsync(
-            """
+            $"""
             insert into document_lines (id, company_id, document_id, line_number, code, description, type_item_identification_id,
                 unit_measure_id, quantity, base_quantity, unit_price, line_extension_amount, free_of_charge, created_at, updated_at, row_version)
-            values (@LineId, @CompanyId, @DocumentId, 1, 'A1', 'Producto de prueba', 1, 70, 2.000000, 1.000000, 50.000000, 100.00, false,
-                now(), now(), 1);
-            insert into document_line_taxes (id, company_id, document_id, line_id, tax_id, percent, taxable_amount, tax_amount,
+            values (@LineId, @CompanyId, @DocumentId, 1, 'A1', 'Producto de prueba', 1, 70, 2.000000, 1.000000, 50.000000, 100.00, {TestDatabase.Bool(false)},
+                {TestDatabase.Now}, {TestDatabase.Now}, 1);
+            insert into document_line_taxes (id, company_id, document_id, line_id, tax_id, {TestDatabase.Identifier("percent")}, taxable_amount, tax_amount,
                 created_at, updated_at, row_version)
-            values (@LineTaxId, @CompanyId, @DocumentId, @LineId, 1, 19.0000, 100.00, 19.00, now(), now(), 1);
-            insert into document_taxes (id, company_id, document_id, tax_id, percent, taxable_amount, tax_amount, created_at, updated_at, row_version)
-            values (@TaxId, @CompanyId, @DocumentId, 1, 19.0000, 100.00, 19.00, now(), now(), 1);
+            values (@LineTaxId, @CompanyId, @DocumentId, @LineId, 1, 19.0000, 100.00, 19.00, {TestDatabase.Now}, {TestDatabase.Now}, 1);
+            insert into document_taxes (id, company_id, document_id, tax_id, {TestDatabase.Identifier("percent")}, taxable_amount, tax_amount, created_at, updated_at, row_version)
+            values (@TaxId, @CompanyId, @DocumentId, 1, 19.0000, 100.00, 19.00, {TestDatabase.Now}, {TestDatabase.Now}, 1);
             """,
             new { LineId = lineId, LineTaxId = Guid.CreateVersion7(), TaxId = Guid.CreateVersion7(), CompanyId = company.Id, DocumentId = documentId });
     }

@@ -1,11 +1,16 @@
 using System.Data.Common;
-using DotNet.Testcontainers.Containers;
+using System.Text.RegularExpressions;
 using ImpiFact.Infrastructure.MySql;
+using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Postgres;
+using ImpiFact.Infrastructure.SqlServer;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using MySqlConnector;
 using Npgsql;
+using Testcontainers.MsSql;
 using Testcontainers.MySql;
 using Testcontainers.PostgreSql;
 
@@ -18,10 +23,10 @@ namespace ImpiFact.Integration.Tests;
 /// </summary>
 /// <remarks>
 /// Para correr las pruebas con otro motor se define la variable de entorno <c>Database__Provider</c> (por ejemplo
-/// <c>MySql</c>). Sin ella se usa PostgreSQL. Cada prueba crea su contenedor con <see cref="CreateContainer"/> y, si
-/// necesita SQL directo, abre la conexión con <see cref="OpenConnectionAsync"/>.
+/// <c>SqlServer</c> o <c>MySql</c>). Sin ella se usa PostgreSQL. Cada prueba pide su servidor con <see cref="CreateServer"/>, que es del
+/// motor elegido, y abre sus conexiones directas con <see cref="Connect"/>.
 /// </remarks>
-public static class TestDatabase
+public static partial class TestDatabase
 {
     /// <summary>Variable de entorno con el motor; es la misma clave <c>Database:Provider</c> de los hosts.</summary>
     public const string ProviderVariable = "Database__Provider";
@@ -32,173 +37,318 @@ public static class TestDatabase
     public static IDatabaseProvider[] Providers =>
     [
         new PostgresDatabaseProvider(),
+        new SqlServerDatabaseProvider(),
         new MySqlDatabaseProvider(),
     ];
+
+    /// <summary>El final del mensaje con que los hosts rechazan un <c>Database:Provider</c> que falta o no existe.</summary>
+    public static string AvailableProvidersMessage => $"Available providers: {string.Join(", ", Providers.Select(provider => provider.Name))}.";
 
     /// <summary>Nombre del motor con que corren las pruebas.</summary>
     public static string ProviderName =>
         Environment.GetEnvironmentVariable(ProviderVariable) is { Length: > 0 } name ? name.Trim() : DefaultProvider;
 
+    /// <summary>El motor con que corren las pruebas.</summary>
+    public static IDatabaseProvider Provider =>
+        Providers.Single(provider => string.Equals(provider.Name, ProviderName, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Si las pruebas corren con SQL Server.</summary>
+    public static bool IsSqlServer => Is("SqlServer");
+
     /// <summary>Si las pruebas corren con MySQL.</summary>
-    public static bool IsMySql => string.Equals(ProviderName, "MySql", StringComparison.OrdinalIgnoreCase);
+    public static bool IsMySql => Is("MySql");
 
     /// <summary>Si las pruebas corren con PostgreSQL.</summary>
-    public static bool IsPostgres => string.Equals(ProviderName, DefaultProvider, StringComparison.OrdinalIgnoreCase);
+    public static bool IsPostgres => Is(DefaultProvider);
 
     /// <summary>
-    /// Fuente de trazas del controlador del motor de las pruebas: «Npgsql» o «MySqlConnector». Cada controlador emite una
-    /// actividad por comando por sí mismo.
+    /// Cadena de conexión a un puerto donde nunca hay un servidor (el 1 de la propia máquina), en el formato del motor
+    /// elegido y con un plazo de conexión de un segundo.
     /// </summary>
-    public static string DriverActivitySource => IsMySql ? MySqlDatabaseProvider.DriverActivitySourceName : "Npgsql";
+    public static string UnreachableConnectionString => IsSqlServer
+        ? "Server=127.0.0.1,1;Database=impifact_unreachable;User Id=impifact;Password=unreachable;Connect Timeout=1;TrustServerCertificate=True"
+        : IsMySql
+            ? "Server=127.0.0.1;Port=1;Database=impifact_unreachable;User ID=impifact;Password=unreachable;Connection Timeout=1"
+            : "Host=127.0.0.1;Port=1;Database=impifact_unreachable;Timeout=1";
+
+    /// <summary>Un servidor desechable del motor elegido, todavía sin arrancar.</summary>
+    public static TestDatabaseServer CreateServer() =>
+        IsSqlServer ? new SqlServerTestServer() : IsMySql ? new MySqlTestServer() : new PostgresTestServer();
+
+    /// <summary>Una conexión cerrada del motor elegido, para leer o preparar datos con SQL directo (Dapper la abre sola).</summary>
+    /// <remarks>En MySQL lee los uuid <c>char(36)</c> como <see cref="Guid"/> y las fechas como UTC, igual que el proveedor.</remarks>
+    public static DbConnection Connect(string connectionString) => IsSqlServer
+        ? new SqlConnection(connectionString)
+        : IsMySql
+            ? new MySqlConnection(new MySqlConnectionStringBuilder(connectionString)
+            {
+                GuidFormat = MySqlGuidFormat.Char36,
+                DateTimeKind = MySqlDateTimeKind.Utc,
+            }.ConnectionString)
+            : new NpgsqlConnection(connectionString);
 
     /// <summary>
-    /// Marca como omitida (con el motivo, visible en el resultado) una prueba que solo tiene sentido en PostgreSQL, por
-    /// ejemplo porque revisa una migración que solo existe allí o lee su catálogo (<c>pg_*</c>).
-    /// </summary>
-    public static void RequirePostgres(string reason)
-    {
-        if (!IsPostgres)
-        {
-            Assert.Ignore($"PostgreSQL only: {reason}");
-        }
-    }
-
-    /// <summary>Un contenedor desechable del motor de las pruebas, sin arrancar.</summary>
-    public static TestDatabaseContainer CreateContainer() => IsMySql
-        // root para que las pruebas puedan crear bases y leer performance_schema, como el dueño de la base de PostgreSQL.
-        ? new TestDatabaseContainer(new MySqlBuilder("mysql:8.4")
-            .WithUsername("root")
-            // Datos en memoria y sin esperar al disco en cada confirmación: las migraciones (cientos de CREATE TABLE e
-            // INDEX) pasan de minutos a segundos. Es solo para el contenedor de pruebas, que se borra al terminar.
-            .WithTmpfsMount("/var/lib/mysql")
-            .WithCommand("--skip-log-bin", "--innodb-flush-log-at-trx-commit=0", "--innodb-doublewrite=OFF", "--sync-binlog=0")
-            .Build())
-        : new TestDatabaseContainer(new PostgreSqlBuilder("postgres:18.1-alpine").Build());
-
-    /// <summary>
-    /// Una conexión sin abrir con el controlador del motor de las pruebas, para SQL escrito en la prueba (Dapper la abre
-    /// y la cierra sola). En MySQL lee los uuid <c>char(36)</c> como <see cref="Guid"/> y las fechas como UTC, igual que
-    /// el proveedor.
-    /// </summary>
-    public static DbConnection CreateConnection(string connectionString) => IsMySql
-        ? new MySqlConnection(new MySqlConnectionStringBuilder(connectionString)
-        {
-            GuidFormat = MySqlGuidFormat.Char36,
-            DateTimeKind = MySqlDateTimeKind.Utc,
-        }.ConnectionString)
-        : new NpgsqlConnection(connectionString);
-
-    /// <summary>Una conexión abierta con el controlador del motor de las pruebas.</summary>
-    public static async Task<DbConnection> OpenConnectionAsync(string connectionString)
-    {
-        var connection = CreateConnection(connectionString);
-        await connection.OpenAsync();
-        return connection;
-    }
-
-    /// <summary>La misma cadena de conexión apuntando a otra base del mismo servidor.</summary>
-    public static string WithDatabase(string connectionString, string database) => IsMySql
-        ? new MySqlConnectionStringBuilder(connectionString) { Database = database }.ConnectionString
-        : new NpgsqlConnectionStringBuilder(connectionString) { Database = database }.ConnectionString;
-
-    /// <summary>
-    /// Opciones de un contexto de EF Core de prueba conectado al motor de las pruebas, sin los ajustes del modelo de cada
-    /// proveedor (para contextos con pocas tablas).
+    /// Opciones de un contexto de EF Core (Entity Framework) conectado como en producción, con el personalizador del
+    /// modelo del motor, para los contextos de prueba que se arman sin los servicios de la aplicación. Los servicios del
+    /// motor (por ejemplo el origen de datos de Npgsql) viven lo que dura la corrida.
     /// </summary>
     public static DbContextOptions<TContext> ContextOptions<TContext>(string connectionString)
         where TContext : DbContext
     {
-        var options = new DbContextOptionsBuilder<TContext>();
-        if (IsMySql)
-        {
-            // Las dos opciones que exige el proveedor de EF de MySQL (el de la aplicación las pone en su origen de datos).
-            var mysql = new MySqlConnectionStringBuilder(connectionString) { AllowUserVariables = true, UseAffectedRows = false };
-            options.UseMySql(mysql.ConnectionString, new MySqlServerVersion(new Version(8, 4, 0)));
-        }
-        else
-        {
-            options.UseNpgsql(connectionString);
-        }
-
-        return options.Options;
+        var services = new ServiceCollection();
+        services.AddSingleton(Microsoft.Extensions.Options.Options.Create(new DatabaseOptions { Provider = ProviderName, ConnectionString = connectionString }));
+        Provider.AddServices(services);
+        var builder = new DbContextOptionsBuilder<TContext>();
+        Provider.ConfigureDbContext(services.BuildServiceProvider(), builder);
+        return builder.Options;
     }
 
-    /// <summary>Crea otra base vacía en el mismo servidor y devuelve su cadena de conexión.</summary>
-    /// <param name="name">Nombre de la base: letras minúsculas, dígitos y guion bajo.</param>
-    public static async Task<string> CreateDatabaseAsync(string connectionString, string name)
-    {
-        await using (var connection = await OpenConnectionAsync(connectionString))
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = $"create database {name}";
-            await command.ExecuteNonQueryAsync();
-        }
+    /// <summary>
+    /// Esquema donde EF Core crea las tablas: <c>public</c> en PostgreSQL, <c>dbo</c> en SQL Server y, en MySQL (donde
+    /// esquema y base son lo mismo), la base <c>test</c> de cada contenedor.
+    /// </summary>
+    public static string DefaultSchema => IsSqlServer ? "dbo" : IsMySql ? MySqlTestServer.Database : "public";
 
-        return WithDatabase(connectionString, name);
-    }
+    /// <summary>El instante actual en el SQL directo de las pruebas: <c>now()</c> o <c>sysdatetimeoffset()</c>.</summary>
+    public static string Now => IsSqlServer ? "sysdatetimeoffset()" : IsMySql ? "utc_timestamp(6)" : "now()";
 
-    /// <summary>Restricción violada si el error es de un índice único o una llave foránea; nulo si es otro error.</summary>
-    public static string? ViolatedConstraint(Exception? exception) => exception?.InnerException switch
+    /// <summary>Un parámetro de texto JSON para una columna JSON: <c>jsonb</c> en PostgreSQL, texto en SQL Server.</summary>
+    public static string Json(string parameter) =>
+        IsSqlServer ? parameter : IsMySql ? $"cast({parameter} as json)" : $"cast({parameter} as jsonb)";
+
+    /// <summary>
+    /// Un instante leído con SQL directo, en UTC: Npgsql devuelve <c>timestamptz</c> como <see cref="DateTime"/> UTC y
+    /// SqlClient devuelve <c>datetimeoffset</c> como <see cref="DateTimeOffset"/>.
+    /// </summary>
+    public static DateTimeOffset Instant(object value) => value switch
     {
-        PostgresException { SqlState: PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.ForeignKeyViolation } postgres =>
-            postgres.ConstraintName,
-        // MySQL no trae el nombre aparte: lo dice el mensaje, «… for key 'documents.ux_documents_cufe'».
-        MySqlException { ErrorCode: MySqlErrorCode.DuplicateKeyEntry } mysql => KeyName(mysql.Message),
+        DateTimeOffset instant => instant.ToUniversalTime(),
+        DateTime utc => new DateTimeOffset(DateTime.SpecifyKind(utc, DateTimeKind.Utc)),
+        _ => throw new ArgumentException($"{value.GetType()} is not an instant.", nameof(value)),
+    };
+
+    /// <summary>
+    /// Una columna de instante para leerla como <see cref="DateTime"/> UTC con Dapper, como lo hace Infrastructure con
+    /// <c>ISqlDialect.Instant</c>: SqlClient entrega <c>datetimeoffset</c>, que Dapper no convierte a <c>DateTime</c>.
+    /// </summary>
+    public static string Utc(string column) => IsSqlServer ? $"cast({column} as datetime2)" : column;
+
+    /// <summary>Texto de una propiedad de primer nivel de una columna JSON.</summary>
+    public static string JsonText(string column, string property) => IsSqlServer
+        ? $"json_value({column}, '$.{property}')"
+        : IsMySql ? $"{column} ->> '$.{property}'" : $"{column} ->> '{property}'";
+
+    /// <summary>Un uuid como texto en minúsculas con guiones, como lo escribe .NET.</summary>
+    /// <remarks>En MySQL el uuid ya es ese texto (<c>char(36)</c>).</remarks>
+    public static string UuidText(string column) =>
+        IsSqlServer ? $"lower(convert(nvarchar(36), {column}))" : IsMySql ? column : $"{column}::text";
+
+    /// <summary>
+    /// El orden en que la base ordena los uuid (el desempate de los listados por clave): PostgreSQL compara sus 16 bytes
+    /// de izquierda a derecha, como el texto en hexadecimal; SQL Server compara un uniqueidentifier empezando por sus
+    /// últimos 6 bytes (<see cref="System.Data.SqlTypes.SqlGuid"/> sigue la misma regla).
+    /// </summary>
+    public static IComparer<Guid> IdOrder => IsSqlServer
+        ? Comparer<Guid>.Create((left, right) => new System.Data.SqlTypes.SqlGuid(left).CompareTo(new System.Data.SqlTypes.SqlGuid(right)))
+        : Comparer<Guid>.Create((left, right) => string.CompareOrdinal(left.ToString("N"), right.ToString("N")));
+
+    /// <summary>Un nombre de columna que es palabra reservada en SQL Server, como <c>percent</c>.</summary>
+    public static string Identifier(string name) => IsSqlServer ? $"[{name}]" : IsMySql ? $"`{name}`" : name;
+
+    /// <summary>Solo la primera fila, al final de la consulta (después del <c>order by</c>).</summary>
+    public static string First => IsSqlServer ? "offset 0 rows fetch next 1 rows only" : "limit 1";
+
+    /// <summary>El instante de hace <paramref name="minutes"/> minutos en el SQL directo de las pruebas.</summary>
+    public static string MinutesAgo(int minutes) => IsSqlServer
+        ? $"dateadd(minute, -{minutes}, sysdatetimeoffset())"
+        : IsMySql ? $"utc_timestamp(6) - interval {minutes} minute" : $"now() - interval '{minutes} minute'";
+
+    /// <summary>Literal booleano para el SQL directo de las pruebas (SQL Server no tiene <c>true</c> ni <c>false</c>).</summary>
+    public static string Bool(bool value) => IsSqlServer ? (value ? "1" : "0") : (value ? "true" : "false");
+
+    /// <summary>
+    /// Nombre del índice o la restricción única que rechazó el guardado, o nulo si el error es otro. PostgreSQL lo da en
+    /// <c>ConstraintName</c>; SQL Server solo en el mensaje (errores 2601 y 2627).
+    /// </summary>
+    public static string? UniqueViolationName(DbUpdateException? exception) => exception?.InnerException switch
+    {
+        PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } postgres => postgres.ConstraintName,
+        SqlException { Number: 2601 or 2627 } sql => SqlServerObjectName().Match(sql.Message) is { Success: true } match ? match.Groups["name"].Value : null,
+        // MySQL (1062) lo da en el mensaje: «Duplicate entry '…' for key 'documents.ux_documents_cufe'».
+        MySqlException { ErrorCode: MySqlErrorCode.DuplicateKeyEntry } mysql =>
+            MySqlKeyName().Match(mysql.Message) is { Success: true } match ? match.Groups["name"].Value : null,
         _ => null,
     };
 
-    /// <summary>Si el error es la violación de una llave foránea (una referencia a una fila que no existe).</summary>
-    public static bool IsForeignKeyViolation(Exception? exception) => exception?.InnerException switch
+    /// <summary>Si el guardado falló por una llave foránea: 23503 en PostgreSQL, 547 con «FOREIGN KEY» en SQL Server.</summary>
+    public static bool IsForeignKeyViolation(DbUpdateException? exception) => exception?.InnerException switch
     {
         PostgresException { SqlState: PostgresErrorCodes.ForeignKeyViolation } => true,
+        SqlException { Number: 547 } sql => sql.Message.Contains("FOREIGN KEY", StringComparison.Ordinal),
         MySqlException { ErrorCode: MySqlErrorCode.NoReferencedRow2 or MySqlErrorCode.RowIsReferenced2 } => true,
         _ => false,
     };
 
-    private static string? KeyName(string message)
+    private static bool Is(string provider) => string.Equals(ProviderName, provider, StringComparison.OrdinalIgnoreCase);
+
+    // «… with unique index 'ux_documents_cufe'.» (2601) o «Violation of UNIQUE KEY constraint 'ux_…'.» (2627).
+    [GeneratedRegex(@"(?:unique index|constraint) '(?<name>[^']+)'")]
+    private static partial Regex SqlServerObjectName();
+
+    [GeneratedRegex(@"for key '(?:[^'.]+\.)?(?<name>[^']+)'$")]
+    private static partial Regex MySqlKeyName();
+
+    /// <summary>
+    /// PostgreSQL en su propio contenedor de Docker, con la misma imagen que <c>deploy/docker-compose.yml</c> y un puerto
+    /// al azar, así no choca con un PostgreSQL local.
+    /// </summary>
+    private sealed class PostgresTestServer : TestDatabaseServer
     {
-        var start = message.LastIndexOf("key '", StringComparison.Ordinal);
-        if (start < 0)
+        private readonly PostgreSqlContainer container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+
+        public override Task StartAsync() => container.StartAsync();
+
+        public override string GetConnectionString() => container.GetConnectionString();
+
+        public override string ConnectionStringFor(string database) =>
+            new NpgsqlConnectionStringBuilder(GetConnectionString()) { Database = database }.ConnectionString;
+
+        public override async Task CreateDatabaseAsync(string database)
         {
-            return null;
+            await using var connection = new NpgsqlConnection(GetConnectionString());
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand($"create database {database}", connection);
+            await command.ExecuteNonQueryAsync();
         }
 
-        var key = message[(start + 5)..].TrimEnd('\'');
-        return key[(key.LastIndexOf('.') + 1)..];
+        public override ValueTask DisposeAsync() => container.DisposeAsync();
+    }
+
+    /// <summary>
+    /// MySQL 8.4 en su propio contenedor de Docker, como PostgreSQL, con la base <see cref="Database"/>. Entra como root
+    /// para poder crear otras bases. Los datos viven en memoria y el servidor no espera al disco en cada confirmación:
+    /// las migraciones son cientos de sentencias DDL y así pasan de minutos a segundos. El contenedor se borra al
+    /// terminar, así que no se pierde nada que importe.
+    /// </summary>
+    private sealed class MySqlTestServer : TestDatabaseServer
+    {
+        public const string Database = "test";
+
+        private readonly MySqlContainer container = new MySqlBuilder("mysql:8.4")
+            .WithUsername("root")
+            .WithDatabase(Database)
+            .WithTmpfsMount("/var/lib/mysql")
+            .WithCommand("--skip-log-bin", "--innodb-flush-log-at-trx-commit=0", "--innodb-doublewrite=OFF", "--sync-binlog=0")
+            .Build();
+
+        public override Task StartAsync() => container.StartAsync();
+
+        public override string GetConnectionString() => container.GetConnectionString();
+
+        public override string ConnectionStringFor(string database) =>
+            new MySqlConnectionStringBuilder(GetConnectionString()) { Database = database }.ConnectionString;
+
+        public override async Task CreateDatabaseAsync(string database)
+        {
+            await using var connection = new MySqlConnection(GetConnectionString());
+            await connection.OpenAsync();
+            await using var command = new MySqlCommand($"create database {database}", connection);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        public override ValueTask DisposeAsync() => container.DisposeAsync();
+    }
+
+    /// <summary>
+    /// Una base propia en un SQL Server compartido por toda la corrida: el contenedor tarda varios segundos en arrancar y
+    /// pide unos 2 GB de memoria, así que se levanta una sola vez y cada servidor de prueba crea su base. Testcontainers
+    /// lo elimina al terminar el proceso.
+    /// </summary>
+    /// <remarks>
+    /// Cada base se crea con <c>READ_COMMITTED_SNAPSHOT ON</c>, como la deja la migración inicial: una lectura no espera a
+    /// quien escribe, igual que en PostgreSQL.
+    /// </remarks>
+    private sealed class SqlServerTestServer : TestDatabaseServer
+    {
+        private static readonly SemaphoreSlim Gate = new(1, 1);
+        private static MsSqlContainer? shared;
+
+        private readonly string database = "impifact_" + Guid.NewGuid().ToString("N");
+        private string? master;
+
+        public override async Task StartAsync()
+        {
+            master = (await SharedAsync()).GetConnectionString();
+            await CreateDatabaseAsync(database);
+        }
+
+        public override string GetConnectionString() => ConnectionStringFor(database);
+
+        public override string ConnectionStringFor(string name) =>
+            new SqlConnectionStringBuilder(master ?? throw new InvalidOperationException("The SQL Server test server is not started."))
+            {
+                InitialCatalog = name,
+            }.ConnectionString;
+
+        public override async Task CreateDatabaseAsync(string name)
+        {
+            await using var connection = new SqlConnection(master);
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"CREATE DATABASE [{name}]; ALTER DATABASE [{name}] SET READ_COMMITTED_SNAPSHOT ON;";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        // La base queda en el contenedor compartido hasta el final de la corrida; solo se sueltan las conexiones abiertas.
+        public override ValueTask DisposeAsync()
+        {
+            if (master is not null)
+            {
+                using var connection = new SqlConnection(GetConnectionString());
+                SqlConnection.ClearPool(connection);
+            }
+
+            return ValueTask.CompletedTask;
+        }
+
+        private static async Task<MsSqlContainer> SharedAsync()
+        {
+            await Gate.WaitAsync();
+            try
+            {
+                if (shared is null)
+                {
+                    var container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
+                    await container.StartAsync();
+                    shared = container;
+                }
+
+                return shared;
+            }
+            finally
+            {
+                Gate.Release();
+            }
+        }
     }
 }
 
 /// <summary>
-/// Trozos de SQL de las pruebas que cambian de un motor a otro, como <c>ISqlDialect</c> en la aplicación. Solo para el SQL
-/// que escriben las propias pruebas para preparar o revisar datos.
+/// Un servidor de base de datos desechable para las pruebas, con la misma forma que un contenedor de Testcontainers:
+/// se arranca, da su cadena de conexión y se desecha al terminar.
 /// </summary>
-public static class TestSql
+public abstract class TestDatabaseServer : IAsyncDisposable
 {
-    /// <summary>La expresión como texto: <c>x::text</c> en PostgreSQL, <c>cast(x as char)</c> en MySQL (un uuid o un JSON).</summary>
-    public static string Text(string expression) => TestDatabase.IsMySql ? $"cast({expression} as char)" : $"{expression}::text";
+    public abstract Task StartAsync();
 
-    /// <summary>Texto de una propiedad de primer nivel de una columna JSON.</summary>
-    public static string JsonText(string column, string property) =>
-        TestDatabase.IsMySql ? $"{column} ->> '$.{property}'" : $"{column} ->> '{property}'";
+    /// <summary>Cadena de conexión a la base de este servidor, que ya existe y está vacía.</summary>
+    public abstract string GetConnectionString();
 
-    /// <summary>
-    /// El esquema de las tablas de la aplicación para <c>information_schema</c>: <c>public</c> en PostgreSQL, la base de la
-    /// conexión en MySQL (allí esquema y base son lo mismo).
-    /// </summary>
-    public static string CurrentSchema => TestDatabase.IsMySql ? "database()" : "'public'";
+    /// <summary>Cadena de conexión a otra base del mismo servidor, exista o no.</summary>
+    public abstract string ConnectionStringFor(string database);
 
-    /// <summary>El instante de hace <paramref name="minutes"/> minutos en el reloj del servidor (UTC).</summary>
-    public static string MinutesAgo(int minutes) => TestDatabase.IsMySql
-        ? $"utc_timestamp(6) - interval {minutes} minute"
-        : $"now() - interval '{minutes} minute'";
-}
+    /// <summary>Crea una base vacía en el mismo servidor.</summary>
+    public abstract Task CreateDatabaseAsync(string database);
 
-/// <summary>Un contenedor de base de datos del motor de las pruebas (PostgreSQL o MySQL).</summary>
-public sealed class TestDatabaseContainer(IContainer container) : IAsyncDisposable
-{
-    public Task StartAsync(CancellationToken ct = default) => container.StartAsync(ct);
-
-    public string GetConnectionString() => ((IDatabaseContainer)container).GetConnectionString();
-
-    public ValueTask DisposeAsync() => container.DisposeAsync();
+    public abstract ValueTask DisposeAsync();
 }

@@ -75,7 +75,7 @@ internal sealed class DashboardReads(IReadConnectionFactory connections, IPlanSt
     public async Task<DashboardCertificate?> FindActiveCertificateAsync(Guid companyId, CancellationToken ct)
     {
         var sql = $"""
-            select c.name as Name, c.not_after as NotAfter
+            select c.name as Name, {dialect.Instant("c.not_after")} as NotAfter
             from certificates c
             where c.company_id = @CompanyId and c.is_active = {dialect.Bool(true)}
             order by c.not_after desc

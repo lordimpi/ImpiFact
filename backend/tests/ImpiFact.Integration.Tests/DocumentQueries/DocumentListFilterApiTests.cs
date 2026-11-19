@@ -151,7 +151,7 @@ public sealed class DocumentListFilterApiTests
         while (cursor is not null && pages < 10);
 
         // PostgreSQL ordena los uuid por sus bytes, que es el orden del texto en hexadecimal.
-        Assert.That(seen, Is.EqualTo(tied.OrderByDescending(id => id.ToString("N"), StringComparer.Ordinal).ToList()));
+        Assert.That(seen, Is.EqualTo(tied.OrderByDescending(id => id, TestDatabase.IdOrder).ToList()));
     }
 
     [TestCase("kind=receipt", "kind", "kind es inválido.")]

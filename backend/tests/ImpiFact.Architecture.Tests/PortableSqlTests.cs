@@ -25,6 +25,7 @@ public class PortableSqlTests
         (Token(@"\b(?:where|and|or|not|on)\s+[a-z_]+\.is_[a-z_]+\b(?!\s*(?:=|<>|!=|\bis\b))"), "a bare boolean column is not a condition in SQL Server; compare it with ISqlDialect.Bool"),
         (Token(@"\bgroup\s+by\s+\d"), "SQL Server does not group by position; repeat the expression"),
         (Token(@"\breturning\b|\bon\s+conflict\b|\bskip\s+locked\b|\bon\s+duplicate\s+key\b"), "engine-specific writes belong in ImpiFact.Infrastructure.<Engine>"),
+        (Token(@"(?:\.|\bas\s+)(?:percent|key|file|plan|rule|user)\b"), "a SQL Server reserved word as a column or alias; use ISqlDialect.Identifier and another alias"),
     ];
 
     /// <summary>Huecos de una cadena interpolada sin comillas adentro, como <c>{dialect.Bool(true)}</c>: son código C#, no SQL.</summary>
@@ -52,6 +53,9 @@ public class PortableSqlTests
     [TestCase("left join lateral (select 1) p on true", true)]
     [TestCase("where c.company_id = @CompanyId and c.is_active = {dialect.Bool(true)}", false)]
     [TestCase(" and n.is_read = @IsRead", false)]
+    [TestCase("select t.percent as Percent from document_taxes t", true)]
+    [TestCase("select k.key from idempotency_keys k", true)]
+    [TestCase("select t.{dialect.Identifier(\"percent\")} as TaxPercent from document_taxes t", false)]
     [TestCase("select d.id from documents d where d.company_id = @CompanyId and d.status in (@Status0) order by d.issued_at", false)]
     public void The_rules_recognise_engine_specific_sql(string sql, bool offends)
     {

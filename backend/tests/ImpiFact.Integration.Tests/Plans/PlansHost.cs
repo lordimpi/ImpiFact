@@ -19,7 +19,7 @@ namespace ImpiFact.Integration.Tests.Plans;
 [Category("Integration")]
 public sealed class PlansHost
 {
-    private static TestDatabaseContainer? container;
+    private static TestDatabaseServer? container;
     private static CompanyApiFactory? factory;
 
     public static CompanyApiFactory Api => factory ?? throw new InvalidOperationException("The plans API host is not running.");
@@ -27,7 +27,7 @@ public sealed class PlansHost
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = TestDatabase.CreateContainer();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
         factory = new CompanyApiFactory(container.GetConnectionString());
 

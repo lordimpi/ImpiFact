@@ -1,7 +1,7 @@
-using Dapper;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Dapper;
 using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Domain.Identity;
 using ImpiFact.Infrastructure.Identity;
@@ -169,8 +169,8 @@ public sealed class ApiKeyListTests
 
     private static async Task<string> EmailOfAsync(Guid userId)
     {
-        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
-        return await connection.ExecuteScalarAsync<string>("select email from users where id = @id", new { id = userId }) ?? "";
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
+        return await connection.QuerySingleAsync<string>("select email from users where id = @id", new { id = userId });
     }
 
     private static string Email() => $"user-{Guid.NewGuid():N}@example.com";

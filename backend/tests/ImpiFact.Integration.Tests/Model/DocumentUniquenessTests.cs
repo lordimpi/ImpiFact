@@ -83,7 +83,7 @@ public sealed class DocumentUniquenessTests
         });
     }
 
-    private static string? ConstraintOf(DbUpdateException? exception) => TestDatabase.ViolatedConstraint(exception);
+    private static string? ConstraintOf(DbUpdateException? exception) => TestDatabase.UniqueViolationName(exception);
 
     private static async Task SaveAsync(params object[] rows)
     {

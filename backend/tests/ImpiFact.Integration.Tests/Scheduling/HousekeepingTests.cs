@@ -16,6 +16,9 @@ namespace ImpiFact.Integration.Tests.Scheduling;
 [Category("Integration")]
 public sealed class HousekeepingTests
 {
+    /// <summary>Cómo escribe EF Core el tope de filas de un DELETE por tandas: LIMIT en PostgreSQL y MySQL, TOP en SQL Server.</summary>
+    private static readonly string BatchLimit = TestDatabase.IsSqlServer ? "TOP(" : "LIMIT";
+
     [Test]
     public async Task Done_outbox_messages_older_than_30_days_are_deleted_and_the_rest_kept()
     {
@@ -119,7 +122,7 @@ public sealed class HousekeepingTests
         Assert.Multiple(async () =>
         {
             Assert.That(deletes, Has.Count.GreaterThanOrEqualTo(3));
-            Assert.That(deletes, Has.All.Contains("LIMIT"));
+            Assert.That(deletes, Has.All.Contains(BatchLimit));
             Assert.That(await SchedulingHost.Db(scope).Set<PasswordResetToken>().CountAsync(token => token.UserId == userId), Is.Zero);
         });
     }
@@ -155,7 +158,7 @@ public sealed class HousekeepingTests
         {
             Assert.That(deletes.Count(entry => entry.Contains("outbox_messages", StringComparison.Ordinal)), Is.GreaterThanOrEqualTo(3));
             Assert.That(deletes.Count(entry => entry.Contains("refresh_tokens", StringComparison.Ordinal)), Is.GreaterThanOrEqualTo(3));
-            Assert.That(deletes, Has.All.Contains("LIMIT"));
+            Assert.That(deletes, Has.All.Contains(BatchLimit));
             Assert.That(await MessageIdsAsync(host, old), Is.Empty);
             Assert.That(await SchedulingHost.Db(scope).Set<RefreshToken>().CountAsync(token => token.UserId == userId), Is.Zero);
         });

@@ -28,7 +28,7 @@ public sealed class PendingMigrationsStartupTests
 {
     private const string EmptyDatabase = "impifact_empty";
 
-    private TestDatabaseContainer _container = null!;
+    private TestDatabaseServer _container = null!;
     private string _migrated = null!;
     private string _empty = null!;
     private string _expectedLine = null!;
@@ -36,10 +36,11 @@ public sealed class PendingMigrationsStartupTests
     [OneTimeSetUp]
     public async Task StartDatabaseAsync()
     {
-        _container = TestDatabase.CreateContainer();
+        _container = TestDatabase.CreateServer();
         await _container.StartAsync();
         _migrated = _container.GetConnectionString();
-        _empty = await TestDatabase.CreateDatabaseAsync(_migrated, EmptyDatabase);
+        _empty = _container.ConnectionStringFor(EmptyDatabase);
+        await _container.CreateDatabaseAsync(EmptyDatabase);
 
         await using var services = DatabaseServices(_migrated);
         await using var scope = services.CreateAsyncScope();
@@ -181,6 +182,8 @@ public sealed class PendingMigrationsStartupTests
         builder.Configuration.AddJsonFile(WorkerSettingsFile(), optional: false);
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>(scratch.LocalAesGcmSettings())
         {
+            // El appsettings.json del Worker trae Postgres y va después de las variables de entorno: el motor se repite aquí.
+            ["Database:Provider"] = TestDatabase.ProviderName,
             ["Database:ConnectionString"] = connectionString,
             ["Storage:Local:Root"] = Path.Combine(scratch.Root, "storage"),
             ["Panel:BaseUrl"] = "https://panel.impifact.test",

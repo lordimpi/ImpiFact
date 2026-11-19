@@ -30,7 +30,7 @@ namespace ImpiFact.Integration.Tests.DocumentUtilities;
 [Category("Integration")]
 public sealed class UtilitiesHost
 {
-    private static TestDatabaseContainer? container;
+    private static TestDatabaseServer? container;
     private static CompanyApiFactory? factory;
     private static int nitSequence;
     private static int documentNumber = 990000000;
@@ -40,7 +40,7 @@ public sealed class UtilitiesHost
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = TestDatabase.CreateContainer();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
         factory = new CompanyApiFactory(container.GetConnectionString());
 

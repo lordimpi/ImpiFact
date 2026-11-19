@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Pruebas contra piezas reales. Las de la categoría «Integration» levantan PostgreSQL (o MySQL, con Database__Provider=MySql) en Docker con
-    Testcontainers (una librería que crea contenedores desechables para las pruebas); el resto corre sin Docker.
+    Pruebas contra piezas reales. Las de la categoría «Integration» levantan la base en Docker con Testcontainers (una
+    librería que crea contenedores desechables para las pruebas): PostgreSQL, o SQL Server con
+    Database__Provider=SqlServer, o MySQL con Database__Provider=MySql (ver TestDatabase). El resto corre sin Docker.
   -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
@@ -16,13 +17,15 @@
     <PackageReference Include="Testcontainers.Minio" />
     <PackageReference Include="Testcontainers" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="Testcontainers.MySql" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\ImpiFact.Api\ImpiFact.Api.csproj" />
     <ProjectReference Include="..\..\src\ImpiFact.Infrastructure\ImpiFact.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\ImpiFact.Infrastructure.MySql\ImpiFact.Infrastructure.MySql.csproj" />
     <ProjectReference Include="..\..\src\ImpiFact.Infrastructure.Postgres\ImpiFact.Infrastructure.Postgres.csproj" />
+    <ProjectReference Include="..\..\src\ImpiFact.Infrastructure.SqlServer\ImpiFact.Infrastructure.SqlServer.csproj" />
+    <ProjectReference Include="..\..\src\ImpiFact.Infrastructure.MySql\ImpiFact.Infrastructure.MySql.csproj" />
     <ProjectReference Include="..\..\src\ImpiFact.Migrator\ImpiFact.Migrator.csproj" />
     <!--
       Las pruebas de salud del Worker (WorkerHealthTests) arman su servidor de salud. Con alias: el Worker, como la API,

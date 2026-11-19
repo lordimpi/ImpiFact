@@ -20,7 +20,7 @@ namespace ImpiFact.Integration.Tests.IdentityData;
 [Category("Integration")]
 public sealed class IdentityDatabase
 {
-    private static TestDatabaseContainer? container;
+    private static TestDatabaseServer? container;
     private static ServiceProvider? services;
 
     public static string ConnectionString =>
@@ -31,7 +31,7 @@ public sealed class IdentityDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = TestDatabase.CreateContainer();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
 
         var configuration = new ConfigurationBuilder()

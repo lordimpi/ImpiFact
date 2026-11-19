@@ -11,29 +11,29 @@ namespace ImpiFact.Infrastructure.Identity;
 /// <c>user_companies</c> con EF Core (Entity Framework). Los roles se identifican por su nombre; sus llaves son las
 /// fijas de <see cref="PlatformSeed"/>.
 /// </summary>
-internal sealed class EfUserStore(ImpiFactDbContext db) : IUserStore
+internal sealed class EfUserStore(ImpiFactDbContext db, CredentialStoreGuard guard) : IUserStore
 {
     public Task<UserAccount?> FindByEmailAsync(string normalizedEmail, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(() => db.Set<User>().AsNoTracking()
+        guard.RunAsync(() => db.Set<User>().AsNoTracking()
             .Where(user => user.Email == normalizedEmail)
             .Select(user => new UserAccount(user.Id, user.Email, user.PasswordHash, user.IsActive, user.LockoutEnd))
             .FirstOrDefaultAsync(ct));
 
     public Task<UserAccount?> FindByIdAsync(Guid userId, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(() => db.Set<User>().AsNoTracking()
+        guard.RunAsync(() => db.Set<User>().AsNoTracking()
             .Where(user => user.Id == userId)
             .Select(user => new UserAccount(user.Id, user.Email, user.PasswordHash, user.IsActive, user.LockoutEnd))
             .FirstOrDefaultAsync(ct));
 
     public Task<bool> EmailExistsAsync(string normalizedEmail, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(() => db.Set<User>().AnyAsync(user => user.Email == normalizedEmail, ct));
+        guard.RunAsync(() => db.Set<User>().AnyAsync(user => user.Email == normalizedEmail, ct));
 
     public Task<bool> CompanyExistsAsync(Guid companyId, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(() => db.Set<ImpiFact.Domain.Companies.Company>().IgnoreQueryFilters()
+        guard.RunAsync(() => db.Set<ImpiFact.Domain.Companies.Company>().IgnoreQueryFilters()
             .AnyAsync(company => company.Id == companyId, ct));
 
     public Task<UserRoles> GetRolesAsync(Guid userId, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(async () =>
+        guard.RunAsync(async () =>
         {
             var platformRoles = await db.Set<UserRole>().AsNoTracking()
                 .Where(userRole => userRole.UserId == userId)
@@ -53,7 +53,7 @@ internal sealed class EfUserStore(ImpiFactDbContext db) : IUserStore
         });
 
     public Task UpdatePasswordHashAsync(Guid userId, string passwordHash, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(async () =>
+        guard.RunAsync(async () =>
         {
             var user = await db.Set<User>().FirstOrDefaultAsync(candidate => candidate.Id == userId, ct);
             if (user is not null)
@@ -67,7 +67,7 @@ internal sealed class EfUserStore(ImpiFactDbContext db) : IUserStore
     /// los tokens de renovación.
     /// </summary>
     public Task ChangePasswordAsync(Guid userId, string passwordHash, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(async () =>
+        guard.RunAsync(async () =>
         {
             var user = await db.Set<User>().FirstOrDefaultAsync(candidate => candidate.Id == userId, ct);
             if (user is not null)

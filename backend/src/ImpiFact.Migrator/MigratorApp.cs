@@ -9,6 +9,7 @@ using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.MySql;
 using ImpiFact.Infrastructure.Postgres;
+using ImpiFact.Infrastructure.SqlServer;
 using ImpiFact.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -155,6 +156,7 @@ public static class MigratorApp
         services.AddInfrastructure(
             configuration,
             new PostgresDatabaseProvider(),
+            new SqlServerDatabaseProvider(),
             new MySqlDatabaseProvider());
         services.AddIdentityPersistence();
         if (withApplication)

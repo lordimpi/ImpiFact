@@ -6,7 +6,7 @@ namespace ImpiFact.Architecture.Tests;
 
 /// <summary>
 /// Reglas de frontera de Arquitectura detallada, secciones 1 y 16, además de las dependencias entre capas: el
-/// controlador de PostgreSQL solo vive en su proyecto de proveedor, los endpoints no acceden a datos y toda consulta
+/// controlador de cada motor (PostgreSQL, SQL Server) solo vive en su proyecto de proveedor, los endpoints no acceden a datos y toda consulta
 /// Dapper (la librería de lecturas con SQL escrito a mano) filtra por empresa.
 /// </summary>
 public class BoundaryTests
@@ -37,14 +37,25 @@ public class BoundaryTests
         Assert.That(result.FailingTypeNames ?? [], Is.Empty, "Npgsql belongs in ImpiFact.Infrastructure.Postgres.");
     }
 
+    [Test]
+    public void Only_the_sql_server_provider_uses_the_sql_server_driver()
+    {
+        var result = Types.InAssemblies([Load("ImpiFact.Infrastructure"), Load("ImpiFact.Application"), Load("ImpiFact.Api"), Load("ImpiFact.Worker")])
+            .ShouldNot()
+            .HaveDependencyOnAny("Microsoft.Data.SqlClient", "Microsoft.EntityFrameworkCore.SqlServer")
+            .GetResult();
+
+        Assert.That(result.FailingTypeNames ?? [], Is.Empty, "SqlClient belongs in ImpiFact.Infrastructure.SqlServer.");
+    }
+
     // MySqlConnector (el controlador de MySQL) y el proveedor de EF de Microting solo viven en su proyecto de proveedor,
-    // y el proveedor de PostgreSQL tampoco los usa.
+    // y los proveedores de PostgreSQL y SQL Server tampoco los usan.
     [Test]
     public void Only_the_mysql_provider_uses_the_mysql_driver()
     {
         var result = Types.InAssemblies([
                 Load("ImpiFact.Infrastructure"), Load("ImpiFact.Application"), Load("ImpiFact.Api"), Load("ImpiFact.Worker"),
-                Load("ImpiFact.Infrastructure.Postgres"),
+                Load("ImpiFact.Infrastructure.Postgres"), Load("ImpiFact.Infrastructure.SqlServer"),
             ])
             .ShouldNot()
             .HaveDependencyOnAny("MySqlConnector", "Microting")
@@ -62,7 +73,7 @@ public class BoundaryTests
             .DoNotHaveName("ApiComposition", "Program")
             .ShouldNot()
             .HaveDependencyOnAny(
-                "Microsoft.EntityFrameworkCore", "Dapper", "Npgsql", "ImpiFact.Infrastructure.Persistence",
+                "Microsoft.EntityFrameworkCore", "Dapper", "Npgsql", "Microsoft.Data.SqlClient", "ImpiFact.Infrastructure.Persistence",
                 "MySqlConnector")
             .GetResult();
 

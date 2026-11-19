@@ -31,7 +31,7 @@ namespace ImpiFact.Integration.Tests.Outbox;
 [Category("Integration")]
 public sealed class OutboxDatabase
 {
-    private static TestDatabaseContainer? container;
+    private static TestDatabaseServer? container;
     private static int nitSequence;
 
     public static string ConnectionString =>
@@ -40,7 +40,7 @@ public sealed class OutboxDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = TestDatabase.CreateContainer();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
 
         await using var host = OutboxHost.Create();

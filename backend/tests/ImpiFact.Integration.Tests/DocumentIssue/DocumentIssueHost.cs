@@ -20,7 +20,7 @@ namespace ImpiFact.Integration.Tests.DocumentIssue;
 [Category("Integration")]
 public sealed class DocumentIssueHost
 {
-    private static TestDatabaseContainer? container;
+    private static TestDatabaseServer? container;
     private static CompanyApiFactory? factory;
 
     public static CompanyApiFactory Api => factory ?? throw new InvalidOperationException("The document issue API host is not running.");
@@ -28,7 +28,7 @@ public sealed class DocumentIssueHost
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = TestDatabase.CreateContainer();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
         factory = new CompanyApiFactory(container.GetConnectionString());
 

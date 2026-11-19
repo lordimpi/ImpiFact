@@ -14,7 +14,7 @@ namespace ImpiFact.Integration.Tests.Notifications;
 [Category("Integration")]
 public sealed class NotificationsHost
 {
-    private static TestDatabaseContainer? container;
+    private static TestDatabaseServer? container;
     private static CompanyApiFactory? factory;
 
     public static CompanyApiFactory Api => factory ?? throw new InvalidOperationException("The notifications API host is not running.");
@@ -25,7 +25,7 @@ public sealed class NotificationsHost
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = TestDatabase.CreateContainer();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
         factory = new CompanyApiFactory(container.GetConnectionString());
 

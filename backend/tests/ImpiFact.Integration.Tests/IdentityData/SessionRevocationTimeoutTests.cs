@@ -1,4 +1,3 @@
-using System.Data.Common;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -38,14 +37,13 @@ public sealed class SessionRevocationTimeoutTests
     {
         var (_, email) = await AddUserAsync();
         var cookie = await PanelLoginAsync(email);
-        await using var lockHolder = await LockAsync("select id from refresh_tokens where token_hash = @hash for update",
-            new { hash = CredentialHash.Sha256Hex(cookie) });
+        await using var lockHolder = await LockAsync("token_hash = @hash", new { hash = CredentialHash.Sha256Hex(cookie) });
 
         using var response = await Client().SendAsync(PanelRequest("/api/v1/auth/logout", cookie));
         var text = await response.Content.ReadAsStringAsync();
         await lockHolder.RollbackAsync();
-        var revokedAt = await QuerySingleAsync<DateTime?>(
-            "select revoked_at from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(cookie) });
+        var revoked = await QuerySingleAsync<long>(
+            "select count(*) from refresh_tokens where token_hash = @hash and revoked_at is not null", new { hash = CredentialHash.Sha256Hex(cookie) });
 
         Assert.Multiple(() =>
         {
@@ -53,7 +51,7 @@ public sealed class SessionRevocationTimeoutTests
             Assert.That(response.Headers.RetryAfter?.Delta, Is.Not.Null);
             Assert.That(Code(text), Is.EqualTo("identity.store_unavailable"));
             Assert.That(response.Headers.Contains(HeaderNames.SetCookie), Is.False, "The panel keeps its cookie and can try again.");
-            Assert.That(revokedAt, Is.Null, "Nothing was revoked: the panel must log out again.");
+            Assert.That(revoked, Is.Zero, "Nothing was revoked: the panel must log out again.");
         });
     }
 
@@ -66,8 +64,7 @@ public sealed class SessionRevocationTimeoutTests
         var replacement = await ReadCookieAsync(rotated);
         // Se usa también el reemplazo: así el token viejo ya no es una respuesta perdida, sino un reúso.
         using var used = await Client().SendAsync(PanelRequest("/api/v1/auth/refresh", replacement));
-        await using var lockHolder = await LockAsync(
-            "select id from refresh_tokens where user_id = @userId and revoked_at is null for update", new { userId });
+        await using var lockHolder = await LockAsync("user_id = @userId and revoked_at is null", new { userId });
 
         using var reused = await Client().SendAsync(PanelRequest("/api/v1/auth/refresh", original));
         var text = await reused.Content.ReadAsStringAsync();
@@ -138,10 +135,17 @@ public sealed class SessionRevocationTimeoutTests
 
     private static string? Code(string body) => JsonDocument.Parse(body).RootElement.GetProperty("code").GetString();
 
-    /// <summary>Otra conexión con una transacción abierta que bloquea las filas de la consulta hasta revertirla.</summary>
-    private static async Task<LockHolder> LockAsync(string sql, object parameters)
+    /// <summary>
+    /// Otra conexión con una transacción abierta que bloquea las filas de <c>refresh_tokens</c> que cumplen
+    /// <paramref name="where"/> hasta revertirla: <c>for update</c> en PostgreSQL, <c>updlock</c> en SQL Server.
+    /// </summary>
+    private static async Task<LockHolder> LockAsync(string where, object parameters)
     {
-        var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
+        var sql = TestDatabase.IsSqlServer
+            // Con todas las columnas: así el bloqueo llega también a la fila de la tabla y no solo al índice de token_hash.
+            ? $"select * from refresh_tokens with (updlock, rowlock) where {where}"
+            : $"select id from refresh_tokens where {where} for update";
+        var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         await connection.OpenAsync();
         var transaction = await connection.BeginTransactionAsync();
         await connection.ExecuteAsync(sql, parameters, transaction);
@@ -150,11 +154,11 @@ public sealed class SessionRevocationTimeoutTests
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {
-        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 
-    private sealed class LockHolder(DbConnection connection, DbTransaction transaction) : IAsyncDisposable
+    private sealed class LockHolder(System.Data.Common.DbConnection connection, System.Data.Common.DbTransaction transaction) : IAsyncDisposable
     {
         private bool _released;
 

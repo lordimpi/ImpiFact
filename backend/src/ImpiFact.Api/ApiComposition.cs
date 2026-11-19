@@ -18,6 +18,7 @@ using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.MySql;
 using ImpiFact.Infrastructure.Postgres;
+using ImpiFact.Infrastructure.SqlServer;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -51,6 +52,7 @@ internal static class ApiComposition
         services.AddInfrastructure(
             configuration,
             new PostgresDatabaseProvider(),
+            new SqlServerDatabaseProvider(),
             new MySqlDatabaseProvider());
         services.AddIdentityInfrastructure();
         // Casos de uso de Application con sus decoradores; se llama una sola vez, después de registrar los adaptadores.

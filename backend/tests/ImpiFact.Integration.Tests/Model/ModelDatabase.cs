@@ -11,19 +11,20 @@ using Microsoft.Extensions.DependencyInjection;
 namespace ImpiFact.Integration.Tests.Model;
 
 /// <summary>
-/// Levanta un PostgreSQL desechable en Docker para las pruebas del modelo real y crea su esquema con
-/// las migraciones reales del proyecto ImpiFact.Infrastructure.Postgres y el sincronizador de catálogos, como en un despliegue.
+/// Levanta una base desechable en Docker (del motor de <see cref="TestDatabase"/>) para las pruebas del modelo real y crea
+/// su esquema con las migraciones reales del proyecto del motor (ImpiFact.Infrastructure.Postgres o .SqlServer) y el
+/// sincronizador de catálogos, como en un despliegue.
 /// </summary>
 /// <remarks>
 /// Es un contenedor aparte del de <c>Persistence</c> porque un <c>SetUpFixture</c> de NUnit solo cubre su propio
 /// espacio de nombres; usa la misma imagen y el mismo armado de dependencias (<c>AddInfrastructure</c> con el
-/// proveedor de PostgreSQL), pero con el contexto de producción en lugar del contexto de prueba.
+/// motor elegido), pero con el contexto de producción en lugar del contexto de prueba.
 /// </remarks>
 [SetUpFixture]
 [Category("Integration")]
 public sealed class ModelDatabase
 {
-    private static TestDatabaseContainer? container;
+    private static TestDatabaseServer? container;
     private static ServiceProvider? services;
 
     public static string ConnectionString =>
@@ -34,7 +35,7 @@ public sealed class ModelDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = TestDatabase.CreateContainer();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
 
         var configuration = new ConfigurationBuilder()
@@ -86,6 +87,9 @@ public sealed class ModelDatabase
 public sealed class ModelSession(AsyncServiceScope scope) : IAsyncDisposable
 {
     public ImpiFactDbContext Db { get; } = scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>();
+
+    /// <summary>Los servicios del ámbito, por ejemplo el SQL propio del motor.</summary>
+    public IServiceProvider Services => scope.ServiceProvider;
 
     public ValueTask DisposeAsync() => scope.DisposeAsync();
 }

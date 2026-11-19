@@ -5,6 +5,7 @@ using ImpiFact.Worker.Health;
 using ImpiFact.Infrastructure.Platform.Outbox;
 using ImpiFact.Infrastructure.MySql;
 using ImpiFact.Infrastructure.Postgres;
+using ImpiFact.Infrastructure.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -34,6 +35,7 @@ builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProvider
 builder.Services.AddWorkerServices(
     builder.Configuration,
     new PostgresDatabaseProvider(),
+    new SqlServerDatabaseProvider(),
     new MySqlDatabaseProvider());
 
 // Registros JSON con Serilog, sin secretos, trazas y métricas por OTLP si está OTEL_EXPORTER_OTLP_ENDPOINT y las

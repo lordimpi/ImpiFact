@@ -26,7 +26,7 @@ public sealed class EmailEnvironment
     private const int SmtpPort = 1025;
     private const int ApiPort = 8025;
 
-    private static TestDatabaseContainer? database;
+    private static TestDatabaseServer? database;
     private static IContainer? mailHog;
 
     public static string ConnectionString =>
@@ -40,7 +40,7 @@ public sealed class EmailEnvironment
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        database = TestDatabase.CreateContainer();
+        database = TestDatabase.CreateServer();
         mailHog = NewMailHog();
         await Task.WhenAll(database.StartAsync(), mailHog.StartAsync());
 

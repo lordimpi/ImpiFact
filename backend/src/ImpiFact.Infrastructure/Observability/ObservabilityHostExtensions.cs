@@ -11,14 +11,6 @@ namespace ImpiFact.Infrastructure.Observability;
 public static class ObservabilityHostExtensions
 {
     /// <summary>
-    /// Fuentes de trazas y métricas de los controladores de base de datos: cada consulta a la base, también las de EF
-    /// Core. Npgsql (PostgreSQL) las emite por sí mismo con el nombre «Npgsql», así no hace falta su paquete de
-    /// OpenTelemetry (que solo agrega esa fuente) ni el de EF Core (que sigue en versión preliminar). Los motores de la
-    /// fase 6 agregan la suya.
-    /// </summary>
-    public static readonly string[] DatabaseDriverSources = ["Npgsql"];
-
-    /// <summary>
     /// Observabilidad de un proceso (Arquitectura detallada, sección 12): registros JSON con Serilog
     /// (<see cref="ImpiFactLogging"/>) y, solo si está la variable estándar <c>OTEL_EXPORTER_OTLP_ENDPOINT</c>, trazas y
     /// métricas de OpenTelemetry exportadas por OTLP: las llamadas HTTP salientes (DIAN, Gotenberg, S3), la base de
@@ -54,13 +46,13 @@ public static class ObservabilityHostExtensions
                 .AddAttributes([new("deployment.environment.name", builder.Environment.EnvironmentName)]))
             .WithTracing(tracer =>
             {
-                tracer.AddHttpClientInstrumentation().AddSource(ImpiFactActivities.SourceName).AddSource(DatabaseDriverSources);
+                tracer.AddHttpClientInstrumentation().AddSource(ImpiFactActivities.SourceName);
                 tracing?.Invoke(tracer);
                 tracer.AddOtlpExporter();
             })
             .WithMetrics(meter =>
             {
-                meter.AddHttpClientInstrumentation().AddMeter(ImpiFactMetrics.MeterName).AddMeter(DatabaseDriverSources);
+                meter.AddHttpClientInstrumentation().AddMeter(ImpiFactMetrics.MeterName);
                 metrics?.Invoke(meter);
                 meter.AddOtlpExporter();
             });

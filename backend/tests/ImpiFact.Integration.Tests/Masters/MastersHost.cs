@@ -24,7 +24,7 @@ namespace ImpiFact.Integration.Tests.Masters;
 [Category("Integration")]
 public sealed class MastersHost
 {
-    private static TestDatabaseContainer? container;
+    private static TestDatabaseServer? container;
     private static CompanyApiFactory? factory;
     private static int nitSequence;
 
@@ -33,7 +33,7 @@ public sealed class MastersHost
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = TestDatabase.CreateContainer();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
         factory = new CompanyApiFactory(container.GetConnectionString());
 

@@ -30,8 +30,8 @@ internal sealed class NotificationInbox(
     {
         var parameters = Audience(filter.Audience);
         parameters.Add("Take", filter.Take);
-        var sql = new StringBuilder("""
-            select n.id as Id, n.type as Type, n.title as Title, n.body as Body, n.is_read as IsRead, n.created_at as CreatedAt
+        var sql = new StringBuilder($"""
+            select n.id as Id, n.type as Type, n.title as Title, n.body as Body, n.is_read as IsRead, {dialect.Instant("n.created_at")} as CreatedAt
             from notifications n
             where n.company_id = @CompanyId and (n.user_id is null or n.user_id = @UserId)
             """);

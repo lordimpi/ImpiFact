@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Dapper;
 using Microsoft.EntityFrameworkCore;
 
@@ -42,14 +43,23 @@ public sealed class ValueConversionTests
         var stored = await session.Db.Widgets.SingleAsync(w => w.Id == widget.Id);
         await using var connection = await session.Reads.OpenAsync(CancellationToken.None);
         var raw = await connection.QuerySingleAsync<string>(
-            $"select {TestSql.Text("details")} from widgets where company_id = @CompanyId and id = @Id",
+            "select details from widgets where company_id = @CompanyId and id = @Id",
             new { widget.CompanyId, widget.Id });
 
         Assert.Multiple(() =>
         {
             Assert.That(stored.Details.Tags, Is.EqualTo(new[] { "a", "b" }));
             Assert.That(stored.Details.Note, Is.EqualTo("café"));
-            Assert.That(raw, Is.EqualTo("""{"note": "café", "tags": ["a", "b"]}"""));
+            // PostgreSQL guarda jsonb con su propio formato (claves ordenadas, espacios); SQL Server guarda el texto tal como lo
+            // escribe el serializador. En los dos, las claves van en snake_case.
+            if (TestDatabase.IsSqlServer)
+            {
+                Assert.That(JsonNode.DeepEquals(JsonNode.Parse(raw), JsonNode.Parse("""{"note": "café", "tags": ["a", "b"]}""")), Is.True, raw);
+            }
+            else
+            {
+                Assert.That(raw, Is.EqualTo("""{"note": "café", "tags": ["a", "b"]}"""));
+            }
         });
     }
 

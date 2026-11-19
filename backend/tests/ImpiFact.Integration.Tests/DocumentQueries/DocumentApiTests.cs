@@ -44,7 +44,7 @@ public sealed class DocumentApiTests
 
         // PostgreSQL ordena los uuid por sus bytes, que es el orden del texto en hexadecimal.
         var newestFirst = expected.OrderByDescending(row => row.IssuedAt)
-            .ThenByDescending(row => row.Id.ToString("N"), StringComparer.Ordinal)
+            .ThenByDescending(row => row.Id, TestDatabase.IdOrder)
             .Select(row => row.Id)
             .ToList();
         Assert.Multiple(() =>

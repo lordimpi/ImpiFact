@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace ImpiFact.Integration.Tests.IdentityData;
 
@@ -38,7 +39,7 @@ public sealed class PasswordResetHardeningTests
     {
         var (_, active) = await AddUserAsync();
         var (inactiveId, inactive) = await AddUserAsync();
-        await ExecuteAsync("update users set is_active = false where id = @inactiveId", new { inactiveId });
+        await ExecuteAsync($"update users set is_active = {TestDatabase.Bool(false)} where id = @inactiveId", new { inactiveId });
 
         var shapes = new List<string>();
         foreach (var email in new[] { active, "nadie-" + active, inactive, "  " + active.ToUpperInvariant() + "  " })
@@ -94,7 +95,7 @@ public sealed class PasswordResetHardeningTests
         await RequestTokenAsync(userId, email);
 
         var rows = (await QueryAsync<(DateTime? RevokedAt, long RowVersion, DateTime CreatedAt, DateTime UpdatedAt)>(
-            "select revoked_at, row_version, created_at, updated_at from password_reset_tokens where user_id = @userId " +
+            $"select {TestDatabase.Utc("revoked_at")}, row_version, {TestDatabase.Utc("created_at")}, {TestDatabase.Utc("updated_at")} from password_reset_tokens where user_id = @userId " +
             "order by created_at, id", new { userId })).ToArray();
 
         Assert.Multiple(() =>
@@ -140,11 +141,11 @@ public sealed class PasswordResetHardeningTests
     {
         var (userId, email) = await AddUserAsync();
         var token = await RequestTokenAsync(userId, email);
-        await ExecuteAsync("update users set is_active = false where id = @userId", new { userId });
+        await ExecuteAsync($"update users set is_active = {TestDatabase.Bool(false)} where id = @userId", new { userId });
 
         using var response = await _factory.CreateClient().PostAsJsonAsync(ConfirmPath, new { token, new_password = "Otra-Clave-Segura-2" });
         var body = await response.Content.ReadAsStringAsync();
-        var usedAt = await QuerySingleAsync<DateTime?>("select used_at from password_reset_tokens where user_id = @userId", new { userId });
+        var usedAt = await QuerySingleAsync<DateTime?>($"select {TestDatabase.Utc("used_at")} from password_reset_tokens where user_id = @userId", new { userId });
 
         Assert.Multiple(() =>
         {
@@ -160,7 +161,7 @@ public sealed class PasswordResetHardeningTests
         var (userId, email) = await AddUserAsync();
         var token = await RequestTokenAsync(userId, email);
         var payload = await QuerySingleAsync<string>(
-            $"select {TestSql.Text("o.payload")} from outbox_messages o join password_reset_tokens t on {TestSql.JsonText("o.payload", "reset_token_id")} = {TestSql.Text("t.id")} where t.user_id = @userId",
+            $"select o.payload from outbox_messages o join password_reset_tokens t on {TestDatabase.JsonText("o.payload", "reset_token_id")} = {TestDatabase.UuidText("t.id")} where t.user_id = @userId",
             new { userId });
         var keys = JsonDocument.Parse(payload).RootElement.EnumerateObject().Select(p => p.Name).Order().ToArray();
 
@@ -199,8 +200,8 @@ public sealed class PasswordResetHardeningTests
         using var response = await _factory.CreateClient().PostAsJsonAsync(RequestPath, new { email });
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Accepted));
         var payload = await QuerySingleAsync<string>(
-            $"select {TestSql.Text("o.payload")} from outbox_messages o join password_reset_tokens t on {TestSql.JsonText("o.payload", "reset_token_id")} = {TestSql.Text("t.id")} " +
-            "where t.user_id = @userId order by t.created_at desc, t.id desc limit 1", new { userId });
+            $"select o.payload from outbox_messages o join password_reset_tokens t on {TestDatabase.JsonText("o.payload", "reset_token_id")} = {TestDatabase.UuidText("t.id")} " +
+            $"where t.user_id = @userId order by t.created_at desc, t.id desc {TestDatabase.First}", new { userId });
         var cipher = JsonDocument.Parse(payload).RootElement.GetProperty("token_cipher").GetString()!;
         return _factory.Services.GetRequiredService<ISecretProtector>().Unprotect(PasswordResetEmail.SecretPurpose, cipher);
     }
@@ -214,19 +215,19 @@ public sealed class PasswordResetHardeningTests
 
     private static async Task ExecuteAsync(string sql, object parameters)
     {
-        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         await connection.ExecuteAsync(sql, parameters);
     }
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {
-        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 
     private static async Task<IEnumerable<T>> QueryAsync<T>(string sql, object parameters)
     {
-        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         return await connection.QueryAsync<T>(sql, parameters);
     }
 }

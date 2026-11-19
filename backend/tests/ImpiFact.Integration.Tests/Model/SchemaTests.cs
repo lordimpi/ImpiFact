@@ -1,25 +1,22 @@
 namespace ImpiFact.Integration.Tests.Model;
 
 /// <summary>
-/// Compara el esquema físico que crea PostgreSQL con «Modelo de datos detallado» (secciones 2, 3, 6 y 7; criterio
-/// 2 de la sección 11): tablas, columnas con tipo y nulabilidad, precisión de cada decimal, llaves, únicos,
-/// índices, restricciones de verificación y llaves foráneas.
+/// Compara el esquema físico que crea el motor de las pruebas (PostgreSQL, SQL Server o MySQL) con «Modelo de datos
+/// detallado» (secciones 2, 3, 6, 7 y 8; criterio 2 de la sección 11): tablas, columnas con tipo y nulabilidad,
+/// precisión de cada decimal, llaves, únicos, índices, restricciones de verificación y llaves foráneas.
 /// </summary>
 /// <remarks>
 /// Las columnas se escriben como en el documento: <c>nombre tipo [null]</c>, con los tipos lógicos de su sección 2
-/// (<c>ts</c> es un instante UTC, <c>json</c> es <c>jsonb</c> en PostgreSQL).
+/// (<c>ts</c> es un instante UTC, <c>json</c> es <c>jsonb</c> en PostgreSQL y <c>nvarchar(max)</c> con <c>ISJSON</c> en SQL
+/// Server, <c>varchar</c> es <c>nvarchar</c> en SQL Server). Cada motor lee su catálogo con su <see cref="Catalog"/>.
 /// </remarks>
 [TestFixture]
 [Category("Integration")]
-public sealed class SchemaTests
+public sealed partial class SchemaTests
 {
-    // Lee el catálogo de PostgreSQL (pg_*); MySqlSchemaTests revisa el mismo modelo en MySQL con information_schema.
-    [SetUp]
-    public void OnlyOnPostgres() => TestDatabase.RequirePostgres("reads pg_catalog; MySqlSchemaTests checks the same model on MySQL.");
+    private const string Common = "created_at ts|updated_at ts|row_version bigint";
 
-    internal const string Common = "created_at ts|updated_at ts|row_version bigint";
-
-    internal static readonly string[] ModelTables =
+    private static readonly string[] ModelTables =
     [
         .. CatalogSeedTests.CatalogTables,
         "resellers", "users", "roles", "user_roles", "user_companies", "api_keys", "refresh_tokens", "password_reset_tokens",
@@ -35,9 +32,9 @@ public sealed class SchemaTests
 
     /// <summary>Tablas que mapea otro módulo en el mismo contexto (Data Protection) y que esta prueba no describe.</summary>
     // data_protection_keys es de Protection; __EFMigrationsHistory es la tabla donde EF anota las migraciones aplicadas.
-    internal static readonly string[] OtherModuleTables = ["data_protection_keys", "__EFMigrationsHistory"];
+    private static readonly string[] OtherModuleTables = ["data_protection_keys", "__EFMigrationsHistory"];
 
-    internal static readonly Dictionary<string, string> Columns = new(StringComparer.Ordinal)
+    private static readonly Dictionary<string, string> Columns = new(StringComparer.Ordinal)
     {
         ["type_documents"] = "id int|code varchar(20)|name varchar(255)|is_active bool|valid_from date null|valid_to date null|" +
             "cufe_algorithm varchar(16) null|prefix varchar(10) null",
@@ -122,7 +119,7 @@ public sealed class SchemaTests
     };
 
     /// <summary>Todas las columnas decimales del modelo: importes (18,2), precios y cantidades (18,6), porcentajes (9,4).</summary>
-    internal static readonly string[] Decimals =
+    private static readonly string[] Decimals =
     [
         "documents.exchange_rate numeric(18,6)", "documents.line_extension_amount numeric(18,2)",
         "documents.tax_exclusive_amount numeric(18,2)", "documents.tax_inclusive_amount numeric(18,2)",
@@ -142,7 +139,7 @@ public sealed class SchemaTests
     ];
 
     /// <summary>Llaves primarias que no son <c>id</c>.</summary>
-    internal static readonly string[] CompositePrimaryKeys =
+    private static readonly string[] CompositePrimaryKeys =
     [
         "user_roles(user_id,role_id)", "company_liabilities(company_id,type_liability_id)",
         "plan_quotas(plan_id,document_kind)", "plan_usage(company_plan_id,document_kind)",
@@ -153,7 +150,7 @@ public sealed class SchemaTests
     /// Todos los únicos (UQ) del modelo, salvo las llaves primarias: <c>tabla(columnas) [where filtro]</c>. Cada
     /// uno aparece una sola vez: un único declarado dos veces (llave alterna e índice) haría fallar la prueba.
     /// </summary>
-    internal static readonly string[] UniqueConstraints =
+    private static readonly string[] UniqueConstraints =
     [
         .. CatalogSeedTests.CatalogTables
             .Except(["countries", "languages", "unit_measures", "type_operations", "municipalities"])
@@ -176,7 +173,7 @@ public sealed class SchemaTests
     ];
 
     /// <summary>Índices con el nombre que fija el modelo (secciones 3.3, 3.5 y 6): <c>nombre: definición</c>.</summary>
-    internal static readonly string[] NamedIndexes =
+    private static readonly string[] NamedIndexes =
     [
         "ux_certificates_active: unique certificates(company_id) where is_active",
         "ix_certificates_not_after: certificates(not_after)",
@@ -189,7 +186,7 @@ public sealed class SchemaTests
     ];
 
     /// <summary>Los demás índices (IX) que pide el modelo, sin nombre propio.</summary>
-    internal static readonly string[] Indexes =
+    private static readonly string[] Indexes =
     [
         "countries(code)", "languages(code)", "unit_measures(code)", "type_operations(code)",
         "api_keys(company_id,revoked_at)",
@@ -202,42 +199,21 @@ public sealed class SchemaTests
         "notifications(company_id,user_id,is_read,created_at desc)", "idempotency_keys(expires_at)",
     ];
 
-    internal static readonly string[] CheckConstraints =
+    private static readonly string[] CheckConstraints =
     [
         "resolutions.ck_resolutions_range", "document_events.ck_document_events_target",
     ];
 
-    /// <summary>Valores por defecto que fija el modelo, como los escribe PostgreSQL.</summary>
-    private static readonly string[] Defaults =
-    [
-        "type_documents.is_active true", "companies.is_active true", "companies.allow_seller_login false",
-        "companies.graphic_representation_template 2", "customers.is_active true", "items.is_active true",
-        "resellers.is_active true", "documents.prefix ''::character varying", "documents.allowance_total_amount 0.0",
-        "documents.charge_total_amount 0.0", "documents.prepaid_amount 0.0", "documents.email_status 0",
-        "received_documents.prefix ''::character varying", "document_files.revision 1", "plans.period 0",
-        "plan_usage.used 0", "outbox_messages.status 0", "outbox_messages.attempts 0", "notifications.is_read false",
-    ];
-
-    private const string IndexQuery = """
-        select t.relname as "Table", i.relname as "Name", ix.indisunique as "IsUnique", ix.indisprimary as "IsPrimary",
-               array_to_string(array(
-                   select a.attname || case when ix.indoption[k.ord - 1] & 1 = 1 then ' desc' else '' end
-                   from unnest(ix.indkey::int2[]) with ordinality as k(attnum, ord)
-                   join pg_attribute a on a.attrelid = t.oid and a.attnum = k.attnum
-                   order by k.ord), ',') as "Columns",
-               pg_get_expr(ix.indpred, ix.indrelid) as "Predicate"
-        from pg_index ix
-        join pg_class i on i.oid = ix.indexrelid
-        join pg_class t on t.oid = ix.indrelid
-        join pg_namespace n on n.oid = t.relnamespace
-        where n.nspname = 'public'
-        """;
+    /// <summary>Consultas al catálogo del motor con que corren las pruebas.</summary>
+    private static readonly Catalog Schema =
+        TestDatabase.IsSqlServer ? new SqlServerCatalog() : TestDatabase.IsMySql ? new MySqlCatalog() : new PostgresCatalog();
 
     [Test]
     public async Task The_schema_has_exactly_the_model_tables()
     {
         var tables = await Sql.QueryAsync<string>(
-            "select table_name from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'");
+            "select table_name from information_schema.tables where table_schema = @schema and table_type = 'BASE TABLE'",
+            new { schema = TestDatabase.DefaultSchema });
 
         Assert.That(tables.Except(OtherModuleTables), Is.EquivalentTo(ModelTables));
     }
@@ -245,11 +221,7 @@ public sealed class SchemaTests
     [TestCaseSource(nameof(ColumnTables))]
     public async Task Columns_match_the_data_model(string table)
     {
-        var columns = await Sql.QueryAsync<ColumnInfo>(
-            "select column_name as \"Name\", data_type as \"DataType\", character_maximum_length as \"Length\", " +
-            "numeric_precision as \"Precision\", numeric_scale as \"Scale\", is_nullable = 'YES' as \"IsNullable\" " +
-            "from information_schema.columns where table_schema = 'public' and table_name = @table",
-            new { table });
+        var columns = await Sql.QueryAsync<ColumnInfo>(Schema.ColumnsQuery + " and table_name = @table", new { table });
 
         Assert.That(columns.Select(column => column.Describe()), Is.EquivalentTo(Columns[table].Split('|')));
     }
@@ -257,25 +229,22 @@ public sealed class SchemaTests
     [Test]
     public async Task Every_decimal_column_has_the_precision_of_its_kind()
     {
-        var columns = await Sql.QueryAsync<ColumnInfo>(
-            "select table_name || '.' || column_name as \"Name\", data_type as \"DataType\", numeric_precision as \"Precision\", " +
-            "numeric_scale as \"Scale\" from information_schema.columns where table_schema = 'public' and data_type = 'numeric'");
+        var columns = await Sql.QueryAsync<ColumnInfo>(Schema.ColumnsQuery + " and data_type in ('numeric', 'decimal')");
 
-        Assert.That(columns.Select(column => column.Describe()), Is.EquivalentTo(Decimals));
+        Assert.That(columns.Select(column => $"{column.Table}.{(column with { IsNullable = false }).Describe()}"), Is.EquivalentTo(Decimals));
     }
 
     [Test]
     public async Task Every_table_with_company_id_has_the_common_tenant_columns()
     {
-        var columns = await Sql.QueryAsync<(string Table, string Column, bool IsNullable)>(
-            "select table_name, column_name, is_nullable = 'YES' from information_schema.columns where table_schema = 'public'");
+        var columns = await Sql.QueryAsync<ColumnInfo>(Schema.ColumnsQuery);
         var byTable = columns.GroupBy(column => column.Table).ToDictionary(group => group.Key, group => group.ToList());
         var platformTables = new[] { "api_keys", "outbox_messages", "audit_logs" };
 
         var missing = byTable
-            .Where(table => table.Value.Any(column => column.Column == "company_id") && !platformTables.Contains(table.Key))
+            .Where(table => table.Value.Any(column => column.Name == "company_id") && !platformTables.Contains(table.Key))
             .SelectMany(table => new[] { "company_id", "created_at", "updated_at", "row_version" }
-                .Where(required => !table.Value.Any(column => column.Column == required && !column.IsNullable))
+                .Where(required => !table.Value.Any(column => column.Name == required && !column.IsNullable))
                 .Select(required => $"{table.Key}.{required}"));
 
         Assert.That(missing, Is.Empty);
@@ -284,8 +253,8 @@ public sealed class SchemaTests
     [Test]
     public async Task Composite_primary_keys_match_the_data_model()
     {
-        var keys = await Sql.QueryAsync<IndexInfo>(IndexQuery + " and ix.indisprimary and t.relname = any(@tables)",
-            new { tables = CompositePrimaryKeys.Select(key => key[..key.IndexOf('(', StringComparison.Ordinal)]).ToArray() });
+        var tables = CompositePrimaryKeys.Select(key => key[..key.IndexOf('(', StringComparison.Ordinal)]).ToHashSet(StringComparer.Ordinal);
+        var keys = (await Schema.IndexesAsync()).Where(index => index.IsPrimary && tables.Contains(index.Table));
 
         Assert.That(keys.Select(key => key.Describe()), Is.EquivalentTo(CompositePrimaryKeys));
     }
@@ -293,25 +262,25 @@ public sealed class SchemaTests
     [Test]
     public async Task Unique_constraints_match_the_data_model_and_none_is_declared_twice()
     {
-        var unique = await Sql.QueryAsync<IndexInfo>(IndexQuery + " and ix.indisunique and not ix.indisprimary");
+        var unique = (await Schema.IndexesAsync()).Where(index => index.IsUnique && !index.IsPrimary);
         var modelUnique = unique.Where(index => !OtherModuleTables.Contains(index.Table)).Select(index => index.Describe());
 
-        Assert.That(modelUnique, Is.EquivalentTo(UniqueConstraints));
+        Assert.That(modelUnique, Is.EquivalentTo(UniqueConstraints.Select(Schema.Expected)));
     }
 
     [Test]
     public async Task Indexes_named_by_the_data_model_exist_with_their_definition()
     {
-        var indexes = await Sql.QueryAsync<IndexInfo>(IndexQuery);
+        var indexes = await Schema.IndexesAsync();
         var named = indexes.Select(index => $"{index.Name}: {(index.IsUnique ? "unique " : "")}{index.Describe()}");
 
-        Assert.That(named, Is.SupersetOf(NamedIndexes));
+        Assert.That(named, Is.SupersetOf(NamedIndexes.Select(Schema.Expected)));
     }
 
     [Test]
     public async Task Other_indexes_of_the_data_model_exist()
     {
-        var indexes = await Sql.QueryAsync<IndexInfo>(IndexQuery + " and not ix.indisunique");
+        var indexes = (await Schema.IndexesAsync()).Where(index => !index.IsUnique);
 
         Assert.That(indexes.Select(index => index.Describe()), Is.SupersetOf(Indexes));
     }
@@ -319,10 +288,7 @@ public sealed class SchemaTests
     [Test]
     public async Task Index_and_constraint_names_are_prefixed_unique_and_fit_in_63_characters()
     {
-        var names = await Sql.QueryAsync<string>(
-            "select conname from pg_constraint c join pg_namespace n on n.oid = c.connamespace where n.nspname = 'public' and c.contype <> 'n' " +
-            "union all select i.relname from pg_index ix join pg_class i on i.oid = ix.indexrelid join pg_namespace n on " +
-            "n.oid = i.relnamespace where n.nspname = 'public' and not exists (select 1 from pg_constraint c where c.conindid = ix.indexrelid)");
+        var names = await Sql.QueryAsync<string>(Schema.ConstraintAndIndexNamesQuery);
 
         // La llave primaria de la tabla de historial de EF la nombra EF, no la convención de ImpiFact.
         names = names.Where(name => name != "PK___EFMigrationsHistory").ToList();
@@ -337,21 +303,25 @@ public sealed class SchemaTests
         });
     }
 
+    // SQL Server además valida cada columna JSON con ISJSON (no tiene tipo JSON): una restricción por columna json del modelo.
     [Test]
     public async Task Check_constraints_of_the_data_model_exist()
     {
-        var checks = await Sql.QueryAsync<string>(
-            "select t.relname || '.' || c.conname from pg_constraint c join pg_class t on t.oid = c.conrelid " +
-            "join pg_namespace n on n.oid = t.relnamespace where n.nspname = 'public' and c.contype = 'c'");
+        var checks = await Sql.QueryAsync<string>(Schema.CheckConstraintsQuery);
+        var jsonChecks = TestDatabase.IsSqlServer
+            ? Columns.SelectMany(table => table.Value.Split('|')
+                .Select(column => column.Split(' '))
+                .Where(column => column[1] == "json")
+                .Select(column => $"{table.Key}.ck_{table.Key}_{column[0]}_json"))
+            : [];
 
-        Assert.That(checks, Is.EquivalentTo(CheckConstraints));
+        Assert.That(checks, Is.EquivalentTo(CheckConstraints.Concat(jsonChecks)));
     }
 
     [Test]
     public async Task No_foreign_key_deletes_in_cascade()
     {
-        var cascades = await Sql.QueryAsync<string>(
-            "select conname from pg_constraint where contype = 'f' and confdeltype in ('c', 'n', 'd')");
+        var cascades = await Sql.QueryAsync<string>(Schema.CascadingForeignKeysQuery);
 
         Assert.That(cascades, Is.Empty);
     }
@@ -359,14 +329,7 @@ public sealed class SchemaTests
     [Test]
     public async Task Tenant_references_are_composite_foreign_keys()
     {
-        var foreignKeys = await Sql.QueryAsync<string>("""
-            select t.relname || '(' || array_to_string(array(
-                       select a.attname from unnest(c.conkey) with ordinality as k(attnum, ord)
-                       join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k.attnum order by k.ord), ',')
-                   || ')->' || p.relname
-            from pg_constraint c join pg_class t on t.oid = c.conrelid join pg_class p on p.oid = c.confrelid
-            where c.contype = 'f' and array_length(c.conkey, 1) = 2
-            """);
+        var foreignKeys = await Sql.QueryAsync<string>(Schema.TwoColumnForeignKeysQuery);
 
         Assert.That(foreignKeys, Is.EquivalentTo(new[]
         {
@@ -390,40 +353,58 @@ public sealed class SchemaTests
     [Test]
     public async Task Defaults_match_the_data_model()
     {
-        var defaults = await Sql.QueryAsync<string>(
-            "select table_name || '.' || column_name || ' ' || column_default from information_schema.columns " +
-            "where table_schema = 'public' and column_default is not null");
+        var defaults = await Sql.QueryAsync<string>(Schema.DefaultsQuery);
 
-        Assert.That(defaults, Is.SupersetOf(Defaults));
+        Assert.That(defaults, Is.SupersetOf(Schema.Defaults));
+    }
+
+    // MySQL no tiene índices parciales: el único certificado activo por empresa sale de una columna generada.
+    [Test]
+    public async Task On_mysql_the_single_active_certificate_is_a_unique_index_on_a_generated_column()
+    {
+        Assume.That(TestDatabase.IsMySql, "Only MySQL lacks partial indexes.");
+
+        var columns = await Sql.QueryAsync<(string Table, string Column, string Expression)>(
+            "select table_name, column_name, generation_expression from information_schema.columns " +
+            "where table_schema = database() and extra like '%GENERATED%'");
+
+        Assert.That(columns, Is.EqualTo(new[] { ("certificates", "active_company_id", "(case when `is_active` then `company_id` end)") }));
     }
 
     public static IEnumerable<string> ColumnTables() => Columns.Keys;
 
-    /// <summary>Una columna de <c>information_schema.columns</c>.</summary>
-    public sealed record ColumnInfo(string Name, string DataType, int? Length, int? Precision, int? Scale, bool IsNullable)
+    /// <summary>
+    /// Una columna de <c>information_schema.columns</c>, con el tipo lógico del documento. En SQL Server una columna JSON
+    /// es <c>nvarchar(max)</c> con su restricción <c>ISJSON</c> (<see cref="IsJson"/>).
+    /// </summary>
+    public sealed record ColumnInfo(string Table, string Name, string DataType, int? Length, int? Precision, int? Scale, bool IsNullable)
     {
         public ColumnInfo()
-            : this("", "", null, null, null, false)
+            : this("", "", "", null, null, null, false)
         {
         }
+
+        public bool IsJson { get; init; }
 
         public string Describe() => $"{Name} {Type()}{(IsNullable ? " null" : "")}";
 
         private string Type() => DataType switch
         {
-            "character varying" => $"varchar({Length})",
-            "character" => $"char({Length})",
-            "numeric" => $"numeric({Precision},{Scale})",
+            "nvarchar" when Length == -1 => IsJson ? "json" : "text",
+            "character varying" or "nvarchar" => $"varchar({Length})",
+            "character" or "nchar" => $"char({Length})",
+            "numeric" or "decimal" => $"numeric({Precision},{Scale})",
             "integer" => "int",
-            "boolean" => "bool",
-            "timestamp with time zone" => "ts",
+            "boolean" or "bit" => "bool",
+            "timestamp with time zone" or "datetimeoffset" => "ts",
             "time without time zone" => "time",
             "jsonb" => "json",
+            "uniqueidentifier" => "uuid",
             _ => DataType,
         };
     }
 
-    /// <summary>Un índice de <c>pg_index</c>, descrito como <c>tabla(columnas) [where filtro]</c>.</summary>
+    /// <summary>Un índice del catálogo, descrito como <c>tabla(columnas) [where filtro]</c>.</summary>
     public sealed record IndexInfo(string Table, string Name, bool IsUnique, bool IsPrimary, string Columns, string? Predicate)
     {
         public IndexInfo()
@@ -432,5 +413,253 @@ public sealed class SchemaTests
         }
 
         public string Describe() => $"{Table}({Columns}){(Predicate is null ? "" : " where " + Predicate)}";
+    }
+
+    /// <summary>Las consultas al catálogo de un motor, que devuelven lo mismo con los nombres y tipos del documento.</summary>
+    private abstract class Catalog
+    {
+        /// <summary>Columnas de las tablas del modelo como <see cref="ColumnInfo"/>; se le agregan condiciones con <c>and</c>.</summary>
+        public abstract string ColumnsQuery { get; }
+
+        public abstract string ConstraintAndIndexNamesQuery { get; }
+
+        /// <summary>Restricciones de verificación como <c>tabla.nombre</c>.</summary>
+        public abstract string CheckConstraintsQuery { get; }
+
+        /// <summary>Llaves foráneas que borran, anulan o ponen el valor por defecto en cascada.</summary>
+        public abstract string CascadingForeignKeysQuery { get; }
+
+        /// <summary>Llaves foráneas de dos columnas como <c>tabla(columnas)->padre</c>.</summary>
+        public abstract string TwoColumnForeignKeysQuery { get; }
+
+        /// <summary>Valores por defecto como <c>tabla.columna valor</c>.</summary>
+        public abstract string DefaultsQuery { get; }
+
+        /// <summary>Valores por defecto que fija el modelo, como los escribe el motor.</summary>
+        public abstract string[] Defaults { get; }
+
+        public abstract Task<List<IndexInfo>> IndexesAsync();
+
+        /// <summary>Un índice del documento como lo deja el motor (en MySQL, sin filtro).</summary>
+        public virtual string Expected(string definition) => definition;
+    }
+
+    private sealed class PostgresCatalog : Catalog
+    {
+        private const string IndexQuery = """
+            select t.relname as "Table", i.relname as "Name", ix.indisunique as "IsUnique", ix.indisprimary as "IsPrimary",
+                   array_to_string(array(
+                       select a.attname || case when ix.indoption[k.ord - 1] & 1 = 1 then ' desc' else '' end
+                       from unnest(ix.indkey::int2[]) with ordinality as k(attnum, ord)
+                       join pg_attribute a on a.attrelid = t.oid and a.attnum = k.attnum
+                       order by k.ord), ',') as "Columns",
+                   pg_get_expr(ix.indpred, ix.indrelid) as "Predicate"
+            from pg_index ix
+            join pg_class i on i.oid = ix.indexrelid
+            join pg_class t on t.oid = ix.indrelid
+            join pg_namespace n on n.oid = t.relnamespace
+            where n.nspname = 'public'
+            """;
+
+        public override string ColumnsQuery =>
+            "select table_name as \"Table\", column_name as \"Name\", data_type as \"DataType\", character_maximum_length as \"Length\", " +
+            "numeric_precision as \"Precision\", numeric_scale as \"Scale\", is_nullable = 'YES' as \"IsNullable\" " +
+            "from information_schema.columns where table_schema = 'public'";
+
+        public override string ConstraintAndIndexNamesQuery =>
+            "select conname from pg_constraint c join pg_namespace n on n.oid = c.connamespace where n.nspname = 'public' and c.contype <> 'n' " +
+            "union all select i.relname from pg_index ix join pg_class i on i.oid = ix.indexrelid join pg_namespace n on " +
+            "n.oid = i.relnamespace where n.nspname = 'public' and not exists (select 1 from pg_constraint c where c.conindid = ix.indexrelid)";
+
+        public override string CheckConstraintsQuery =>
+            "select t.relname || '.' || c.conname from pg_constraint c join pg_class t on t.oid = c.conrelid " +
+            "join pg_namespace n on n.oid = t.relnamespace where n.nspname = 'public' and c.contype = 'c'";
+
+        public override string CascadingForeignKeysQuery =>
+            "select conname from pg_constraint where contype = 'f' and confdeltype in ('c', 'n', 'd')";
+
+        public override string TwoColumnForeignKeysQuery => """
+            select t.relname || '(' || array_to_string(array(
+                       select a.attname from unnest(c.conkey) with ordinality as k(attnum, ord)
+                       join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k.attnum order by k.ord), ',')
+                   || ')->' || p.relname
+            from pg_constraint c join pg_class t on t.oid = c.conrelid join pg_class p on p.oid = c.confrelid
+            where c.contype = 'f' and array_length(c.conkey, 1) = 2
+            """;
+
+        public override string DefaultsQuery =>
+            "select table_name || '.' || column_name || ' ' || column_default from information_schema.columns " +
+            "where table_schema = 'public' and column_default is not null";
+
+        public override string[] Defaults =>
+        [
+            "type_documents.is_active true", "companies.is_active true", "companies.allow_seller_login false",
+            "companies.graphic_representation_template 2", "customers.is_active true", "items.is_active true",
+            "resellers.is_active true", "documents.prefix ''::character varying", "documents.allowance_total_amount 0.0",
+            "documents.charge_total_amount 0.0", "documents.prepaid_amount 0.0", "documents.email_status 0",
+            "received_documents.prefix ''::character varying", "document_files.revision 1", "plans.period 0",
+            "plan_usage.used 0", "outbox_messages.status 0", "outbox_messages.attempts 0", "notifications.is_read false",
+        ];
+
+        public override Task<List<IndexInfo>> IndexesAsync() => Sql.QueryAsync<IndexInfo>(IndexQuery);
+    }
+
+    /// <summary>
+    /// El catálogo de MySQL (<c>information_schema</c>, donde el esquema es la base de la conexión). Los tipos se traducen
+    /// a los nombres de PostgreSQL para compararlos con el documento: <c>char(36)</c> en <c>ascii</c> es uuid,
+    /// <c>tinyint(1)</c> es bool y <c>datetime(6)</c> es ts. MySQL no tiene índices parciales (sección 8, trampa 1): el
+    /// único certificado activo por empresa es único sobre la columna generada <c>active_company_id</c> y los filtros
+    /// <c>IS NOT NULL</c> no existen (un índice único de MySQL acepta varios NULL). InnoDB además crea un índice por cada
+    /// llave foránea que no tenga uno, con el nombre de la llave, y la llave primaria siempre se llama <c>PRIMARY</c>.
+    /// </summary>
+    private sealed class MySqlCatalog : Catalog
+    {
+        private const string InSchema = "table_schema = database()";
+
+        public override string ColumnsQuery =>
+            "select table_name as `Table`, column_name as Name, " +
+            "case when column_type = 'char(36)' and character_set_name = 'ascii' then 'uniqueidentifier' " +
+            "when column_type = 'tinyint(1)' then 'boolean' when data_type = 'datetime' then 'timestamp with time zone' " +
+            "when data_type = 'time' then 'time without time zone' when data_type = 'varchar' then 'character varying' " +
+            "when data_type = 'char' then 'character' else data_type end as DataType, " +
+            // longtext mide 4294967295, que no cabe en un int (ninguna columna del documento es longtext).
+            "if(character_maximum_length > 65535, null, character_maximum_length) as Length, numeric_precision as `Precision`, " +
+            "numeric_scale as Scale, " +
+            "is_nullable = 'YES' as IsNullable " +
+            $"from information_schema.columns where {InSchema} and extra not like '%GENERATED%'";
+
+        // Un único es a la vez restricción e índice, y el índice que InnoDB crea para una llave foránea lleva su nombre.
+        public override string ConstraintAndIndexNamesQuery =>
+            $"select constraint_name from information_schema.table_constraints where {InSchema} and constraint_type <> 'PRIMARY KEY' " +
+            "union all select distinct s.index_name from information_schema.statistics s " +
+            $"where s.{InSchema} and s.index_name <> 'PRIMARY' and not exists (select 1 from information_schema.table_constraints c " +
+            "where c.table_schema = s.table_schema and c.table_name = s.table_name and c.constraint_name = s.index_name)";
+
+        public override string CheckConstraintsQuery =>
+            $"select concat(table_name, '.', constraint_name) from information_schema.table_constraints where {InSchema} and constraint_type = 'CHECK'";
+
+        public override string CascadingForeignKeysQuery =>
+            "select constraint_name from information_schema.referential_constraints " +
+            "where constraint_schema = database() and delete_rule in ('CASCADE', 'SET NULL', 'SET DEFAULT')";
+
+        public override string TwoColumnForeignKeysQuery => $"""
+            select concat(table_name, '(', group_concat(column_name order by ordinal_position separator ','), ')->', referenced_table_name)
+            from information_schema.key_column_usage
+            where {InSchema} and referenced_table_name is not null
+            group by table_name, constraint_name, referenced_table_name
+            having count(*) = 2
+            """;
+
+        public override string DefaultsQuery =>
+            $"select concat(table_name, '.', column_name, ' ', column_default) from information_schema.columns where {InSchema} and column_default is not null";
+
+        // Los mismos valores que en PostgreSQL, como los guarda MySQL (bool es 1 o 0 y el texto vacío no lleva comillas).
+        public override string[] Defaults =>
+        [
+            "type_documents.is_active 1", "companies.is_active 1", "companies.allow_seller_login 0",
+            "companies.graphic_representation_template 2", "customers.is_active 1", "items.is_active 1",
+            "resellers.is_active 1", "documents.prefix ", "documents.allowance_total_amount 0.00",
+            "documents.charge_total_amount 0.00", "documents.prepaid_amount 0.00", "documents.email_status 0",
+            "received_documents.prefix ", "document_files.revision 1", "plans.period 0",
+            "plan_usage.used 0", "outbox_messages.status 0", "outbox_messages.attempts 0", "notifications.is_read 0",
+        ];
+
+        public override async Task<List<IndexInfo>> IndexesAsync()
+        {
+            var columns = await Sql.QueryAsync<(string Table, string Name, long NonUnique, string Column, string? Collation)>(
+                "select table_name, index_name, cast(non_unique as signed), column_name, collation from information_schema.statistics " +
+                $"where {InSchema} order by table_name, index_name, seq_in_index");
+            return
+            [
+                .. columns.GroupBy(column => (column.Table, column.Name)).Select(group => new IndexInfo(
+                    group.Key.Table, group.Key.Name, group.First().NonUnique == 0, group.Key.Name == "PRIMARY",
+                    string.Join(",", group.Select(column => column.Column + (column.Collation == "D" ? " desc" : ""))), Predicate: null)),
+            ];
+        }
+
+        public override string Expected(string definition) => definition
+            .Replace("certificates(company_id) where is_active", "certificates(active_company_id)", StringComparison.Ordinal)
+            .Replace(" where (cufe IS NOT NULL)", "", StringComparison.Ordinal)
+            .Replace(" where (track_id IS NOT NULL)", "", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// El catálogo de SQL Server (<c>sys.*</c> e <c>information_schema</c>). Los filtros de los índices se escriben como
+    /// en PostgreSQL para compararlos con el documento: <c>([is_active]=(1))</c> queda <c>is_active</c> y
+    /// <c>([cufe] IS NOT NULL)</c> queda <c>(cufe IS NOT NULL)</c>.
+    /// </summary>
+    private sealed partial class SqlServerCatalog : Catalog
+    {
+        private const string IndexQuery = """
+            select t.name as [Table], i.name as [Name], i.is_unique as IsUnique, i.is_primary_key as IsPrimary,
+                   string_agg(c.name + case when ic.is_descending_key = 1 then ' desc' else '' end, ',')
+                       within group (order by ic.key_ordinal) as [Columns],
+                   i.filter_definition as Predicate
+            from sys.indexes i
+            join sys.tables t on t.object_id = i.object_id
+            join sys.index_columns ic on ic.object_id = i.object_id and ic.index_id = i.index_id and ic.is_included_column = 0
+            join sys.columns c on c.object_id = ic.object_id and c.column_id = ic.column_id
+            where i.type > 0 and schema_name(t.schema_id) = 'dbo'
+            group by t.name, i.name, i.is_unique, i.is_primary_key, i.filter_definition
+            """;
+
+        public override string ColumnsQuery =>
+            "select c.table_name as [Table], c.column_name as [Name], c.data_type as DataType, c.character_maximum_length as Length, " +
+            "cast(c.numeric_precision as int) as Precision, c.numeric_scale as Scale, " +
+            "cast(case when c.is_nullable = 'YES' then 1 else 0 end as bit) as IsNullable, " +
+            "cast(case when exists (select 1 from sys.check_constraints k where k.parent_object_id = object_id(c.table_name) " +
+            "and k.name = 'ck_' + c.table_name + '_' + c.column_name + '_json' and k.definition like '%isjson%') then 1 else 0 end as bit) as IsJson " +
+            "from information_schema.columns c where c.table_schema = 'dbo'";
+
+        public override string ConstraintAndIndexNamesQuery =>
+            "select name from sys.objects where type in ('PK', 'UQ', 'F', 'C') and schema_id = schema_id('dbo') " +
+            "union all select i.name from sys.indexes i join sys.tables t on t.object_id = i.object_id " +
+            "where i.type > 0 and i.is_primary_key = 0 and i.is_unique_constraint = 0 and schema_name(t.schema_id) = 'dbo'";
+
+        public override string CheckConstraintsQuery =>
+            "select t.name + '.' + k.name from sys.check_constraints k join sys.tables t on t.object_id = k.parent_object_id";
+
+        // 0 es NO ACTION: el borrado de la fila padre falla mientras tenga hijas.
+        public override string CascadingForeignKeysQuery => "select name from sys.foreign_keys where delete_referential_action <> 0";
+
+        public override string TwoColumnForeignKeysQuery => """
+            select t.name + '(' + string_agg(c.name, ',') within group (order by k.constraint_column_id) + ')->' + p.name
+            from sys.foreign_keys f
+            join sys.foreign_key_columns k on k.constraint_object_id = f.object_id
+            join sys.tables t on t.object_id = f.parent_object_id
+            join sys.tables p on p.object_id = f.referenced_object_id
+            join sys.columns c on c.object_id = k.parent_object_id and c.column_id = k.parent_column_id
+            group by f.object_id, t.name, p.name
+            having count(*) = 2
+            """;
+
+        public override string DefaultsQuery =>
+            "select table_name + '.' + column_name + ' ' + column_default from information_schema.columns " +
+            "where table_schema = 'dbo' and column_default is not null";
+
+        // Los mismos valores que en PostgreSQL, como los guarda SQL Server.
+        public override string[] Defaults =>
+        [
+            "type_documents.is_active (CONVERT([bit],(1)))", "companies.is_active (CONVERT([bit],(1)))",
+            "companies.allow_seller_login (CONVERT([bit],(0)))", "companies.graphic_representation_template ((2))",
+            "customers.is_active (CONVERT([bit],(1)))", "items.is_active (CONVERT([bit],(1)))",
+            "resellers.is_active (CONVERT([bit],(1)))", "documents.prefix (N'')", "documents.allowance_total_amount ((0.0))",
+            "documents.charge_total_amount ((0.0))", "documents.prepaid_amount ((0.0))", "documents.email_status (CONVERT([smallint],(0)))",
+            "received_documents.prefix (N'')", "document_files.revision ((1))", "plans.period (CONVERT([smallint],(0)))",
+            "plan_usage.used (CONVERT([bigint],(0)))", "outbox_messages.status (CONVERT([smallint],(0)))", "outbox_messages.attempts ((0))",
+            "notifications.is_read (CONVERT([bit],(0)))",
+        ];
+
+        public override async Task<List<IndexInfo>> IndexesAsync() =>
+            [.. (await Sql.QueryAsync<IndexInfo>(IndexQuery)).Select(index => index with { Predicate = Normalize(index.Predicate) })];
+
+        private static string? Normalize(string? predicate) => predicate is null
+            ? null
+            : IsTrue().Match(predicate) is { Success: true } isTrue
+                ? isTrue.Groups["column"].Value
+                : predicate.Replace("[", "", StringComparison.Ordinal).Replace("]", "", StringComparison.Ordinal);
+
+        [System.Text.RegularExpressions.GeneratedRegex(@"^\(\[(?<column>\w+)\]=\(1\)\)$")]
+        private static partial System.Text.RegularExpressions.Regex IsTrue();
     }
 }

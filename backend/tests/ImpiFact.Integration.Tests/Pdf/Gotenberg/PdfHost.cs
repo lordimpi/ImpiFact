@@ -37,7 +37,7 @@ public sealed class PdfContainers
 
     private const ushort GotenbergPort = 3000;
 
-    private static TestDatabaseContainer? postgres;
+    private static TestDatabaseServer? postgres;
     private static IContainer? gotenberg;
     private static int nitSequence;
 
@@ -51,7 +51,7 @@ public sealed class PdfContainers
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        postgres = TestDatabase.CreateContainer();
+        postgres = TestDatabase.CreateServer();
         gotenberg = new ContainerBuilder(GotenbergImage)
             .WithPortBinding(GotenbergPort, assignRandomHostPort: true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request => request.ForPort(GotenbergPort).ForPath("/health")))
@@ -244,8 +244,10 @@ public sealed class PdfHost : IAsyncDisposable
     public async Task<List<OutboxMessage>> MessagesAsync(Guid companyId, string type)
     {
         await using var scope = OpenScope();
-        return await scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>().Set<OutboxMessage>().AsNoTracking()
-            .Where(row => row.CompanyId == companyId && row.Type == type).OrderBy(row => row.CreatedAt).ThenBy(row => row.Id).ToListAsync();
+        // Ordenado aquí: SQL Server no ordena los uuid v7 por su creación (ver DianSendHost.MessagesAsync).
+        var rows = await scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>().Set<OutboxMessage>().AsNoTracking()
+            .Where(row => row.CompanyId == companyId && row.Type == type).ToListAsync();
+        return [.. rows.OrderBy(row => row.CreatedAt).ThenBy(row => row.Id)];
     }
 
     /// <summary>Contenido guardado de un archivo de documento.</summary>

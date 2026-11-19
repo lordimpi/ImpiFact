@@ -25,7 +25,7 @@ namespace ImpiFact.Integration.Tests.Scheduling;
 [Category("Integration")]
 public sealed class SchedulingEnvironment
 {
-    private static TestDatabaseContainer? database;
+    private static TestDatabaseServer? database;
     private static IContainer? mailHog;
     private static int nitSequence;
 
@@ -37,7 +37,7 @@ public sealed class SchedulingEnvironment
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        database = TestDatabase.CreateContainer();
+        database = TestDatabase.CreateServer();
         mailHog = EmailEnvironment.NewMailHog();
         await Task.WhenAll(database.StartAsync(), mailHog.StartAsync());
 

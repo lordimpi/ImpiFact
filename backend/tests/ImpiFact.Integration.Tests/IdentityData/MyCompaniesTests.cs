@@ -7,6 +7,7 @@ using ImpiFact.Domain.Identity;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace ImpiFact.Integration.Tests.IdentityData;
 
@@ -118,9 +119,15 @@ public sealed class MyCompaniesTests
     private static async Task<(Guid Id, string Nit)> AddCompanyAsync(string name, bool isActive)
     {
         var id = await IdentityDatabase.AddCompanyAsync();
-        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
-        await connection.ExecuteAsync("update companies set name = @name, is_active = @isActive where id = @id", new { id, name, isActive });
-        var nit = await connection.QuerySingleAsync<string>("select identification_number from companies where id = @id", new { id });
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
+        // MySQL no tiene RETURNING: el UPDATE y el SELECT van en el mismo comando.
+        var nit = await connection.QuerySingleAsync<string>(
+            TestDatabase.IsSqlServer
+                ? "update companies set name = @name, is_active = @isActive output inserted.identification_number where id = @id"
+                : TestDatabase.IsMySql
+                    ? "update companies set name = @name, is_active = @isActive where id = @id; select identification_number from companies where id = @id"
+                    : "update companies set name = @name, is_active = @isActive where id = @id returning identification_number",
+            new { id, name, isActive });
         return (id, nit);
     }
 
@@ -134,7 +141,7 @@ public sealed class MyCompaniesTests
 
     private static async Task<string> EmailOfAsync(Guid userId)
     {
-        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<string>("select email from users where id = @userId", new { userId });
     }
 

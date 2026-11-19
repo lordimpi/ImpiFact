@@ -39,7 +39,7 @@ public sealed class MinioStorage
     public const string Bucket = "impifact-tests";
 
     private static MinioContainer? minio;
-    private static TestDatabaseContainer? postgres;
+    private static TestDatabaseServer? postgres;
     private static ServiceProvider? services;
     private static AmazonS3Client? client;
     private static int nitSequence;
@@ -70,7 +70,7 @@ public sealed class MinioStorage
         // Llave de cifrado de MinIO solo para esta corrida: «nombre:base64 de 32 bytes».
         var kmsKey = "impifact-tests:" + Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
         minio = new MinioBuilder(Image).WithEnvironment("MINIO_KMS_SECRET_KEY", kmsKey).Build();
-        postgres = TestDatabase.CreateContainer();
+        postgres = TestDatabase.CreateServer();
         await Task.WhenAll(minio.StartAsync(), postgres.StartAsync());
 
         client = new AmazonS3Client(Credentials, new AmazonS3Config { ServiceURL = ServiceUrl, ForcePathStyle = true, AuthenticationRegion = "us-east-1" });

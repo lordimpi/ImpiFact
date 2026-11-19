@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ImpiFact.Integration.Tests.Protection.DataProtection;
 
 /// <summary>
-/// Levanta un PostgreSQL desechable en Docker para las pruebas de Data Protection (el sistema de ASP.NET Core
+/// Levanta una base desechable en Docker (del motor de TestDatabase) para las pruebas de Data Protection (el sistema de ASP.NET Core
 /// que cifra datos con llaves que él mismo crea y rota). Cada prueba pide su propia base vacía con
 /// <see cref="CreateDatabaseAsync"/>, así las llaves de una prueba no se mezclan con las de otra.
 /// </summary>
@@ -13,12 +13,12 @@ namespace ImpiFact.Integration.Tests.Protection.DataProtection;
 [Category("Integration")]
 public sealed class KeysDatabase
 {
-    private static TestDatabaseContainer? container;
+    private static TestDatabaseServer? container;
 
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = TestDatabase.CreateContainer();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
     }
 
@@ -37,10 +37,12 @@ public sealed class KeysDatabase
     /// </summary>
     public static async Task<string> CreateDatabaseAsync()
     {
-        var admin = container?.GetConnectionString() ?? throw new InvalidOperationException("The database container is not running.");
-        var connectionString = await TestDatabase.CreateDatabaseAsync(admin, "keys_" + Guid.NewGuid().ToString("N"));
-        var options = TestDatabase.ContextOptions<KeysOnlyDbContext>(connectionString);
-        await using var context = new KeysOnlyDbContext(options);
+        var server = container ?? throw new InvalidOperationException("The database server is not running.");
+        var name = "keys_" + Guid.NewGuid().ToString("N");
+        await server.CreateDatabaseAsync(name);
+
+        var connectionString = server.ConnectionStringFor(name);
+        await using var context = new KeysOnlyDbContext(TestDatabase.ContextOptions<KeysOnlyDbContext>(connectionString));
         await context.Database.EnsureCreatedAsync();
         return connectionString;
     }

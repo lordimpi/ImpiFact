@@ -19,12 +19,12 @@ namespace ImpiFact.Integration.Tests.Observability;
 [Category("Integration")]
 public sealed class ReadinessTests
 {
-    private TestDatabaseContainer container = null!;
+    private TestDatabaseServer container = null!;
 
     [OneTimeSetUp]
     public async Task StartDatabaseAsync()
     {
-        container = TestDatabase.CreateContainer();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
     }
 

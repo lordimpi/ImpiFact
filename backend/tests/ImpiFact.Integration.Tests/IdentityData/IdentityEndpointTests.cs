@@ -6,6 +6,7 @@ using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Domain.Identity;
 using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Integration.Tests.Identity;
+using Npgsql;
 
 namespace ImpiFact.Integration.Tests.IdentityData;
 
@@ -97,7 +98,7 @@ public sealed class IdentityEndpointTests
         var rotated = await ReadAsync(rotatedResponse);
         var replacement = rotated.GetProperty("refresh_token").GetString()!;
         var oldRow = await QuerySingleAsync<(DateTime? RevokedAt, Guid? ReplacedBy)>(
-            "select revoked_at, replaced_by from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(original) });
+            $"select {TestDatabase.Utc("revoked_at")}, replaced_by from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(original) });
         var newId = await QuerySingleAsync<Guid>("select id from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(replacement) });
         // El reemplazo se usa: así el token viejo que vuelve ya no puede ser una respuesta perdida (período de gracia),
         // es un reúso.
@@ -140,7 +141,7 @@ public sealed class IdentityEndpointTests
         var whoAmI = await withKey.GetFromJsonAsync<TestEndpoints.WhoAmI>("/test/whoami");
         using var revoked = await owner.DeleteAsync($"/api/v1/api-keys/{id}");
         using var afterRevocation = await withKey.GetAsync("/test/whoami");
-        var revokedAt = await QuerySingleAsync<DateTime?>("select revoked_at from api_keys where id = @id", new { id });
+        var revokedAt = await QuerySingleAsync<DateTime?>($"select {TestDatabase.Utc("revoked_at")} from api_keys where id = @id", new { id });
 
         Assert.Multiple(() =>
         {
@@ -348,7 +349,7 @@ public sealed class IdentityEndpointTests
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {
-        await using var connection = TestDatabase.CreateConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 }
