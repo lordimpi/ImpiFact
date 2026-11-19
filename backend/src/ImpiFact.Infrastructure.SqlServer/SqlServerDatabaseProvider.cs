@@ -11,6 +11,8 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 namespace ImpiFact.Infrastructure.SqlServer;
 
@@ -43,6 +45,15 @@ public sealed class SqlServerDatabaseProvider : IDatabaseProvider
 
     public bool IsUniqueViolation(DbUpdateException exception) =>
         exception.InnerException is SqlException sql && UniqueViolationNumbers.Contains(sql.Number);
+
+    /// <summary>
+    /// SqlClient no tiene una fuente de trazas propia (como la de Npgsql): la instrumentación de OpenTelemetry (paquete
+    /// estable) escucha sus eventos de diagnóstico y crea un tramo por comando, sin los valores de los parámetros.
+    /// </summary>
+    public void ConfigureTracing(TracerProviderBuilder tracing) => tracing.AddSqlClientInstrumentation();
+
+    /// <summary>La misma instrumentación mide la duración de cada comando (<c>db.client.operation.duration</c>).</summary>
+    public void ConfigureMetrics(MeterProviderBuilder metrics) => metrics.AddSqlClientInstrumentation();
 
     /// <summary>
     /// Ajustes comunes a la aplicación y a las herramientas de EF (ver <see cref="DesignTimeDbContextFactory"/>): las

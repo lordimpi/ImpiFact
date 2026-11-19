@@ -3,7 +3,11 @@ using System.Net.Http;
 using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Application.Abstractions.Observability;
 using ImpiFact.Domain.Documents;
+using ImpiFact.Infrastructure.Observability;
 using ImpiFact.Integration.Tests.Observability;
+using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry;
+using OpenTelemetry.Trace;
 
 namespace ImpiFact.Integration.Tests.DianSend;
 
@@ -123,27 +127,25 @@ public sealed class BusinessMetricsTests
         });
     }
 
+    // Las trazas de la base las aporta el motor (IDatabaseProvider.ConfigureTracing): la fuente propia de Npgsql en
+    // PostgreSQL, la instrumentación de SqlClient en SQL Server. AddInfrastructure las suma al TracerProvider del host, así
+    // aquí el host de prueba solo agrega la fuente de ImpiFact, como AddImpiFactObservability.
     [Test]
     public async Task Each_outbox_message_is_one_trace_span_that_contains_its_database_commands()
     {
-        await using var host = await DianSendHost.StartAsync();
+        var stopped = new System.Collections.Concurrent.ConcurrentQueue<Activity>();
+        await using var host = await DianSendHost.StartAsync(configureServices: services => services.AddOpenTelemetry()
+            .WithTracing(tracing => tracing.AddSource(ImpiFactActivities.SourceName).AddProcessor(new StoppedActivities(stopped))));
+        using var tracer = host.Services.GetRequiredService<TracerProvider>();
         var issuer = await host.CreateIssuerAsync();
         await host.CreateDocumentAsync(issuer);
         var message = (await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.SendDocumentToDian)).Single();
         host.Dian.Reply(DianReplies.SendBillSync(true, "00"));
-        var stopped = new System.Collections.Concurrent.ConcurrentQueue<Activity>();
-        using var listener = new ActivityListener
-        {
-            ShouldListenTo = source => source.Name is "ImpiFact" or "Npgsql",
-            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStopped = stopped.Enqueue,
-        };
-        ActivitySource.AddActivityListener(listener);
 
         await host.RunOutboxAsync();
 
         var span = stopped.Single(activity => activity.GetTagItem("messaging.message.id") as string == message.Id.ToString());
-        var commands = stopped.Where(activity => activity.Source.Name == "Npgsql" && activity.TraceId == span.TraceId).ToList();
+        var commands = stopped.Where(activity => activity.Source.Name != ImpiFactActivities.SourceName && activity.TraceId == span.TraceId).ToList();
         Assert.Multiple(() =>
         {
             Assert.That(span.DisplayName, Is.EqualTo("outbox SendDocumentToDian"));
@@ -151,8 +153,15 @@ public sealed class BusinessMetricsTests
             Assert.That(span.GetTagItem("messaging.destination.name"), Is.EqualTo(OutboxMessageTypes.SendDocumentToDian));
             // La DIAN falsa reemplaza el manejador HTTP real, que es el que crea los tramos HTTP; los de la base sí están.
             Assert.That(commands, Is.Not.Empty, "The handler's database commands belong to the trace of the message.");
+            Assert.That(commands.Select(activity => activity.Kind), Has.All.EqualTo(ActivityKind.Client));
             Assert.That(commands.Select(activity => activity.ParentSpanId), Has.All.Not.EqualTo(default(ActivitySpanId)));
         });
+    }
+
+    /// <summary>Guarda cada tramo terminado, en el orden en que terminan.</summary>
+    private sealed class StoppedActivities(System.Collections.Concurrent.ConcurrentQueue<Activity> stopped) : BaseProcessor<Activity>
+    {
+        public override void OnEnd(Activity data) => stopped.Enqueue(data);
     }
 
     private static void AssertNoIdentifyingTags(MetricRecorder metrics, TestIssuer issuer, Guid documentId)

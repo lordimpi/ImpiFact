@@ -20,6 +20,8 @@ using ImpiFact.Infrastructure.Time;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 namespace ImpiFact.Infrastructure;
 
@@ -53,6 +55,10 @@ public static class InfrastructureServiceCollectionExtensions
         var provider = SelectProvider(configuration, providers);
         services.AddSingleton(provider);
         provider.AddServices(services);
+        // Trazas y métricas del controlador de la base: quedan anotadas para el TracerProvider y el MeterProvider del host,
+        // que solo existen si el host arma OpenTelemetry; sin él no se crea nada.
+        services.ConfigureOpenTelemetryTracerProvider(provider.ConfigureTracing);
+        services.ConfigureOpenTelemetryMeterProvider(provider.ConfigureMetrics);
         services.AddImpiFactDbContext<ImpiFactDbContext>();
         services.AddSecrets();
         services.AddCompanies();
