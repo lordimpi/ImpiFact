@@ -59,7 +59,7 @@ public static class PendingMigrationsGuard
         {
             return [.. await db.Database.GetPendingMigrationsAsync(ct)];
         }
-        catch (Exception exception) when (IsUnreachable(exception))
+        catch (Exception exception) when (IsUnreachable(exception, scope.ServiceProvider.GetRequiredService<IDatabaseProvider>()))
         {
             logger.LogWarning(
                 exception, "No se pudo revisar si la base de datos tiene migraciones pendientes; se arranca sin revisarlo.");
@@ -67,11 +67,13 @@ public static class PendingMigrationsGuard
         }
     }
 
-    // La falla de conexión llega como DbException transitoria o TimeoutException, a veces envuelta por la estrategia de
-    // ejecución. Los demás errores (por ejemplo, una contraseña equivocada) no son pasajeros y detienen el arranque.
-    private static bool IsUnreachable(Exception exception) =>
-        exception is DbException { IsTransient: true } or TimeoutException
-        || (exception.InnerException is { } inner && IsUnreachable(inner));
+    // La falla de conexión llega como DbException transitoria (cada motor dice cuáles lo son) o TimeoutException, a veces
+    // envuelta por la estrategia de ejecución. Los demás errores (por ejemplo, una contraseña equivocada) no son pasajeros
+    // y detienen el arranque.
+    private static bool IsUnreachable(Exception exception, IDatabaseProvider provider) =>
+        exception is TimeoutException
+        || (exception is DbException database && provider.IsTransient(database))
+        || (exception.InnerException is { } inner && IsUnreachable(inner, provider));
 
     private static async Task DisposeAsync(IHost host)
     {

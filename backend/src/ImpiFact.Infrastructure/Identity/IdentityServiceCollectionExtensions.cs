@@ -56,6 +56,7 @@ public static class IdentityServiceCollectionExtensions
     public static IServiceCollection AddIdentityPersistence(this IServiceCollection services)
     {
         services.TryAddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
+        services.TryAddSingleton<CredentialStoreGuard>();
         services.TryAddScoped<IApiKeyStore, EfApiKeyStore>();
         services.TryAddScoped<IRefreshTokenStore, EfRefreshTokenStore>();
         services.TryAddScoped<IUserStore, EfUserStore>();

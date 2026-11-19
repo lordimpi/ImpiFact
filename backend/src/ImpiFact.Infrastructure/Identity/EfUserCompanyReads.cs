@@ -11,13 +11,13 @@ namespace ImpiFact.Infrastructure.Identity;
 /// Adaptador de <see cref="IUserCompanyReads"/> con EF Core (Entity Framework): une <c>user_companies</c>,
 /// <c>roles</c> y <c>companies</c> en una sola consulta sin rastreo.
 /// </summary>
-internal sealed class EfUserCompanyReads(ImpiFactDbContext db) : IUserCompanyReads
+internal sealed class EfUserCompanyReads(ImpiFactDbContext db, CredentialStoreGuard guard) : IUserCompanyReads
 {
     /// <summary>Orden de la razón social como la lee una persona en Colombia: sin distinguir mayúsculas y con tildes en su lugar.</summary>
     private static readonly StringComparer NameOrder = StringComparer.Create(CultureInfo.GetCultureInfo("es-CO"), CompareOptions.IgnoreCase);
 
     public Task<IReadOnlyList<AccessibleCompany>> ForUserAsync(Guid userId, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync<IReadOnlyList<AccessibleCompany>>(async () =>
+        guard.RunAsync<IReadOnlyList<AccessibleCompany>>(async () =>
         {
             // A propósito sin el filtro de empresa: son todas las empresas del usuario, antes de elegir una.
             var rows = await db.Set<UserCompany>().AsNoTracking()
@@ -45,7 +45,7 @@ internal sealed class EfUserCompanyReads(ImpiFactDbContext db) : IUserCompanyRea
         });
 
     public Task<AccessibleCompany?> ByIdAsync(Guid companyId, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(() => db.Set<Company>().AsNoTracking()
+        guard.RunAsync(() => db.Set<Company>().AsNoTracking()
             .Where(company => company.Id == companyId)
             .Select(company => new AccessibleCompany(
                 company.Id, company.Name, company.IdentificationNumber, company.Dv, company.IsActive, Array.Empty<string>()))

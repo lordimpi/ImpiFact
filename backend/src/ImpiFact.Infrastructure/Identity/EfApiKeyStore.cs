@@ -10,16 +10,16 @@ namespace ImpiFact.Infrastructure.Identity;
 /// mapeador de objetos a tablas). Los alcances se guardan separados por coma en <c>scopes</c>. Nunca guarda ni lee
 /// el texto claro de una llave: solo su resumen SHA-256 (<c>key_hash</c>).
 /// </summary>
-internal sealed class EfApiKeyStore(ImpiFactDbContext db) : IApiKeyStore
+internal sealed class EfApiKeyStore(ImpiFactDbContext db, CredentialStoreGuard guard) : IApiKeyStore
 {
     private const char ScopeSeparator = ',';
 
     public Task<ApiKeyRecord?> FindByHashAsync(string keyHash, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(async () => ToRecord(
+        guard.RunAsync(async () => ToRecord(
             await db.Set<ApiKey>().AsNoTracking().FirstOrDefaultAsync(key => key.KeyHash == keyHash, ct)));
 
     public Task<ApiKeyRecord?> FindByIdAsync(Guid apiKeyId, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(async () => ToRecord(
+        guard.RunAsync(async () => ToRecord(
             await db.Set<ApiKey>().AsNoTracking().FirstOrDefaultAsync(key => key.Id == apiKeyId, ct)));
 
     /// <summary>
@@ -28,7 +28,7 @@ internal sealed class EfApiKeyStore(ImpiFactDbContext db) : IApiKeyStore
     /// mueve hacia atrás.
     /// </summary>
     public Task MarkUsedAsync(Guid apiKeyId, DateTimeOffset usedAt, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(async () =>
+        guard.RunAsync(async () =>
         {
             var key = await db.Set<ApiKey>().FirstOrDefaultAsync(candidate => candidate.Id == apiKeyId, ct);
             if (key is null || key.LastUsedAt >= usedAt)
@@ -57,7 +57,7 @@ internal sealed class EfApiKeyStore(ImpiFactDbContext db) : IApiKeyStore
     }
 
     public Task RevokeAsync(Guid apiKeyId, DateTimeOffset revokedAt, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(async () =>
+        guard.RunAsync(async () =>
         {
             var key = await db.Set<ApiKey>().FirstOrDefaultAsync(candidate => candidate.Id == apiKeyId, ct);
             if (key is not null && key.RevokedAt is null)

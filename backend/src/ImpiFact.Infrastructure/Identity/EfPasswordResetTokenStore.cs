@@ -10,7 +10,7 @@ namespace ImpiFact.Infrastructure.Identity;
 /// Adaptador de <see cref="IPasswordResetTokenStore"/> sobre la tabla <c>password_reset_tokens</c> con EF Core (Entity
 /// Framework). Solo guarda el resumen SHA-256 de cada token (<c>token_hash</c>), nunca el valor.
 /// </summary>
-internal sealed class EfPasswordResetTokenStore(ImpiFactDbContext db, IClock clock) : IPasswordResetTokenStore
+internal sealed class EfPasswordResetTokenStore(ImpiFactDbContext db, CredentialStoreGuard guard, IClock clock) : IPasswordResetTokenStore
 {
     public Task AddAsync(PasswordResetTokenRecord token, CancellationToken ct)
     {
@@ -36,7 +36,7 @@ internal sealed class EfPasswordResetTokenStore(ImpiFactDbContext db, IClock clo
     // los interceptores de guardado, así que pone aquí lo mismo que ellos: mueve updated_at y sube row_version. Subir
     // row_version mantiene el choque con una confirmación que leyó el token antes y lo guarda después.
     public Task RevokeUnusedForUserAsync(Guid userId, DateTimeOffset revokedAt, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(() =>
+        guard.RunAsync(() =>
         {
             var now = clock.UtcNow;
             return db.Set<PasswordResetToken>()
@@ -50,7 +50,7 @@ internal sealed class EfPasswordResetTokenStore(ImpiFactDbContext db, IClock clo
         });
 
     public Task<PasswordResetTokenRecord?> FindByHashAsync(string tokenHash, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(() => db.Set<PasswordResetToken>().AsNoTracking()
+        guard.RunAsync(() => db.Set<PasswordResetToken>().AsNoTracking()
             .Where(token => token.TokenHash == tokenHash)
             .Select(token => new PasswordResetTokenRecord(
                 token.Id, token.UserId, token.TokenHash, token.ExpiresAt, token.UsedAt, token.RevokedAt, token.RequestedIp))
@@ -59,7 +59,7 @@ internal sealed class EfPasswordResetTokenStore(ImpiFactDbContext db, IClock clo
     // Se lee la fila con seguimiento: si otra solicitud ya la usó y confirmó, aquí se ve y se devuelve false. Si las dos
     // la leen a la vez, row_version hace fallar el segundo guardado (conflicto de concurrencia) y su transacción se revierte.
     public Task<bool> MarkUsedAsync(Guid tokenId, DateTimeOffset usedAt, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(async () =>
+        guard.RunAsync(async () =>
         {
             var token = await db.Set<PasswordResetToken>().FirstOrDefaultAsync(candidate => candidate.Id == tokenId, ct);
             if (token is null || token.UsedAt is not null || token.RevokedAt is not null)
@@ -72,7 +72,7 @@ internal sealed class EfPasswordResetTokenStore(ImpiFactDbContext db, IClock clo
         });
 
     public Task<PasswordResetRecipient?> FindRecipientAsync(Guid tokenId, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(() => db.Set<PasswordResetToken>().AsNoTracking()
+        guard.RunAsync(() => db.Set<PasswordResetToken>().AsNoTracking()
             .Where(token => token.Id == tokenId)
             .Join(db.Set<User>(), token => token.UserId, user => user.Id, (token, user) => new PasswordResetRecipient(
                 new PasswordResetTokenRecord(token.Id, token.UserId, token.TokenHash, token.ExpiresAt, token.UsedAt, token.RevokedAt, token.RequestedIp),

@@ -5,6 +5,7 @@ using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Platform.Outbox;
 using ImpiFact.Infrastructure.Platform.Scheduling;
+using System.Data.Common;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -26,6 +27,20 @@ public sealed class SqlServerDatabaseProvider : IDatabaseProvider
     /// <summary>Errores de SQL Server por una llave repetida: 2627 en una llave única o primaria, 2601 en un índice único.</summary>
     private static readonly HashSet<int> UniqueViolationNumbers = [2627, 2601];
 
+    /// <summary>
+    /// Errores pasajeros de SQL Server y Azure SQL. Al conectar: <c>-2</c> tiempo agotado, <c>2</c> y <c>53</c> servidor no
+    /// encontrado, <c>258</c> espera agotada, <c>10060</c> sin respuesta, <c>10061</c> conexión rechazada, <c>11001</c>
+    /// nombre que no resuelve, <c>64</c>, <c>121</c>, <c>233</c>, <c>10053</c> y <c>10054</c> conexión cortada, <c>20</c>
+    /// instancia sin servicio, <c>4060</c> base que no abre. Con el servidor arriba: <c>1205</c> víctima de un interbloqueo
+    /// y los de Azure SQL por carga o conmutación (<c>10928</c>, <c>10929</c>, <c>40197</c>, <c>40501</c>, <c>40613</c>,
+    /// <c>49918</c>, <c>49919</c>, <c>49920</c>), los mismos que reintenta EF Core.
+    /// </summary>
+    private static readonly HashSet<int> TransientNumbers =
+    [
+        -2, 2, 20, 53, 64, 121, 233, 258, 4060, 10053, 10054, 10060, 10061, 11001,
+        1205, 10928, 10929, 40197, 40501, 40613, 49918, 49919, 49920,
+    ];
+
     public string Name => "SqlServer";
 
     public void AddServices(IServiceCollection services)
@@ -45,6 +60,12 @@ public sealed class SqlServerDatabaseProvider : IDatabaseProvider
 
     public bool IsUniqueViolation(DbUpdateException exception) =>
         exception.InnerException is SqlException sql && UniqueViolationNumbers.Contains(sql.Number);
+
+    /// <summary>
+    /// SqlClient no marca <c>IsTransient</c>: se decide por el número de error (ver <see cref="TransientNumbers"/>). Una
+    /// contraseña equivocada (<c>18456</c>) o una restricción violada no son pasajeras.
+    /// </summary>
+    public bool IsTransient(DbException exception) => exception is SqlException sql && TransientNumbers.Contains(sql.Number);
 
     /// <summary>
     /// SqlClient no tiene una fuente de trazas propia (como la de Npgsql): la instrumentación de OpenTelemetry (paquete
