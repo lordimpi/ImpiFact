@@ -11,6 +11,12 @@ public interface IRefreshTokenStore
     /// <returns>El token con ese resumen, aunque esté revocado o vencido; <see langword="null"/> si no existe.</returns>
     Task<RefreshTokenRecord?> FindByHashAsync(string tokenHash, CancellationToken ct);
 
+    /// <returns>
+    /// El token con ese id, aunque esté revocado o vencido; <see langword="null"/> si no existe. Sirve para revisar si
+    /// el reemplazo de un token rotado ya se usó (período de gracia de la rotación).
+    /// </returns>
+    Task<RefreshTokenRecord?> FindByIdAsync(Guid tokenId, CancellationToken ct);
+
     /// <summary>
     /// Marca el token como revocado. En una rotación, <paramref name="replacedBy"/> apunta al token nuevo; así,
     /// si alguien presenta otra vez el token viejo, se sabe que fue robado y se puede revocar toda la cadena.

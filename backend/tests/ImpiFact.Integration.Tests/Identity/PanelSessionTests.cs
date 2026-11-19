@@ -196,6 +196,9 @@ public sealed class PanelSessionTests
         var (userId, email) = await AddUserAsync();
         var original = RefreshCookie(await PanelLogin(email)).Value.Value!;
         using var rotated = await Client().SendAsync(PanelRequest("/api/v1/auth/refresh", body: null, cookie: original));
+        // El reemplazo se usa: así el token viejo que vuelve ya no puede ser una respuesta perdida (período de gracia).
+        using var rotatedAgain = await Client().SendAsync(
+            PanelRequest("/api/v1/auth/refresh", body: null, cookie: RefreshCookie(rotated).Value.Value!));
 
         using var reused = await Client().SendAsync(PanelRequest("/api/v1/auth/refresh", body: null, cookie: original));
         var cleared = RefreshCookie(reused);
@@ -205,12 +208,60 @@ public sealed class PanelSessionTests
         Assert.Multiple(() =>
         {
             Assert.That(rotated.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(rotatedAgain.StatusCode, Is.EqualTo(HttpStatusCode.OK));
             Assert.That(reused.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
             Assert.That(Code(reused), Is.EqualTo("identity.invalid_refresh_token"));
             Assert.That(active, Is.Zero, "The reuse also revoked the token that replaced it.");
             Assert.That(cleared.Value.Value, Is.Empty);
             Assert.That(cleared.Expires, Is.LessThan(DateTimeOffset.UtcNow));
         });
+    }
+
+    // Respuesta perdida: el navegador cortó la renovación justo después de que el servidor rotara el token y se quedó
+    // con la cookie vieja. Presentarla dentro del período de gracia (30 segundos), con el reemplazo sin usar, revoca ese
+    // reemplazo y entrega un par nuevo de la misma sesión; las demás sesiones del usuario siguen vivas.
+    [Test]
+    public async Task A_cookie_kept_after_a_lost_refresh_response_gets_a_fresh_pair_within_the_grace_period()
+    {
+        var companyId = await IdentityDatabase.AddCompanyAsync();
+        var email = $"user-{Guid.NewGuid():N}@example.com";
+        var userId = await IdentityStoreTests.AddUserAsync([], new CompanyMembership(companyId, RoleNames.Owner), email, Password);
+        var original = RefreshCookie(await PanelLogin(email)).Value.Value!;
+        var otherSession = (await ReadAsync(await Client().PostAsJsonAsync("/api/v1/auth/login", new { email, password = Password })))
+            .GetProperty("refresh_token").GetString()!;
+        // El servidor rota el token, pero esta respuesta nunca llega al navegador.
+        using var lostResponse = await Client().SendAsync(PanelRequest("/api/v1/auth/refresh", body: null, cookie: original));
+        var lost = RefreshCookie(lostResponse).Value.Value!;
+
+        using var retried = await Client().SendAsync(PanelRequest("/api/v1/auth/refresh", body: null, cookie: original));
+        var body = await ReadAsync(retried);
+        var fresh = RefreshCookie(retried);
+        var presentedRow = await TokenRowAsync(original);
+        var lostRow = await TokenRowAsync(lost);
+        var freshRow = await TokenRowAsync(fresh.Value.Value!);
+        var otherRow = await TokenRowAsync(otherSession);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(lostResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(retried.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(body.GetProperty("access_token").GetString(), Is.Not.Empty);
+            Assert.That(body.TryGetProperty("refresh_token", out _), Is.False);
+            Assert.That(body.GetProperty("company_id").GetGuid(), Is.EqualTo(companyId), "Same user, same company.");
+            Assert.That(fresh.Value.Value, Is.Not.EqualTo(original).And.Not.EqualTo(lost));
+            Assert.That(fresh.HttpOnly, Is.True);
+            Assert.That(fresh.Path.Value, Is.EqualTo("/api/v1/auth"));
+            Assert.That(presentedRow.ReplacedBy, Is.EqualTo(lostRow.Id), "The presented token keeps its first rotation.");
+            Assert.That(lostRow.RevokedAt, Is.Not.Null, "The replacement the browser never received is revoked.");
+            Assert.That(lostRow.ReplacedBy, Is.EqualTo(freshRow.Id));
+            Assert.That(freshRow.RevokedAt, Is.Null);
+            Assert.That(freshRow.UserId, Is.EqualTo(userId));
+            Assert.That(otherRow.RevokedAt, Is.Null, "A lost response is not a theft: the other sessions stay alive.");
+        });
+
+        // El par nuevo sirve como cualquier otro.
+        using var next = await Client().SendAsync(PanelRequest("/api/v1/auth/refresh", body: null, cookie: fresh.Value.Value!));
+        Assert.That(next.StatusCode, Is.EqualTo(HttpStatusCode.OK));
     }
 
     [Test]
@@ -379,6 +430,11 @@ public sealed class PanelSessionTests
 
     private static string? Code(HttpResponseMessage response) =>
         JsonDocument.Parse(response.Content.ReadAsStringAsync().GetAwaiter().GetResult()).RootElement.GetProperty("code").GetString();
+
+    private static Task<(Guid Id, Guid UserId, DateTime? RevokedAt, Guid? ReplacedBy)> TokenRowAsync(string token) =>
+        QuerySingleAsync<(Guid, Guid, DateTime?, Guid?)>(
+            "select id, user_id, revoked_at, replaced_by from refresh_tokens where token_hash = @hash",
+            new { hash = CredentialHash.Sha256Hex(token) });
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {

@@ -36,13 +36,18 @@ internal sealed class EfRefreshTokenStore(ImpiFactDbContext db, IServiceScopeFac
 
     public Task<RefreshTokenRecord?> FindByHashAsync(string tokenHash, CancellationToken ct) =>
         CredentialStoreGuard.RunAsync(async () =>
-        {
-            var token = await db.Set<RefreshToken>().AsNoTracking().FirstOrDefaultAsync(candidate => candidate.TokenHash == tokenHash, ct);
-            return token is null
-                ? null
-                : new RefreshTokenRecord(
-                    token.Id, token.UserId, token.TokenHash, token.ExpiresAt, token.RevokedAt, token.ReplacedBy, token.CreatedIp, token.UserAgent);
-        });
+            ToRecord(await db.Set<RefreshToken>().AsNoTracking().FirstOrDefaultAsync(candidate => candidate.TokenHash == tokenHash, ct)));
+
+    // Sin seguimiento: si después se rota este token, RevokeAsync lo vuelve a leer con seguimiento y su row_version.
+    public Task<RefreshTokenRecord?> FindByIdAsync(Guid tokenId, CancellationToken ct) =>
+        CredentialStoreGuard.RunAsync(async () =>
+            ToRecord(await db.Set<RefreshToken>().AsNoTracking().FirstOrDefaultAsync(candidate => candidate.Id == tokenId, ct)));
+
+    private static RefreshTokenRecord? ToRecord(RefreshToken? token) =>
+        token is null
+            ? null
+            : new RefreshTokenRecord(
+                token.Id, token.UserId, token.TokenHash, token.ExpiresAt, token.RevokedAt, token.ReplacedBy, token.CreatedIp, token.UserAgent);
 
     /// <summary>
     /// Carga la fila con su <c>row_version</c>: si dos solicitudes rotan el mismo token a la vez, la segunda en

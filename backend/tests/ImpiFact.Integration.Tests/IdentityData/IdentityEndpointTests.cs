@@ -100,15 +100,20 @@ public sealed class IdentityEndpointTests
         var oldRow = await QuerySingleAsync<(DateTime? RevokedAt, Guid? ReplacedBy)>(
             "select revoked_at, replaced_by from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(original) });
         var newId = await QuerySingleAsync<Guid>("select id from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(replacement) });
+        // El reemplazo se usa: así el token viejo que vuelve ya no puede ser una respuesta perdida (período de gracia),
+        // es un reúso.
+        using var secondRotation = await Refresh(replacement);
+        var latest = (await ReadAsync(secondRotation)).GetProperty("refresh_token").GetString()!;
 
         using var reused = await Refresh(original);
-        using var afterTheft = await Refresh(replacement);
+        using var afterTheft = await Refresh(latest);
         var active = await QuerySingleAsync<long>(
             "select count(*) from refresh_tokens where user_id = @userId and revoked_at is null", new { userId });
 
         Assert.Multiple(() =>
         {
             Assert.That(rotatedResponse.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(secondRotation.StatusCode, Is.EqualTo(HttpStatusCode.OK));
             Assert.That(replacement, Is.Not.EqualTo(original));
             Assert.That(oldRow.RevokedAt, Is.Not.Null);
             Assert.That(oldRow.ReplacedBy, Is.EqualTo(newId));
@@ -274,8 +279,11 @@ public sealed class IdentityEndpointTests
         });
     }
 
-    // Dos solicitudes con el mismo token de renovación al mismo tiempo: a lo sumo una gana y nunca quedan dos sesiones
-    // vivas; la perdedora recibe 401 (token ya usado) o 409 (conflicto de concurrencia), nunca 500.
+    // Dos solicitudes con el mismo token de renovación al mismo tiempo: nunca quedan dos sesiones vivas. Si las dos leen
+    // el token vigente, solo una lo reclama (versión de fila) y la otra recibe 401 (token ya usado) o 409 (conflicto de
+    // concurrencia), nunca 500. Si la segunda lo lee cuando la primera ya lo rotó, cae en el período de gracia de la
+    // rotación: rota el reemplazo que recibió la primera, que deja de servir. De los tokens entregados, a lo sumo uno
+    // sigue vivo.
     [Test]
     public async Task Concurrent_refreshes_with_the_same_token_never_leave_two_live_sessions()
     {
@@ -292,8 +300,17 @@ public sealed class IdentityEndpointTests
             var active = await QuerySingleAsync<long>(
                 "select count(*) from refresh_tokens where user_id = @userId and revoked_at is null", new { userId });
 
+            var liveIssued = 0L;
+            foreach (var response in responses.Where(response => response.StatusCode == HttpStatusCode.OK))
+            {
+                var issued = (await ReadAsync(response)).GetProperty("refresh_token").GetString()!;
+                liveIssued += await QuerySingleAsync<long>(
+                    "select count(*) from refresh_tokens where token_hash = @hash and revoked_at is null",
+                    new { hash = CredentialHash.Sha256Hex(issued) });
+            }
+
             statuses.AddRange(responses.Select(response => response.StatusCode));
-            Assert.That(responses.Count(response => response.StatusCode == HttpStatusCode.OK), Is.LessThanOrEqualTo(1), $"attempt {attempt}");
+            Assert.That(liveIssued, Is.LessThanOrEqualTo(1), $"attempt {attempt}");
             Assert.That(active, Is.LessThanOrEqualTo(1), $"attempt {attempt}");
             foreach (var response in responses)
             {

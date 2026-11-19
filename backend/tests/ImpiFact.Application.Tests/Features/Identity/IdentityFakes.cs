@@ -103,6 +103,20 @@ public sealed class FakeRefreshTokenStore : IRefreshTokenStore
 
     public Task<RefreshTokenRecord?> FindByHashAsync(string tokenHash, CancellationToken ct) =>
         Task.FromResult(Tokens.FirstOrDefault(token => token.TokenHash == tokenHash));
+
+    /// <summary>
+    /// Si está puesto, <see cref="FindByIdAsync"/> devuelve esto: simula la lectura de una solicitud simultánea que vio
+    /// la fila antes de que otra la cambiara.
+    /// </summary>
+    public Func<Guid, RefreshTokenRecord?>? StaleFindById { get; set; }
+
+    public Task<RefreshTokenRecord?> FindByIdAsync(Guid tokenId, CancellationToken ct)
+    {
+        // Como EF: con el token cancelado la consulta no se hace.
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(StaleFindById?.Invoke(tokenId) ?? Tokens.FirstOrDefault(token => token.Id == tokenId));
+    }
+
     public Task<bool> RevokeAsync(Guid tokenId, DateTimeOffset revokedAt, Guid? replacedBy, CancellationToken ct)
     {
         var index = Tokens.FindIndex(token => token.Id == tokenId);
@@ -134,7 +148,11 @@ public sealed class FakeRefreshTokenStore : IRefreshTokenStore
 /// <summary>Plazos de la sesión; la revocación tiene un plazo corto para que las pruebas no esperen 10 segundos.</summary>
 public sealed class FakeSessionPolicy : ISessionPolicy
 {
-    public TimeSpan RevocationTimeout { get; set; } = TimeSpan.FromMilliseconds(200);}
+    public TimeSpan RevocationTimeout { get; set; } = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>El valor por defecto de la configuración: 30 segundos.</summary>
+    public TimeSpan RotationGracePeriod { get; set; } = TimeSpan.FromSeconds(30);
+}
 
 /// <summary>Tokens de renovación predecibles: <c>refresh-1</c>, <c>refresh-2</c>…; el resumen es <c>sha:valor</c>.</summary>
 public sealed class FakeRefreshTokenFactory(FakeClock clock) : IRefreshTokenFactory

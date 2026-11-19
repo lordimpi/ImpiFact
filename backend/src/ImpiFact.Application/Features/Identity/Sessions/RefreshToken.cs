@@ -35,6 +35,32 @@ internal sealed class RefreshTokenValidator : AbstractValidator<RefreshTokenComm
 /// nuevo): se revocan todos los tokens vigentes del usuario, que tendrá que volver a iniciar sesión. Esa
 /// revocación se guarda aparte, porque este caso de uso responde con un error y su transacción se revierte.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Período de gracia de la rotación (<see cref="ISessionPolicy.RotationGracePeriod"/>, 30 segundos por defecto): si el
+/// navegador corta una renovación justo después de que el servidor rotó el token, se queda con la cookie vieja y su
+/// renovación siguiente parecería un robo. Por eso, un token presentado otra vez se toma como una respuesta perdida, y
+/// no como un robo, cuando se cumplen las tres cosas: lo revocó una rotación (tiene <c>ReplacedBy</c>), eso pasó hace
+/// menos que el período de gracia, y su reemplazo sigue sin usar (vigente, nunca rotado). Entonces se revoca ese
+/// reemplazo, que el navegador nunca recibió, y se entrega un par nuevo de la misma sesión (el mismo usuario; la
+/// empresa activa se elige igual que en cualquier renovación). En cualquier otro caso (fuera del período, reemplazo ya
+/// usado, token cerrado por un logout o por una revocación de todas las sesiones) sigue la respuesta de robo.
+/// </para>
+/// <para>
+/// Dos solicitudes simultáneas con el mismo token viejo no reciben las dos un par vivo: las dos intentan reclamar el
+/// mismo reemplazo con <see cref="IRefreshTokenStore.RevokeAsync"/>, igual que una rotación normal reclama el token
+/// presentado. Si una ya lo revocó y confirmó, la otra lo ve revocado y recibe <see cref="SessionIssuer.AlreadyUsed"/>
+/// (respuesta de robo); si lo leyeron a la vez, la versión de fila (<c>row_version</c>) hace fallar el segundo guardado
+/// y esa solicitud responde 409. Si llegan una después de la otra, la segunda rota el reemplazo que recibió la primera,
+/// que deja de servir: en ningún caso quedan dos tokens de renovación vivos. Los tokens de acceso ya entregados valen
+/// hasta vencer, como en cualquier rotación.
+/// </para>
+/// <para>
+/// Costo aceptado: quien robe un token y lo presente dentro del período de gracia, antes de que el dueño use el
+/// reemplazo, obtiene un par y deja al dueño con un token revocado. Cuando el dueño lo presente después del período, o
+/// con el reemplazo ya usado, se activa la respuesta de robo y se cierran todas las sesiones, la del atacante incluida.
+/// </para>
+/// </remarks>
 internal sealed class RefreshTokenHandler(
     IRefreshTokenStore refreshStore,
     IRefreshTokenFactory refreshTokens,
@@ -55,12 +81,18 @@ internal sealed class RefreshTokenHandler(
         }
 
         var now = clock.UtcNow;
+        // El token que esta renovación reclama: el presentado o, tras una respuesta perdida, su reemplazo sin usar.
+        var claimed = presented;
         if (presented.RevokedAt is not null)
         {
-            return await RevokeChainAsync(presented.UserId, now);
-        }
+            if (await FindUnusedReplacementAsync(presented, now) is not { } lost)
+            {
+                return await RevokeChainAsync(presented.UserId, now);
+            }
 
-        if (presented.ExpiresAt <= now)
+            claimed = lost;
+        }
+        else if (presented.ExpiresAt <= now)
         {
             return IdentityErrors.InvalidRefreshToken;
         }
@@ -71,14 +103,44 @@ internal sealed class RefreshTokenHandler(
             return IdentityErrors.InvalidRefreshToken;
         }
 
-        var issued = await _sessions.IssueAsync(user.Id, request.CompanyId, request.ClientIp, request.UserAgent, presented.Id, now, ct);
+        var issued = await _sessions.IssueAsync(user.Id, request.CompanyId, request.ClientIp, request.UserAgent, claimed.Id, now, ct);
         if (!issued.IsSuccess && issued.Error == SessionIssuer.AlreadyUsed)
         {
             // Otra solicitud usó este mismo token un instante antes: se trata igual que un token robado y reusado.
             return await RevokeChainAsync(presented.UserId, now);
         }
 
+        if (issued.IsSuccess && claimed != presented)
+        {
+            logger.LogInformation(
+                "Refresh token {RefreshTokenId} of user {UserId} was presented again {Seconds:0.#} s after its rotation, with its replacement {ReplacementId} unused; treated as a lost response.",
+                presented.Id, presented.UserId, (now - presented.RevokedAt!.Value).TotalSeconds, claimed.Id);
+        }
+
         return issued;
+    }
+
+    /// <summary>
+    /// El reemplazo de un token ya rotado si la renovación que lo creó parece una respuesta perdida: el token lo revocó
+    /// una rotación hace menos que el período de gracia, y el reemplazo sigue vigente (sin revocar ni vencer, así que
+    /// nunca se rotó). Si no, <see langword="null"/>: es un reúso.
+    /// </summary>
+    /// <remarks>
+    /// La lectura no usa la cancelación de la petición sino el plazo propio de las revocaciones: de ella depende la
+    /// respuesta de robo, que debe terminar aunque el navegador corte la petición.
+    /// </remarks>
+    private async Task<RefreshTokenRecord?> FindUnusedReplacementAsync(RefreshTokenRecord presented, DateTimeOffset now)
+    {
+        if (presented is not { ReplacedBy: { } replacementId, RevokedAt: { } rotatedAt } || now - rotatedAt >= policy.RotationGracePeriod)
+        {
+            return null;
+        }
+
+        var replacement = await SessionRevocation.WithinDeadlineAsync(
+            policy.RevocationTimeout, deadline => refreshStore.FindByIdAsync(replacementId, deadline));
+        return replacement is { RevokedAt: null } && replacement.ExpiresAt > now && replacement.UserId == presented.UserId
+            ? replacement
+            : null;
     }
 
     /// <summary>

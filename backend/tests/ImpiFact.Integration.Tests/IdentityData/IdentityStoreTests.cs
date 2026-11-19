@@ -161,6 +161,27 @@ public sealed class IdentityStoreTests
     }
 
     [Test]
+    public async Task A_refresh_token_is_found_by_id_even_when_revoked_and_an_unknown_id_finds_nothing()
+    {
+        var userId = await AddUserAsync(platformRoles: [], company: null);
+        var revoked = await AddRefreshTokenAsync(userId, revokedAt: Now.AddMinutes(-1));
+
+        await using var scope = IdentityDatabase.Open(companyId: null);
+        var store = Store<IRefreshTokenStore>(scope);
+        var found = await store.FindByIdAsync(revoked.Id, CancellationToken.None);
+        var missing = await store.FindByIdAsync(Guid.CreateVersion7(), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(found?.Id, Is.EqualTo(revoked.Id));
+            Assert.That(found?.UserId, Is.EqualTo(userId));
+            Assert.That(found?.TokenHash, Is.EqualTo(revoked.TokenHash));
+            Assert.That(found?.RevokedAt, Is.EqualTo(Now.AddMinutes(-1)));
+            Assert.That(missing, Is.Null);
+        });
+    }
+
+    [Test]
     public async Task User_roles_include_platform_roles_and_every_company_even_without_a_tenant()
     {
         var first = await IdentityDatabase.AddCompanyAsync();

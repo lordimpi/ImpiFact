@@ -100,6 +100,8 @@ public sealed class SessionRevocationTimeoutTests
     private sealed class ShortRevocation : ISessionPolicy
     {
         public TimeSpan RevocationTimeout => TimeSpan.FromSeconds(1);
+
+        public TimeSpan RotationGracePeriod => TimeSpan.FromSeconds(30);
     }
 
     private static async Task<(Guid Id, string Email)> AddUserAsync()
