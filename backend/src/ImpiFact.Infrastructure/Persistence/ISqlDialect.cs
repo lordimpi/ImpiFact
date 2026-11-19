@@ -55,4 +55,20 @@ public interface ISqlDialect
     /// PostgreSQL y MySQL, <c>outer apply (…) alias</c> en SQL Server.
     /// </summary>
     string OuterApply(string subquery, string alias);
+
+    /// <summary>
+    /// Una columna de instante en la lista del <c>select</c>, para leerla como <see cref="DateTime"/> en UTC en las filas
+    /// de Dapper: Npgsql (PostgreSQL) y MySQL ya entregan <c>DateTime</c>, así que va tal cual; SqlClient entrega
+    /// <c>datetimeoffset</c> como <see cref="DateTimeOffset"/>, que Dapper no convierte, y SQL Server la pasa a
+    /// <c>datetime2</c> (la hora UTC guardada, sin el desfase, que siempre es cero).
+    /// </summary>
+    /// <param name="column">Columna con un instante guardado en UTC, por ejemplo <c>d.issued_at</c>.</param>
+    string Instant(string column) => column;
+
+    /// <summary>
+    /// Un nombre de columna que es palabra reservada en algún motor, como <c>percent</c> en SQL Server: va tal cual en
+    /// PostgreSQL y MySQL, y entre corchetes en SQL Server. El alias de la columna se elige sin palabras reservadas.
+    /// </summary>
+    /// <param name="name">Nombre de la columna, fijo en el código (letras minúsculas y guion bajo).</param>
+    string Identifier(string name) => name;
 }

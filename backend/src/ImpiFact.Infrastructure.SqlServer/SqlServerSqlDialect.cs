@@ -29,4 +29,9 @@ internal sealed class SqlServerSqlDialect : ISqlDialect
     }
 
     public string OuterApply(string subquery, string alias) => $"outer apply ({subquery}) {alias}";
+
+    // Las columnas guardan el instante con desfase cero (UtcDateTimeOffsetConverter): datetime2 deja esa hora UTC.
+    public string Instant(string column) => $"cast({column} as datetime2)";
+
+    public string Identifier(string name) => $"[{name}]";
 }
