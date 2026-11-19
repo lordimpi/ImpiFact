@@ -27,6 +27,8 @@ export type { GetCompanyEnvironments$Params as GetCompanyEnvironments$Params } f
 export { getCompanyEnvironments as getCompanyEnvironments } from './fn/empresas/get-company-environments';
 export type { ListCompanyResolutions$Params as ListCompanyResolutions$Params } from './fn/empresas/list-company-resolutions';
 export { listCompanyResolutions as listCompanyResolutions } from './fn/empresas/list-company-resolutions';
+export type { SetResolutionNextNumber$Params as SetResolutionNextNumber$Params } from './fn/empresas/set-resolution-next-number';
+export { setResolutionNextNumber as setResolutionNextNumber } from './fn/empresas/set-resolution-next-number';
 export type { GetCompanySetupStatus$Params as GetCompanySetupStatus$Params } from './fn/empresas/get-company-setup-status';
 export { getCompanySetupStatus as getCompanySetupStatus } from './fn/empresas/get-company-setup-status';
 export type { GetCompanyLogo$Params as GetCompanyLogo$Params } from './fn/empresas/get-company-logo';

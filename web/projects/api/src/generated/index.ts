@@ -101,12 +101,14 @@ export type { PlatformCompanyListResponse } from './models/platform-company-list
 export type { ProductListResponse } from './models/product-list-response';
 export type { ProductResponse } from './models/product-response';
 export type { RefreshBody } from './models/refresh-body';
+export type { ResolutionNextNumberResponse } from './models/resolution-next-number-response';
 export type { ResolutionReadiness } from './models/resolution-readiness';
 export type { ResolutionResponse } from './models/resolution-response';
 export type { ResolutionSavedResponse } from './models/resolution-saved-response';
 export type { ResolutionStatusResponse } from './models/resolution-status-response';
 export type { SessionTokens } from './models/session-tokens';
 export type { SetEnvironmentCommand } from './models/set-environment-command';
+export type { SetResolutionNextNumberCommand } from './models/set-resolution-next-number-command';
 export type { SetSoftwareCommand } from './models/set-software-command';
 export type { SoftwareResponse } from './models/software-response';
 export type { SoftwareSavedResponse } from './models/software-saved-response';
@@ -145,6 +147,8 @@ export type { GetCompanyEnvironments$Params as GetCompanyEnvironments$Params } f
 export { getCompanyEnvironments as getCompanyEnvironments } from './fn/empresas/get-company-environments';
 export type { ListCompanyResolutions$Params as ListCompanyResolutions$Params } from './fn/empresas/list-company-resolutions';
 export { listCompanyResolutions as listCompanyResolutions } from './fn/empresas/list-company-resolutions';
+export type { SetResolutionNextNumber$Params as SetResolutionNextNumber$Params } from './fn/empresas/set-resolution-next-number';
+export { setResolutionNextNumber as setResolutionNextNumber } from './fn/empresas/set-resolution-next-number';
 export type { GetCompanySetupStatus$Params as GetCompanySetupStatus$Params } from './fn/empresas/get-company-setup-status';
 export { getCompanySetupStatus as getCompanySetupStatus } from './fn/empresas/get-company-setup-status';
 export type { GetCompanyLogo$Params as GetCompanyLogo$Params } from './fn/empresas/get-company-logo';
