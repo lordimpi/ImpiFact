@@ -3490,6 +3490,33 @@
                         "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                       }
                     }
+                  },
+                  "sendmail": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "sendmailtome": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "email_pos_customer": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                   }
                 }
               },
@@ -5234,6 +5261,33 @@
                         "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                       }
                     }
+                  },
+                  "sendmail": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "sendmailtome": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "email_pos_customer": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                   }
                 }
               },
@@ -6977,6 +7031,33 @@
                         "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                       }
                     }
+                  },
+                  "sendmail": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "sendmailtome": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "email_pos_customer": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                   }
                 }
               },
@@ -8507,6 +8588,33 @@
                         "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                       }
                     }
+                  },
+                  "sendmail": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "sendmailtome": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "email_pos_customer": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                   }
                 }
               },
@@ -10036,6 +10144,33 @@
                         "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                       }
                     }
+                  },
+                  "sendmail": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "sendmailtome": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "email_pos_customer": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                   }
                 }
               },
@@ -11492,6 +11627,33 @@
                         "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                       }
                     }
+                  },
+                  "sendmail": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "sendmailtome": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "email_pos_customer": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                   }
                 }
               },
@@ -12937,6 +13099,33 @@
                         "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                       }
                     }
+                  },
+                  "sendmail": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "sendmailtome": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "email_pos_customer": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                   }
                 }
               },
@@ -14663,6 +14852,33 @@
                         "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                       }
                     }
+                  },
+                  "sendmail": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "sendmailtome": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "email_pos_customer": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                   }
                 }
               },
@@ -16175,6 +16391,33 @@
                         "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                       }
                     }
+                  },
+                  "sendmail": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "sendmailtome": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
+                  },
+                  "email_pos_customer": {
+                    "type": [
+                      "null",
+                      "boolean",
+                      "number",
+                      "string"
+                    ],
+                    "description": "Texto, n\u00FAmero o booleano: el contrato heredado acepta cualquiera de las tres formas."
                   }
                 }
               },

@@ -693,6 +693,21 @@ export interface IssueInvoice$Params {
  */
 'end_date'?: (boolean | number | string | null);
 };
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'sendmail'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'sendmailtome'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'email_pos_customer'?: (boolean | number | string | null);
 }
 }
 
