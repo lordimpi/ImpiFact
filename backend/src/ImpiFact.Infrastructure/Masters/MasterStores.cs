@@ -17,11 +17,12 @@ namespace ImpiFact.Infrastructure.Masters;
 /// además de la condición explícita.
 /// </summary>
 /// <remarks>
-/// La página siguiente se pide por clave (columna de orden, id) con una comparación de filas de PostgreSQL, que usa la
-/// misma intercalación que el ORDER BY: no salta ni repite filas. Las columnas de orden salen de una lista fija, nunca
-/// del texto del cliente. SQL de PostgreSQL, el único motor de esta fase.
+/// La página siguiente se pide por clave (columna de orden, id), con comparaciones que usan la misma intercalación que el
+/// ORDER BY: no salta ni repite filas. Las columnas de orden salen de una lista fija, nunca del texto del cliente. El SQL
+/// es común a los tres motores; lo que cambia (la búsqueda sin mayúsculas, el límite, los booleanos) lo pone el
+/// dialecto del motor (<see cref="ISqlDialect"/>).
 /// </remarks>
-internal sealed class CustomerStore(IReadConnectionFactory connections, ImpiFactDbContext db) : ICustomerStore
+internal sealed class CustomerStore(IReadConnectionFactory connections, ImpiFactDbContext db, ISqlDialect dialect) : ICustomerStore
 {
     private static readonly Dictionary<string, string> SortColumns = new(StringComparer.Ordinal)
     {
@@ -41,14 +42,14 @@ internal sealed class CustomerStore(IReadConnectionFactory connections, ImpiFact
             from customers c
             where c.company_id = @CompanyId and c.deleted_at is null
             """);
-        MasterSql.AppendStatus(sql, "c", page.Status);
+        MasterSql.AppendStatus(sql, dialect, "c", page.Status);
         if (page.Search is { } search)
         {
-            sql.Append(" and (c.identification_number ilike @Pattern or c.name ilike @Pattern)");
+            sql.Append($" and ({dialect.LikeIgnoreCase("c.identification_number", "@Pattern")} or {dialect.LikeIgnoreCase("c.name", "@Pattern")})");
             parameters.Add("Pattern", MasterSql.ContainsPattern(search));
         }
 
-        MasterSql.AppendKeyset(sql, parameters, SortColumns[page.SortField], "c.id", page);
+        MasterSql.AppendKeyset(sql, parameters, dialect, SortColumns[page.SortField], "c.id", page);
         await using var connection = await connections.OpenAsync(ct);
         var rows = await connection.QueryAsync<CustomerResponse>(new CommandDefinition(sql.ToString(), parameters, cancellationToken: ct));
         return rows.AsList();
@@ -72,7 +73,7 @@ internal sealed class CustomerStore(IReadConnectionFactory connections, ImpiFact
 }
 
 /// <summary>Productos (<c>items</c>), con las mismas reglas que <see cref="CustomerStore"/>.</summary>
-internal sealed class ProductStore(IReadConnectionFactory connections, ImpiFactDbContext db) : IProductStore
+internal sealed class ProductStore(IReadConnectionFactory connections, ImpiFactDbContext db, ISqlDialect dialect) : IProductStore
 {
     private static readonly Dictionary<string, string> SortColumns = new(StringComparer.Ordinal)
     {
@@ -90,14 +91,14 @@ internal sealed class ProductStore(IReadConnectionFactory connections, ImpiFactD
             from items i
             where i.company_id = @CompanyId and i.deleted_at is null
             """);
-        MasterSql.AppendStatus(sql, "i", page.Status);
+        MasterSql.AppendStatus(sql, dialect, "i", page.Status);
         if (page.Search is { } search)
         {
-            sql.Append(" and (i.code ilike @Pattern or i.name ilike @Pattern)");
+            sql.Append($" and ({dialect.LikeIgnoreCase("i.code", "@Pattern")} or {dialect.LikeIgnoreCase("i.name", "@Pattern")})");
             parameters.Add("Pattern", MasterSql.ContainsPattern(search));
         }
 
-        MasterSql.AppendKeyset(sql, parameters, SortColumns[page.SortField], "i.id", page);
+        MasterSql.AppendKeyset(sql, parameters, dialect, SortColumns[page.SortField], "i.id", page);
         await using var connection = await connections.OpenAsync(ct);
         var rows = await connection.QueryAsync<ProductResponse>(new CommandDefinition(sql.ToString(), parameters, cancellationToken: ct));
         return rows.AsList();
@@ -116,11 +117,11 @@ internal sealed class ProductStore(IReadConnectionFactory connections, ImpiFactD
 /// <summary>Trozos de SQL que comparten los listados de maestros.</summary>
 internal static class MasterSql
 {
-    public static void AppendStatus(StringBuilder sql, string alias, MasterStatus status)
+    public static void AppendStatus(StringBuilder sql, ISqlDialect dialect, string alias, MasterStatus status)
     {
         if (status != MasterStatus.All)
         {
-            sql.Append(status == MasterStatus.Active ? $" and {alias}.is_active" : $" and not {alias}.is_active");
+            sql.Append($" and {alias}.is_active = {dialect.Bool(status == MasterStatus.Active)}");
         }
     }
 
@@ -128,18 +129,30 @@ internal static class MasterSql
     /// Agrega la condición de la página siguiente y el orden: lo que va después de la última fila mostrada, por (columna,
     /// id), de menor a mayor o al revés.
     /// </summary>
-    public static void AppendKeyset(StringBuilder sql, DynamicParameters parameters, string column, string id, MasterPage page)
+    /// <remarks>
+    /// <c>(columna, id) &gt; (@AfterValue, @AfterId)</c> escrito sin comparación de filas, que SQL Server no tiene. La
+    /// primera condición (<c>columna &gt;= @AfterValue</c>) es la que deja recorrer el índice desde el cursor; la segunda
+    /// desempata por id las filas con el mismo valor. Las columnas de orden no admiten nulos.
+    /// </remarks>
+    public static void AppendKeyset(StringBuilder sql, DynamicParameters parameters, ISqlDialect dialect, string column, string id, MasterPage page)
     {
         var direction = page.Descending ? "desc" : "asc";
         if (page.After is { } after)
         {
-            sql.Append($" and ({column}, {id}) {(page.Descending ? "<" : ">")} (@AfterValue, @AfterId)");
+            AppendAfter(sql, column, id, page.Descending ? "<" : ">", "@AfterValue", "@AfterId");
             parameters.Add("AfterValue", after.Value);
             parameters.Add("AfterId", after.Id);
         }
 
-        sql.Append($" order by {column} {direction}, {id} {direction} limit @Take");
+        sql.Append($" order by {column} {direction}, {id} {direction} {dialect.Paging("@Take")}");
     }
+
+    /// <summary>
+    /// Agrega <c>and (columna, id) &lt;operador&gt; (valor, id)</c> en la forma que entienden los tres motores, con
+    /// <paramref name="comparison"/> «&lt;» o «&gt;».
+    /// </summary>
+    public static void AppendAfter(StringBuilder sql, string column, string id, string comparison, string value, string afterId) =>
+        sql.Append($" and {column} {comparison}= {value} and ({column} {comparison} {value} or {id} {comparison} {afterId})");
 
     /// <summary>Patrón de ILIKE que busca el texto en cualquier parte, con los comodines del texto escapados.</summary>
     public static string ContainsPattern(string search) =>

@@ -59,6 +59,7 @@ public sealed class DocumentListFilterApiTests
     [TestCase("ACME s", new[] { 1 })]
     [TestCase("900123", new[] { 3, 1 })]
     [TestCase("%", new int[0])]
+    [TestCase("acme_sas", new int[0])]
     public async Task Customer_matches_a_piece_of_the_name_or_the_identification_without_case(string customer, int[] expected)
     {
         var company = await DocumentSeed.CompanyAsync();

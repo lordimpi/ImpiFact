@@ -5,6 +5,7 @@ using Dapper;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Domain.Documents;
+using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Conversions;
 
 namespace ImpiFact.Infrastructure.Reads.Documents;
@@ -26,11 +27,11 @@ namespace ImpiFact.Infrastructure.Reads.Documents;
 /// </list>
 /// </summary>
 /// <remarks>
-/// SQL de PostgreSQL, el único motor de esta fase: <c>limit</c> y <c>offset</c> cambian en SQL Server. Las listas
-/// (<c>in (...)</c>) se arman con un parámetro por valor y no con la expansión de Dapper, que con Npgsql (el controlador
-/// de PostgreSQL) envía un arreglo que <c>in</c> no acepta.
+/// El SQL es común a los tres motores; el límite, la búsqueda sin mayúsculas y la lectura de la columna JSON los pone el
+/// dialecto del motor (<see cref="ISqlDialect"/>). Las listas (<c>in (...)</c>) se arman con un parámetro por valor y no
+/// con la expansión de Dapper, que con Npgsql (el controlador de PostgreSQL) envía un arreglo que <c>in</c> no acepta.
 /// </remarks>
-internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : IDocumentReads
+internal sealed class DapperDocumentReads(IReadConnectionFactory connections, ISqlDialect dialect) : IDocumentReads
 {
     /// <summary>Columnas de la cabecera; los alias son los nombres de <see cref="HeaderRow"/>.</summary>
     private const string HeaderColumns = """
@@ -126,7 +127,7 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
         if (page is { } window)
         {
             // Las páginas numeradas del contrato heredado no se pueden pedir por clave: son de a 100 y usan offset.
-            sql.Append(" limit @Take offset @Skip");
+            sql.Append(' ').Append(dialect.Paging("@Take", "@Skip"));
             parameters.Add("Take", window.Take);
             parameters.Add("Skip", window.Skip);
         }
@@ -188,7 +189,7 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
     }
 
     /// <summary>Consulta del listado: los filtros, el cursor, el orden <c>(issued_at, id)</c> descendente y el límite.</summary>
-    private static (string Sql, DynamicParameters Parameters) ListSql(DocumentListFilter filter)
+    private (string Sql, DynamicParameters Parameters) ListSql(DocumentListFilter filter)
     {
         var parameters = new DynamicParameters(new { filter.CompanyId, filter.Take });
         var sql = new StringBuilder($"""
@@ -197,12 +198,12 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
             where d.company_id = @CompanyId
             """);
         AppendListFilters(sql, parameters, filter);
-        sql.Append(" order by d.issued_at desc, d.id desc limit @Take");
+        sql.Append(" order by d.issued_at desc, d.id desc ").Append(dialect.Paging("@Take"));
         return (sql.ToString(), parameters);
     }
 
     /// <summary>Condiciones del listado después de <c>company_id</c>; los filtros nulos o vacíos no agregan nada.</summary>
-    private static void AppendListFilters(StringBuilder sql, DynamicParameters parameters, DocumentListFilter filter)
+    private void AppendListFilters(StringBuilder sql, DynamicParameters parameters, DocumentListFilter filter)
     {
         if (filter.DocumentTypeId is { } typeId)
         {
@@ -229,10 +230,11 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
 
         if (filter.Customer is { } customer)
         {
-            // Busca en la copia del adquiriente que quedó en el documento (columna jsonb), sin distinguir mayúsculas. Los
+            // Busca en la copia del adquiriente que quedó en el documento (columna JSON), sin distinguir mayúsculas. Los
             // comodines de LIKE que escriba el usuario (%, _) se escapan: se buscan como texto.
-            sql.Append(" and (d.customer_snapshot ->> 'identification_number' ilike @Customer escape '\\'")
-                .Append(" or d.customer_snapshot ->> 'name' ilike @Customer escape '\\')");
+            var identification = dialect.LikeIgnoreCase(dialect.JsonText("d.customer_snapshot", "identification_number"), "@Customer");
+            var name = dialect.LikeIgnoreCase(dialect.JsonText("d.customer_snapshot", "name"), "@Customer");
+            sql.Append($" and ({identification} or {name})");
             parameters.Add("Customer", "%" + EscapeLike(customer) + "%");
         }
 

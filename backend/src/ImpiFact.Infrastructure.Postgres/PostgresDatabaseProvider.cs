@@ -29,6 +29,7 @@ public sealed class PostgresDatabaseProvider : IDatabaseProvider
         services.TryAddSingleton(serviceProvider =>
             NpgsqlDataSource.Create(serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString));
         services.TryAddSingleton<IReadConnectionFactory, NpgsqlReadConnectionFactory>();
+        services.TryAddSingleton<ISqlDialect, PostgresSqlDialect>();
         services.TryAddSingleton<INumberingSql, PostgresNumberingSql>();
         services.TryAddSingleton<IOutboxQueueSql, PostgresOutboxQueueSql>();
         services.TryAddSingleton<IScheduledJobLockSql, PostgresScheduledJobLockSql>();
