@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Infrastructure.Observability;
+using ImpiFact.Integration.Tests.Observability;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -20,10 +21,10 @@ public sealed class WorkerLoggingTests
     [Test]
     public async Task Handler_logs_carry_the_outbox_message_id_type_and_company()
     {
-        var output = new StringWriter();
+        var output = new LogCapture();
         await using var host = await DianSendHost.StartAsync(configureServices: services =>
         {
-            services.AddSingleton(new LogOutput(TextWriter.Synchronized(output)));
+            services.AddSingleton(new LogOutput(output));
             services.AddLogging(logging => logging.AddImpiFactSerilog(
                 new ConfigurationBuilder().Build(), new HostingEnvironment { EnvironmentName = Environments.Production }, "impifact-worker"));
         });

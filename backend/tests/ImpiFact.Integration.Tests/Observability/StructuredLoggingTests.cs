@@ -29,7 +29,7 @@ public sealed class StructuredLoggingTests
     [Test]
     public async Task In_production_each_log_line_is_json_with_the_correlation_id_company_and_user()
     {
-        var output = new StringWriter();
+        var output = new LogCapture();
         using var factory = Factory("Production", output);
         var userId = Guid.CreateVersion7();
         var companyId = Guid.CreateVersion7();
@@ -58,7 +58,7 @@ public sealed class StructuredLoggingTests
     [Test]
     public async Task Secrets_in_the_request_or_passed_to_a_log_never_reach_the_log_output()
     {
-        var output = new StringWriter();
+        var output = new LogCapture();
         using var factory = Factory("Production", output);
         var (apiKey, _) = factory.AddApiKey(Guid.CreateVersion7(), [ApiScopes.DocumentsRead]);
         var jwt = factory.Services.GetRequiredService<IAccessTokenIssuer>().Issue(Guid.CreateVersion7(), ["owner"], Guid.CreateVersion7()).Value;
@@ -92,7 +92,7 @@ public sealed class StructuredLoggingTests
     [Test]
     public async Task In_development_the_console_is_readable_text_and_Logging_LogLevel_still_filters_by_category()
     {
-        var output = new StringWriter();
+        var output = new LogCapture();
         using var factory = Factory("Development", output, ("Logging:LogLevel:Microsoft.AspNetCore", "Warning"));
         using var client = factory.CreateClient();
 
@@ -111,7 +111,7 @@ public sealed class StructuredLoggingTests
     [Test]
     public void An_unknown_log_format_stops_the_api_at_startup()
     {
-        using var factory = Factory("Production", new StringWriter(), (ImpiFactLogging.FormatKey, "xml"));
+        using var factory = Factory("Production", new LogCapture(), (ImpiFactLogging.FormatKey, "xml"));
 
         var exception = Assert.Catch(() => factory.CreateClient());
 
@@ -137,17 +137,17 @@ public sealed class StructuredLoggingTests
 
     private static readonly byte[] Certificate = [.. Enumerable.Range(0, 2048).Select(index => (byte)(index * 7 % 251))];
 
-    private static IdentityApiFactory Factory(string environment, StringWriter output, params (string Key, string Value)[] settings) =>
+    private static IdentityApiFactory Factory(string environment, LogCapture output, params (string Key, string Value)[] settings) =>
         new(
             environment,
             settings: settings.ToDictionary(setting => setting.Key, setting => (string?)setting.Value),
             configureServices: services =>
             {
-                services.AddSingleton(new LogOutput(TextWriter.Synchronized(output)));
+                services.AddSingleton(new LogOutput(output));
                 services.AddSingleton<IEndpointModule, ProbeEndpoints>();
             });
 
-    private static List<JsonElement> JsonLines(StringWriter output) =>
+    private static List<JsonElement> JsonLines(LogCapture output) =>
         [.. output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(line => JsonDocument.Parse(line).RootElement)];
 
