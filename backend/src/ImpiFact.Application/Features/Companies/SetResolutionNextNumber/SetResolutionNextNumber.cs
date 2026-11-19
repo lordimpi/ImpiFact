@@ -5,7 +5,6 @@ using ImpiFact.Application.Abstractions.Companies;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Results;
-using ImpiFact.Domain.Documents;
 
 namespace ImpiFact.Application.Features.Companies.SetResolutionNextNumber;
 
@@ -111,7 +110,7 @@ internal sealed class SetResolutionNextNumberHandler(
             return Invalid(NextNumberMessages.OutOfRange(resolution.RangeFrom, resolution.RangeTo));
         }
 
-        var next = await advance.AdvanceToAsync(companyId, NumberingScope.ForResolution(resolution.Id), requested, ct);
+        var next = await advance.AdvanceResolutionToAsync(companyId, resolution.Id, requested, ct);
         if (next is null)
         {
             // Resolución sin consecutivo (por ejemplo, cargada sin la ruta de resoluciones): se crea en el número pedido.

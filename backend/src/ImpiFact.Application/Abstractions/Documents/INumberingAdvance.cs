@@ -1,3 +1,5 @@
+using ImpiFact.Domain.Documents;
+
 namespace ImpiFact.Application.Abstractions.Documents;
 
 /// <summary>
@@ -18,4 +20,11 @@ public interface INumberingAdvance
     /// <returns>El nuevo <c>next_number</c>, o nulo si la empresa no tiene ese consecutivo.</returns>
     /// <exception cref="InvalidOperationException">Si no hay una transacción abierta.</exception>
     Task<long?> AdvanceToAsync(Guid companyId, string scopeKey, long nextNumber, CancellationToken ct);
+
+    /// <summary>
+    /// Lo mismo para el consecutivo de una resolución, sin que el llamador arme la clave del consecutivo: así un módulo
+    /// que no es de documentos (las resoluciones son de empresas) no depende del dominio de documentos.
+    /// </summary>
+    Task<long?> AdvanceResolutionToAsync(Guid companyId, Guid resolutionId, long nextNumber, CancellationToken ct) =>
+        AdvanceToAsync(companyId, NumberingScope.ForResolution(resolutionId), nextNumber, ct);
 }
