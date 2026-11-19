@@ -189,7 +189,7 @@ describe('ResolutionsPage', () => {
     expect(field(/^Hasta el número/).value).toBe('5000');
   });
 
-  it('explains the DIAN answer when it has no ranges', async () => {
+  it('shows the DIAN answer without ranges as a neutral state, not as an error', async () => {
     const { http } = await open();
 
     fireEvent.click(screen.getByRole('button', { name: 'Consultar en la DIAN' }));
@@ -197,12 +197,15 @@ describe('ResolutionsPage', () => {
       success: false,
       numbering_ranges: [],
       operation_code: '301',
-      operation_description: 'No se encontraron rangos de numeración.',
+      operation_description:
+        'No fue encontrado ningún rango de numeración para el NIT 900123456 y el software indicado.',
     });
 
-    expect(
-      await screen.findByText('Respuesta de la DIAN: No se encontraron rangos de numeración.'),
-    ).toBeTruthy();
+    const message = await screen.findByText(
+      'Respuesta de la DIAN: No fue encontrado ningún rango de numeración para el NIT 900123456 y el software indicado.',
+    );
+    expect(message.classList).not.toContain('companies-message--error');
+    expect(message.classList).toContain('companies-message--info');
   });
 
   it('explains when the DIAN is not answering', async () => {
@@ -212,11 +215,10 @@ describe('ResolutionsPage', () => {
     const error = problem(503, 'dian.unavailable', 'La DIAN no responde.');
     (await expectRequest(http, (req) => req.url === RANGES_URL)).flush(error.body, error.options);
 
-    expect(
-      await screen.findByText(
-        'La DIAN no responde en este momento. Intente de nuevo en unos minutos.',
-      ),
-    ).toBeTruthy();
+    const message = await screen.findByText(
+      'La DIAN no responde en este momento. Intente de nuevo en unos minutos.',
+    );
+    expect(message.classList).toContain('companies-message--error');
   });
 
   it('explains when the company has no certificate to query the DIAN', async () => {

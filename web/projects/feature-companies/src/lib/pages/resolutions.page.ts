@@ -161,10 +161,12 @@ export class ResolutionsPage implements HasUnsavedChanges {
         this.lookup.set({ kind: 'ranges', ranges });
         return;
       }
+      // Una respuesta de la DIAN sin rangos es normal (en habilitación el rango SETP es genérico y la DIAN responde
+      // «No fue encontrado ningún rango…»): se muestra en neutro. En rojo quedan solo las fallas (red, 5xx, certificado).
       const answer = response.operation_description ?? response.message;
       this.lookup.set({
         kind: 'message',
-        error: response.success === false,
+        error: false,
         text: answer
           ? this.text('resolutions.ranges.dianMessage', { message: answer })
           : this.text('resolutions.ranges.empty'),

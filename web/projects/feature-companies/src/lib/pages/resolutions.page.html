@@ -215,7 +215,12 @@
     </div>
   }
   @if (lookupMessage(); as message) {
-    <p class="companies-message" [class.companies-message--error]="message.error" role="status">
+    <p
+      class="companies-message"
+      [class.companies-message--error]="message.error"
+      [class.companies-message--info]="!message.error"
+      role="status"
+    >
       {{ message.text }}
     </p>
   }
