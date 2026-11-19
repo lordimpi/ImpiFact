@@ -76,7 +76,13 @@
               [error]="fieldError('durationDays')"
               required
             >
-              <input uiInput type="number" step="1" [formField]="invoiceForm.durationDays" />
+              <input
+                uiInput
+                uiNonNegative
+                type="number"
+                step="1"
+                [formField]="invoiceForm.durationDays"
+              />
             </ui-field>
           }
         </div>
@@ -158,6 +164,11 @@
         [loading]="previewing()"
         [disabled]="!canIssue() || previewing()"
         (pressed)="preview()"
+      />
+      <feat-pdf-preview
+        [pdf]="previewPdf()"
+        (closed)="previewPdf.set(null)"
+        (download)="savePreview()"
       />
       <ui-button
         type="submit"

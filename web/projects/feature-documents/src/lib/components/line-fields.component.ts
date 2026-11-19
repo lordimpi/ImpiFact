@@ -1,6 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { FieldTree, FormField } from '@angular/forms/signals';
-import { ButtonComponent, FieldComponent, InputDirective, SelectDirective } from '@impifact/ui';
+import {
+  ButtonComponent,
+  FieldComponent,
+  InputDirective,
+  NonNegativeDirective,
+  SelectDirective,
+} from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { DOCUMENTS_I18N_SCOPE } from '../documents-i18n';
 import { IVA_PERCENTS, InvoiceLineModel } from '../forms/invoice.form';
@@ -27,6 +33,7 @@ const ERROR_KEYS: Record<LineField, string> = {
     ButtonComponent,
     FieldComponent,
     InputDirective,
+    NonNegativeDirective,
     SelectDirective,
     CopCurrencyPipe,
   ],
@@ -56,26 +63,14 @@ const ERROR_KEYS: Record<LineField, string> = {
           [error]="errors().quantity"
           required
         >
-          <input
-            uiInput
-            type="number"
-            step="any"
-            inputmode="decimal"
-            [formField]="field.quantity"
-          />
+          <input uiInput uiNonNegative type="number" step="any" [formField]="field.quantity" />
         </ui-field>
         <ui-field
           [label]="'documents.issue.line.unitPrice' | transloco"
           [error]="errors().unitPrice"
           required
         >
-          <input
-            uiInput
-            type="number"
-            step="any"
-            inputmode="decimal"
-            [formField]="field.unitPrice"
-          />
+          <input uiInput uiNonNegative type="number" step="any" [formField]="field.unitPrice" />
         </ui-field>
         <ui-field [label]="'documents.issue.line.taxPercent' | transloco">
           <select uiSelect [formField]="field.taxPercent">
