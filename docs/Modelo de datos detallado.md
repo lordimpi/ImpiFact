@@ -435,7 +435,7 @@ Es la operación más delicada: dos solicitudes simultáneas nunca pueden obtene
 | --- | --- |
 | PostgreSQL | `UPDATE numbering_sequences SET next_number = next_number + 1, row_version = row_version + 1 WHERE company_id = @c AND scope_key = @k RETURNING next_number - 1;` |
 | SQL Server | `UPDATE numbering_sequences SET next_number = next_number + 1, row_version = row_version + 1 OUTPUT inserted.next_number - 1 WHERE company_id = @c AND scope_key = @k;` |
-| MySQL | `UPDATE numbering_sequences SET next_number = LAST_INSERT_ID(next_number) + 1, row_version = row_version + 1 WHERE company_id = @c AND scope_key = @k; SELECT LAST_INSERT_ID();` (misma conexión) |
+| MySQL | `UPDATE numbering_sequences SET next_number = LAST_INSERT_ID(next_number) + 1, row_version = row_version + 1 WHERE company_id = @c AND scope_key = @k; SELECT IF(ROW_COUNT() > 0, LAST_INSERT_ID(), NULL);` (mismo comando y conexión; sin fila, `LAST_INSERT_ID()` conservaría el valor anterior, por eso se mira `ROW_COUNT()`) |
 
 Una clase por proveedor (`INumberingSql`) implementa esto; es SQL no portable y vive en `Infrastructure.<Proveedor>`.
 
@@ -466,10 +466,10 @@ Reglas: toda consulta Dapper incluye `company_id` en el `WHERE` (una prueba de a
 
 | Lógico | PostgreSQL | SQL Server | MySQL 8 |
 | --- | --- | --- | --- |
-| `uuid` | `uuid` | `uniqueidentifier` | `char(36)` (ascii) o `binary(16)`; se decide con ADR-08 y el proveedor elegido |
+| `uuid` | `uuid` | `uniqueidentifier` | `char(36)` `ascii` (texto con guiones en minúscula; ADR-08, 19-nov) |
 | `ts` | `timestamptz` | `datetimeoffset(3)` | `datetime(6)` en UTC (no guarda offset) |
 | `bool` | `boolean` | `bit` | `tinyint(1)` |
-| `varchar(n)` | `varchar(n)` | `nvarchar(n)` | `varchar(n)` utf8mb4 |
+| `varchar(n)` | `varchar(n)` | `nvarchar(n)` | `varchar(n)` utf8mb4, `utf8mb4_0900_as_cs` |
 | `json` | `jsonb` | `nvarchar(max)` + `CHECK (ISJSON(col)=1)` | `json` |
 | `numeric(p,s)` | `numeric(p,s)` | `decimal(p,s)` | `decimal(p,s)` |
 | `bigint identity` | `bigint generated always as identity` | `bigint identity` | `bigint auto_increment` |
@@ -486,6 +486,12 @@ Trampas a resolver en la implementación:
 7. **Decimales.** Precisión y escala explícitas en cada propiedad; EF no debe quedar con el valor por defecto de cada proveedor.
 8. **Aislamiento.** `READ COMMITTED` en los tres; SQL Server con `READ_COMMITTED_SNAPSHOT ON`.
 9. **Carga de catálogos.** `municipalities` (≈1.100 filas) se siembra en lotes con `MigrationBuilder`; no se usa `LOAD DATA` ni `BULK INSERT`.
+10. **MySQL (19-nov, ADR-08).** Decisiones del proveedor `Infrastructure.MySql`:
+    - **uuid como `char(36)` `ascii`** (lo que hace el proveedor por defecto) y no `binary(16)`: ordena igual que el `uuid` de PostgreSQL (la paginación por clave compara `id`), se lee en una consulta a mano y Dapper lo recibe como `Guid` sin conversores. Cuesta 36 bytes por columna en lugar de 16, que con este volumen no importa.
+    - **Texto en `utf8mb4` con `utf8mb4_0900_as_cs`**: distingue mayúsculas y tildes, como PostgreSQL, así un índice único (por ejemplo el código de un ítem) o un `=` dan el mismo resultado en los dos motores. Se descartó `utf8mb4_0900_ai_ci` (el valor por defecto de MySQL 8), que no distingue mayúsculas ni tildes y haría chocar «Jose» con «José» en un índice único. Las búsquedas sin mayúsculas las pide `ISqlDialect.LikeIgnoreCase` con `collate utf8mb4_0900_as_ci` (sin mayúsculas, con tildes, como `ilike`); el `collate` también cubre el texto de un JSON, que MySQL entrega en `utf8mb4_bin`. Con esto las columnas ASCII de la trampa 2 no necesitan `ascii`: los índices más largos quedan lejos de los 3072 bytes.
+    - **`DateTimeOffset` como `datetime(6)` en UTC**: MySQL no tiene un tipo con desfase. El convertidor común ya lleva todo a UTC (punto 5), el controlador lee las fechas como UTC (`DateTimeKind=Utc`) y el SQL a mano manda `UtcDateTime`; el mes en hora Colombia es `date_format(date_add(col, interval -5 hour), '%Y-%m')`.
+    - **Índices parciales** (trampa 1): `ux_documents_cufe` es un índice único normal (MySQL acepta varios NULL), `ix_documents_track` uno normal, y `ux_certificates_active` es único sobre la columna generada virtual `active_company_id = case when is_active then company_id end`, que el personalizador del modelo agrega como propiedad oculta.
+    - **Sesión**: `READ COMMITTED` (punto 8) al abrir cada conexión nueva o reiniciada, `AllowUserVariables=True` y `UseAffectedRows=False` (los exige el proveedor de EF). Se requiere MySQL 8.0.16 o superior (`CHECK`, `LATERAL`, `SKIP LOCKED`); se prueba y se fija 8.4 LTS.
 
 ## 9. Migraciones, semillas y proyectos
 
@@ -541,4 +547,4 @@ El modelo se da por terminado cuando (en la fase 2 se exige solo en PostgreSQL; 
 7. Ningún secreto en claro aparece en la base: una prueba revisa `company_software`, `company_mail_settings` y `api_keys` (y `company_whatsapp_settings` cuando llegue con Enterprise).
 8. Los golden tests de la fase 3 persisten y recuperan un documento completo (cabecera, líneas, impuestos, archivos, envíos) sin pérdida de decimales.
 
-Resueltos el 14-nov en «php-rules»: razón social, mapeo de `state_document_id` y validación del `number`. Sigue pendiente **\[verificar\]**: el tipo de UUID en MySQL según el proveedor elegido (ADR-08).
+Resueltos el 14-nov en «php-rules»: razón social, mapeo de `state_document_id` y validación del `number`. Resuelto el 19-nov con ADR-08: el uuid en MySQL es `char(36)` `ascii` (sección 8, punto 10).

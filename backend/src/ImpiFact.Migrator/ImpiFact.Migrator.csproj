@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ImpiFact.Application\ImpiFact.Application.csproj" />
     <ProjectReference Include="..\ImpiFact.Infrastructure\ImpiFact.Infrastructure.csproj" />
+    <ProjectReference Include="..\ImpiFact.Infrastructure.MySql\ImpiFact.Infrastructure.MySql.csproj" />
     <ProjectReference Include="..\ImpiFact.Infrastructure.Postgres\ImpiFact.Infrastructure.Postgres.csproj" />
   </ItemGroup>
 </Project>

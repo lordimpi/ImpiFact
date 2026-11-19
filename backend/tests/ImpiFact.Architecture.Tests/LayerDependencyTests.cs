@@ -22,9 +22,13 @@ public class LayerDependencyTests
         ["ImpiFact.Application"] = ["ImpiFact.Domain", "ImpiFact.Dian"],
         ["ImpiFact.Infrastructure"] = ["ImpiFact.Application", "ImpiFact.Dian", "ImpiFact.Domain"],
         ["ImpiFact.Infrastructure.Postgres"] = ["ImpiFact.Infrastructure"],
-        ["ImpiFact.Api"] = ["ImpiFact.Application", "ImpiFact.Infrastructure", "ImpiFact.Infrastructure.Postgres"],
-        ["ImpiFact.Worker"] = ["ImpiFact.Application", "ImpiFact.Infrastructure", "ImpiFact.Infrastructure.Postgres"],
-        ["ImpiFact.Migrator"] = ["ImpiFact.Application", "ImpiFact.Infrastructure", "ImpiFact.Infrastructure.Postgres"],
+        ["ImpiFact.Infrastructure.MySql"] = ["ImpiFact.Infrastructure"],
+        ["ImpiFact.Api"] = ["ImpiFact.Application", "ImpiFact.Infrastructure", "ImpiFact.Infrastructure.Postgres",
+            "ImpiFact.Infrastructure.MySql"],
+        ["ImpiFact.Worker"] = ["ImpiFact.Application", "ImpiFact.Infrastructure", "ImpiFact.Infrastructure.Postgres",
+            "ImpiFact.Infrastructure.MySql"],
+        ["ImpiFact.Migrator"] = ["ImpiFact.Application", "ImpiFact.Infrastructure", "ImpiFact.Infrastructure.Postgres",
+            "ImpiFact.Infrastructure.MySql"],
     };
 
     /// <summary>Proyectos de composición: arman los servicios y arrancan un proceso. Ningún otro proyecto los referencia.</summary>
@@ -40,6 +44,7 @@ public class LayerDependencyTests
     private static readonly string[] InfrastructureNamespaces =
     [
         "Microsoft.EntityFrameworkCore", "Dapper", "Npgsql", "Microsoft.AspNetCore", "Azure", "Amazon", "Google.Cloud",
+        "MySqlConnector", "Microting",
     ];
 
     public static IEnumerable<TestCaseData> Projects() =>

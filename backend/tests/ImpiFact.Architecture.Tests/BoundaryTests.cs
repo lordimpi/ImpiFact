@@ -37,6 +37,22 @@ public class BoundaryTests
         Assert.That(result.FailingTypeNames ?? [], Is.Empty, "Npgsql belongs in ImpiFact.Infrastructure.Postgres.");
     }
 
+    // MySqlConnector (el controlador de MySQL) y el proveedor de EF de Microting solo viven en su proyecto de proveedor,
+    // y el proveedor de PostgreSQL tampoco los usa.
+    [Test]
+    public void Only_the_mysql_provider_uses_the_mysql_driver()
+    {
+        var result = Types.InAssemblies([
+                Load("ImpiFact.Infrastructure"), Load("ImpiFact.Application"), Load("ImpiFact.Api"), Load("ImpiFact.Worker"),
+                Load("ImpiFact.Infrastructure.Postgres"),
+            ])
+            .ShouldNot()
+            .HaveDependencyOnAny("MySqlConnector", "Microting")
+            .GetResult();
+
+        Assert.That(result.FailingTypeNames ?? [], Is.Empty, "MySqlConnector belongs in ImpiFact.Infrastructure.MySql.");
+    }
+
     // Los endpoints solo traducen HTTP a un caso de uso: no abren el DbContext ni escriben SQL.
     [Test]
     public void Api_endpoints_do_not_reach_the_database()
@@ -45,7 +61,9 @@ public class BoundaryTests
             .That()
             .DoNotHaveName("ApiComposition", "Program")
             .ShouldNot()
-            .HaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Dapper", "Npgsql", "ImpiFact.Infrastructure.Persistence")
+            .HaveDependencyOnAny(
+                "Microsoft.EntityFrameworkCore", "Dapper", "Npgsql", "ImpiFact.Infrastructure.Persistence",
+                "MySqlConnector")
             .GetResult();
 
         Assert.That(result.FailingTypeNames ?? [], Is.Empty);

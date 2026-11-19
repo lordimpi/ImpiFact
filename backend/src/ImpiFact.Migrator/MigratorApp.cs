@@ -7,6 +7,7 @@ using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
+using ImpiFact.Infrastructure.MySql;
 using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -151,7 +152,10 @@ public static class MigratorApp
         var services = new ServiceCollection();
         // Todos los motores disponibles; Database:Provider elige uno (sin él, o con uno que no existe, el comando falla
         // con un mensaje que lista los disponibles).
-        services.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        services.AddInfrastructure(
+            configuration,
+            new PostgresDatabaseProvider(),
+            new MySqlDatabaseProvider());
         services.AddIdentityPersistence();
         if (withApplication)
         {
