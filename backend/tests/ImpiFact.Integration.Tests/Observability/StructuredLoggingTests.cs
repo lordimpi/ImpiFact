@@ -128,6 +128,8 @@ public sealed class StructuredLoggingTests
     [TestCase("SigningKey", true)]
     [TestCase("ClientSecret", true)]
     [TestCase("Cookie", true)]
+    [TestCase("impifact_refresh", true)]
+    [TestCase("SessionId", true)]
     [TestCase("ShippingAddress", false)]
     [TestCase("Mapping", false)]
     [TestCase("DocumentId", false)]

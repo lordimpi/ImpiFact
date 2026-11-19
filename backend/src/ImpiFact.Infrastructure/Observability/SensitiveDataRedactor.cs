@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Serilog.Core;
 using Serilog.Events;
@@ -7,10 +8,13 @@ namespace ImpiFact.Infrastructure.Observability;
 /// <summary>
 /// Quita los datos sensibles de cada registro antes de que salga por cualquier destino (consola u OTLP; Arquitectura
 /// detallada, sección 12): las propiedades cuyo nombre es de un secreto (<c>*password*</c>, <c>*token*</c>,
-/// <c>*secret*</c>, <c>pin</c>, <c>Authorization</c>, <c>Cookie</c>, API keys y llaves privadas) quedan como
-/// <see cref="Mask"/>; en los textos se tapan las credenciales (<c>Bearer …</c>, <c>Basic …</c>, JWT, API keys con el
-/// prefijo <c>apk_</c>) y los valores de los parámetros sensibles de una consulta (<c>?password=…&amp;token=…</c>); los
-/// arreglos de bytes (certificados, archivos) se cambian por su tamaño.
+/// <c>*secret*</c>, <c>*refresh*</c>, <c>*session*</c>, <c>pin</c>, <c>Authorization</c>, <c>Cookie</c>, API keys y llaves
+/// privadas) quedan como <see cref="Mask"/>; en los textos se tapan las credenciales (<c>Bearer …</c>, <c>Basic …</c>,
+/// JWT, API keys con el prefijo <c>apk_</c>) y los valores de los parámetros con esos nombres, sea de una consulta
+/// (<c>?password=…&amp;token=…</c>) o de una cookie (<c>impifact_refresh=…; Path=/</c>, con o sin comillas); los
+/// arreglos de bytes (certificados, archivos) se cambian por su tamaño. Además de los textos, se revisa el texto de los
+/// demás valores simples que no tienen un formato fijo, como un <see cref="Uri"/> con su consulta. El texto de las
+/// excepciones lo tapa <see cref="ExceptionRedactingSink"/> con <see cref="RedactText"/>.
 /// </summary>
 /// <remarks>
 /// Es una segunda barrera: el código no debe registrar secretos. Corre en el propio Serilog, así cubre también las
@@ -28,6 +32,8 @@ internal sealed partial class SensitiveDataRedactor : ILogEventEnricher
     [
         "password", "passwd", "secret", "token", "authorization", "cookie", "apikey", "privatekey", "signingkey", "masterkey",
         "pfx", "connectionstring",
+        // Las cookies de sesión (impifact_refresh, impifact_session y las de otros sistemas) valen lo que una credencial.
+        "refresh", "session",
     ];
 
     public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
@@ -89,6 +95,12 @@ internal sealed partial class SensitiveDataRedactor : ILogEventEnricher
                 return ReferenceEquals(redacted, text) ? value : new ScalarValue(redacted);
             case ScalarValue { Value: byte[] bytes }:
                 return new ScalarValue($"[{bytes.Length} bytes]");
+            case ScalarValue { Value: { } scalar } when !HasFixedFormat(scalar):
+                // Un Uri (o cualquier otro valor simple sin formato fijo) se escribe con su texto, que puede traer una
+                // consulta con un token: se revisa ese texto y, si había algo que tapar, queda como texto.
+                var original = Convert.ToString(scalar, CultureInfo.InvariantCulture) ?? "";
+                var cleaned = RedactText(original);
+                return ReferenceEquals(cleaned, original) ? value : new ScalarValue(cleaned);
             case SequenceValue sequence:
                 var elements = sequence.Elements.Select(Redact).ToList();
                 return elements.Where((element, index) => !ReferenceEquals(element, sequence.Elements[index])).Any()
@@ -119,6 +131,14 @@ internal sealed partial class SensitiveDataRedactor : ILogEventEnricher
         }
     }
 
+    /// <summary>
+    /// Los valores simples cuyo texto no puede llevar un secreto: números, booleanos, caracteres, enumeraciones, fechas,
+    /// horas, duraciones y Guid. Se escriben tal cual y conservan su tipo (un número sigue siendo número en el JSON).
+    /// </summary>
+    private static bool HasFixedFormat(object value) =>
+        value.GetType().IsPrimitive
+        || value is Enum or decimal or Int128 or UInt128 or Half or DateTime or DateTimeOffset or DateOnly or TimeOnly or TimeSpan or Guid;
+
     private static IEnumerable<string> Words(string name) => WordBoundary().Split(name).Where(word => word.Length > 0);
 
     [GeneratedRegex(@"(?<scheme>\b(?:Bearer|Basic|ApiKey))\s+[^\s,;""']+", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
@@ -130,7 +150,8 @@ internal sealed partial class SensitiveDataRedactor : ILogEventEnricher
     [GeneratedRegex(@"\bapk_[A-Za-z0-9_-]{8,}", RegexOptions.CultureInvariant)]
     private static partial Regex ApiKey();
 
-    [GeneratedRegex(@"(?<key>[A-Za-z0-9_.\-]+)=(?<value>[^&\s""';,]*)", RegexOptions.CultureInvariant)]
+    // El valor llega hasta el siguiente separador de una consulta o de una cookie (&, ;, coma o espacio), o entre comillas.
+    [GeneratedRegex(@"(?<key>[A-Za-z0-9_.\-]+)=(?<value>""[^""]*""|[^&\s""';,]*)", RegexOptions.CultureInvariant)]
     private static partial Regex Parameter();
 
     // Serilog escribe un arreglo de más de 1 kB como los primeros bytes en hexadecimal y su tamaño.

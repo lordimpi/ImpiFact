@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using Serilog.Configuration;
 using Serilog.Extensions.Logging;
 using Serilog.Formatting;
 using Serilog.Formatting.Compact;
@@ -15,7 +16,8 @@ namespace ImpiFact.Infrastructure.Observability;
 /// <summary>
 /// Registros (logs) de la API y del Worker con Serilog (Arquitectura detallada, sección 12): una línea JSON por evento
 /// en la consola (o texto legible en Development) y, si está <c>OTEL_EXPORTER_OTLP_ENDPOINT</c>, los mismos eventos por
-/// OTLP. Todos pasan antes por <see cref="SensitiveDataRedactor"/>.
+/// OTLP. Todos pasan antes por <see cref="SensitiveDataRedactor"/> (las propiedades) y por
+/// <see cref="ExceptionRedactingSink"/> (el texto de la excepción).
 /// </summary>
 /// <remarks>
 /// Serilog entra como un proveedor más de Microsoft.Extensions.Logging, no en su lugar: los niveles siguen saliendo de
@@ -70,26 +72,37 @@ public static class ImpiFactLogging
             ? new RenderedCompactJsonFormatter()
             : new MessageTemplateTextFormatter(
                 "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}");
-        logger = output.Writer is null
-            ? logger.WriteTo.Console(formatter)
-            : logger.WriteTo.Sink(new TextWriterSink(formatter, output.Writer));
+        var otlpEndpoint = configuration[OtlpEndpointKey] is { Length: > 0 } endpoint ? endpoint : null;
+        var http = string.Equals(configuration[OtlpProtocolKey], "http/protobuf", StringComparison.OrdinalIgnoreCase);
 
-        if (configuration[OtlpEndpointKey] is { Length: > 0 } endpoint)
+        // Todos los destinos van envueltos: reciben la excepción de cada evento ya sin datos sensibles.
+        var wrapped = LoggerSinkConfiguration.Wrap(sink => new ExceptionRedactingSink(sink), sinks =>
         {
-            var http = string.Equals(configuration[OtlpProtocolKey], "http/protobuf", StringComparison.OrdinalIgnoreCase);
-            logger = logger.WriteTo.OpenTelemetry(options =>
+            if (output.Writer is null)
             {
-                options.Endpoint = http ? endpoint.TrimEnd('/') + "/v1/logs" : endpoint;
-                options.Protocol = http ? OtlpProtocol.HttpProtobuf : OtlpProtocol.Grpc;
-                options.ResourceAttributes = new Dictionary<string, object>
-                {
-                    ["service.name"] = serviceName,
-                    ["deployment.environment.name"] = environment.EnvironmentName,
-                };
-            });
-        }
+                sinks.Console(formatter);
+            }
+            else
+            {
+                sinks.Sink(new TextWriterSink(formatter, output.Writer));
+            }
 
-        return logger.CreateLogger();
+            if (otlpEndpoint is not null)
+            {
+                sinks.OpenTelemetry(options =>
+                {
+                    options.Endpoint = http ? otlpEndpoint.TrimEnd('/') + "/v1/logs" : otlpEndpoint;
+                    options.Protocol = http ? OtlpProtocol.HttpProtobuf : OtlpProtocol.Grpc;
+                    options.ResourceAttributes = new Dictionary<string, object>
+                    {
+                        ["service.name"] = serviceName,
+                        ["deployment.environment.name"] = environment.EnvironmentName,
+                    };
+                });
+            }
+        });
+
+        return logger.WriteTo.Sink(wrapped).CreateLogger();
     }
 }
 
