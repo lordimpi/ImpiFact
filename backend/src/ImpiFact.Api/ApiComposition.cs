@@ -18,6 +18,7 @@ using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.Postgres;
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -54,7 +55,8 @@ internal static class ApiComposition
         // Vista previa del PDF de la factura (POST /api/v1/documents/invoices/preview): Gotenberg desde la sección «Pdf».
         services.AddPdfRendering(configuration);
 
-        services.AddHealthChecks();
+        // Pruebas de /health/ready: base de datos, almacenamiento, secretos y la DIAN como degradada (sección 12).
+        services.AddReadinessChecks();
         services.AddProblemDetails(options =>
             options.CustomizeProblemDetails = context => LegacyProblemFields.Apply(context.ProblemDetails, context.HttpContext));
         services.AddExceptionHandler<CredentialStoreUnavailableHandler>();
@@ -140,8 +142,19 @@ internal static class ApiComposition
         app.UseMiddleware<TenantResolutionMiddleware>();
         app.UseAuthorization();
 
-        // Prueba de vida del proceso: responde 200 mientras la API esté arriba (Arquitectura, sección 13).
-        app.MapHealthChecks("/health/live").AllowAnonymous();
+        // Prueba de vida del proceso: responde 200 mientras la API esté arriba, sin revisar ninguna dependencia
+        // (Arquitectura, sección 12). La de disponibilidad responde 503 si la base, el almacenamiento o los secretos
+        // fallan; la DIAN a lo sumo la deja degradada (200). Las dos son anónimas y no dan detalles.
+        app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = ReadinessServiceCollectionExtensions.IsReadinessCheck,
+            ResponseWriter = (context, report) =>
+            {
+                context.Response.ContentType = "application/json";
+                return context.Response.WriteAsync(ReadinessServiceCollectionExtensions.Serialize(report));
+            },
+        }).AllowAnonymous();
 
         // Documentación OpenAPI y Scalar en /scalar solo en desarrollo y staging (sección 9.3). Solo describe las rutas
         // /api/v1, en español (OpenApiDocumentation).
