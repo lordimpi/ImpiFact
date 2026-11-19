@@ -7,7 +7,8 @@
 # MinIO (almacenamiento compatible con S3) va en el perfil «s3»; ver el servicio más abajo.
 # Gotenberg (HTML a PDF) y MailHog (correo de prueba) arrancan con los demás; ver sus servicios más abajo.
 # El panel de observabilidad (registros, trazas y métricas por OTLP) va en el perfil «observability».
-# Los demás servicios (SQL Server y MySQL como perfiles, Api, Worker y web) se agregan en la fase que los necesita.
+# MySQL va en el perfil «mysql» (necesita MYSQL_PASSWORD en deploy/.env); ver el servicio más abajo.
+# Los demás servicios (SQL Server como perfil, Api, Worker y web) se agregan en la fase que los necesita.
 name: impifact
 
 services:
@@ -29,6 +30,42 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # MySQL 8.4 (la versión LTS) para probar Database:Provider = MySql en desarrollo. Va en el perfil «mysql», así que
+  # solo arranca con:  docker compose -f deploy/docker-compose.yml --profile mysql up -d mysql
+  # Necesita en deploy/.env:  MYSQL_PASSWORD=<una contraseña propia>  (la del usuario impifact, dueño de la base
+  # impifact). La clave de root se genera al azar y queda solo en el registro del primer arranque: no hace falta.
+  # La aplicación se conecta con
+  #   Database__Provider=MySql
+  #   Database__ConnectionString=Server=127.0.0.1;Port=3306;Database=impifact;User ID=impifact;Password=<MYSQL_PASSWORD>
+  mysql:
+    image: mysql:8.4
+    profiles: ["mysql"]
+    environment:
+      MYSQL_DATABASE: impifact
+      MYSQL_USER: impifact
+      # Sale de deploy/.env, que no se versiona. Sin ella el contenedor no arranca (ver entrypoint); no se exige con «:?»
+      # porque Docker Compose lee todo el archivo y fallaría también sin el perfil «mysql».
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    # «$$» llega como «$» al contenedor: la variable se lee allí, no al armar el compose.
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        if [ -z "$$MYSQL_PASSWORD" ]; then echo "Set MYSQL_PASSWORD in deploy/.env" >&2; exit 1; fi;
+        exec docker-entrypoint.sh mysqld
+    ports:
+      # MYSQL_PORT en deploy/.env cambia el puerto del equipo, por ejemplo si ya hay un MySQL instalado en 3306.
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # Por TCP: durante la carga inicial el servidor no escucha en la red, así que solo responde cuando está listo.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   # MinIO: almacenamiento de objetos compatible con S3 (el de Amazon) para probar Storage:Provider = S3 en desarrollo.
   # Va en el perfil «s3», así que solo arranca con:  docker compose -f deploy/docker-compose.yml --profile s3 up -d
@@ -126,4 +163,5 @@ services:
 
 volumes:
   postgres-data:
+  mysql-data:
   minio-data:
