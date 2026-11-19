@@ -32,6 +32,9 @@ internal sealed class MySqlSqlDialect : ISqlDialect
     public string YearMonthAtOffset(string timestamp, int utcOffsetHours) =>
         $"date_format(date_add({timestamp}, interval {utcOffsetHours.ToString(CultureInfo.InvariantCulture)} hour), '%Y-%m')";
 
+    // Comillas invertidas: así un nombre que MySQL reserva (como key o groups) sirve de columna.
+    public string Identifier(string name) => $"`{name}`";
+
     // LATERAL existe desde MySQL 8.0.14.
     public string OuterApply(string subquery, string alias) => $"left join lateral ({subquery}) {alias} on true";
 }

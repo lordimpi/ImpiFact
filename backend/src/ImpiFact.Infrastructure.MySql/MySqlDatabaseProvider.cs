@@ -11,6 +11,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 namespace ImpiFact.Infrastructure.MySql;
 
@@ -23,10 +25,10 @@ namespace ImpiFact.Infrastructure.MySql;
 public sealed class MySqlDatabaseProvider : IDatabaseProvider
 {
     /// <summary>
-    /// Nombre de la fuente de trazas (<c>ActivitySource</c>) de MySqlConnector: emite una actividad por comando sin
-    /// paquete de instrumentación aparte, como «Npgsql» en PostgreSQL. La observabilidad la agrega con <c>AddSource</c>.
+    /// Nombre de la fuente de trazas (<c>ActivitySource</c>) y del medidor (<c>Meter</c>) de MySqlConnector: emite una
+    /// actividad por comando y sus métricas sin paquete de instrumentación aparte, como «Npgsql» en PostgreSQL.
     /// </summary>
-    public const string DriverActivitySourceName = "MySqlConnector";
+    public const string DriverTelemetryName = "MySqlConnector";
 
     /// <summary>
     /// Versión del servidor con que trabaja el proveedor de EF. Se fija en lugar de detectarla para no abrir una conexión
@@ -36,9 +38,6 @@ public sealed class MySqlDatabaseProvider : IDatabaseProvider
     internal static readonly ServerVersion ServerVersion = new MySqlServerVersion(new Version(8, 4, 0));
 
     public string Name => "MySql";
-
-    /// <summary>Fuentes de trazas del controlador, para conectarlas con la observabilidad compartida.</summary>
-    public IReadOnlyList<string> DriverActivitySources => [DriverActivitySourceName];
 
     public void AddServices(IServiceCollection services)
     {
@@ -62,6 +61,12 @@ public sealed class MySqlDatabaseProvider : IDatabaseProvider
     public void ConfigureDbContext(IServiceProvider services, DbContextOptionsBuilder options) =>
         Configure(options.UseMySql(
             services.GetRequiredService<MySqlDataSource>().CreateConnection(), ServerVersion, UseThisAssemblyForMigrations));
+
+    /// <summary>MySqlConnector traza cada comando (también los de EF Core) con su propia fuente.</summary>
+    public void ConfigureTracing(TracerProviderBuilder tracing) => tracing.AddSource(DriverTelemetryName);
+
+    /// <summary>MySqlConnector también publica sus métricas (duración de comandos, conexiones del grupo) con su medidor.</summary>
+    public void ConfigureMetrics(MeterProviderBuilder metrics) => metrics.AddMeter(DriverTelemetryName);
 
     // 1062 es el código de MySQL para «ER_DUP_ENTRY» (llave única repetida).
     public bool IsUniqueViolation(DbUpdateException exception) =>
