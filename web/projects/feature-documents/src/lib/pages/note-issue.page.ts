@@ -60,6 +60,7 @@ import {
 } from '../forms/note.form';
 import { filesAvailable } from '../models/document-status';
 import { debouncedSearch } from '../state/debounced-search';
+import { PdfPreviewComponent } from '../components/pdf-preview.component';
 import { DocumentActions, previewProblem } from '../state/document-actions';
 import { serverTotals } from '../state/server-totals';
 
@@ -100,6 +101,7 @@ type OriginalState =
     LineFieldsComponent,
     SearchPickerComponent,
     TotalsPanelComponent,
+    PdfPreviewComponent,
   ],
   providers: [provideDocumentsI18n(), DocumentActions],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -128,6 +130,8 @@ export class NoteIssuePage implements HasUnsavedChanges {
   protected readonly submitting = signal(false);
   protected readonly issueError = signal<{ message: string; details: string[] } | null>(null);
   protected readonly previewing = signal(false);
+  /** PDF de la vista previa abierto en el diálogo; `null` si está cerrado. */
+  protected readonly previewPdf = signal<Blob | null>(null);
   protected readonly previewError = signal<string | null>(null);
   private issued = false;
 
@@ -295,6 +299,11 @@ export class NoteIssuePage implements HasUnsavedChanges {
     }
   }
 
+  protected savePreview(): void {
+    const pdf = this.previewPdf();
+    if (pdf) this.actions.savePreview(pdf);
+  }
+
   /** Abre el PDF que tendría la nota (sin emitirla); un 503 es el conversor de PDF caído. */
   protected async preview(): Promise<void> {
     const original = this.originalDocument();
@@ -308,9 +317,10 @@ export class NoteIssuePage implements HasUnsavedChanges {
     const kind = this.kind();
     const body = buildNoteBody(kind, this.noteForm().value(), original, calculated);
     const path = kind === 'credit' ? previewCreditNote.PATH : previewDebitNote.PATH;
-    const result = await this.actions.openPreview(path, body);
+    const result = await this.actions.fetchPreview(path, body);
     this.previewing.set(false);
     if (result.ok) {
+      this.previewPdf.set(result.pdf);
       return;
     }
     const problem = previewProblem(result.error);

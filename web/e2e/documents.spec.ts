@@ -365,7 +365,7 @@ test(
   },
 );
 
-test('previews the invoice PDF in a new tab and explains when the PDF service is down', async ({
+test('previews the invoice PDF in a dialog and explains when the PDF service is down', async ({
   page,
 }) => {
   const api = await mockDocuments(page);
@@ -377,18 +377,16 @@ test('previews the invoice PDF in a new tab and explains when the PDF service is
   await page.getByRole('button', { name: /Agregar Servicio de consultoría/ }).click();
   await expect(page.getByTestId('payable')).toContainText('1.785.000,00');
 
-  // La pestaña se abre en el clic y recibe el PDF por una URL `blob:`. Chromium sin interfaz no tiene visor de PDF:
-  // esa navegación termina en una descarga, que se escucha desde que la pestaña existe.
-  const received: string[] = [];
-  page.context().on('page', (opened) => {
-    opened.on('download', (download) => received.push(download.url()));
-    opened.on('framenavigated', (frame) => received.push(frame.url()));
-  });
-  const popup = page.waitForEvent('popup');
+  // El PDF se muestra en un diálogo del panel (un iframe con una URL `blob:`), sin ventanas emergentes.
   await page.getByRole('button', { name: 'Vista previa' }).click();
-  const tab = await popup;
-  await expect.poll(() => received.some((url) => url.startsWith('blob:'))).toBe(true);
-  await tab.close();
+  const dialog = page.getByRole('dialog', { name: 'Vista previa del PDF' });
+  await expect(dialog.locator('iframe')).toHaveAttribute('src', /^blob:/);
+  expect(page.context().pages()).toHaveLength(1);
+  const download = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Descargar PDF' }).click();
+  expect((await download).suggestedFilename()).toBe('vista-previa.pdf');
+  await page.getByRole('button', { name: 'Cerrar la vista previa' }).click();
+  await expect(dialog).toBeHidden();
   expect(api.issueRequests).toHaveLength(0);
 
   api.preview = 'unavailable';

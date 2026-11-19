@@ -21,6 +21,7 @@ import {
   ButtonComponent,
   FieldComponent,
   InputDirective,
+  NonNegativeDirective,
   PageTitleComponent,
   SelectDirective,
 } from '@impifact/ui';
@@ -44,6 +45,7 @@ import {
   emptyLine,
   lineFromProduct,
 } from '../forms/invoice.form';
+import { PdfPreviewComponent } from '../components/pdf-preview.component';
 import { DocumentActions, previewProblem } from '../state/document-actions';
 import { debouncedSearch } from '../state/debounced-search';
 import { serverTotals } from '../state/server-totals';
@@ -66,11 +68,13 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
     ButtonComponent,
     FieldComponent,
     InputDirective,
+    NonNegativeDirective,
     PageTitleComponent,
     SelectDirective,
     LineFieldsComponent,
     SearchPickerComponent,
     TotalsPanelComponent,
+    PdfPreviewComponent,
   ],
   providers: [provideDocumentsI18n(), DocumentActions],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -95,6 +99,8 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
   protected readonly submitting = signal(false);
   protected readonly issueError = signal<{ message: string; details: string[] } | null>(null);
   protected readonly previewing = signal(false);
+  /** PDF de la vista previa abierto en el diálogo; `null` si está cerrado. */
+  protected readonly previewPdf = signal<Blob | null>(null);
   protected readonly previewError = signal<string | null>(null);
   private issued = false;
 
@@ -242,6 +248,11 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
     }
   }
 
+  protected savePreview(): void {
+    const pdf = this.previewPdf();
+    if (pdf) this.actions.savePreview(pdf);
+  }
+
   /** Abre el PDF que tendría la factura (sin emitirla); un 503 es el conversor de PDF caído. */
   protected async preview(): Promise<void> {
     const customer = this.customer();
@@ -253,9 +264,10 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
     this.previewError.set(null);
     this.issueError.set(null);
     const body = buildInvoiceBody(this.invoiceForm().value(), customer, calculated);
-    const result = await this.actions.openPreview(previewInvoice.PATH, body);
+    const result = await this.actions.fetchPreview(previewInvoice.PATH, body);
     this.previewing.set(false);
     if (result.ok) {
+      this.previewPdf.set(result.pdf);
       return;
     }
     const problem = previewProblem(result.error);

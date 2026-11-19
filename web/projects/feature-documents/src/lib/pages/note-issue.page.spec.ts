@@ -226,11 +226,8 @@ describe('NoteIssuePage', () => {
   });
 
   describe('preview', () => {
-    let tab: { location: { href: string }; close: ReturnType<typeof vi.fn> };
-
     beforeEach(() => {
-      tab = { location: { href: '' }, close: vi.fn() };
-      vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+      vi.spyOn(window, 'open');
       URL.createObjectURL = vi.fn(() => 'blob:note');
       URL.revokeObjectURL = vi.fn();
     });
@@ -253,7 +250,7 @@ describe('NoteIssuePage', () => {
       return rendered;
     }
 
-    it('opens the PDF of the credit note in a new tab without issuing it', async () => {
+    it('opens the PDF of the credit note in a dialog without issuing it', async () => {
       const { http } = await readyNote('credit');
       const button = screen.getByRole('button', { name: 'Vista previa' }) as HTMLButtonElement;
       await waitFor(() => expect(button.disabled).toBe(false));
@@ -268,7 +265,9 @@ describe('NoteIssuePage', () => {
       });
       preview.flush(new Blob(['%PDF-1.7'], { type: 'application/pdf' }));
 
-      await waitFor(() => expect(tab.location.href).toBe('blob:note'));
+      const dialog = await screen.findByRole('dialog', { name: 'Vista previa del PDF' });
+      expect(dialog.querySelector('iframe')?.getAttribute('src')).toBe('blob:note');
+      expect(window.open).not.toHaveBeenCalled();
       http.expectNone('/api/v1/documents/credit-notes');
     });
 
@@ -296,7 +295,7 @@ describe('NoteIssuePage', () => {
           'El servicio que genera el PDF no está disponible en este momento. Intente de nuevo en unos minutos.',
         ),
       ).toBeTruthy();
-      expect(tab.close).toHaveBeenCalled();
+      expect(screen.queryByRole('dialog', { name: 'Vista previa del PDF' })).toBeNull();
     });
   });
 

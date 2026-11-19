@@ -166,11 +166,8 @@ describe('InvoiceIssuePage', () => {
   });
 
   describe('preview', () => {
-    let tab: { location: { href: string }; close: ReturnType<typeof vi.fn> };
-
     beforeEach(() => {
-      tab = { location: { href: '' }, close: vi.fn() };
-      vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+      vi.spyOn(window, 'open');
       URL.createObjectURL = vi.fn(() => 'blob:preview');
       URL.revokeObjectURL = vi.fn();
     });
@@ -186,7 +183,7 @@ describe('InvoiceIssuePage', () => {
       return rendered;
     }
 
-    it('opens the PDF of the current invoice in a new tab without issuing it', async () => {
+    it('shows the PDF of the current invoice in a dialog without issuing it', async () => {
       const { http } = await readyToIssue();
 
       fireEvent.click(screen.getByRole('button', { name: 'Vista previa' }));
@@ -195,16 +192,20 @@ describe('InvoiceIssuePage', () => {
       expect(preview.request.responseType).toBe('blob');
       expect(preview.request.body.legal_monetary_totals).toEqual(CALCULATION.legal_monetary_totals);
       expect(preview.request.body.invoice_lines[0].line_extension_amount).toBe('1500000.00');
-      // La pestaña se abre en el clic (sin bloqueo de ventanas emergentes) y luego recibe el PDF.
-      expect(window.open).toHaveBeenCalledWith('', '_blank');
       preview.flush(new Blob(['%PDF-1.7'], { type: 'application/pdf' }));
 
-      await waitFor(() => expect(tab.location.href).toBe('blob:preview'));
-      expect(tab.close).not.toHaveBeenCalled();
+      // El PDF se muestra dentro del panel, sin ventanas emergentes que el navegador pueda bloquear.
+      const dialog = await screen.findByRole('dialog', { name: 'Vista previa del PDF' });
+      expect(dialog.querySelector('iframe')?.getAttribute('src')).toBe('blob:preview');
+      expect(window.open).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: 'Descargar PDF' })).toBeTruthy();
       http.expectNone('/api/v1/documents/invoices');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Cerrar la vista previa' }));
+      await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview'));
     });
 
-    it('explains a 503 when the PDF service is not available and closes the tab', async () => {
+    it('explains a 503 when the PDF service is not available', async () => {
       const { http } = await readyToIssue();
 
       fireEvent.click(screen.getByRole('button', { name: 'Vista previa' }));
@@ -222,7 +223,7 @@ describe('InvoiceIssuePage', () => {
           'El servicio que genera el PDF no está disponible en este momento. Intente de nuevo en unos minutos.',
         ),
       ).toBeTruthy();
-      expect(tab.close).toHaveBeenCalled();
+      expect(screen.queryByRole('dialog', { name: 'Vista previa del PDF' })).toBeNull();
     });
 
     it('is disabled until the invoice can be issued', async () => {

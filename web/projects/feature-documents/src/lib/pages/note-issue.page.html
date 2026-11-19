@@ -157,6 +157,11 @@
         [disabled]="!canIssue() || previewing()"
         (pressed)="preview()"
       />
+      <feat-pdf-preview
+        [pdf]="previewPdf()"
+        (closed)="previewPdf.set(null)"
+        (download)="savePreview()"
+      />
       <ui-button
         type="submit"
         [label]="

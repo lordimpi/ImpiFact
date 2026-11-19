@@ -216,7 +216,10 @@
     "previewFailed": "No se pudo generar la vista previa. Intente de nuevo.",
     "notReady": "Para emitir elija el cliente, complete las líneas y espere los totales del servidor.",
     "issued": "Factura {{ number }} emitida. La DIAN la está validando.",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "previewTitle": "Vista previa del PDF",
+    "previewClose": "Cerrar la vista previa",
+    "previewDownload": "Descargar PDF"
   },
   "notices": {
     "emailQueued": "El correo quedó en cola para enviarse.",
