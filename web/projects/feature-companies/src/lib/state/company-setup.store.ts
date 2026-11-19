@@ -10,6 +10,7 @@ import {
   DocumentDetailResponse,
   EnvironmentResponse,
   NumberingRangeResponse,
+  ResolutionNextNumberResponse,
   ResolutionResponse,
   ResolutionStatusResponse,
   SetEnvironmentCommand,
@@ -27,6 +28,7 @@ import {
   saveCompanyResolution,
   setCompanyEnvironment,
   setCompanySoftware,
+  setResolutionNextNumber,
   updateCompany,
   uploadCompanyCertificate,
 } from '@impifact/api';
@@ -281,6 +283,27 @@ export const CompanySetupStore = signalStore(
         void loadResolutions();
         afterSave();
         return response.resolution;
+      },
+
+      /**
+       * Fija el próximo número de una resolución. El Api lo rechaza (422 con `next_number`) si está fuera del rango o
+       * por debajo del próximo número actual.
+       */
+      async setNextNumber(
+        resolutionId: string,
+        nextNumber: number,
+      ): Promise<ResolutionNextNumberResponse> {
+        const response = await firstValueFrom(
+          api.invoke(
+            setResolutionNextNumber,
+            { nit: current().nit, id: resolutionId, body: { next_number: nextNumber } },
+            IN_FORM(),
+          ),
+        );
+        // Cambia lo que queda del rango, que también revisa el paso a producción.
+        void loadResolutions();
+        afterSave();
+        return response;
       },
 
       /**

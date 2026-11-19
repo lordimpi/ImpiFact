@@ -1,4 +1,6 @@
-import { fireEvent, screen, within } from '@testing-library/angular';
+import { TestBed } from '@angular/core/testing';
+import { ToastStore } from '@impifact/core';
+import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
 import {
   COMPANY_PATH,
   EMPTY_READINESS,
@@ -90,6 +92,7 @@ describe('ResolutionsPage', () => {
         '4999989',
         '1158',
         'Activa',
+        'Cambiar próximo número',
       ],
       [
         'Nota crédito',
@@ -101,9 +104,82 @@ describe('ResolutionsPage', () => {
         '4999989',
         'Sin vencimiento',
         'Inactiva',
+        'Cambiar próximo número',
       ],
     ]);
     expect(screen.queryByText(/no permite listar/)).toBeNull();
+  });
+
+  it('changes the next number of a saved resolution from a dialog and reads the list again', async () => {
+    const { http } = await open([SETP_STATUS]);
+    const table = await screen.findByRole('table', { name: 'Resoluciones guardadas' });
+
+    fireEvent.click(within(table).getByRole('button', { name: 'Cambiar próximo número' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Cambiar el próximo número' });
+    expect(
+      within(dialog).getByText(
+        /si la empresa viene de otro sistema de facturación o ya usó números de este rango/,
+      ),
+    ).toBeTruthy();
+    const input = within(dialog).getByLabelText(/^Próximo número/) as HTMLInputElement;
+    expect(input.value).toBe('990000012');
+    fireEvent.input(input, { target: { value: '990000101' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar próximo número' }));
+
+    const request = await expectRequest(http, `${LIST_URL}/res-1/next-number`);
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({ next_number: 990000101 });
+    request.flush({
+      success: true,
+      message: 'Próximo número actualizado.',
+      resolution_id: 'res-1',
+      next_number: 990000101,
+    });
+    await respond(http, LIST_URL, { resolutions: [{ ...SETP_STATUS, next_number: 990000101 }] });
+    await respond(http, `${COMPANY_PATH}/setup-status`, EMPTY_READINESS);
+
+    expect(await within(table).findByText('990000101')).toBeTruthy();
+    expect(screen.queryByRole('dialog', { name: 'Cambiar el próximo número' })).toBeNull();
+    await waitFor(() =>
+      expect(
+        TestBed.inject(ToastStore)
+          .toasts()
+          .map((toast) => toast.text),
+      ).toContain('Próximo número actualizado.'),
+    );
+  });
+
+  it('shows the API reason next to the next number field and keeps the dialog open', async () => {
+    const { http } = await open([SETP_STATUS]);
+    const table = await screen.findByRole('table', { name: 'Resoluciones guardadas' });
+    fireEvent.click(within(table).getByRole('button', { name: 'Cambiar próximo número' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Cambiar el próximo número' });
+    const input = within(dialog).getByLabelText(/^Próximo número/) as HTMLInputElement;
+    fireEvent.input(input, { target: { value: '990000001' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar próximo número' }));
+
+    const reason =
+      'El próximo número no puede ser menor que 990000012, el próximo número actual: bajarlo podría repetir un número ya enviado a la DIAN.';
+    const error = problem(422, 'validation.failed', 'La solicitud tiene datos inválidos.', {
+      next_number: [reason],
+    });
+    (await expectRequest(http, `${LIST_URL}/res-1/next-number`)).flush(error.body, error.options);
+
+    expect(await within(dialog).findByText(reason)).toBeTruthy();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByRole('dialog', { name: 'Cambiar el próximo número' })).toBeTruthy();
+  });
+
+  it('checks the next number before calling the API', async () => {
+    const { http } = await open([SETP_STATUS]);
+    const table = await screen.findByRole('table', { name: 'Resoluciones guardadas' });
+    fireEvent.click(within(table).getByRole('button', { name: 'Cambiar próximo número' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Cambiar el próximo número' });
+    fireEvent.input(within(dialog).getByLabelText(/^Próximo número/), { target: { value: '' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar próximo número' }));
+
+    expect(await within(dialog).findByText('Este campo es obligatorio.')).toBeTruthy();
+    http.expectNone(`${LIST_URL}/res-1/next-number`);
   });
 
   it('says when the company has no resolutions yet', async () => {
