@@ -131,7 +131,8 @@ internal sealed class RefreshTokenHandler(
     /// </remarks>
     private async Task<RefreshTokenRecord?> FindUnusedReplacementAsync(RefreshTokenRecord presented, DateTimeOffset now)
     {
-        if (presented is not { ReplacedBy: { } replacementId, RevokedAt: { } rotatedAt } || now - rotatedAt >= policy.RotationGracePeriod)
+        if (presented is not { ReplacedBy: { } replacementId, RevokedAt: { } rotatedAt }
+            || !SessionRotation.WithinGrace(rotatedAt, now, policy.RotationGracePeriod))
         {
             return null;
         }

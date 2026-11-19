@@ -362,6 +362,80 @@ public sealed class SessionHandlerTests
     }
 
     [Test]
+    public async Task A_rotation_stamped_in_the_future_is_still_a_theft_when_grace_is_zero()
+    {
+        // Otra réplica con el reloj adelantado (o un ajuste del reloj hacia atrás) dejó la rotación en el futuro.
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        _policy.RotationGracePeriod = TimeSpan.Zero;
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(-2);
+
+        var reused = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }));
+        });
+    }
+
+    [Test]
+    public async Task A_rotation_stamped_in_the_future_does_not_widen_the_grace_window()
+    {
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(-2);
+
+        var reused = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }));
+        });
+    }
+
+    [Test]
+    public async Task A_logout_with_a_just_rotated_token_closes_its_unused_replacement()
+    {
+        // La respuesta de la renovación se perdió: la cookie tiene el token viejo y el reemplazo nunca se usó.
+        _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(2);
+
+        var loggedOut = await Logout(login.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(2);
+        var replay = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loggedOut.Value.Revoked, Is.True, "The logout closed the session that the lost refresh left open.");
+            Assert.That(replay.IsSuccess, Is.False);
+            Assert.That(_refreshStore.Tokens.Count(token => token.RevokedAt is null), Is.Zero);
+        });
+    }
+
+    [Test]
+    public async Task A_logout_with_a_rotated_token_whose_replacement_was_used_leaves_the_live_session_alone()
+    {
+        _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        var rotated = (await Refresh(login.RefreshToken)).Value;
+        await Refresh(rotated.RefreshToken);
+
+        var loggedOut = await Logout(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loggedOut.Value.Revoked, Is.False);
+            Assert.That(_refreshStore.Tokens.Count(token => token.RevokedAt is null), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
     public async Task A_grace_period_of_zero_turns_the_recovery_off()
     {
         var user = _users.AddUser("ana@example.com");
@@ -531,6 +605,6 @@ public sealed class SessionHandlerTests
             .HandleAsync(new RefreshTokenCommand(token, companyId, ip, agent), ct);
 
     private Task<Result<LoggedOut>> Logout(string token) =>
-        new LogoutHandler(_refreshStore, _refreshFactory, _clock, NullLogger<LogoutHandler>.Instance)
+        new LogoutHandler(_refreshStore, _refreshFactory, _clock, _policy, NullLogger<LogoutHandler>.Instance)
             .HandleAsync(new LogoutCommand(token), CancellationToken.None);
 }

@@ -37,14 +37,20 @@ internal sealed class LogoutHandler(
     IRefreshTokenStore refreshStore,
     IRefreshTokenFactory refreshTokens,
     IClock clock,
+    ISessionPolicy policy,
     ILogger<LogoutHandler> logger) : IHandler<LogoutCommand, LoggedOut>
 {
     public async Task<Result<LoggedOut>> HandleAsync(LogoutCommand request, CancellationToken ct)
     {
         var presented = await refreshStore.FindByHashAsync(refreshTokens.Hash(request.RefreshToken), ct);
-        if (presented is null || presented.RevokedAt is not null)
+        if (presented is null)
         {
             return new LoggedOut(Revoked: false);
+        }
+
+        if (presented.RevokedAt is not null)
+        {
+            return new LoggedOut(await CloseUnusedReplacementAsync(presented, ct));
         }
 
         var revoked = await refreshStore.RevokeAsync(presented.Id, clock.UtcNow, replacedBy: null, ct);
@@ -55,4 +61,43 @@ internal sealed class LogoutHandler(
 
         return new LoggedOut(revoked);
     }
+
+    /// <summary>
+    /// Si la respuesta de una renovación se perdió, la cookie trae el token viejo y la sesión sigue en su reemplazo,
+    /// que nunca se usó: dentro del período de gracia, cerrar la sesión revoca ese reemplazo. Sin esto, la sesión
+    /// quedaba abierta y el token viejo podía recuperarla con la regla de gracia de la renovación.
+    /// </summary>
+    private async Task<bool> CloseUnusedReplacementAsync(RefreshTokenRecord presented, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        if (presented is not { ReplacedBy: { } replacementId, RevokedAt: { } rotatedAt }
+            || !SessionRotation.WithinGrace(rotatedAt, now, policy.RotationGracePeriod)
+            || await refreshStore.FindByIdAsync(replacementId, ct) is not { RevokedAt: null } replacement
+            || replacement.UserId != presented.UserId)
+        {
+            return false;
+        }
+
+        var revoked = await refreshStore.RevokeAsync(replacement.Id, now, replacedBy: null, ct);
+        if (revoked)
+        {
+            logger.LogInformation(
+                "Refresh token {RefreshTokenId} of user {UserId}, the unused replacement of the presented one, was revoked by a logout.",
+                replacement.Id, replacement.UserId);
+        }
+
+        return revoked;
+    }
+}
+
+/// <summary>Período de gracia de la rotación de tokens de renovación (ver <c>RefreshTokenHandler</c>).</summary>
+internal static class SessionRotation
+{
+    /// <summary>
+    /// Si una rotación ocurrida en <paramref name="rotatedAt"/> está dentro del período de gracia. Una rotación con
+    /// fecha futura (otra réplica con el reloj adelantado o un ajuste del reloj) no cuenta como reciente: así el
+    /// desfase no amplía la ventana ni la abre con una gracia de cero.
+    /// </summary>
+    public static bool WithinGrace(DateTimeOffset rotatedAt, DateTimeOffset now, TimeSpan grace) =>
+        rotatedAt <= now && now - rotatedAt < grace;
 }
