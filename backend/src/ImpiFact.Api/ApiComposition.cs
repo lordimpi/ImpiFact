@@ -13,21 +13,36 @@ using ImpiFact.Api.Plans;
 using ImpiFact.Application;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Identity;
+using ImpiFact.Infrastructure.Observability;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Pdf;
 using ImpiFact.Infrastructure.Postgres;
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 namespace ImpiFact.Api;
 
 /// <summary>Servicios y pipeline HTTP de la API (Arquitectura detallada, sección 9).</summary>
 internal static class ApiComposition
 {
+    /// <summary>Nombre de la API en los registros, trazas y métricas.</summary>
+    public const string ServiceName = "impifact-api";
+
     public static WebApplicationBuilder AddImpiFactApi(this WebApplicationBuilder builder)
     {
         var services = builder.Services;
         var configuration = builder.Configuration;
+
+        // Registros JSON con Serilog, sin secretos, y trazas y métricas por OTLP si está OTEL_EXPORTER_OTLP_ENDPOINT
+        // (Arquitectura detallada, sección 12). Las pruebas de salud no dejan trazas: se consultan cada pocos segundos.
+        builder.AddImpiFactObservability(
+            ServiceName,
+            tracing => tracing.AddAspNetCoreInstrumentation(options =>
+                options.Filter = context => !context.Request.Path.StartsWithSegments("/health")),
+            metrics => metrics.AddAspNetCoreInstrumentation());
 
         // Opciones validadas al arrancar, reloj, tenant y persistencia. Si falta un valor obligatorio (por ejemplo la
         // cadena de conexión, que llega por la variable de entorno Database__ConnectionString), la API no arranca. Van todos
@@ -41,7 +56,8 @@ internal static class ApiComposition
         // Vista previa del PDF de la factura (POST /api/v1/documents/invoices/preview): Gotenberg desde la sección «Pdf».
         services.AddPdfRendering(configuration);
 
-        services.AddHealthChecks();
+        // Pruebas de /health/ready: base de datos, almacenamiento, secretos y la DIAN como degradada (sección 12).
+        services.AddReadinessChecks();
         services.AddProblemDetails(options =>
             options.CustomizeProblemDetails = context => LegacyProblemFields.Apply(context.ProblemDetails, context.HttpContext));
         services.AddExceptionHandler<CredentialStoreUnavailableHandler>();
@@ -127,8 +143,19 @@ internal static class ApiComposition
         app.UseMiddleware<TenantResolutionMiddleware>();
         app.UseAuthorization();
 
-        // Prueba de vida del proceso: responde 200 mientras la API esté arriba (Arquitectura, sección 13).
-        app.MapHealthChecks("/health/live").AllowAnonymous();
+        // Prueba de vida del proceso: responde 200 mientras la API esté arriba, sin revisar ninguna dependencia
+        // (Arquitectura, sección 12). La de disponibilidad responde 503 si la base, el almacenamiento o los secretos
+        // fallan; la DIAN a lo sumo la deja degradada (200). Las dos son anónimas y no dan detalles.
+        app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
+        app.MapHealthChecks("/health/ready", new HealthCheckOptions
+        {
+            Predicate = ReadinessServiceCollectionExtensions.IsReadinessCheck,
+            ResponseWriter = (context, report) =>
+            {
+                context.Response.ContentType = "application/json";
+                return context.Response.WriteAsync(ReadinessServiceCollectionExtensions.Serialize(report));
+            },
+        }).AllowAnonymous();
 
         // Documentación OpenAPI y Scalar en /scalar solo en desarrollo y staging (sección 9.3). Solo describe las rutas
         // /api/v1, en español (OpenApiDocumentation).

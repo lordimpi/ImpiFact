@@ -8,6 +8,7 @@ using ImpiFact.Infrastructure.Dian;
 using ImpiFact.Infrastructure.Documents;
 using ImpiFact.Infrastructure.Masters;
 using ImpiFact.Infrastructure.Notifications;
+using ImpiFact.Infrastructure.Observability;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Platform;
@@ -66,6 +67,8 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddCatalogReads();
         services.AddDashboardReads();
         services.AddDianWebService(configuration);
+        // Métricas de negocio y la medición de las llamadas a la DIAN (Arquitectura detallada, sección 12).
+        services.AddBusinessMetrics();
         services.AddReads();
         return services;
     }

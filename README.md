@@ -31,6 +31,9 @@ Nada de esto se versiona: cada equipo arma sus propios archivos.
 4. Correr una vez el Migrator (aplica las migraciones y los catálogos) y crear la primera llave de plataforma con `dotnet run --project src/ImpiFact.Migrator -- create-platform-key <nombre>`; se muestra una sola vez.
 5. Opcional, para probar desde Scalar: `dotnet run --project src/ImpiFact.Migrator -- seed-demo` crea (o actualiza) la empresa de prueba NIT 900123456-8 lista para emitir en habilitación, con software, resoluciones SETP/NC/ND y un certificado autofirmado (la DIAN lo rechaza, sirve solo en local), y muestra una API key nueva en cada corrida. Pide `DOTNET_ENVIRONMENT=Development` (o `--force`) y las mismas variables `Secrets__LocalAesGcm__*` que la API.
 6. Arrancar la API (Scalar, la documentación interactiva, en `/scalar`) y el Worker desde Visual Studio o con `dotnet run`. Los correos de prueba se ven en MailHog: `http://127.0.0.1:8025`.
+7. Opcional, para ver registros, trazas y métricas: `docker compose -f deploy/docker-compose.yml --profile observability up -d aspire-dashboard` y una sola variable de entorno en la API y el Worker, `OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317`. El panel queda en `http://127.0.0.1:18888`; el enlace con su llave de acceso sale en `docker compose -f deploy/docker-compose.yml logs aspire-dashboard`. Sin la variable no se exporta nada.
+
+Salud de los procesos: la API responde `/health/live` (el proceso está arriba) y `/health/ready` (base de datos, almacenamiento y secretos; la DIAN solo como degradada). El Worker responde las mismas dos rutas en el puerto `WorkerHealth:Port` (8081 por defecto). Las métricas y alertas sugeridas están en la sección 12 de `docs/Arquitectura detallada.md`.
 
 Los casos golden (XML y CUFE de referencia) están en `backend/tests/golden`; cómo se generan se explica en [`backend/tools/golden-capture`](backend/tools/golden-capture/README.md).
 

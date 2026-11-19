@@ -90,7 +90,7 @@ public sealed class DianSendHost : IAsyncDisposable
     private readonly ProtectionScratch protection = new();
     private readonly ServiceProvider services;
 
-    private DianSendHost(IReadOnlyDictionary<string, string?> settings, string connectionString)
+    private DianSendHost(IReadOnlyDictionary<string, string?> settings, string connectionString, Action<IServiceCollection>? configureServices)
     {
         var values = new Dictionary<string, string?>(protection.LocalAesGcmSettings())
         {
@@ -127,6 +127,7 @@ public sealed class DianSendHost : IAsyncDisposable
         collection.AddHttpClient(DianSoapClient.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(() => Dian)
             .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
+        configureServices?.Invoke(collection);
         services = collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
@@ -146,16 +147,19 @@ public sealed class DianSendHost : IAsyncDisposable
     public IServiceProvider Services => services;
 
     /// <param name="connectionString">Base de las pruebas; por defecto la de <see cref="DianSendDatabase"/>.</param>
-    public static DianSendHost Create(IReadOnlyDictionary<string, string?>? settings = null, string? connectionString = null) =>
-        new(settings ?? new Dictionary<string, string?>(), connectionString ?? DianSendDatabase.ConnectionString);
+    /// <param name="configureServices">Servicios de prueba adicionales, después de los del host.</param>
+    public static DianSendHost Create(
+        IReadOnlyDictionary<string, string?>? settings = null, string? connectionString = null, Action<IServiceCollection>? configureServices = null) =>
+        new(settings ?? new Dictionary<string, string?>(), connectionString ?? DianSendDatabase.ConnectionString, configureServices);
 
     /// <summary>
     /// Un host nuevo sin mensajes pendientes de otras pruebas: los que quedaron (por ejemplo, consultas programadas) se
     /// marcan hechos, para que el procesador de esta prueba solo tome los suyos.
     /// </summary>
-    public static async Task<DianSendHost> StartAsync(IReadOnlyDictionary<string, string?>? settings = null, string? connectionString = null)
+    public static async Task<DianSendHost> StartAsync(
+        IReadOnlyDictionary<string, string?>? settings = null, string? connectionString = null, Action<IServiceCollection>? configureServices = null)
     {
-        var host = Create(settings, connectionString);
+        var host = Create(settings, connectionString, configureServices);
         await using var scope = host.OpenScope();
         await scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>().Set<OutboxMessage>()
             .Where(message => message.Status == OutboxStatus.Pending || message.Status == OutboxStatus.Processing)

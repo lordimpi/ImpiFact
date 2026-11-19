@@ -8,6 +8,7 @@
       que todos los paquetes de Microsoft.IdentityModel queden alineados (mezclarlos falla en tiempo de ejecución).
     -->
     <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
     <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>
   <!--

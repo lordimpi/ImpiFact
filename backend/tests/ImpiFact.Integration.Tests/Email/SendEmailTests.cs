@@ -12,6 +12,7 @@ using ImpiFact.Domain.Documents;
 using ImpiFact.Domain.Platform;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Integration.Tests.DianSend;
+using ImpiFact.Integration.Tests.Observability;
 using Microsoft.Extensions.DependencyInjection;
 using MimeKit;
 
@@ -38,6 +39,7 @@ public sealed class SendEmailTests
     public async Task An_accepted_document_is_emailed_once_with_its_recipients_subject_and_zip()
     {
         await using var host = await StartAsync();
+        using var metrics = new MetricRecorder(host.Services);
         var issuer = await host.CreateIssuerAsync();
         var document = await AcceptedDocumentAsync(host, issuer, """
             { "sendmail": true, "sendmailtome": true, "email_cc_list": [ { "email": "cc@example.com" } ] }
@@ -66,6 +68,9 @@ public sealed class SendEmailTests
             Assert.That(stored.EmailStatus, Is.EqualTo(EmailStatus.Sent));
             Assert.That(stored.EmailSentAt, Is.EqualTo(host.Clock.UtcNow));
             Assert.That((await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.SendEmail)).Single().Status, Is.EqualTo(OutboxStatus.Done));
+            // Métricas sin etiquetas: ni destinatarios ni servidor (Arquitectura detallada, sección 12).
+            Assert.That(metrics.Of("impifact.emails.sent").Select(measurement => (measurement.Value, measurement.Tags.Count)), Is.EqualTo(new[] { (1d, 0) }));
+            Assert.That(metrics.Of("impifact.emails.failed"), Is.Empty);
         });
     }
 
@@ -210,6 +215,7 @@ public sealed class SendEmailTests
     public async Task A_failing_company_server_fails_the_email_without_its_password_or_addresses_in_errors_logs_or_notifications()
     {
         await using var host = await StartAsync(new Dictionary<string, string?> { ["Outbox:MaxAttempts"] = "1" });
+        using var metrics = new MetricRecorder(host.Services);
         var issuer = await host.CreateIssuerAsync();
         await SetCompanyMailAsync(host, issuer, "127.0.0.1", ClosedPort(), $"billing@company{issuer.Nit}.test", usePlatformDefault: false);
         var document = await AcceptedDocumentAsync(host, issuer, """{ "sendmail": true }""");
@@ -229,6 +235,8 @@ public sealed class SendEmailTests
             Assert.That(host.Logs.Entries, Has.None.Contains(SmtpPassword));
             Assert.That(host.Logs.Entries, Has.None.Contains(BuyerEmail));
             Assert.That(await EmailEnvironment.EmailsAsync(document.FullNumber), Is.Empty);
+            Assert.That(metrics.Sum("impifact.emails.failed"), Is.EqualTo(1));
+            Assert.That(metrics.Of("impifact.emails.sent"), Is.Empty);
         });
     }
 
