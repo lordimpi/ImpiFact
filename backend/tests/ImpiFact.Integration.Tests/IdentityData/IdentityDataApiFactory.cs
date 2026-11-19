@@ -16,7 +16,8 @@ namespace ImpiFact.Integration.Tests.IdentityData;
 /// los adaptadores reales de Identity. Agrega los endpoints de prueba (por ejemplo <c>/test/whoami</c>) y captura los
 /// registros para revisar que no filtren credenciales.
 /// </summary>
-internal sealed class IdentityDataApiFactory : WebApplicationFactory<Program>
+/// <param name="configureServices">Cambia servicios de esta API, por ejemplo los plazos de la sesión.</param>
+internal sealed class IdentityDataApiFactory(Action<IServiceCollection>? configureServices = null) : WebApplicationFactory<Program>
 {
     private readonly ECDsa _signingKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
     private readonly ProtectionScratch _protection = new();
@@ -43,7 +44,11 @@ internal sealed class IdentityDataApiFactory : WebApplicationFactory<Program>
         // El límite de inicio de sesión real (10 por minuto) cortaría las pruebas, que inician muchas sesiones.
         builder.UseSetting("RateLimit:LoginPerMinute", "10000");
         builder.ConfigureLogging(logging => logging.AddProvider(Logs));
-        builder.ConfigureTestServices(services => services.AddSingleton<IEndpointModule, TestEndpoints>());
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<IEndpointModule, TestEndpoints>();
+            configureServices?.Invoke(services);
+        });
     }
 
     protected override void Dispose(bool disposing)

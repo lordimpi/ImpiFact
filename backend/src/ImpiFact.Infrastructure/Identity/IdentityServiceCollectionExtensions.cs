@@ -27,6 +27,7 @@ public static class IdentityServiceCollectionExtensions
         services.AddHostedService<JwtSigningKeysWarmup>();
         services.TryAddSingleton<IAccessTokenIssuer, JwtAccessTokenIssuer>();
         services.TryAddSingleton<IRefreshTokenFactory, RefreshTokenFactory>();
+        services.TryAddSingleton<ISessionPolicy, SessionPolicy>();
 
         services.TryAddSingleton<ApiKeyFormat>();
         services.TryAddSingleton<ApiKeyCache>();

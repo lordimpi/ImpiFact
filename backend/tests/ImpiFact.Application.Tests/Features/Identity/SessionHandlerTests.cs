@@ -22,6 +22,7 @@ public sealed class SessionHandlerTests
     private FakeRefreshTokenStore _refreshStore = null!;
     private FakeRefreshTokenFactory _refreshFactory = null!;
     private FakeAccessTokenIssuer _issuer = null!;
+    private FakeSessionPolicy _policy = null!;
 
     [SetUp]
     public void CreateFakes()
@@ -32,6 +33,7 @@ public sealed class SessionHandlerTests
         _refreshStore = new FakeRefreshTokenStore();
         _refreshFactory = new FakeRefreshTokenFactory(_clock);
         _issuer = new FakeAccessTokenIssuer(_clock);
+        _policy = new FakeSessionPolicy();
     }
 
     [Test]
@@ -214,6 +216,29 @@ public sealed class SessionHandlerTests
         });
     }
 
+    // La revocación por robo tiene su propio plazo (no usa la cancelación de la petición). Si ese plazo se cumple porque
+    // la base no contesta, la API responde el 503 de una base caída, no un 500.
+    [Test]
+    public async Task A_theft_revocation_that_runs_out_of_time_reports_the_credential_store_as_unavailable()
+    {
+        _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        _refreshStore.RevokeAllHangs = true;
+        var started = DateTimeOffset.UtcNow;
+
+        var exception = Assert.ThrowsAsync<CredentialStoreUnavailableException>(() => Refresh(login.RefreshToken));
+        var elapsed = DateTimeOffset.UtcNow - started;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception?.InnerException, Is.InstanceOf<OperationCanceledException>());
+            Assert.That(elapsed, Is.LessThan(TimeSpan.FromSeconds(5)), "The policy deadline applies, not a fixed one.");
+            Assert.That(_refreshStore.RevokedAllFor, Is.Empty);
+            Assert.That(_refreshStore.Tokens, Has.Count.EqualTo(2), "No new token is issued for a reused one.");
+        });
+    }
+
     [Test]
     public async Task An_unknown_or_expired_refresh_token_or_an_inactive_user_gets_the_generic_error()
     {
@@ -319,7 +344,7 @@ public sealed class SessionHandlerTests
             .HandleAsync(new LoginCommand(email, password, companyId, ip, agent), CancellationToken.None);
 
     private Task<Result<SessionTokens>> Refresh(string token, Guid? companyId = null, CancellationToken ct = default) =>
-        new RefreshTokenHandler(_refreshStore, _refreshFactory, _users, _issuer, _clock, NullLogger<RefreshTokenHandler>.Instance)
+        new RefreshTokenHandler(_refreshStore, _refreshFactory, _users, _issuer, _clock, _policy, NullLogger<RefreshTokenHandler>.Instance)
             .HandleAsync(new RefreshTokenCommand(token, companyId, null, null), ct);
 
     private Task<Result<LoggedOut>> Logout(string token) =>

@@ -3,6 +3,7 @@ using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
 using ImpiFact.Api.OpenApi;
 using ImpiFact.Application.Abstractions.Handlers;
+using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Application.Abstractions.Results;
 using ImpiFact.Application.Features.Identity;
 using ImpiFact.Application.Features.Identity.ApiKeys;
@@ -226,19 +227,19 @@ internal sealed class IdentityEndpoints : IEndpointModule
         return isPanel ? PanelSession.Issue(context, result.Value) : result.ToHttpResult();
     }
 
-    /// <summary>Tiempo máximo para revocar la sesión cuando el cliente ya no espera la respuesta.</summary>
-    private static readonly TimeSpan LogoutRevocationTimeout = TimeSpan.FromSeconds(10);
-
     /// <summary>
     /// Sin token no hay nada que revocar: responde 204 sin llamar al caso de uso. La revocación no usa la cancelación
     /// de la petición: el panel limpia la sesión y sigue sin esperar la respuesta, y si el navegador corta la petición
-    /// (cierra o recarga la pestaña) el token de renovación quedaría vivo. Se acota con su propio plazo.
+    /// (cierra o recarga la pestaña) el token de renovación quedaría vivo. Se acota con su propio plazo
+    /// (<see cref="ISessionPolicy.RevocationTimeout"/>, 10 segundos); si se cumple, responde el 503
+    /// <c>identity.store_unavailable</c> de una base caída, sin borrar la cookie, para que el panel lo intente otra vez.
     /// </summary>
     private static async Task<IResult> LogoutAsync(
         LogoutBody? body,
         [FromHeader(Name = PanelSession.ClientHeader)] string? client,
         HttpContext context,
-        [FromServices] IHandler<LogoutCommand, LoggedOut> handler)
+        [FromServices] IHandler<LogoutCommand, LoggedOut> handler,
+        [FromServices] ISessionPolicy policy)
     {
         var isPanel = PanelSession.IsPanel(client);
         var presented = PanelSession.ReadRefreshToken(context.Request, body?.RefreshToken, isPanel);
@@ -249,8 +250,8 @@ internal sealed class IdentityEndpoints : IEndpointModule
 
         if (presented.Value.Value.Length > 0)
         {
-            using var revocation = new CancellationTokenSource(LogoutRevocationTimeout);
-            var result = await handler.HandleAsync(new LogoutCommand(presented.Value.Value), revocation.Token);
+            var result = await SessionRevocation.WithinDeadlineAsync(
+                policy.RevocationTimeout, deadline => handler.HandleAsync(new LogoutCommand(presented.Value.Value), deadline));
             if (!result.IsSuccess)
             {
                 return result.Error.ToHttpResult();

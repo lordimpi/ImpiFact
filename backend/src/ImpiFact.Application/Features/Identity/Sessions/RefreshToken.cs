@@ -41,6 +41,7 @@ internal sealed class RefreshTokenHandler(
     IUserStore users,
     IAccessTokenIssuer accessTokens,
     IClock clock,
+    ISessionPolicy policy,
     ILogger<RefreshTokenHandler> logger) : IHandler<RefreshTokenCommand, SessionTokens>
 {
     private readonly SessionIssuer _sessions = new(users, accessTokens, refreshTokens, refreshStore);
@@ -80,18 +81,16 @@ internal sealed class RefreshTokenHandler(
         return issued;
     }
 
-    /// <summary>Tiempo máximo de la revocación por robo cuando el cliente ya no espera la respuesta.</summary>
-    private static readonly TimeSpan TheftRevocationTimeout = TimeSpan.FromSeconds(10);
-
     /// <summary>
     /// Respuesta a un token robado y reusado: revoca todas las sesiones del usuario. No usa la cancelación de la
     /// petición: si la pestaña del usuario se recarga o se cierra justo en ese momento, la sesión del atacante seguiría
-    /// viva. Se acota con su propio plazo.
+    /// viva. Se acota con su propio plazo (<see cref="ISessionPolicy.RevocationTimeout"/>); si se cumple, la API
+    /// responde 503 <c>identity.store_unavailable</c> en lugar de un 500 (<see cref="SessionRevocation"/>).
     /// </summary>
     private async Task<Result<SessionTokens>> RevokeChainAsync(Guid userId, DateTimeOffset now)
     {
-        using var revocation = new CancellationTokenSource(TheftRevocationTimeout);
-        await refreshStore.RevokeAllActiveForUserAsync(userId, now, revocation.Token);
+        await SessionRevocation.WithinDeadlineAsync(
+            policy.RevocationTimeout, deadline => refreshStore.RevokeAllActiveForUserAsync(userId, now, deadline));
         logger.LogWarning("A revoked refresh token was presented again; revoked every active refresh token of user {UserId}.", userId);
         return IdentityErrors.InvalidRefreshToken;
     }

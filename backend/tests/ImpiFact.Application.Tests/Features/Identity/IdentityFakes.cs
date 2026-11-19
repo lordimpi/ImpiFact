@@ -103,7 +103,6 @@ public sealed class FakeRefreshTokenStore : IRefreshTokenStore
 
     public Task<RefreshTokenRecord?> FindByHashAsync(string tokenHash, CancellationToken ct) =>
         Task.FromResult(Tokens.FirstOrDefault(token => token.TokenHash == tokenHash));
-
     public Task<bool> RevokeAsync(Guid tokenId, DateTimeOffset revokedAt, Guid? replacedBy, CancellationToken ct)
     {
         var index = Tokens.FindIndex(token => token.Id == tokenId);
@@ -116,14 +115,26 @@ public sealed class FakeRefreshTokenStore : IRefreshTokenStore
         return Task.FromResult(true);
     }
 
-    public Task RevokeAllActiveForUserAsync(Guid userId, DateTimeOffset revokedAt, CancellationToken ct)
+    /// <summary>La base no contesta la revocación de todas las sesiones: espera hasta que la cancelen, como Npgsql.</summary>
+    public bool RevokeAllHangs { get; set; }
+
+    public async Task RevokeAllActiveForUserAsync(Guid userId, DateTimeOffset revokedAt, CancellationToken ct)
     {
+        if (RevokeAllHangs)
+        {
+            await Task.Delay(Timeout.Infinite, ct);
+        }
+
         // Como EF: con el token cancelado no se guarda nada.
         ct.ThrowIfCancellationRequested();
         RevokedAllFor.Add((userId, revokedAt));
-        return Task.CompletedTask;
     }
 }
+
+/// <summary>Plazos de la sesión; la revocación tiene un plazo corto para que las pruebas no esperen 10 segundos.</summary>
+public sealed class FakeSessionPolicy : ISessionPolicy
+{
+    public TimeSpan RevocationTimeout { get; set; } = TimeSpan.FromMilliseconds(200);}
 
 /// <summary>Tokens de renovación predecibles: <c>refresh-1</c>, <c>refresh-2</c>…; el resumen es <c>sha:valor</c>.</summary>
 public sealed class FakeRefreshTokenFactory(FakeClock clock) : IRefreshTokenFactory
