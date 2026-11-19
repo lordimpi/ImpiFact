@@ -6,6 +6,9 @@ using ImpiFact.Application.Abstractions.Identity;
 using ImpiFact.Domain.Identity;
 using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Integration.Tests.Identity;
+using HttpMethods = Microsoft.AspNetCore.Http.HttpMethods;
+using HostString = Microsoft.AspNetCore.Http.HostString;
+using StatusCodes = Microsoft.AspNetCore.Http.StatusCodes;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Net.Http.Headers;
 using Npgsql;
@@ -241,6 +244,33 @@ public sealed class PanelSessionTests
 
         using var refreshAfterLogout = await Client().SendAsync(PanelRequest("/api/v1/auth/refresh", body: null, cookie: cookie));
         Assert.That(refreshAfterLogout.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
+    [Test]
+    public async Task Logout_revokes_the_session_even_when_the_browser_aborts_the_request()
+    {
+        var (_, email) = await AddUserAsync();
+        var cookie = RefreshCookie(await PanelLogin(email)).Value.Value!;
+
+        // El navegador ya cortó la petición (se cerró o recargó la pestaña): RequestAborted llega cancelado.
+        var context = await _factory.Server.SendAsync(http =>
+        {
+            http.Request.Method = HttpMethods.Post;
+            http.Request.Scheme = "https";
+            http.Request.Host = new HostString("localhost");
+            http.Request.Path = "/api/v1/auth/logout";
+            http.Request.Headers[ClientHeader] = "panel";
+            http.Request.Headers[HeaderNames.Cookie] = $"{CookieName}={cookie}";
+            http.RequestAborted = new CancellationToken(canceled: true);
+        });
+        var revokedAt = await QuerySingleAsync<DateTime?>(
+            "select revoked_at from refresh_tokens where token_hash = @hash", new { hash = CredentialHash.Sha256Hex(cookie) });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(revokedAt, Is.Not.Null, "Closing the session must finish even if nobody waits for the answer.");
+            Assert.That(context.Response.StatusCode, Is.EqualTo(StatusCodes.Status204NoContent));
+        });
     }
 
     [Test]

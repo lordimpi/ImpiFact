@@ -226,13 +226,19 @@ internal sealed class IdentityEndpoints : IEndpointModule
         return isPanel ? PanelSession.Issue(context, result.Value) : result.ToHttpResult();
     }
 
-    /// <summary>Sin token no hay nada que revocar: responde 204 sin llamar al caso de uso.</summary>
+    /// <summary>Tiempo máximo para revocar la sesión cuando el cliente ya no espera la respuesta.</summary>
+    private static readonly TimeSpan LogoutRevocationTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Sin token no hay nada que revocar: responde 204 sin llamar al caso de uso. La revocación no usa la cancelación
+    /// de la petición: el panel limpia la sesión y sigue sin esperar la respuesta, y si el navegador corta la petición
+    /// (cierra o recarga la pestaña) el token de renovación quedaría vivo. Se acota con su propio plazo.
+    /// </summary>
     private static async Task<IResult> LogoutAsync(
         LogoutBody? body,
         [FromHeader(Name = PanelSession.ClientHeader)] string? client,
         HttpContext context,
-        [FromServices] IHandler<LogoutCommand, LoggedOut> handler,
-        CancellationToken ct)
+        [FromServices] IHandler<LogoutCommand, LoggedOut> handler)
     {
         var isPanel = PanelSession.IsPanel(client);
         var presented = PanelSession.ReadRefreshToken(context.Request, body?.RefreshToken, isPanel);
@@ -243,7 +249,8 @@ internal sealed class IdentityEndpoints : IEndpointModule
 
         if (presented.Value.Value.Length > 0)
         {
-            var result = await handler.HandleAsync(new LogoutCommand(presented.Value.Value), ct);
+            using var revocation = new CancellationTokenSource(LogoutRevocationTimeout);
+            var result = await handler.HandleAsync(new LogoutCommand(presented.Value.Value), revocation.Token);
             if (!result.IsSuccess)
             {
                 return result.Error.ToHttpResult();
