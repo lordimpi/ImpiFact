@@ -202,6 +202,8 @@ Flujos críticos (tarea 10 del backlog, 18-nov): cinco pruebas con la etiqueta `
 
 Cada página de estos flujos pasa por axe en modo claro y oscuro sin violaciones graves ni críticas (WCAG 2.2 A y AA). La medición espera a que terminen las transiciones de color: los botones de Optimus UI animan el fondo y, medido a mitad de la transición, axe da contrastes falsos. La prueba contra el docker-compose con la DIAN simulada sigue pendiente; la prueba real en habilitación se hace a mano desde el panel.
 
+Pruebas que dependen del tiempo (fase 6, 19-nov): ninguna espera con `waitForTimeout`. El seguimiento del estado en la DIAN adelanta el retroceso (2 s, 4 s…) con el reloj simulado de Playwright (`page.clock.install()` y `runFor`), y la DIAN simulada no pasa de «Enviado» hasta que la prueba lo decide, así cada estado intermedio se ve sin depender de la carga de la máquina; que no consulte más con el estado final se prueba adelantando 60 s del reloj. El paso a producción espera la nueva lectura del estado del paso a producción, y la Api simulada la responde con el ambiente guardado, como el Api real: con la respuesta fija en habilitación, esa lectura borraba «En producción» y la prueba fallaba según cuánto tardara. Además, `CompanySetupStore` aplica solo la lectura más reciente de cada dato: una lectura anterior que responde después (o una de los ambientes pedida antes de guardarlos) se descarta. Comprobado con `--repeat-each=5` y los trabajadores por defecto: antes fallaban 6 de 10, después 10 de 10 en verde.
+
 ## 13. Construcción y despliegue
 
 - `Dockerfile.web`: etapa de compilación con Node LTS y etapa final Nginx sin privilegios de superusuario.

@@ -148,9 +148,14 @@ export const CompanySetupStore = signalStore(
       return company;
     };
 
+    /** Número de la última lectura pedida de cada dato; una escritura que trae el dato también lo sube. */
+    const latestRead: Partial<Record<StatusKey, number>> = {};
+    const supersede = (status: StatusKey) => (latestRead[status] = (latestRead[status] ?? 0) + 1);
+
     /**
-     * Pide una lectura y la guarda junto con su estado. Si mientras tanto se cambió de empresa, la respuesta se
-     * descarta. Devuelve lo leído, o `null` si falló (el error queda en el estado, para mostrarlo con reintento).
+     * Pide una lectura y la guarda junto con su estado. Si mientras tanto se cambió de empresa o se pidió una lectura
+     * más reciente del mismo dato, la respuesta se descarta. Devuelve lo leído, o `null` si falló o se descartó (el
+     * error queda en el estado, para mostrarlo con reintento).
      */
     async function read<T>(
       status: StatusKey,
@@ -158,16 +163,20 @@ export const CompanySetupStore = signalStore(
       apply: (value: T) => Partial<CompanySetupState>,
     ): Promise<T | null> {
       const company = current();
+      // Solo cuenta la lectura más reciente de cada dato: una anterior que responde después (por ejemplo, el estado del
+      // paso a producción pedido antes de pasar una familia a producción) traería datos viejos.
+      const ticket = supersede(status);
+      const superseded = () => store.company()?.id !== company.id || latestRead[status] !== ticket;
       patchState(store, { [status]: 'loading' });
       try {
         const value = await fetch(company.nit);
-        if (store.company()?.id !== company.id) {
+        if (superseded()) {
           return null;
         }
         patchState(store, { ...apply(value), [status]: 'ready' });
         return value;
       } catch {
-        if (store.company()?.id === company.id) {
+        if (!superseded()) {
           patchState(store, { [status]: 'error' });
         }
         return null;
@@ -260,6 +269,8 @@ export const CompanySetupStore = signalStore(
           api.invoke(setCompanyEnvironment, { nit: current().nit, body }, IN_FORM()),
         );
         const environments = response.environments ?? [];
+        // Una lectura de los ambientes pedida antes de este cambio ya no se aplica.
+        supersede('environmentsStatus');
         patchState(store, { environments, environmentsStatus: 'ready' });
         afterSave();
         return environments;

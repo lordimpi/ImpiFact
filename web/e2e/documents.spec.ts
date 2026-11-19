@@ -88,6 +88,8 @@ interface DocumentsApi {
   noteRequests: Request[];
   fileRequests: Request[];
   detailCalls: () => number;
+  /** Mientras sea verdadero, el detalle de `doc-9` no pasa de Enviado (la prueba decide cuándo llega Aceptado). */
+  holdDetail: boolean;
   /** Respuesta de la vista previa: el PDF o el conversor caído (503). */
   preview: 'pdf' | 'unavailable';
 }
@@ -110,6 +112,7 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
     noteRequests: [],
     fileRequests: [],
     detailCalls: () => detailCalls,
+    holdDetail: false,
     preview: 'pdf',
   };
   const detailStatuses = ['Queued', 'Sent', 'Accepted'];
@@ -224,7 +227,8 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
       });
     }
     if (url.pathname === '/api/v1/documents/doc-9') {
-      const status = detailStatuses[Math.min(detailCalls++, detailStatuses.length - 1)];
+      const last = api.holdDetail ? detailStatuses.length - 2 : detailStatuses.length - 1;
+      const status = detailStatuses[Math.min(detailCalls++, last)];
       return route.fulfill({ json: { ...DETAIL, status } });
     }
     return route.fulfill({
@@ -303,7 +307,12 @@ test(
   'issues an invoice with the server totals, follows its DIAN status and downloads the PDF',
   CRITICAL,
   async ({ page }) => {
+    // Tres revisiones de axe en los dos temas: con muchos trabajadores en paralelo pasa de los 30 s por defecto.
+    test.slow();
+    // Reloj simulado: el retroceso del seguimiento (2 s, 4 s…) se adelanta sin esperarlo y sin esperas fijas.
+    await page.clock.install();
     const api = await mockDocuments(page);
+    api.holdDetail = true;
     await logIn(page);
     await page.getByRole('link', { name: 'Documentos' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Documentos' })).toBeVisible();
@@ -348,16 +357,27 @@ test(
     // La factura se envía por correo al cliente (casilla marcada por defecto, el cliente tiene correo).
     expect(body.sendmail).toBe(true);
 
-    // El detalle consulta con retroceso (2 s, 4 s) hasta el estado final.
+    // El detalle consulta con retroceso (2 s, 4 s) hasta el estado final. La DIAN simulada no pasa de Enviado hasta
+    // que la prueba lo decide, así «Consultando…» se ve sin depender de cuánto tarda la máquina.
+    const polling = page.getByText('Consultando el estado en la DIAN…');
     await expect(
       page.getByRole('heading', { level: 1, name: 'Factura SETP990000009' }),
     ).toBeVisible();
-    await expect(page.getByText('Consultando el estado en la DIAN…')).toBeVisible();
-    await expect(page.getByText('Aceptado', { exact: true })).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Consultando el estado en la DIAN…')).toHaveCount(0);
+    await expect(polling).toBeVisible();
+    await page.clock.runFor(2_000);
+    await expect(page.getByText('Enviado a la DIAN', { exact: true })).toBeVisible();
+    await expect(polling).toBeVisible();
+    api.holdDetail = false;
+    // Cada vuelta adelanta el reloj simulado; con la máquina cargada solo da más vueltas.
+    await expect(async () => {
+      await page.clock.runFor(4_000);
+      await expect(page.getByText('Aceptado', { exact: true })).toBeVisible({ timeout: 500 });
+    }).toPass({ timeout: 15_000 });
+    await expect(polling).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'PDF', exact: true })).toBeVisible();
+    // Con el estado final ya no consulta más, aunque pase el retroceso máximo (30 s) dos veces.
     const callsWhenAccepted = api.detailCalls();
-    await page.waitForTimeout(3_000);
+    await page.clock.runFor(60_000);
     expect(api.detailCalls()).toBe(callsWhenAccepted);
     expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
