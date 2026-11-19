@@ -13,7 +13,8 @@ namespace ImpiFact.Application.Features.Documents.Delivery;
 /// Reglas, en orden: código <c>98</c> («en proceso») sigue en proceso; código <c>66</c> (GetStatus de un CUFE que la
 /// DIAN todavía no registra) no es una decisión, aunque traiga mensajes; <c>IsValid</c> verdadero es aceptado, con
 /// advertencias si trae notificaciones; <c>IsValid</c> falso con la regla 90 («documento procesado anteriormente») es
-/// un documento ya procesado que hay que reconciliar con GetStatus; <c>IsValid</c> falso con reglas de rechazo o con
+/// un documento ya procesado que hay que reconciliar con GetStatus (y si GetStatus no conoce el CUFE, el número lo usó
+/// otro documento: ver <see cref="DianDelivery.ReconcileAsync"/>); <c>IsValid</c> falso con reglas de rechazo o con
 /// código <c>99</c> es rechazado. Cualquier otro resultado (por ejemplo, GetStatus de un documento que la DIAN todavía
 /// no registra) no es una decisión y se sigue consultando. Si algún intento de la llamada pudo llegar a la DIAN
 /// (<see cref="DianCall.PossiblyReceived"/>), una respuesta que diría «no se entregó» o «rechazó el mensaje» (un 503,
@@ -85,9 +86,22 @@ internal abstract partial record DianAnswer
     private static bool IsServiceFault(string code) =>
         code.EndsWith("Receiver", StringComparison.OrdinalIgnoreCase) || code.EndsWith("Server", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Si algún texto de una respuesta de la DIAN (sus reglas o su descripción, por ejemplo los que guarda
+    /// <c>dian_submissions</c>) es la regla 90, «documento procesado anteriormente». Los nulos no cuentan.
+    /// </summary>
+    public static bool IsRule90(IEnumerable<string?> texts) =>
+        texts.Any(text => text is not null && Rule90Pattern().IsMatch(text));
+
+    /// <summary>Código 66: GetStatus de un CUFE que la DIAN no tiene en sus registros.</summary>
+    public static bool IsUnknownDocument(DianResult result)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        return result.StatusCode == UnknownDocumentCode;
+    }
+
     private static bool IsRule90(DianResult result) =>
-        result.ErrorMessages.Append(result.StatusDescription).Append(result.StatusMessage)
-            .Any(text => text is not null && Rule90Pattern().IsMatch(text));
+        IsRule90(result.ErrorMessages.Append(result.StatusDescription).Append(result.StatusMessage));
 
     [GeneratedRegex(@"Regla\s*:\s*90\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex Rule90Pattern();
@@ -116,6 +130,9 @@ internal abstract partial record DianAnswer
     /// <summary>La DIAN todavía no tiene una decisión (código 98, código 66 o un resultado que no decide).</summary>
     public sealed record InProcess(DianResult? Result) : DianAnswer;
 
-    /// <summary>Regla 90: la DIAN ya procesó un documento con ese CUFE; su estado se consulta con GetStatus.</summary>
+    /// <summary>
+    /// Regla 90: la DIAN ya procesó un documento con ese número (emisor, prefijo y número); su estado se consulta con
+    /// GetStatus y el CUFE (ver <see cref="DianDelivery.ReconcileAsync"/>).
+    /// </summary>
     public sealed record AlreadyProcessed(DianResult Result) : DianAnswer;
 }

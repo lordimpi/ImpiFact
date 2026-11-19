@@ -297,6 +297,35 @@ public sealed class DianSendHost : IAsyncDisposable
         return id;
     }
 
+    /// <summary>
+    /// Guarda un intento ya terminado del documento con lo que respondió la DIAN, como lo dejó un envío o una consulta
+    /// anterior (por ejemplo, un documento que quedó sin confirmar antes de un cambio en la lectura de las respuestas).
+    /// </summary>
+    public async Task AddSubmissionAsync(Document document, DianOperation operation, bool isValid, string statusCode, params string[] errors)
+    {
+        await using var scope = OpenScope();
+        var deliveries = scope.ServiceProvider.GetRequiredService<IDocumentDelivery>();
+        var attempt = await deliveries.NextSubmissionAttemptAsync(document.CompanyId, document.Id, CancellationToken.None);
+        deliveries.AddSubmission(new DianSubmission
+        {
+            Id = Guid.CreateVersion7(),
+            CompanyId = document.CompanyId,
+            DocumentId = document.Id,
+            Attempt = attempt,
+            Operation = operation,
+            TypeEnvironmentId = document.TypeEnvironmentId,
+            HttpStatus = 200,
+            IsValid = isValid,
+            DianStatusCode = statusCode,
+            DianStatusDescription = "Validación contiene errores en campos mandatorios.",
+            ErrorMessages = errors.Length > 0 ? [.. errors] : null,
+            StartedAt = Clock.UtcNow.AddMinutes(-attempt),
+            FinishedAt = Clock.UtcNow.AddMinutes(-attempt),
+            DurationMs = 100,
+        });
+        await scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>().SaveChangesAsync();
+    }
+
     /// <summary>Procesa una tanda del outbox y devuelve cuántos mensajes tomó.</summary>
     public Task<int> RunOutboxAsync() => Processor.ProcessBatchAsync(CancellationToken.None);
 

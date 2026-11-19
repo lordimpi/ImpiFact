@@ -16,6 +16,7 @@ public static class DianReplies
     public const string Notification = "Regla: FAK55, Notificación: Correo electrónico no informado";
     public const string Rejection = "Regla: FAD06, Rechazo: Valor del CUFE no está calculado correctamente.";
     public const string Rule90 = "Regla: 90, Rechazo: Documento procesado anteriormente.";
+    public const string UnknownTrackId = "TrackId no existe en los registros de la DIAN.";
 
     /// <summary>El SOAP Fault que devolvió la DIAN de habilitación ante un sobre con firma inválida (fase 1b).</summary>
     public const string ClientFault = """

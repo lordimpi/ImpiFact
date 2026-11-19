@@ -166,6 +166,43 @@ public sealed class SendDocumentToDianTests
     }
 
     [Test]
+    public async Task Rule_90_with_a_cufe_the_dian_does_not_know_is_rejected_because_another_document_used_the_number()
+    {
+        await using var host = await DianSendHost.StartAsync();
+        var issuer = await host.CreateIssuerAsync();
+        var document = await host.CreateDocumentAsync(issuer);
+        host.Dian.Reply(DianReplies.SendBillSync(false, "99", DianReplies.Rule90));
+        host.Dian.Reply(DianReplies.GetStatus(false, "66", DianReplies.UnknownTrackId));
+
+        await host.RunOutboxAsync();
+
+        var stored = await host.DocumentAsync(document.Id);
+        var submissions = await host.SubmissionsAsync(document.Id);
+        var polls = await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.PollDianStatus);
+        var renders = await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.RenderPdf);
+        var send = (await host.MessagesAsync(issuer.CompanyId, OutboxMessageTypes.SendDocumentToDian)).Single();
+        var notifications = await host.NotificationsAsync(issuer.CompanyId);
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored.Status, Is.EqualTo(DocumentStatus.Rejected));
+            Assert.That(stored.DianStatusCode, Is.EqualTo("66"));
+            Assert.That(stored.DianStatusDescription, Is.EqualTo(
+                $"El número {document.FullNumber} ya fue usado en la DIAN por otro documento. " +
+                "Revise la numeración de la resolución y emita la factura de nuevo."));
+            Assert.That(stored.SentAt, Is.EqualTo(host.Clock.UtcNow));
+            Assert.That(stored.AcceptedAt, Is.Null);
+            Assert.That(host.Dian.Requests.Select(request => request.Operation), Is.EqualTo(new[] { "SendBillSync", "GetStatus" }));
+            Assert.That(host.Dian.Requests[1].Parameter("trackId"), Is.EqualTo(document.Cufe));
+            Assert.That(submissions.Select(row => (row.Operation, row.DianStatusCode)),
+                Is.EqualTo(new[] { (DianOperation.SendBillSync, "99"), (DianOperation.GetStatus, "66") }));
+            Assert.That(polls, Is.Empty);
+            Assert.That(renders, Is.Empty);
+            Assert.That(send.Status, Is.EqualTo(OutboxStatus.Done));
+            Assert.That(notifications, Is.Empty);
+        });
+    }
+
+    [Test]
     public async Task In_process_98_leaves_it_unconfirmed_and_GetStatus_later_accepts_it()
     {
         await using var host = await DianSendHost.StartAsync();
