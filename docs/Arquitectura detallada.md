@@ -594,11 +594,23 @@ Procedimiento para generar fixtures golden: `backend/tools/golden-capture` levan
 
 Cobertura mínima exigida en CI: `Domain` y `Dian` 90 %, `Application` 80 %; los golden tests no se pueden desactivar.
 
+**Integración continua (GitHub Actions, fase 6).** Dos flujos en `.github/workflows/`, cada uno filtrado por ruta (ADR-28) y sin secretos (permiso `contents: read`):
+
+| Flujo | Jobs | Qué hace |
+| --- | --- | --- |
+| `backend.yml` | `build-and-test` | Una sola vez: restaurar, compilar con `-warnaserror`, revisar que el OpenAPI del panel esté al día, pruebas unitarias, de arquitectura y golden (`Category!=Integration&Category!=Contract`), contrato (PostgreSQL) y análisis de vulnerabilidades |
+| | `integration (Postgres)`, `integration (SqlServer)`, `integration (MySql)` | Matriz por `Database__Provider` con `fail-fast: false` y 45 minutos por motor: `dotnet test tests/ImpiFact.Integration.Tests --filter "Category=Integration"` contra el motor real que levanta `TestDatabase` con Testcontainers (el runner de Ubuntu trae Docker). Cada motor sube su resultado TRX como artefacto `integration-results-<motor>` (7 días), también cuando falla. Hay comportamiento que solo existe en un motor (por ejemplo el reclamo del outbox con `sp_getapplock` en SQL Server), por eso cada motor corre la suite completa |
+| `web.yml` | `lint-test-build`, `lighthouse` | El panel Angular (`docs/Arquitectura frontend.md`) |
+
+- Reproducir un motor en local: `Database__Provider=SqlServer dotnet test tests/ImpiFact.Integration.Tests --filter "Category=Integration"` desde `backend/` (con Docker; SQL Server pide unos 2 GB de memoria, conviene correr un motor a la vez).
+- Las pruebas de integración que no dependen del motor (emuladores de la nube, correo, PDF) también corren en las tres patas de la matriz: no tienen una categoría propia que permita separarlas.
+- Los flujos se revisan con `actionlint` (imagen `rhysd/actionlint`, fija por digest) antes de subirlos.
+
 ## 14. Despliegue
 
 - Imágenes: `Dockerfile.api`, `Dockerfile.worker`, `Dockerfile.migrator` y `Dockerfile.web` (Nginx con el build de Angular), multi-etapa, usuario no root, sin secretos en capas. Detalle en «Contenedores», al final de esta sección.
 - `docker-compose.yml` para desarrollo: Postgres, SQL Server (perfil `sqlserver`, con `MSSQL_SA_PASSWORD` en `deploy/.env`), MySQL (perfil), Azurite/MinIO para blobs, MailHog para correo, Api, Worker y web.
-- CI (GitHub Actions): restaurar → compilar con `TreatWarningsAsErrors` → pruebas unitarias → integración (PostgreSQL; matriz de motores desde la fase 6) → golden → contract → análisis de vulnerabilidades → imágenes.
+- CI (GitHub Actions): restaurar → compilar con `TreatWarningsAsErrors` → pruebas unitarias y golden → contract → análisis de vulnerabilidades, una vez; integración en una matriz de los tres motores. Detalle en la sección 13, «Integración continua».
 - **Migraciones pendientes al arrancar**: la API y el Worker revisan al arrancar, con `GetPendingMigrationsAsync` de EF Core (igual en los tres motores), que la base no tenga migraciones pendientes (`PendingMigrationsGuard`, en Infrastructure). Si falta alguna no arrancan (ningún servicio en segundo plano llega a correr): escriben una sola línea crítica, «La base de datos tiene migraciones pendientes: <nombres>. Corra el Migrator (comando migrate) antes de arrancar: en local, «dotnet run --project src/ImpiFact.Migrator -- migrate» desde backend/; en contenedores, «docker compose -f deploy/docker-compose.yml --profile app run --rm migrator» o la imagen del Migrator con el comando migrate.», y terminan con código 1. Caso real: el Worker arrancó sobre una base sin `password_reset_tokens` y Housekeeping falló con `42P01: relation "password_reset_tokens" does not exist`. Es una revisión del esquema, no de la disponibilidad: si la base no responde (error transitorio), queda una advertencia y el proceso arranca como antes, porque `/health/live` no depende de la base. `Database:CheckPendingMigrationsAtStartup` (por defecto `true`) solo se apaga en las pruebas que levantan la API sobre una base vacía y crean el esquema con el host ya arriba.
 - Migraciones se aplican con `ImpiFact.Migrator migrate` como paso previo al despliegue (job de Kubernetes, tarea ECS, job de Cloud Run o contenedor de inicio en Azure Container Apps); el mismo comando sincroniza los catálogos DIAN. `ImpiFact.Migrator create-platform-key <nombre>` crea la primera API key de plataforma de una instalación nueva. Solo en desarrollo, `ImpiFact.Migrator seed-demo` crea una empresa de prueba lista para emitir en habilitación (resolución SETP de pruebas y certificado autofirmado, que la DIAN rechaza) y muestra una API key de esa empresa; fuera de Development exige `--force`.
 
