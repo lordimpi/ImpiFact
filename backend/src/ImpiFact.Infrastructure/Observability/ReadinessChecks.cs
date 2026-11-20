@@ -3,6 +3,7 @@ using ImpiFact.Application.Abstractions.Storage;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Protection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 
@@ -49,21 +50,34 @@ internal sealed class StorageHealthCheck(IBlobStorage storage) : IHealthCheck
 
 /// <summary>
 /// El proveedor de secretos está listo. Con <c>LocalAesGcm</c>, la llave maestra se puede leer y tiene el tamaño correcto
-/// (solo la lee). Los proveedores de la nube agregan su propia prueba.
+/// (solo la lee). Con un proveedor de la nube, la llave que protege las llaves de Data Protection existe y la identidad de
+/// la carga de trabajo la puede leer: prueba a la vez la red, la identidad y la configuración.
 /// </summary>
-internal sealed class SecretsHealthCheck(IOptions<SecretsOptions> options) : IHealthCheck
+/// <remarks>
+/// La excepción del servicio no se pasa al resultado: el estado sale sin detalles, y así ningún registro de la prueba
+/// repite lo que el servicio contestó.
+/// </remarks>
+internal sealed class SecretsHealthCheck(IOptions<SecretsOptions> options, IServiceProvider services) : IHealthCheck
 {
-    public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
+    public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
         var secrets = options.Value;
-        if (!string.Equals(secrets.Provider, SecretsOptions.LocalAesGcmProvider, StringComparison.Ordinal))
+        if (string.Equals(secrets.Provider, SecretsOptions.LocalAesGcmProvider, StringComparison.Ordinal))
         {
-            return Task.FromResult(HealthCheckResult.Healthy($"The {secrets.Provider} provider has no readiness probe yet."));
+            return LocalMasterKey.Validate(secrets.LocalAesGcm.MasterKeyFile) is null
+                ? HealthCheckResult.Healthy()
+                : HealthCheckResult.Unhealthy("The local master key cannot be read.");
         }
 
-        return Task.FromResult(LocalMasterKey.Validate(secrets.LocalAesGcm.MasterKeyFile) is null
-            ? HealthCheckResult.Healthy()
-            : HealthCheckResult.Unhealthy("The local master key cannot be read."));
+        try
+        {
+            await services.GetRequiredService<IKeyEncryptionKey>().ProbeAsync(cancellationToken);
+            return HealthCheckResult.Healthy();
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            return HealthCheckResult.Unhealthy($"The {secrets.Provider} secrets provider cannot use its key.");
+        }
     }
 }
 

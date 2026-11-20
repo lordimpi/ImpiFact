@@ -105,7 +105,6 @@ public sealed class SecretsStartupTests
         Assert.That(failure, Does.Contain("CertificateDirectory"));
     }
 
-    [TestCase("KeyVault")]
     [TestCase("AwsSecrets")]
     [TestCase("GcpSecrets")]
     public void Startup_fails_for_cloud_providers_that_are_not_available_yet(string provider)
