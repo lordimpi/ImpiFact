@@ -1,0 +1,39 @@
+# OpenTelemetry Collector sidecar for the api and worker Cloud Run services (GCP).
+# The app exports OTLP/gRPC to 127.0.0.1:4317 (OTEL_EXPORTER_OTLP_ENDPOINT); the collector sends traces to Cloud
+# Trace, metrics to Managed Service for Prometheus and logs to Cloud Logging, with the service account of the service.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 127.0.0.1:4317
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  resourcedetection:
+    detectors: [env, gcp]
+    timeout: 10s
+  batch: {}
+
+exporters:
+  googlecloud:
+    log:
+      default_log_name: impifact-otlp
+  googlemanagedprometheus: {}
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [googlecloud]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [googlemanagedprometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, batch]
+      exporters: [googlecloud]
