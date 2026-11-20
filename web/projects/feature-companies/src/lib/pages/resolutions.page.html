@@ -11,66 +11,37 @@
         (retry)="setup.loadResolutions()"
       />
     } @else if (saved().length > 0) {
-      <div class="companies-scroll">
-        <table class="companies-table">
-          <caption class="companies-hidden">
-            {{
-              'companies.resolutions.saved' | transloco
-            }}
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">{{ 'companies.resolutions.typeDocument' | transloco }}</th>
-              <th scope="col">{{ 'companies.resolutions.ranges.columns.prefix' | transloco }}</th>
-              <th scope="col">
-                {{ 'companies.resolutions.ranges.columns.resolution' | transloco }}
-              </th>
-              <th scope="col">{{ 'companies.resolutions.ranges.columns.range' | transloco }}</th>
-              <th scope="col">{{ 'companies.resolutions.ranges.columns.validity' | transloco }}</th>
-              <th scope="col">{{ 'companies.resolutions.columns.next' | transloco }}</th>
-              <th scope="col">{{ 'companies.resolutions.columns.remaining' | transloco }}</th>
-              <th scope="col">{{ 'companies.resolutions.columns.daysLeft' | transloco }}</th>
-              <th scope="col">{{ 'companies.resolutions.columns.status' | transloco }}</th>
-              <th scope="col">{{ 'companies.resolutions.ranges.columns.actions' | transloco }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of saved(); track row.id) {
-              <tr>
-                <td>{{ row.type }}</td>
-                <td>{{ row.prefix }}</td>
-                <td>{{ row.resolution }}</td>
-                <td>
-                  <span class="companies-nowrap">{{ row.range[0] }} –</span>&ngsp;<span
-                    class="companies-nowrap"
-                    >{{ row.range[1] }}</span
-                  >
-                </td>
-                <td>
-                  <span class="companies-nowrap">{{ row.validity[0] }} –</span>&ngsp;<span
-                    class="companies-nowrap"
-                    >{{ row.validity[1] }}</span
-                  >
-                </td>
-                <td>{{ row.next }}</td>
-                <td>{{ row.remaining }}</td>
-                <td>{{ row.daysLeft }}</td>
-                <td>
-                  <ui-badge [tone]="row.statusTone">{{ row.status }}</ui-badge>
-                </td>
-                <td>
-                  <ui-button
-                    variant="ghost"
-                    size="small"
-                    [label]="'companies.resolutions.nextNumber.action' | transloco"
-                    (pressed)="openNextNumber(row.target)"
-                  />
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+      <ui-table
+        flush
+        [caption]="'companies.resolutions.saved' | transloco"
+        [columns]="savedColumns()"
+        [rows]="saved()"
+        [labels]="tableLabels()"
+      >
+        <ng-template uiTableCell="range" let-row>
+          <span class="companies-nowrap">{{ row.range[0] }} –</span>&ngsp;<span
+            class="companies-nowrap"
+            >{{ row.range[1] }}</span
+          >
+        </ng-template>
+        <ng-template uiTableCell="validity" let-row>
+          <span class="companies-nowrap">{{ row.validity[0] }} –</span>&ngsp;<span
+            class="companies-nowrap"
+            >{{ row.validity[1] }}</span
+          >
+        </ng-template>
+        <ng-template uiTableCell="status" let-row>
+          <ui-badge [tone]="row.statusTone">{{ row.status }}</ui-badge>
+        </ng-template>
+        <ng-template uiTableCell="actions" let-row>
+          <ui-button
+            variant="ghost"
+            size="small"
+            [label]="'companies.resolutions.nextNumber.action' | transloco"
+            (pressed)="openNextNumber(row.target)"
+          />
+        </ng-template>
+      </ui-table>
     } @else if (setup.resolutionsStatus() === 'ready') {
       <p class="companies-lead">{{ 'companies.resolutions.savedEmpty' | transloco }}</p>
     } @else {
@@ -215,54 +186,33 @@
     </div>
 
     @if (ranges().length > 0) {
-      <div class="companies-scroll">
-        <table class="companies-table">
-          <caption class="companies-hidden">
-            {{
-              'companies.resolutions.ranges.title' | transloco
-            }}
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">
-                {{ 'companies.resolutions.ranges.columns.resolution' | transloco }}
-              </th>
-              <th scope="col">{{ 'companies.resolutions.ranges.columns.prefix' | transloco }}</th>
-              <th scope="col">{{ 'companies.resolutions.ranges.columns.range' | transloco }}</th>
-              <th scope="col">{{ 'companies.resolutions.ranges.columns.validity' | transloco }}</th>
-              <th scope="col">{{ 'companies.resolutions.ranges.columns.actions' | transloco }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (range of ranges(); track $index) {
-              <tr>
-                <td>{{ range.resolution_number }}</td>
-                <td>{{ range.prefix }}</td>
-                <td>
-                  <span class="companies-nowrap">{{ range.from }} –</span>&ngsp;<span
-                    class="companies-nowrap"
-                    >{{ range.to }}</span
-                  >
-                </td>
-                <td>
-                  <span class="companies-nowrap">{{ range.valid_date_from }} –</span>&ngsp;<span
-                    class="companies-nowrap"
-                    >{{ range.valid_date_to }}</span
-                  >
-                </td>
-                <td>
-                  <ui-button
-                    variant="ghost"
-                    size="small"
-                    [label]="'companies.resolutions.use' | transloco"
-                    (pressed)="useRange(range)"
-                  />
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+      <ui-table
+        [caption]="'companies.resolutions.ranges.title' | transloco"
+        [columns]="rangeColumns()"
+        [rows]="ranges()"
+        [labels]="tableLabels()"
+      >
+        <ng-template uiTableCell="range" let-range>
+          <span class="companies-nowrap">{{ range.from }} –</span>&ngsp;<span
+            class="companies-nowrap"
+            >{{ range.to }}</span
+          >
+        </ng-template>
+        <ng-template uiTableCell="validity" let-range>
+          <span class="companies-nowrap">{{ range.valid_date_from }} –</span>&ngsp;<span
+            class="companies-nowrap"
+            >{{ range.valid_date_to }}</span
+          >
+        </ng-template>
+        <ng-template uiTableCell="actions" let-range>
+          <ui-button
+            variant="ghost"
+            size="small"
+            [label]="'companies.resolutions.use' | transloco"
+            (pressed)="useRange(range)"
+          />
+        </ng-template>
+      </ui-table>
     }
     @if (lookupMessage(); as message) {
       <p

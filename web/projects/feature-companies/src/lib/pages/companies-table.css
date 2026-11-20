@@ -1,38 +1,7 @@
-/* Tables of the company pages (saved software, resolutions and DIAN ranges) and the range lookup row. */
-
-.companies-scroll {
-  overflow-x: auto;
-}
-
-.companies-table {
-  inline-size: 100%;
-  font-size: var(--if-font-size-sm);
-  border-collapse: collapse;
-}
-
-.companies-table th,
-.companies-table td {
-  padding: var(--if-cell-padding-y) var(--if-space-2);
-  text-align: start;
-  border-block-end: 1px solid var(--if-color-border-subtle);
-}
-
-.companies-table th {
-  font-weight: var(--if-font-weight-medium);
-  color: var(--if-color-text-muted);
-  background: var(--if-color-surface);
-}
-
-.companies-table :is(th, td):first-child {
-  padding-inline-start: var(--if-space-4);
-}
+/* Cells of the company tables (saved software, resolutions and DIAN ranges) and the range lookup row. */
 
 .companies-nowrap {
   white-space: nowrap;
-}
-
-.companies-table tbody tr:last-child td {
-  border-block-end: 0;
 }
 
 .companies-lookup {

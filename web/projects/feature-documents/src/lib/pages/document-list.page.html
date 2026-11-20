@@ -9,19 +9,13 @@
         (pressed)="exportCsv()"
       />
       @if (canIssue()) {
-        <a
-          class="doc-link-button doc-link-button--secondary"
-          routerLink="/documentos/nota-credito"
-          >{{ 'documents.list.creditNote' | transloco }}</a
-        >
-        <a
-          class="doc-link-button doc-link-button--secondary"
-          routerLink="/documentos/nota-debito"
-          >{{ 'documents.list.debitNote' | transloco }}</a
-        >
-        <a class="doc-link-button" routerLink="/documentos/nuevo">{{
-          'documents.list.issue' | transloco
+        <a uiButtonLink variant="secondary" routerLink="/documentos/nota-credito">{{
+          'documents.list.creditNote' | transloco
         }}</a>
+        <a uiButtonLink variant="secondary" routerLink="/documentos/nota-debito">{{
+          'documents.list.debitNote' | transloco
+        }}</a>
+        <a uiButtonLink routerLink="/documentos/nuevo">{{ 'documents.list.issue' | transloco }}</a>
       }
     </div>
   </ui-page-title>

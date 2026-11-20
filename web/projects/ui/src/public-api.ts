@@ -4,6 +4,7 @@
  * Los design tokens (variables de diseño) están en styles/tokens.css.
  */
 export * from './lib/badge/badge.component';
+export * from './lib/button/button-link.directive';
 export * from './lib/button/button.component';
 export * from './lib/card/card.component';
 export * from './lib/combobox/combobox.component';

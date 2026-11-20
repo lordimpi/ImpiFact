@@ -9,14 +9,17 @@ import {
   CardComponent,
   CardFooterDirective,
   ErrorStateComponent,
-  UiBadgeTone,
   FieldComponent,
   InputDirective,
   LoadingComponent,
   SelectDirective,
+  TableCellDirective,
+  TableComponent,
+  UiBadgeTone,
+  UiTableColumn,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { companiesText, provideCompaniesI18n } from '../companies-i18n';
+import { companiesTableLabels, companiesText, provideCompaniesI18n } from '../companies-i18n';
 import {
   NextNumberDialogComponent,
   NextNumberLabels,
@@ -73,6 +76,8 @@ const DIGITS = /^\d+$/;
     LoadingComponent,
     SelectDirective,
     NextNumberDialogComponent,
+    TableComponent,
+    TableCellDirective,
   ],
   providers: [provideCompaniesI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -125,6 +130,27 @@ export class ResolutionsPage implements HasUnsavedChanges {
       } satisfies NextNumberTarget,
     })),
   );
+
+  protected readonly tableLabels = computed(() => companiesTableLabels(this.transloco));
+  protected readonly savedColumns = computed<UiTableColumn[]>(() => [
+    { key: 'type', header: this.text('resolutions.typeDocument') },
+    { key: 'prefix', header: this.text('resolutions.ranges.columns.prefix') },
+    { key: 'resolution', header: this.text('resolutions.ranges.columns.resolution') },
+    { key: 'range', header: this.text('resolutions.ranges.columns.range') },
+    { key: 'validity', header: this.text('resolutions.ranges.columns.validity') },
+    { key: 'next', header: this.text('resolutions.columns.next') },
+    { key: 'remaining', header: this.text('resolutions.columns.remaining') },
+    { key: 'daysLeft', header: this.text('resolutions.columns.daysLeft') },
+    { key: 'status', header: this.text('resolutions.columns.status') },
+    { key: 'actions', header: this.text('resolutions.ranges.columns.actions') },
+  ]);
+  protected readonly rangeColumns = computed<UiTableColumn[]>(() => [
+    { key: 'resolution_number', header: this.text('resolutions.ranges.columns.resolution') },
+    { key: 'prefix', header: this.text('resolutions.ranges.columns.prefix') },
+    { key: 'range', header: this.text('resolutions.ranges.columns.range') },
+    { key: 'validity', header: this.text('resolutions.ranges.columns.validity') },
+    { key: 'actions', header: this.text('resolutions.ranges.columns.actions') },
+  ]);
 
   protected readonly nextNumberTarget = signal<NextNumberTarget | null>(null);
   protected readonly nextNumberOpen = signal(false);

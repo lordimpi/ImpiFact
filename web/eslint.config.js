@@ -107,4 +107,24 @@ module.exports = defineConfig([
       ],
     },
   },
+  // core is in the initial bundle: importing the api barrel pulls every generated function used by a lazy feature
+  // into the initial chunk (esbuild assigns a file to every entry point whose imports reach it). core imports
+  // `@impifact/api/shell` (through core's api-shell.ts) instead.
+  {
+    files: ['projects/core/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@impifact/api',
+              message:
+                'core is eager: import from ./api-shell (the @impifact/api/shell entry), not the api barrel.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);

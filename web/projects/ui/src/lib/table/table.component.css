@@ -128,11 +128,100 @@ tbody tr:not(.ui-table__state):hover {
   background: var(--if-color-primary-subtle);
 }
 
-.ui-visually-hidden {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+/*
+ * Stacked rows on a narrow container (opt-out with `stackOnNarrow`): each row is a block of label and value
+ * pairs; the label comes from `data-label` and is hidden from assistive technology (`/ ''`), which already
+ * announces the column header. `.ui-visually-hidden` is global (ui/styles/tokens.css).
+ */
+:host(.ui-table--stack) {
+  container: ui-table / inline-size;
+}
+
+@container ui-table (max-width: 40rem) {
+  .ui-table,
+  .ui-table > *,
+  tr,
+  td {
+    display: block;
+  }
+
+  thead {
+    position: static;
+  }
+
+  .ui-table__head,
+  .ui-table__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--if-space-2) var(--if-space-3);
+    padding: var(--if-space-2) var(--if-cell-padding-x);
+    border-block-end: 1px solid var(--if-color-border);
+  }
+
+  .ui-table__head th,
+  .ui-table__filters td {
+    padding: 0;
+    border: 0;
+  }
+
+  /* Only the sort buttons stay visible; every header is still there for screen readers. */
+  .ui-table__head:not(.ui-table__head--sortable),
+  .ui-table__head th:not([aria-sort]) {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .ui-table__filters td {
+    flex: 1 1 10rem;
+  }
+
+  .ui-table__filters td:not([data-label]) {
+    display: none;
+  }
+
+  tbody tr {
+    padding: var(--if-space-2) var(--if-cell-padding-x);
+    border-block-end: 1px solid var(--if-color-border);
+  }
+
+  tbody tr:last-child {
+    border-block-end: 0;
+  }
+
+  tbody td {
+    display: flex;
+    align-items: center;
+    gap: var(--if-space-3);
+    padding: var(--if-space-1) 0;
+    border: 0;
+    text-align: start;
+  }
+
+  .ui-table__value {
+    flex: 1;
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .ui-table__state td {
+    display: block;
+  }
+
+  td[data-label]::before {
+    content: attr(data-label);
+    content: attr(data-label) / '';
+    flex: 0 0 7rem;
+    font-size: var(--if-font-size-xs);
+    font-weight: var(--if-font-weight-bold);
+    text-transform: uppercase;
+    color: var(--if-color-text-muted);
+  }
+
+  .ui-table__filters td::before {
+    display: block;
+    margin-block-end: 0.125rem;
+  }
 }

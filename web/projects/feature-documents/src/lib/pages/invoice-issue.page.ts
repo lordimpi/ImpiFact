@@ -19,6 +19,7 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  ButtonLinkDirective,
   CardActionsDirective,
   CardComponent,
   FieldComponent,
@@ -64,6 +65,7 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 @Component({
   selector: 'feat-invoice-issue-page',
   imports: [
+    ButtonLinkDirective,
     FormField,
     RouterLink,
     TranslocoPipe,

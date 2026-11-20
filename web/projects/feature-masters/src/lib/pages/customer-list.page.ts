@@ -5,6 +5,7 @@ import { CatalogsStore, ToastStore } from '@impifact/core';
 import {
   BadgeComponent,
   ButtonComponent,
+  ButtonLinkDirective,
   CardComponent,
   PageTitleComponent,
   TableCellDirective,
@@ -27,6 +28,7 @@ import { listLabels, toolbarLabels } from './list-labels';
 @Component({
   selector: 'feat-customer-list-page',
   imports: [
+    ButtonLinkDirective,
     RouterLink,
     TranslocoPipe,
     BadgeComponent,

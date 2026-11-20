@@ -33,7 +33,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
         (click)="open.set(!open())"
       >
         <span class="user-menu__avatar" aria-hidden="true">{{ initial() }}</span>
-        <span class="user-menu__hidden">{{ 'userMenu.account' | transloco }}</span>
+        <span class="ui-visually-hidden">{{ 'userMenu.account' | transloco }}</span>
         @if (email(); as email) {
           <span class="user-menu__email">{{ email }}</span>
         }
@@ -83,14 +83,6 @@ import { TranslocoPipe } from '@jsverse/transloco';
       color: var(--if-sidebar-active-fg);
       background: var(--if-sidebar-active-bg);
       border-radius: 50%;
-    }
-    .user-menu__hidden {
-      position: absolute;
-      inline-size: 1px;
-      block-size: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
     }
     .user-menu__email {
       font-size: var(--if-font-size-sm);

@@ -1,7 +1,7 @@
 import { HttpContext } from '@angular/common/http';
 import { computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { Api, PanelSessionTokens, login, logout, refreshSession } from '@impifact/api';
+import { Api, PanelSessionTokens, login, logout, refreshSession } from '../api-shell';
 import {
   patchState,
   signalStore,

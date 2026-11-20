@@ -7,7 +7,7 @@ import {
   listNotifications,
   markAllNotificationsRead,
   markNotificationRead,
-} from '@impifact/api';
+} from '../api-shell';
 import {
   patchState,
   signalStore,

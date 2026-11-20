@@ -6,12 +6,9 @@
     "
   >
     {{ 'documents.' + titleKey() | transloco }}
-    <a
-      uiPageTitleActions
-      class="doc-link-button doc-link-button--secondary"
-      routerLink="/documentos"
-      >{{ 'documents.issue.cancel' | transloco }}</a
-    >
+    <a uiPageTitleActions uiButtonLink variant="secondary" routerLink="/documentos">{{
+      'documents.issue.cancel' | transloco
+    }}</a>
   </ui-page-title>
 
   <div class="issue-layout">

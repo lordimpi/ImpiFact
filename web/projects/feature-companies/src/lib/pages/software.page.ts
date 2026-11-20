@@ -7,14 +7,17 @@ import {
   CardComponent,
   CardFooterDirective,
   ErrorStateComponent,
-  UiBadgeTone,
   FieldComponent,
   InputDirective,
-  PasswordToggleDirective,
   LoadingComponent,
+  PasswordToggleDirective,
+  TableCellDirective,
+  TableComponent,
+  UiBadgeTone,
+  UiTableColumn,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { companiesText, provideCompaniesI18n } from '../companies-i18n';
+import { companiesTableLabels, companiesText, provideCompaniesI18n } from '../companies-i18n';
 import { fieldMessage, serverFieldErrors } from '../forms/form-messages';
 import {
   SOFTWARE_FIELDS,
@@ -36,6 +39,8 @@ import { CompanySetupStore } from '../state/company-setup.store';
 @Component({
   selector: 'feat-software-page',
   imports: [
+    TableComponent,
+    TableCellDirective,
     FormField,
     TranslocoPipe,
     BadgeComponent,
@@ -117,37 +122,17 @@ import { CompanySetupStore } from '../state/company-setup.store';
           @if (rows.length === 0) {
             <p class="companies-lead">{{ 'companies.software.registeredEmpty' | transloco }}</p>
           } @else {
-            <div class="companies-scroll">
-              <table class="companies-table">
-                <caption class="companies-hidden">
-                  {{
-                    'companies.software.registered' | transloco
-                  }}
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">{{ 'companies.software.columns.kind' | transloco }}</th>
-                    <th scope="col">{{ 'companies.software.columns.environment' | transloco }}</th>
-                    <th scope="col">{{ 'companies.software.columns.identifier' | transloco }}</th>
-                    <th scope="col">{{ 'companies.software.columns.testSet' | transloco }}</th>
-                    <th scope="col">{{ 'companies.software.columns.pin' | transloco }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (row of rows; track $index) {
-                    <tr>
-                      <td>{{ row.kind }}</td>
-                      <td>
-                        <ui-badge [tone]="row.environmentTone">{{ row.environment }}</ui-badge>
-                      </td>
-                      <td>{{ row.identifier }}</td>
-                      <td>{{ row.testSetId }}</td>
-                      <td>{{ row.pin }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
+            <ui-table
+              flush
+              [caption]="'companies.software.registered' | transloco"
+              [columns]="softwareColumns()"
+              [rows]="rows"
+              [labels]="tableLabels()"
+            >
+              <ng-template uiTableCell="environment" let-row>
+                <ui-badge [tone]="row.environmentTone">{{ row.environment }}</ui-badge>
+              </ng-template>
+            </ui-table>
           }
         } @else if (setup.softwareStatus() === 'error') {
           <ui-error-state
@@ -183,6 +168,15 @@ export class SoftwarePage implements HasUnsavedChanges {
   );
   protected readonly generalError = signal<string | null>(null);
   protected readonly submitting = computed(() => this.softwareForm().submitting());
+
+  protected readonly tableLabels = computed(() => companiesTableLabels(this.transloco));
+  protected readonly softwareColumns = computed<UiTableColumn[]>(() => [
+    { key: 'kind', header: this.text('software.columns.kind') },
+    { key: 'environment', header: this.text('software.columns.environment') },
+    { key: 'identifier', header: this.text('software.columns.identifier') },
+    { key: 'testSetId', header: this.text('software.columns.testSet') },
+    { key: 'pin', header: this.text('software.columns.pin') },
+  ]);
 
   protected readonly software = computed(() => {
     const rows = this.setup.software();

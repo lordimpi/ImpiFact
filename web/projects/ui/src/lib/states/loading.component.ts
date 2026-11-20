@@ -30,14 +30,6 @@ import { Skeleton } from '@openng/optimus-ui/skeleton';
       gap: var(--if-space-2);
       padding: var(--if-space-3) 0;
     }
-    .ui-visually-hidden {
-      position: absolute;
-      inline-size: 1px;
-      block-size: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-    }
   `,
 })
 export class LoadingComponent {
