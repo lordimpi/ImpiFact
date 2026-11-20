@@ -5,6 +5,7 @@ import { DocumentSummaryResponse } from '@impifact/api';
 import { SessionStore } from '@impifact/core';
 import {
   ButtonComponent,
+  ButtonLinkDirective,
   CardActionsDirective,
   CardComponent,
   PageTitleComponent,
@@ -32,6 +33,7 @@ import { DocumentFilters, filtersFromParams, filtersToQueryParams } from '../sta
 @Component({
   selector: 'feat-document-list-page',
   imports: [
+    ButtonLinkDirective,
     RouterLink,
     TranslocoPipe,
     ButtonComponent,

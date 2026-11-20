@@ -207,4 +207,63 @@ describe('TableComponent', () => {
     expect(scroll()?.classList).toContain('ui-table__scroll--flush');
     expect(view.container.querySelector('table')?.classList).toContain('ui-table--striped');
   });
+  describe('stacked mode on narrow screens', () => {
+    it('is on by default and can be turned off per table', async () => {
+      const { view } = await renderTable();
+      const host = view.fixture.nativeElement as HTMLElement;
+      expect(host.classList).toContain('ui-table--stack');
+
+      view.fixture.componentRef.setInput('stackOnNarrow', false);
+      view.detectChanges();
+
+      expect(host.classList).not.toContain('ui-table--stack');
+    });
+
+    it('labels every data cell with its column header so a stacked row reads as label and value', async () => {
+      const { table } = await renderTable();
+
+      const [, body] = within(table).getAllByRole('rowgroup');
+      const firstRow = within(body!).getAllByRole('row')[0]!;
+      const labelsOfCells = within(firstRow)
+        .getAllByRole('cell')
+        .map((cell) => cell.getAttribute('data-label'));
+      expect(labelsOfCells).toEqual(['Número', 'Cliente', 'Estado']);
+    });
+
+    it('labels the filter fields with their column header too', async () => {
+      const { table } = await renderTable();
+
+      const customer = within(table).getByRole('textbox', { name: 'Filtrar por cliente' });
+      expect(customer.closest('td')?.getAttribute('data-label')).toBe('Cliente');
+    });
+
+    it('does not label the cell of the empty state', async () => {
+      const { table } = await renderTable({ rows: [] });
+
+      const cell = within(table).getByText('No hay documentos').closest('td');
+      expect(cell?.hasAttribute('data-label')).toBe(false);
+    });
+
+    it('keeps explicit table roles, since a stacked table changes the display of its elements', async () => {
+      const { view } = await renderTable();
+      const root = view.container as HTMLElement;
+
+      expect(root.querySelector('table')?.getAttribute('role')).toBe('table');
+      expect(root.querySelector('table')?.getAttribute('aria-labelledby')).toBe(
+        root.querySelector('caption')?.id,
+      );
+      for (const group of Array.from(root.querySelectorAll('thead, tbody'))) {
+        expect(group.getAttribute('role')).toBe('rowgroup');
+      }
+      for (const row of Array.from(root.querySelectorAll('tr'))) {
+        expect(row.getAttribute('role')).toBe('row');
+      }
+      for (const header of Array.from(root.querySelectorAll('th'))) {
+        expect(header.getAttribute('role')).toBe('columnheader');
+      }
+      for (const cell of Array.from(root.querySelectorAll('td'))) {
+        expect(cell.getAttribute('role')).toBe('cell');
+      }
+    });
+  });
 });

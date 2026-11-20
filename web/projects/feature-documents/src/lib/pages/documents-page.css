@@ -77,41 +77,6 @@
   font-size: var(--if-font-size-sm);
 }
 
-/* A router link with the look of `ui-button` (primary by default). */
-.doc-link-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-block-size: var(--if-control-min-height);
-  padding-inline: var(--if-control-padding-x);
-  color: var(--if-color-on-primary);
-  background: var(--if-color-primary);
-  border: 1px solid var(--if-color-primary);
-  border-radius: var(--if-radius-md);
-  font-weight: var(--if-font-weight-medium);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.doc-link-button:hover {
-  background: var(--if-color-primary-hover);
-}
-
-.doc-link-button--secondary {
-  color: var(--if-color-text);
-  background: var(--if-color-bg);
-  border-color: var(--if-color-border-strong);
-}
-
-.doc-link-button--secondary:hover {
-  background: var(--if-color-surface);
-}
-
-.doc-link-button:focus-visible {
-  outline: var(--if-focus-ring-width) solid var(--if-color-focus);
-  outline-offset: var(--if-focus-ring-offset);
-}
-
 .doc-error {
   margin: 0;
   padding: var(--if-space-3);

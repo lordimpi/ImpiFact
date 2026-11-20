@@ -33,6 +33,7 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  ButtonLinkDirective,
   CardActionsDirective,
   CardComponent,
   FieldComponent,
@@ -91,6 +92,7 @@ type OriginalState =
 @Component({
   selector: 'feat-note-issue-page',
   imports: [
+    ButtonLinkDirective,
     FormField,
     RouterLink,
     TranslocoPipe,

@@ -52,7 +52,7 @@ import {
               <span class="dropdown-item-title">
                 @if (!item.is_read) {
                   <span class="dropdown-dot" aria-hidden="true"></span>
-                  <span class="dropdown-sr-only"
+                  <span class="ui-visually-hidden"
                     >{{ 'notifications.dropdown.unread' | transloco }}:
                   </span>
                 }
@@ -153,14 +153,6 @@ import {
     }
     .dropdown-item-date {
       font-size: var(--if-font-size-xs);
-    }
-    .dropdown-sr-only {
-      position: absolute;
-      inline-size: 1px;
-      block-size: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
     }
     .dropdown-error {
       margin: 0;

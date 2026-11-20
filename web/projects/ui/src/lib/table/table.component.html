@@ -5,8 +5,12 @@
   [class.ui-table__scroll--flush]="flush()"
   [attr.aria-labelledby]="captionId"
 >
+  <!-- Explicit roles: the stacked layout changes the display of these elements, which drops their implicit
+       table semantics in some browsers. -->
   <table
     class="ui-table"
+    role="table"
+    [attr.aria-labelledby]="captionId"
     [class.ui-table--striped]="striped()"
     [attr.aria-busy]="loading() || null"
   >
@@ -15,11 +19,12 @@
         caption()
       }}
     </caption>
-    <thead>
-      <tr>
+    <thead role="rowgroup">
+      <tr role="row" class="ui-table__head" [class.ui-table__head--sortable]="hasSorting()">
         @for (column of columns(); track column.key) {
           <th
             scope="col"
+            role="columnheader"
             [class.ui-table__cell--end]="column.align === 'end'"
             [attr.aria-sort]="column.sortable ? ariaSort(column.key) : null"
           >
@@ -37,9 +42,9 @@
         }
       </tr>
       @if (hasFilters()) {
-        <tr class="ui-table__filters">
+        <tr role="row" class="ui-table__filters">
           @for (column of columns(); track column.key) {
-            <td>
+            <td role="cell" [attr.data-label]="column.filterable ? column.header : null">
               @if (column.filterable) {
                 <input
                   pInputText
@@ -55,18 +60,18 @@
         </tr>
       }
     </thead>
-    <tbody>
+    <tbody role="rowgroup">
       @if (loading()) {
         @for (index of skeletonList(); track index) {
-          <tr aria-hidden="true">
+          <tr role="row" aria-hidden="true">
             @for (column of columns(); track column.key) {
-              <td><p-skeleton /></td>
+              <td role="cell"><p-skeleton /></td>
             }
           </tr>
         }
       } @else if (error()) {
-        <tr class="ui-table__state">
-          <td [attr.colspan]="columns().length">
+        <tr role="row" class="ui-table__state">
+          <td role="cell" [attr.colspan]="columns().length">
             <ui-error-state
               [title]="labels().errorTitle"
               [description]="labels().errorDescription"
@@ -77,23 +82,30 @@
         </tr>
       } @else {
         @for (row of rows(); track trackBy()($index, row)) {
-          <tr>
+          <tr role="row">
             @for (column of columns(); track column.key) {
-              <td [class.ui-table__cell--end]="column.align === 'end'">
-                @if (cellTemplates().get(column.key); as template) {
-                  <ng-container
-                    [ngTemplateOutlet]="template"
-                    [ngTemplateOutletContext]="{ $implicit: row }"
-                  />
-                } @else {
-                  {{ cellValue(row, column.key) }}
-                }
+              <td
+                role="cell"
+                [attr.data-label]="column.header"
+                [class.ui-table__cell--end]="column.align === 'end'"
+              >
+                <!-- One box for the value, so a stacked cell lays out as label and value. -->
+                <div class="ui-table__value">
+                  @if (cellTemplates().get(column.key); as template) {
+                    <ng-container
+                      [ngTemplateOutlet]="template"
+                      [ngTemplateOutletContext]="{ $implicit: row }"
+                    />
+                  } @else {
+                    {{ cellValue(row, column.key) }}
+                  }
+                </div>
               </td>
             }
           </tr>
         } @empty {
-          <tr class="ui-table__state">
-            <td [attr.colspan]="columns().length">
+          <tr role="row" class="ui-table__state">
+            <td role="cell" [attr.colspan]="columns().length">
               <ui-empty-state
                 [title]="labels().emptyTitle"
                 [description]="labels().emptyDescription"

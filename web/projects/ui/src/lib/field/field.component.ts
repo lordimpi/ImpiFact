@@ -138,14 +138,6 @@ let nextId = 0;
       border-radius: var(--if-radius-sm);
       cursor: pointer;
     }
-    .ui-password__name {
-      position: absolute;
-      inline-size: 1px;
-      block-size: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-    }
     .ui-password__toggle:hover {
       color: var(--if-color-text);
     }

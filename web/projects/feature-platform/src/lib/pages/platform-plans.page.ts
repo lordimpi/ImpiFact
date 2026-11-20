@@ -6,7 +6,6 @@ import {
   BadgeComponent,
   ButtonComponent,
   CardComponent,
-  CardFooterDirective,
   DialogComponent,
   DigitsOnlyDirective,
   FieldComponent,
@@ -50,7 +49,6 @@ const NUMBER = new Intl.NumberFormat('es-CO');
   imports: [
     BadgeComponent,
     CardComponent,
-    CardFooterDirective,
     FormField,
     RouterLink,
     TranslocoPipe,

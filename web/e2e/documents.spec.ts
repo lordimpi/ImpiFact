@@ -516,3 +516,50 @@ test('a debit note found from the list shows why the API rejects it', async ({ p
   await expect(page).toHaveURL('/documentos/nota-debito');
   expect(await seriousViolations(page)).toEqual([]);
 });
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  /** The cell sits fully inside the screen width: nothing hides behind a sideways scroll. */
+  async function expectOnScreen(page: Page, cell: ReturnType<Page['locator']>) {
+    await expect(cell).toBeVisible();
+    const box = (await cell.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  }
+
+  /** Neither the page nor the table's own scroll region scrolls sideways. */
+  async function expectNoSidewaysScroll(page: Page, caption: string) {
+    const scrollsSideways = (element: Element) => element.scrollWidth > element.clientWidth;
+    expect(await page.locator('html').evaluate(scrollsSideways)).toBe(false);
+    expect(await page.getByRole('region', { name: caption }).evaluate(scrollsSideways)).toBe(false);
+  }
+
+  test('stacks the list and the detail lines so status and amounts show without scrolling sideways', async ({
+    page,
+  }) => {
+    await mockDocuments(page);
+    await logIn(page);
+    await page.goto('/documentos');
+
+    const list = page.getByRole('table', { name: 'Documentos emitidos' });
+    const row = list
+      .getByRole('row')
+      .filter({ has: page.getByRole('link', { name: 'SETP990000001', exact: true }) });
+    await expectOnScreen(page, row.locator('td[data-label="Estado DIAN"]'));
+    await expect(row.locator('td[data-label="Estado DIAN"]')).toContainText('Aceptad');
+    await expectOnScreen(page, row.locator('td[data-label="Total"]'));
+    await expect(row.locator('td[data-label="Total"]')).toContainText('1.785.000');
+    await expectNoSidewaysScroll(page, 'Documentos emitidos');
+    expect(await seriousViolations(page)).toEqual([]);
+
+    await page.goto('/documentos/doc-1');
+    const lines = page.getByRole('table', { name: 'Líneas del documento' });
+    const line = lines.getByRole('row').filter({ hasText: 'SERV01' });
+    await expectOnScreen(page, line.locator('td[data-label="Descripción"]'));
+    await expectOnScreen(page, line.locator('td[data-label="Valor"]'));
+    await expect(line.locator('td[data-label="Valor"]')).toContainText('1.500.000');
+    await expectNoSidewaysScroll(page, 'Líneas del documento');
+    expect(await seriousViolations(page)).toEqual([]);
+  });
+});

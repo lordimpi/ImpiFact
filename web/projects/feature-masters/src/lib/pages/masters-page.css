@@ -14,28 +14,6 @@
   margin-block-end: calc(-1 * var(--if-space-4));
 }
 
-.masters-primary-link {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--if-space-2);
-  min-block-size: var(--if-control-min-height);
-  padding: var(--if-control-padding-y) var(--if-space-3);
-  font-weight: var(--if-font-weight-medium);
-  color: var(--if-color-on-primary);
-  text-decoration: none;
-  background: var(--if-color-primary);
-  border-radius: var(--if-radius-md);
-  box-shadow: var(--if-shadow-card);
-}
-
-.masters-primary-link:hover {
-  background: var(--if-color-primary-hover);
-}
-
-.masters-primary-link:active {
-  background: var(--if-color-primary-active);
-}
-
 .masters-icon {
   inline-size: 1.125rem;
   block-size: 1.125rem;

@@ -5,6 +5,7 @@ import { Api, DocumentDetailResponse, getDocument } from '@impifact/api';
 import { SessionStore } from '@impifact/core';
 import {
   ButtonComponent,
+  ButtonLinkDirective,
   CardComponent,
   CardFooterDirective,
   ErrorStateComponent,
@@ -36,6 +37,7 @@ type DocumentLine = NonNullable<DocumentDetailResponse['lines']>[number];
 @Component({
   selector: 'feat-document-detail-page',
   imports: [
+    ButtonLinkDirective,
     RouterLink,
     TranslocoPipe,
     ButtonComponent,

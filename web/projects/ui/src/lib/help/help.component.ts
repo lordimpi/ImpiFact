@@ -41,7 +41,7 @@ let nextId = 0;
     >
       <span aria-hidden="true">i</span>
       <!-- El nombre va como texto y no en aria-label: así no se confunde con la etiqueta del campo. -->
-      <span class="ui-help__name">{{ buttonLabel() }}</span>
+      <span class="ui-visually-hidden">{{ buttonLabel() }}</span>
     </button>
     <span
       role="tooltip"
@@ -78,17 +78,6 @@ let nextId = 0;
     }
     .ui-help__button:hover {
       background: var(--if-color-primary-subtle-strong);
-    }
-    .ui-help__name {
-      position: absolute;
-      inline-size: 1px;
-      block-size: 1px;
-      margin: -1px;
-      padding: 0;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-      border: 0;
     }
     .ui-help__button:focus-visible {
       outline: var(--if-focus-ring-width) solid var(--if-color-focus);

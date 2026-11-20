@@ -5,6 +5,7 @@ import { ToastStore } from '@impifact/core';
 import {
   BadgeComponent,
   ButtonComponent,
+  ButtonLinkDirective,
   CardComponent,
   PageTitleComponent,
   TableCellDirective,
@@ -34,6 +35,7 @@ const PRICE_FORMAT = new Intl.NumberFormat('es-CO', {
 @Component({
   selector: 'feat-product-list-page',
   imports: [
+    ButtonLinkDirective,
     RouterLink,
     TranslocoPipe,
     BadgeComponent,
