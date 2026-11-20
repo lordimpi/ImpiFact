@@ -49,14 +49,14 @@ Los dominios propios se activan en tres pasos con `customDomainStage`:
 
 ## Migrator y primera llave
 
-Antes de cada versión (y antes de que la API y el Worker puedan arrancar por primera vez):
+Antes de cada versión (y antes de que la API y el Worker puedan arrancar por primera vez), con la imagen de la versión nueva: el job guarda la `imageTag` del último despliegue, así que sin `--image` correría las migraciones de la versión anterior y la API y el Worker nuevos no arrancarían:
 
 ```sh
-az containerapp job start -g <grupo> -n impifact-migrator
+az containerapp job start -g <grupo> -n impifact-migrator --image <registro>/impifact-migrator:<tag nuevo>
 az containerapp job execution list -g <grupo> -n impifact-migrator -o table
 ```
 
-La API y el Worker no arrancan si faltan migraciones: se reinician hasta que el Migrator termina. Para la primera llave de plataforma se corre el mismo job con otro comando, por ejemplo `az containerapp job start -g <grupo> -n impifact-migrator --image <registro>/impifact-migrator:<tag> --command dotnet --args "ImpiFact.Migrator.dll create-platform-key admin"`; la llave sale una sola vez en el registro de la ejecución.
+Cuando la ejecución termina bien, se despliega la plantilla con la misma `imageTag` nueva. La API y el Worker no arrancan si faltan migraciones: se reinician hasta que el Migrator termina. Para la primera llave de plataforma se corre el mismo job con otro comando, por ejemplo `az containerapp job start -g <grupo> -n impifact-migrator --image <registro>/impifact-migrator:<tag> --command dotnet --args "ImpiFact.Migrator.dll create-platform-key admin"`; la llave sale una sola vez en el registro de la ejecución.
 
 ## Validar sin conexión
 

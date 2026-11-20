@@ -52,9 +52,10 @@ Después, crear en el DNS un `CNAME` (o un alias de Route 53) de los dos nombres
 
 ## Migrator y primera llave
 
-Antes de cada versión (y, la primera vez, antes de subir `api_desired_count` y `worker_desired_count`):
+Antes de cada versión (y, la primera vez, antes de subir `api_desired_count` y `worker_desired_count`). El Migrator tiene que ser el de la versión nueva: la definición de su tarea toma la misma `image_tag` que la API y el Worker, así que primero se actualiza solo esa definición y después se corre. Si se corriera la definición actual, se aplicarían las migraciones de la versión anterior y la API y el Worker nuevos no arrancarían (revisan al arrancar que no falten migraciones):
 
 ```sh
+terraform apply -target=aws_ecs_task_definition.migrator -var image_tag=<tag nuevo>
 aws ecs run-task --cluster impifact --launch-type FARGATE \
   --task-definition "$(terraform output -raw migrator_task_definition)" \
   --network-configuration "$(terraform output -json migrator_network_configuration)"
@@ -62,7 +63,7 @@ aws ecs wait tasks-stopped --cluster impifact --tasks <arn de la tarea>
 aws ecs describe-tasks --cluster impifact --tasks <arn de la tarea> --query 'tasks[0].containers[0].exitCode'
 ```
 
-Código de salida 0: migraciones y catálogos al día; luego `terraform apply` con la nueva `image_tag` y los conteos de siempre. La primera llave de plataforma sale con el mismo comando y `--overrides '{"containerOverrides":[{"name":"migrator","command":["create-platform-key","admin"]}]}'`; se lee una sola vez en el grupo `/impifact/migrator`.
+Código de salida 0: migraciones y catálogos al día; luego `terraform apply` completo con la misma `image_tag` nueva y los conteos de siempre. La primera llave de plataforma sale con el mismo comando y `--overrides '{"containerOverrides":[{"name":"migrator","command":["create-platform-key","admin"]}]}'`; se lee una sola vez en el grupo `/impifact/migrator`.
 
 ## Validar sin conexión
 

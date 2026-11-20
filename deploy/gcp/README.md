@@ -51,11 +51,14 @@ Después, crear en el DNS los registros de `api_dns_records` y `panel_dns_record
 
 ## Migrator y primera llave
 
-Antes de cada versión (la primera vez, la API y el Worker no pasan la sonda de arranque hasta que el Migrator termina):
+Antes de cada versión (la primera vez, la API y el Worker no pasan la sonda de arranque hasta que el Migrator termina). El job tiene que llevar la imagen de la versión nueva: toma la misma `image_tag` que la API y el Worker, así que primero se actualiza solo el job y después se ejecuta. Con el job actual se aplicarían las migraciones de la versión anterior y la revisión nueva no pasaría la sonda de arranque:
 
 ```sh
+terraform apply -target=google_cloud_run_v2_job.migrator -var image_tag=<tag nuevo>
 gcloud run jobs execute impifact-migrator --region us-east1 --wait
 ```
+
+Con salida correcta, `terraform apply` completo con la misma `image_tag` nueva.
 
 La primera llave de plataforma: `gcloud run jobs execute impifact-migrator --region us-east1 --wait --args=create-platform-key,admin`; se lee una sola vez en el registro de la ejecución.
 
