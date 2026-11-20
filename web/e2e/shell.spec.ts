@@ -47,6 +47,7 @@ test('shows the owner menu grouped by section and marks the current page', async
   await expect(nav.getByRole('list', { name: 'Plataforma' })).toHaveCount(0);
   // On a desktop the sidebar is fixed: there is no menu button.
   await expect(page.getByRole('button', { name: 'Menú de navegación' })).toBeHidden();
+  await expect(page.locator('.shell-body')).toHaveJSProperty('inert', false);
   await expect(page.getByRole('banner').getByText('Acme SAS')).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 
@@ -109,6 +110,67 @@ test.describe('on a phone', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(nav).toBeHidden();
     await expect(toggle).toBeFocused();
+  });
+
+  test('keeps the focus inside the open drawer and makes the page behind inert', async ({
+    page,
+  }) => {
+    await signInAt(page, '/');
+    const toggle = page.getByRole('button', { name: 'Menú de navegación' });
+    const nav = mainNav(page);
+    const focusInDrawer = () =>
+      page.evaluate(() => !!document.activeElement?.closest('#app-sidebar'));
+    // Programmatic focus is refused by inert content, so it tells whether the main content can take the focus.
+    const mainTakesFocus = () =>
+      page.evaluate(() => {
+        const main = document.getElementById('main-content');
+        main?.focus();
+        return document.activeElement === main;
+      });
+    await expect.poll(mainTakesFocus).toBe(true);
+
+    await toggle.click();
+    await expect(nav.getByRole('link', { name: 'Inicio' })).toBeFocused();
+    const stops = await page
+      .locator('#app-sidebar')
+      .locator('a[href], button')
+      .evaluateAll((elements) => elements.length);
+
+    // Forward and backward, past the last and the first element of the drawer.
+    for (let index = 0; index < stops + 2; index++) {
+      await page.keyboard.press('Tab');
+      expect(await focusInDrawer()).toBe(true);
+    }
+    for (let index = 0; index < stops + 2; index++) {
+      await page.keyboard.press('Shift+Tab');
+      expect(await focusInDrawer()).toBe(true);
+    }
+    expect(await mainTakesFocus()).toBe(false);
+    await expect(page.locator('#main-content')).toHaveJSProperty('inert', false);
+    await expect(page.locator('.shell-body')).toHaveJSProperty('inert', true);
+    await expect(page.getByRole('link', { name: 'Saltar al contenido' })).toHaveJSProperty(
+      'inert',
+      true,
+    );
+
+    await page.keyboard.press('Escape');
+
+    await expect(nav).toBeHidden();
+    await expect(toggle).toBeFocused();
+    await expect(page.locator('.shell-body')).toHaveJSProperty('inert', false);
+    expect(await mainTakesFocus()).toBe(true);
+  });
+
+  test('releases the page when the window widens past the drawer', async ({ page }) => {
+    await signInAt(page, '/');
+    await page.getByRole('button', { name: 'Menú de navegación' }).click();
+    await expect(page.locator('.shell-body')).toHaveJSProperty('inert', true);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    await expect(page.locator('.shell-body')).toHaveJSProperty('inert', false);
+    await expect(mainNav(page)).toBeVisible();
+    await expect(page.locator('#app-sidebar')).not.toHaveClass(/is-open/);
   });
 
   test('closes the menu drawer after choosing a link or tapping outside', async ({ page }) => {

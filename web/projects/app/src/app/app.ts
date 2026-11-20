@@ -2,6 +2,7 @@ import { NgComponentOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   Injector,
   Type,
@@ -23,6 +24,9 @@ import { injectCurrentPath } from './shell/current-path';
 import { SidebarComponent } from './shell/sidebar.component';
 import { TopbarComponent } from './shell/topbar.component';
 
+/** From this width the sidebar is fixed and the drawer does not exist; it matches the stylesheets. */
+const WIDE_LAYOUT = '(min-width: 64rem)';
+
 /** Pages shown without the sidebar and the top bar: access pages and the company selection. */
 const BARE_PATHS: readonly string[] = [
   '/login',
@@ -34,7 +38,9 @@ const BARE_PATHS: readonly string[] = [
 /**
  * Panel shell: with a session, sidebar (menu grouped by section and filtered by role) and top bar (company, notices
  * and user menu) around the content; access pages and the company selection show only the content. It also hosts
- * the core toasts and the inactivity dialog.
+ * the core toasts and the inactivity dialog. The sidebar and the top bar load in deferred chunks the first time a
+ * page needs them, so the access pages keep them out of the initial bundle. Below 1024px the open drawer is modal:
+ * the skip link, the top bar and the content become inert until it closes.
  */
 @Component({
   selector: 'app-root',
@@ -57,13 +63,11 @@ export class App {
   private readonly session = inject(SessionStore);
   private readonly injector = inject(Injector);
   private readonly path = injectCurrentPath();
-  private readonly sidebar = viewChild<SidebarComponent, ElementRef<HTMLElement>>(
-    SidebarComponent,
-    {
-      read: ElementRef,
-    },
-  );
-  private readonly topbar = viewChild(TopbarComponent);
+  // Queried by template reference: a class predicate would import the deferred components eagerly.
+  private readonly sidebar = viewChild<unknown, ElementRef<HTMLElement>>('sidebar', {
+    read: ElementRef,
+  });
+  private readonly topbar = viewChild<Pick<TopbarComponent, 'focusMenuToggle'>>('topbar');
 
   /** Sidebar and top bar only with a session and outside the access pages and the company selection. */
   protected readonly layout = computed(
@@ -101,6 +105,14 @@ export class App {
       this.drawerOpen.set(false);
     });
 
+    // Widening the window past the drawer breakpoint closes it, so the fixed sidebar never leaves the page inert.
+    if (typeof window.matchMedia === 'function') {
+      const wide = window.matchMedia(WIDE_LAYOUT);
+      const onChange = (event: MediaQueryListEvent) => event.matches && this.drawerOpen.set(false);
+      wide.addEventListener('change', onChange);
+      inject(DestroyRef).onDestroy(() => wide.removeEventListener('change', onChange));
+    }
+
     effect(() => {
       if (this.inactivity.warning() && !this.loadingWarning) {
         this.loadingWarning = true;
@@ -129,7 +141,8 @@ export class App {
     }
     this.drawerOpen.set(false);
     if (returnFocus) {
-      this.topbar()?.focusMenuToggle();
+      // The top bar stays inert until the next render; an inert button refuses the focus.
+      afterNextRender(() => this.topbar()?.focusMenuToggle(), { injector: this.injector });
     }
   }
 

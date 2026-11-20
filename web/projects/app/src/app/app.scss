@@ -45,6 +45,13 @@
   }
 }
 
+// Keeps the place of the top bar while its deferred chunk loads, so the content does not shift.
+.shell-topbar-placeholder {
+  min-block-size: var(--if-topbar-height);
+  background: var(--if-topbar-bg);
+  border-block-end: 1px solid var(--if-color-border);
+}
+
 .shell-main {
   flex: 1;
   padding: var(--if-space-3);

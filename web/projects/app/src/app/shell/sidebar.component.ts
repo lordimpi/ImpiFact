@@ -1,15 +1,26 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  inject,
+  input,
+  output,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { SessionStore } from '@impifact/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { injectCurrentPath } from './current-path';
 import { NAV_GROUPS, NavItem, activeNavPath } from './nav-items';
 
+/** Elements of the drawer that take the focus with Tab. */
+const FOCUSABLE = 'a[href], button:not([disabled])';
+
 /**
  * Sidebar of the panel: brand and main menu grouped by section, filtered by role and scope. From 1024px it is fixed;
  * below that it is an off-canvas drawer (`open`) that the top bar toggles. Escape, the close button and choosing a
  * link ask the shell to close it (`closed`). A closed drawer is hidden with `visibility`, so its links leave the tab
- * order.
+ * order. An open drawer is modal: the shell makes the page behind it inert and Tab and Shift+Tab cycle inside it.
  */
 @Component({
   selector: 'app-sidebar',
@@ -20,6 +31,8 @@ import { NAV_GROUPS, NavItem, activeNavPath } from './nav-items';
     class: 'sidebar',
     '[class.is-open]': 'open()',
     '(keydown.escape)': 'open() && closed.emit(true)',
+    '(keydown.tab)': 'trapFocus($event)',
+    '(keydown.shift.tab)': 'trapFocus($event)',
   },
   templateUrl: './sidebar.component.html',
   styleUrl: './sidebar.component.scss',
@@ -27,6 +40,7 @@ import { NAV_GROUPS, NavItem, activeNavPath } from './nav-items';
 export class SidebarComponent {
   private readonly session = inject(SessionStore);
   private readonly path = injectCurrentPath();
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   /** Drawer state on narrow screens; ignored from 1024px. */
   readonly open = input(false);
@@ -47,6 +61,25 @@ export class SidebarComponent {
       this.path(),
     ),
   );
+
+  /** Moves the focus to the first or the last focusable element from the opposite end of the open drawer. */
+  protected trapFocus(event: Event): void {
+    if (!this.open()) {
+      return;
+    }
+    const focusable = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>(FOCUSABLE));
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!first || !last) {
+      return;
+    }
+    // Inside the drawer the browser moves the focus; only at an edge would it leave the drawer.
+    const backwards = (event as KeyboardEvent).shiftKey;
+    if (document.activeElement === (backwards ? first : last)) {
+      event.preventDefault();
+      (backwards ? last : first).focus();
+    }
+  }
 
   private allowed(item: NavItem): boolean {
     return (

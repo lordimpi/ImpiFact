@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { DeferBlockBehavior, TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, provideRouter, withComponentInputBinding } from '@angular/router';
 import {
@@ -79,6 +79,8 @@ describe('App shell', () => {
   async function renderShell(options: Parameters<typeof fakes>[0] = {}) {
     const { session, monitor, directory, notifications } = fakes(options);
     const result = await render(App, {
+      // The sidebar and the top bar are deferred blocks: they render as in the app once their trigger fires.
+      deferBlockBehavior: DeferBlockBehavior.Playthrough,
       providers: [
         provideRouter(routes, withComponentInputBinding()),
         provideTransloco({
@@ -172,15 +174,22 @@ describe('App shell', () => {
     const sidebar = document.getElementById('app-sidebar') as HTMLElement;
     expect(sidebar.classList).not.toContain('is-open');
 
+    const body = toggle.closest('.shell-body') as HTMLElement;
+    expect(body.hasAttribute('inert')).toBe(false);
+
     fireEvent.click(toggle);
     expect(toggle.getAttribute('aria-expanded')).toBe('true');
     expect(sidebar.classList).toContain('is-open');
+    // The open drawer is modal: the top bar, the content and the skip link are inert.
+    expect(body.hasAttribute('inert')).toBe(true);
+    expect(screen.getByText('Saltar al contenido').hasAttribute('inert')).toBe(true);
 
     const home = within(sidebar).getByRole('link', { name: 'Inicio' });
     fireEvent.keyDown(home, { key: 'Escape' });
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     expect(sidebar.classList).not.toContain('is-open');
-    expect(document.activeElement).toBe(toggle);
+    expect(body.hasAttribute('inert')).toBe(false);
+    await waitFor(() => expect(document.activeElement).toBe(toggle));
   });
 
   it('closes the menu drawer with its close button', async () => {
@@ -191,7 +200,7 @@ describe('App shell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar el menú' }));
 
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
-    expect(document.activeElement).toBe(toggle);
+    await waitFor(() => expect(document.activeElement).toBe(toggle));
   });
 
   it('shows the company selection without the sidebar', async () => {

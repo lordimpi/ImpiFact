@@ -1,15 +1,26 @@
-<a class="skip-link" href="#main-content">{{ 'app.skipToContent' | transloco }}</a>
+<a class="skip-link" href="#main-content" [attr.inert]="drawerOpen() ? '' : null">{{
+  'app.skipToContent' | transloco
+}}</a>
 
-@if (layout()) {
-  <app-sidebar [open]="drawerOpen()" (closed)="closeDrawer($event)" />
-  @if (drawerOpen()) {
-    <div class="shell-backdrop" aria-hidden="true" (click)="closeDrawer(true)"></div>
+<!-- The shell pieces load once, the first time a page with the layout shows; prefetched while idle. -->
+@defer (when layout(); prefetch on idle) {
+  @if (layout()) {
+    <app-sidebar #sidebar [open]="drawerOpen()" (closed)="closeDrawer($event)" />
+    @if (drawerOpen()) {
+      <div class="shell-backdrop" aria-hidden="true" (click)="closeDrawer(true)"></div>
+    }
   }
 }
 
-<div class="shell-body" [class.has-layout]="layout()">
-  @if (layout()) {
-    <app-topbar [menuOpen]="drawerOpen()" (toggleMenu)="toggleDrawer()" />
+<div class="shell-body" [class.has-layout]="layout()" [attr.inert]="drawerOpen() ? '' : null">
+  @defer (when layout(); prefetch on idle) {
+    @if (layout()) {
+      <app-topbar #topbar [menuOpen]="drawerOpen()" (toggleMenu)="toggleDrawer()" />
+    }
+  } @placeholder {
+    @if (layout()) {
+      <div class="shell-topbar-placeholder"></div>
+    }
   }
   <main id="main-content" class="shell-main" tabindex="-1">
     <div class="shell-content">
