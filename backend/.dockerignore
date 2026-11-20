@@ -1,0 +1,37 @@
+# Contexto de las imágenes de la API, del Worker y del Migrator (Dockerfile.api, Dockerfile.worker y
+# Dockerfile.migrator en la raíz del repositorio, con «backend» como contexto). Solo entra lo que se compila: nunca
+# salidas de compilación, configuración local, secretos ni certificados.
+
+# Salidas de compilación y cachés
+**/bin/
+**/obj/
+**/TestResults/
+**/.vs/
+**/*.user
+
+# Pruebas y herramientas: no van en las imágenes. tests/golden sí entra: la API incrusta sus ejemplos de emisión.
+tests/*
+!tests/golden/
+tools/
+
+# Configuración local y secretos (nunca en una imagen; se leen de variables de entorno o de archivos montados)
+**/.env
+**/.env.*
+**/launchSettings.json
+**/appsettings.*.json
+**/secrets/
+**/.local/
+**/*.pfx
+**/*.p12
+**/*.pem
+**/*.key
+**/*.crt
+**/*.cer
+
+# Archivos locales de herramientas y del sistema
+**/.codegraph/
+**/.claude/
+**/.idea/
+**/.vscode/
+**/.DS_Store
+**/Thumbs.db
