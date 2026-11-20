@@ -34,6 +34,8 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   ComboboxComponent,
   ComboboxLabels,
   DigitsOnlyDirective,
@@ -82,6 +84,8 @@ const IN_FORM = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     ComboboxComponent,
     DigitsOnlyDirective,
     ErrorStateComponent,

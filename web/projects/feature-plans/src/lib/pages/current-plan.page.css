@@ -1,4 +1,4 @@
-/* Página del plan: tarjetas apiladas, cómodas en móvil y en escritorio. */
+/* Plan page: summary and consumption cards side by side on wide screens, stacked on phones. */
 :host {
   display: block;
 }
@@ -7,45 +7,51 @@
   display: flex;
   flex-direction: column;
   gap: var(--if-space-4);
-  max-inline-size: 56rem;
-  margin-inline: auto;
 }
 
-.plan-lead {
+/* The page title keeps its own bottom margin: cancel the flex gap after it. */
+.plan-page > ui-page-title {
+  margin-block-end: calc(-1 * var(--if-space-4));
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
+  gap: var(--if-space-4);
+  align-items: start;
+}
+
+.plan-muted {
   margin: 0;
   color: var(--if-color-text-muted);
-}
-
-.plan-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--if-space-3);
-  padding: var(--if-space-4);
-  background: var(--if-color-surface);
-  border: 1px solid var(--if-color-border);
-  border-radius: var(--if-radius-md);
-}
-
-.plan-subtitle {
-  margin: 0;
-  font-size: var(--if-font-size-lg);
 }
 
 .plan-facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--if-space-3);
   margin: 0;
 }
 
+.plan-facts__main {
+  grid-column: 1 / -1;
+}
+
 .plan-facts dt {
-  color: var(--if-color-text-muted);
+  margin-block-end: 0.125rem;
   font-size: var(--if-font-size-sm);
+  color: var(--if-color-text-muted);
 }
 
 .plan-facts dd {
   margin: 0;
   font-weight: var(--if-font-weight-medium);
+}
+
+.plan-facts .plan-name {
+  font-size: var(--if-font-size-lg);
+  font-weight: var(--if-font-weight-bold);
+  line-height: var(--if-line-height-tight);
 }
 
 .plan-expired {
@@ -55,7 +61,7 @@
 .plan-quotas {
   display: flex;
   flex-direction: column;
-  gap: var(--if-space-3);
+  gap: var(--if-space-4);
   margin: 0;
   padding: 0;
   list-style: none;

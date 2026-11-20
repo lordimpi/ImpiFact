@@ -12,10 +12,15 @@ import {
 } from '@impifact/api';
 import { SKIP_ERROR_TOAST, SessionStore } from '@impifact/core';
 import {
+  BadgeComponent,
+  CardActionsDirective,
+  CardComponent,
   ErrorStateComponent,
   LoadingComponent,
   MeterComponent,
   PageTitleComponent,
+  StatComponent,
+  UiBadgeTone,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import {
@@ -37,6 +42,20 @@ const KNOWN_STATUSES = [
   'Failed',
   'ContingencyPending',
 ];
+/** Badge color of each document status in the month card. */
+const STATUS_TONES: Record<string, UiBadgeTone> = {
+  Received: 'info',
+  Queued: 'info',
+  Sent: 'info',
+  Accepted: 'success',
+  AcceptedWithWarnings: 'warning',
+  Rejected: 'danger',
+  Unconfirmed: 'warning',
+  Failed: 'danger',
+  ContingencyPending: 'warning',
+};
+const ACCEPTED_STATUSES = ['Accepted', 'AcceptedWithWarnings'];
+const REJECTED_STATUSES = ['Rejected', 'Failed'];
 /** Días desde los que el certificado se marca para renovar. */
 const CERTIFICATE_WARNING_DAYS = 30;
 
@@ -72,10 +91,14 @@ function monthDate(month: string | undefined): Date | null {
   imports: [
     RouterLink,
     TranslocoPipe,
+    BadgeComponent,
+    CardActionsDirective,
+    CardComponent,
     ErrorStateComponent,
     LoadingComponent,
     MeterComponent,
     PageTitleComponent,
+    StatComponent,
     MonthChartComponent,
   ],
   providers: [provideDashboardI18n()],
@@ -98,10 +121,13 @@ export class DashboardPage {
   protected readonly canIssue = computed(() => this.session.hasScope('documents:write'));
   protected readonly isOwner = computed(() => this.session.hasRole('owner'));
 
-  protected readonly monthTitle = computed(() => {
+  protected readonly monthName = computed(() => {
     const date = monthDate(this.data()?.current_month?.month);
-    return this.text('month.title', { month: date ? MONTH_LONG.format(date) : '' });
+    return date ? MONTH_LONG.format(date) : '';
   });
+  protected readonly monthTitle = computed(() =>
+    this.text('month.title', { month: this.monthName() }),
+  );
   protected readonly monthTotal = computed(() =>
     NUMBER.format(toNumber(this.data()?.current_month?.total)),
   );
@@ -111,9 +137,24 @@ export class DashboardPage {
       label: KNOWN_STATUSES.includes(item.status ?? '')
         ? this.text(`statuses.${item.status}`)
         : this.text('statuses.unknown', { status: item.status ?? '' }),
+      tone: STATUS_TONES[item.status ?? ''] ?? 'neutral',
       count: NUMBER.format(toNumber(item.count)),
     })),
   );
+
+  /** KPI row values, already formatted: accepted and rejected documents of the month and certificate days. */
+  protected readonly kpis = computed(() => {
+    const byStatus = this.data()?.current_month?.by_status ?? [];
+    const sum = (statuses: string[]) =>
+      byStatus
+        .filter((item) => statuses.includes(item.status ?? ''))
+        .reduce((total, item) => total + toNumber(item.count), 0);
+    return {
+      accepted: NUMBER.format(sum(ACCEPTED_STATUSES)),
+      rejected: NUMBER.format(sum(REJECTED_STATUSES)),
+      ...this.certificateKpi(),
+    };
+  });
 
   protected readonly bars = computed<MonthBar[]>(() =>
     (this.data()?.months ?? []).map((month) => this.bar(month)),
@@ -190,6 +231,7 @@ export class DashboardPage {
     return {
       key: month.month ?? label,
       label,
+      shortLabel: date ? MONTH_SHORT.format(date).replace('.', '') : label,
       ...values,
       title: this.text('history.barTitle', {
         month: label,
@@ -221,6 +263,26 @@ export class DashboardPage {
               limit: NUMBER.format(limit),
               remaining: NUMBER.format(toNumber(quota.remaining)),
             }),
+    };
+  }
+
+  private certificateKpi(): { certificate: string; certificateHint: string | undefined } {
+    const certificate = this.certificate();
+    if (!certificate) {
+      return { certificate: this.text('kpi.certificateNone'), certificateHint: undefined };
+    }
+    const days = toNumber(certificate.days_left);
+    if (certificate.expired || days < 0) {
+      return { certificate: this.text('kpi.certificateExpired'), certificateHint: undefined };
+    }
+    return {
+      certificate:
+        days === 1
+          ? this.text('kpi.certificateOneDay')
+          : this.text('kpi.certificateDays', { days: NUMBER.format(days) }),
+      certificateHint: this.text('kpi.certificateUntil', {
+        date: this.date(certificate.not_after),
+      }),
     };
   }
 

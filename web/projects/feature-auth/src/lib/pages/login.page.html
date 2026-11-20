@@ -1,7 +1,9 @@
 <section class="auth-page">
+  <feat-auth-brand />
   <div class="auth-card">
-    <ui-page-title>{{ 'auth.login.title' | transloco }}</ui-page-title>
-    <p class="auth-lead">{{ 'auth.login.description' | transloco }}</p>
+    <ui-page-title [subtitle]="'auth.login.description' | transloco">{{
+      'auth.login.title' | transloco
+    }}</ui-page-title>
 
     @if (reason() === 'inactivity') {
       <p class="auth-notice" role="status">{{ 'auth.login.inactivity' | transloco }}</p>
@@ -31,6 +33,7 @@
       <div class="auth-actions">
         <ui-button
           type="submit"
+          block
           [label]="'auth.login.submit' | transloco"
           [loading]="submitting()"
         />

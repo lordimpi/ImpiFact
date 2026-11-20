@@ -67,6 +67,11 @@
       "reactivated": "Cliente reactivado."
     },
     "form": {
+      "sections": {
+        "identification": "Identificación",
+        "tax": "Datos tributarios",
+        "contact": "Ubicación y contacto"
+      },
       "newTitle": "Nuevo cliente",
       "editTitle": "Editar cliente",
       "description": "Los datos se validan en el servidor con las reglas de la DIAN (Dirección de Impuestos y Aduanas Nacionales).",
@@ -143,6 +148,10 @@
       "reactivated": "Producto reactivado."
     },
     "form": {
+      "sections": {
+        "general": "Datos del producto",
+        "price": "Precio e impuestos"
+      },
       "newTitle": "Nuevo producto",
       "editTitle": "Editar producto",
       "description": "Precio sin impuestos. El servidor valida los impuestos con las reglas de la DIAN.",

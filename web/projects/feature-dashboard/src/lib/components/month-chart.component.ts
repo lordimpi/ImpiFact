@@ -3,8 +3,10 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 /** Un mes del gráfico, con los textos ya traducidos. */
 export interface MonthBar {
   key: string;
-  /** Etiqueta corta bajo la barra («oct. 2026»). */
+  /** Month and year for the table and the bar title («oct. 2026»). */
   label: string;
+  /** Month only, under the bar where twelve columns leave little room («oct»). */
+  shortLabel: string;
   total: number;
   /** Detalle del mes para el cursor y la tabla («oct. 2026: 55 documentos (…)»). */
   title: string;
@@ -43,7 +45,7 @@ export interface MonthChartLabels {
           <div class="chart-track" aria-hidden="true">
             <div class="chart-bar" [style.block-size.%]="height(bar.total)"></div>
           </div>
-          <span class="chart-label" aria-hidden="true">{{ bar.label }}</span>
+          <span class="chart-label" aria-hidden="true">{{ bar.shortLabel }}</span>
         </div>
       }
     </div>
@@ -86,9 +88,9 @@ export interface MonthChartLabels {
     .chart {
       display: grid;
       grid-template-columns: repeat(12, minmax(0, 1fr));
-      gap: 2px;
+      gap: var(--if-space-1);
       align-items: end;
-      block-size: 11rem;
+      block-size: 13rem;
     }
     .chart-column {
       display: flex;
@@ -99,7 +101,7 @@ export interface MonthChartLabels {
     }
     .chart-value,
     .chart-label {
-      font-size: var(--if-font-size-sm);
+      font-size: var(--if-font-size-xs);
       color: var(--if-color-text-muted);
       text-align: center;
       white-space: nowrap;
@@ -107,30 +109,49 @@ export interface MonthChartLabels {
       text-overflow: ellipsis;
     }
     .chart-value {
-      min-block-size: 1.25em;
+      min-block-size: 1.5em;
+      font-weight: var(--if-font-weight-medium);
       color: var(--if-color-text);
+    }
+    .chart-label {
+      padding-block-start: var(--if-space-1);
     }
     .chart-track {
       display: flex;
       flex: 1;
       align-items: flex-end;
-      border-block-end: 1px solid var(--if-color-border);
+      background: linear-gradient(var(--if-color-border-subtle) 1px, transparent 1px) 0 0 / 100% 25%;
+      border-block-end: 1px solid var(--if-color-border-emphasis);
     }
     .chart-bar {
       inline-size: 100%;
-      max-inline-size: 2.5rem;
+      max-inline-size: 2.25rem;
       margin-inline: auto;
       background: var(--if-color-primary);
-      border-radius: 4px 4px 0 0;
+      border-radius: var(--if-radius-sm) var(--if-radius-sm) 0 0;
     }
     .chart-column:hover .chart-bar {
       background: var(--if-color-primary-hover);
     }
     .chart-details {
+      margin-block-start: var(--if-space-3);
+      font-size: var(--if-font-size-sm);
+    }
+    .chart-details summary {
+      inline-size: fit-content;
+      font-weight: var(--if-font-weight-medium);
+      color: var(--if-color-primary);
+      cursor: pointer;
+    }
+    .chart-table-scroll {
       margin-block-start: var(--if-space-2);
     }
     .chart-table-scroll {
       overflow-x: auto;
+    }
+    .chart-table thead th {
+      color: var(--if-color-text-muted);
+      background: var(--if-color-surface);
     }
     .chart-table {
       inline-size: 100%;

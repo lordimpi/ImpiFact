@@ -1,8 +1,7 @@
 <section class="dashboard">
-  <header>
-    <ui-page-title>{{ 'dashboard.title' | transloco }}</ui-page-title>
-    <p class="dashboard-lead">{{ 'dashboard.description' | transloco }}</p>
-  </header>
+  <ui-page-title [subtitle]="'dashboard.description' | transloco">{{
+    'dashboard.title' | transloco
+  }}</ui-page-title>
 
   @if (summary.isLoading()) {
     <ui-loading [label]="'dashboard.loading' | transloco" [lines]="6" />
@@ -14,93 +13,132 @@
       (retry)="summary.reload()"
     />
   } @else {
-    <div class="dashboard-grid">
-      <section class="card" aria-labelledby="dashboard-month">
-        <h2 id="dashboard-month" class="card-title">{{ monthTitle() }}</h2>
-        <p class="card-figure">
-          <span class="card-number">{{ monthTotal() }}</span>
-          <span class="card-caption">{{ 'dashboard.month.total' | transloco }}</span>
-        </p>
-        @if (statuses().length === 0) {
-          <p class="card-muted">{{ 'dashboard.month.empty' | transloco }}</p>
-          @if (canIssue()) {
-            <a class="card-link" routerLink="/documentos/nuevo">{{
-              'dashboard.month.newDocument' | transloco
-            }}</a>
-          }
-        } @else {
-          <ul class="status-list">
-            @for (item of statuses(); track item.status) {
-              <li>
-                <span>{{ item.label }}</span>
-                <span class="status-count">{{ item.count }}</span>
-              </li>
-            }
-          </ul>
-        }
-      </section>
+    <div class="dashboard-kpis">
+      <ui-stat
+        [label]="'dashboard.kpi.total' | transloco"
+        [value]="monthTotal()"
+        [hint]="monthName()"
+      />
+      <ui-stat
+        [label]="'dashboard.kpi.accepted' | transloco"
+        [value]="kpis().accepted"
+        [hint]="'dashboard.kpi.thisMonth' | transloco"
+      />
+      <ui-stat
+        [label]="'dashboard.kpi.rejected' | transloco"
+        [value]="kpis().rejected"
+        [hint]="'dashboard.kpi.thisMonth' | transloco"
+      />
+      <ui-stat
+        [label]="'dashboard.kpi.certificate' | transloco"
+        [value]="kpis().certificate"
+        [hint]="kpis().certificateHint"
+      />
+    </div>
 
-      <section class="card card--wide" aria-labelledby="dashboard-history">
-        <h2 id="dashboard-history" class="card-title">
-          {{ 'dashboard.history.title' | transloco }}
-        </h2>
+    <div class="dashboard-grid">
+      <ui-card
+        class="dashboard-wide"
+        role="region"
+        [attr.aria-label]="'dashboard.history.title' | transloco"
+        [title]="'dashboard.history.title' | transloco"
+      >
         @if (!hasHistory()) {
           <p class="card-muted">{{ 'dashboard.history.empty' | transloco }}</p>
         }
         <feat-month-chart [bars]="bars()" [labels]="chartLabels()" />
-      </section>
+      </ui-card>
 
-      <section class="card" aria-labelledby="dashboard-plan">
-        <h2 id="dashboard-plan" class="card-title">{{ 'dashboard.plan.title' | transloco }}</h2>
-        @if (plan(); as plan) {
-          <p class="card-strong">{{ plan.name }}</p>
-          <p [class.card-alert]="plan.expired" [class.card-muted]="!plan.expired">
-            {{ planPeriod() }}
-          </p>
-          <ul class="quota-list">
-            @for (quota of quotas(); track quota.kind) {
+      <ui-card role="region" [attr.aria-label]="monthTitle()" [title]="monthTitle()">
+        @if (statuses().length === 0) {
+          <div class="card-stack">
+            <p class="card-muted">{{ 'dashboard.month.empty' | transloco }}</p>
+            @if (canIssue()) {
+              <a class="card-link" routerLink="/documentos/nuevo">{{
+                'dashboard.month.newDocument' | transloco
+              }}</a>
+            }
+          </div>
+        } @else {
+          <ul class="status-list">
+            @for (item of statuses(); track item.status) {
               <li>
-                <span class="quota-label">{{ quota.label }}</span>
-                <ui-meter
-                  [label]="quota.label"
-                  [value]="quota.used"
-                  [max]="quota.limit"
-                  [valueText]="quota.text"
-                />
+                <ui-badge [tone]="item.tone">{{ item.label }}</ui-badge>
+                <span class="status-count">{{ item.count }}</span>
               </li>
             }
+            <li class="month-total">
+              <span>{{ 'dashboard.month.total' | transloco }}</span>
+              <span class="status-count">{{ monthTotal() }}</span>
+            </li>
           </ul>
-          @if (isOwner()) {
-            <a class="card-link" routerLink="/plan">{{ 'dashboard.plan.details' | transloco }}</a>
-          }
+        }
+      </ui-card>
+
+      <ui-card
+        role="region"
+        [attr.aria-label]="'dashboard.plan.title' | transloco"
+        [title]="'dashboard.plan.title' | transloco"
+      >
+        @if (plan() && isOwner()) {
+          <a uiCardActions class="card-link" routerLink="/plan">{{
+            'dashboard.plan.details' | transloco
+          }}</a>
+        }
+        @if (plan(); as plan) {
+          <div class="card-stack">
+            <div>
+              <p class="card-strong">{{ plan.name }}</p>
+              <p [class.card-alert]="plan.expired" [class.card-muted]="!plan.expired">
+                {{ planPeriod() }}
+              </p>
+            </div>
+            <ul class="quota-list">
+              @for (quota of quotas(); track quota.kind) {
+                <li>
+                  <span class="quota-label">{{ quota.label }}</span>
+                  <ui-meter
+                    [label]="quota.label"
+                    [value]="quota.used"
+                    [max]="quota.limit"
+                    [valueText]="quota.text"
+                  />
+                </li>
+              }
+            </ul>
+          </div>
         } @else {
           <p class="card-muted">{{ 'dashboard.plan.none' | transloco }}</p>
         }
-      </section>
+      </ui-card>
 
-      <section class="card" aria-labelledby="dashboard-certificate">
-        <h2 id="dashboard-certificate" class="card-title">
-          {{ 'dashboard.certificate.title' | transloco }}
-        </h2>
-        @if (certificate(); as certificate) {
-          <p [class.card-alert]="certificateWarning()">{{ certificateText() }}</p>
-          @if (certificate.name) {
-            <p class="card-muted">
-              {{ 'dashboard.certificate.name' | transloco: { name: certificate.name } }}
-            </p>
+      <ui-card
+        role="region"
+        [attr.aria-label]="'dashboard.certificate.title' | transloco"
+        [title]="'dashboard.certificate.title' | transloco"
+      >
+        <div class="card-stack">
+          @if (certificate(); as certificate) {
+            <p [class.card-alert]="certificateWarning()">{{ certificateText() }}</p>
+            @if (certificate.name) {
+              <p class="card-muted">
+                {{ 'dashboard.certificate.name' | transloco: { name: certificate.name } }}
+              </p>
+            }
+            @if (certificateWarning() && !certificate.expired) {
+              <p class="card-muted">{{ 'dashboard.certificate.soon' | transloco }}</p>
+            }
+          } @else {
+            <p class="card-alert">{{ 'dashboard.certificate.none' | transloco }}</p>
           }
-          @if (certificateWarning() && !certificate.expired) {
-            <p class="card-muted">{{ 'dashboard.certificate.soon' | transloco }}</p>
-          }
-        } @else {
-          <p class="card-alert">{{ 'dashboard.certificate.none' | transloco }}</p>
-        }
-      </section>
+        </div>
+      </ui-card>
 
-      <section class="card" aria-labelledby="dashboard-resolutions">
-        <h2 id="dashboard-resolutions" class="card-title">
-          {{ 'dashboard.resolutions.title' | transloco }}
-        </h2>
+      <ui-card
+        role="region"
+        [attr.aria-label]="'dashboard.resolutions.title' | transloco"
+        [title]="'dashboard.resolutions.title' | transloco"
+      >
         @if (resolutions().length === 0) {
           <p class="card-muted">{{ 'dashboard.resolutions.none' | transloco }}</p>
         } @else {
@@ -115,7 +153,7 @@
             }
           </ul>
         }
-      </section>
+      </ui-card>
     </div>
   }
 </section>

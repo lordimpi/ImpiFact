@@ -12,6 +12,7 @@ export interface MasterListToolbarLabels {
 /**
  * Barra de búsqueda y filtro por estado de un listado (componente de presentación): muestra los valores que recibe
  * y emite cada cambio; la página decide cuándo pedirlos al Api (la búsqueda espera una pausa al escribir).
+ * It sits at the top of the list card (`ui-card padding="none"`), above the flush table.
  */
 @Component({
   selector: 'feat-master-list-toolbar',
@@ -43,14 +44,27 @@ export interface MasterListToolbarLabels {
     .toolbar {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--if-space-3);
+      gap: 0 var(--if-space-3);
       align-items: flex-end;
+      padding: var(--if-space-3) var(--if-space-4) 0;
+      border-block-end: 1px solid var(--if-color-border);
     }
     .toolbar__search {
       flex: 1 1 18rem;
+      max-inline-size: 32rem;
     }
     .toolbar__status {
       flex: 0 1 12rem;
+    }
+    @media (max-width: 40rem) {
+      .toolbar {
+        padding-inline: var(--if-space-3);
+      }
+      .toolbar__search,
+      .toolbar__status {
+        flex-basis: 100%;
+        max-inline-size: none;
+      }
     }
   `,
 })

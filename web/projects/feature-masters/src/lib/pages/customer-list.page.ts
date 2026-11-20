@@ -3,7 +3,9 @@ import { RouterLink } from '@angular/router';
 import { CustomerResponse } from '@impifact/api';
 import { CatalogsStore, ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
   PageTitleComponent,
   TableCellDirective,
   TableComponent,
@@ -27,7 +29,9 @@ import { listLabels, toolbarLabels } from './list-labels';
   imports: [
     RouterLink,
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardComponent,
     PageTitleComponent,
     TableComponent,
     TableCellDirective,

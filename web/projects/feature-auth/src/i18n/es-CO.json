@@ -1,4 +1,5 @@
 {
+  "brand": "ImpiFact",
   "login": {
     "title": "Iniciar sesión",
     "description": "Ingrese con el correo y la contraseña de su cuenta de ImpiFact.",

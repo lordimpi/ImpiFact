@@ -1,104 +1,114 @@
 <section class="keys-page">
-  <header>
-    <ui-page-title>{{ 'apiKeys.title' | transloco }}</ui-page-title>
-    <p class="keys-lead">{{ 'apiKeys.description' | transloco }}</p>
-  </header>
+  <ui-page-title [subtitle]="'apiKeys.description' | transloco">{{
+    'apiKeys.title' | transloco
+  }}</ui-page-title>
 
-  <form
-    class="keys-form"
-    novalidate
-    (submit)="onSubmit($event)"
-    [attr.aria-busy]="submitting() || null"
-  >
-    <h2 class="keys-subtitle">{{ 'apiKeys.form.title' | transloco }}</h2>
-    @if (generalError(); as message) {
-      <p class="keys-message keys-message--error" role="alert">{{ message }}</p>
-    }
-
-    <ui-field
-      [label]="'apiKeys.form.name' | transloco"
-      [hint]="'apiKeys.form.nameHint' | transloco"
-      [error]="nameError()"
-      required
-    >
-      <input uiInput type="text" autocomplete="off" [formField]="keyForm.name" />
-    </ui-field>
-
-    <fieldset
-      class="keys-scopes"
-      [attr.aria-describedby]="scopesError() ? 'keys-scopes-error' : 'keys-scopes-hint'"
-    >
-      <legend>{{ 'apiKeys.form.scopes' | transloco }}</legend>
-      <p id="keys-scopes-hint" class="keys-hint">{{ 'apiKeys.form.scopesHint' | transloco }}</p>
-      @for (scope of availableScopes(); track scope) {
-        <label class="keys-scope">
-          <input
-            type="checkbox"
-            [checked]="selectedScopes().includes(scope)"
-            (change)="toggleScope(scope, $event)"
-          />
-          <span>{{ scopeLabel(scope) }}</span>
-          <code class="keys-scope-code">{{ scope }}</code>
-        </label>
+  <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="submitting() || null">
+    <ui-card [title]="'apiKeys.form.title' | transloco">
+      @if (generalError(); as message) {
+        <p class="keys-message keys-message--error" role="alert">{{ message }}</p>
       }
-      @if (scopesError(); as message) {
-        <p id="keys-scopes-error" class="keys-message keys-message--error">{{ message }}</p>
-      }
-    </fieldset>
 
-    <ui-field
-      [label]="'apiKeys.form.expiresAt' | transloco"
-      [hint]="'apiKeys.form.expiresAtHint' | transloco"
-    >
-      <input uiInput type="date" [formField]="keyForm.expires_at" />
-    </ui-field>
+      <div class="keys-form">
+        <ui-field
+          [label]="'apiKeys.form.name' | transloco"
+          [hint]="'apiKeys.form.nameHint' | transloco"
+          [error]="nameError()"
+          required
+        >
+          <input uiInput type="text" autocomplete="off" [formField]="keyForm.name" />
+        </ui-field>
 
-    <div>
-      <ui-button
-        type="submit"
-        [label]="'apiKeys.form.submit' | transloco"
-        [loading]="submitting()"
-      />
-    </div>
+        <ui-field
+          [label]="'apiKeys.form.expiresAt' | transloco"
+          [hint]="'apiKeys.form.expiresAtHint' | transloco"
+        >
+          <input uiInput type="date" [formField]="keyForm.expires_at" />
+        </ui-field>
+
+        <fieldset
+          class="keys-scopes"
+          [attr.aria-describedby]="scopesError() ? 'keys-scopes-error' : 'keys-scopes-hint'"
+        >
+          <legend>{{ 'apiKeys.form.scopes' | transloco }}</legend>
+          <p id="keys-scopes-hint" class="keys-hint">{{ 'apiKeys.form.scopesHint' | transloco }}</p>
+          <div class="keys-scope-list">
+            @for (scope of availableScopes(); track scope) {
+              <label
+                class="keys-scope"
+                [class.keys-scope--checked]="selectedScopes().includes(scope)"
+              >
+                <input
+                  type="checkbox"
+                  [checked]="selectedScopes().includes(scope)"
+                  (change)="toggleScope(scope, $event)"
+                />
+                <span class="keys-scope-text">
+                  <span>{{ scopeLabel(scope) }}</span>
+                  <code class="keys-scope-code">{{ scope }}</code>
+                </span>
+              </label>
+            }
+          </div>
+          @if (scopesError(); as message) {
+            <p id="keys-scopes-error" class="keys-message keys-message--error">{{ message }}</p>
+          }
+        </fieldset>
+      </div>
+
+      <div uiCardFooter class="keys-footer">
+        <ui-button
+          type="submit"
+          [label]="'apiKeys.form.submit' | transloco"
+          [loading]="submitting()"
+        />
+      </div>
+    </ui-card>
   </form>
 
-  <ui-table
-    [caption]="'apiKeys.list.caption' | transloco"
-    showCaption
-    [columns]="columns()"
-    [rows]="store.items()"
-    [labels]="tableLabels()"
-    [loading]="store.loading()"
-    [error]="store.error() !== null"
-    [pagination]="store.pagination()"
-    [trackBy]="trackById"
-    (pageChange)="store.changePage($event)"
-    (retry)="store.refresh()"
-  >
-    <ng-template uiTableCell="keyPrefix" let-row
-      ><code>{{ row.key_prefix }}…</code></ng-template
+  <ui-card [title]="'apiKeys.list.caption' | transloco" padding="none">
+    <ui-table
+      flush
+      [caption]="'apiKeys.list.caption' | transloco"
+      [columns]="columns()"
+      [rows]="store.items()"
+      [labels]="tableLabels()"
+      [loading]="store.loading()"
+      [error]="store.error() !== null"
+      [pagination]="store.pagination()"
+      [trackBy]="trackById"
+      (pageChange)="store.changePage($event)"
+      (retry)="store.refresh()"
     >
-    <ng-template uiTableCell="scopes" let-row>{{ scopeList(row) }}</ng-template>
-    <ng-template uiTableCell="expiresAt" let-row>{{ expiry(row) }}</ng-template>
-    <ng-template uiTableCell="lastUsedAt" let-row>{{ lastUse(row) }}</ng-template>
-    <ng-template uiTableCell="revoked" let-row>
-      <span class="keys-status" [class.keys-status--revoked]="row.is_revoked">{{
-        (row.is_revoked ? 'apiKeys.list.revoked' : 'apiKeys.list.active') | transloco
-      }}</span>
-    </ng-template>
-    <ng-template uiTableCell="actions" let-row>
-      @if (!row.is_revoked) {
-        <ui-button
-          variant="text"
-          size="small"
-          [label]="'apiKeys.list.revoke' | transloco"
-          [ariaLabel]="rowText('list.revokeRow', row)"
-          [disabled]="store.busyId() === row.id"
-          (pressed)="askRevoke(row)"
-        />
-      }
-    </ng-template>
-  </ui-table>
+      <ng-template uiTableCell="keyPrefix" let-row
+        ><code class="keys-prefix">{{ row.key_prefix }}…</code></ng-template
+      >
+      <ng-template uiTableCell="scopes" let-row>{{ scopeList(row) }}</ng-template>
+      <ng-template uiTableCell="expiresAt" let-row
+        ><span class="keys-nowrap">{{ expiry(row) }}</span></ng-template
+      >
+      <ng-template uiTableCell="lastUsedAt" let-row
+        ><span class="keys-nowrap">{{ lastUse(row) }}</span></ng-template
+      >
+      <ng-template uiTableCell="revoked" let-row>
+        <ui-badge [tone]="row.is_revoked ? 'neutral' : 'success'">{{
+          (row.is_revoked ? 'apiKeys.list.revoked' : 'apiKeys.list.active') | transloco
+        }}</ui-badge>
+      </ng-template>
+      <ng-template uiTableCell="actions" let-row>
+        @if (!row.is_revoked) {
+          <ui-button
+            variant="ghost"
+            size="small"
+            [label]="'apiKeys.list.revoke' | transloco"
+            [ariaLabel]="rowText('list.revokeRow', row)"
+            [disabled]="store.busyId() === row.id"
+            (pressed)="askRevoke(row)"
+          />
+        }
+      </ng-template>
+    </ui-table>
+  </ui-card>
 
   <ui-dialog
     [header]="'apiKeys.secret.title' | transloco"

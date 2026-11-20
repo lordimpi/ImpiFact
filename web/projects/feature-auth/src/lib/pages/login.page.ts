@@ -11,6 +11,7 @@ import {
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { AUTH_I18N_SCOPE, provideAuthI18n } from '../auth-i18n';
+import { AuthBrandComponent } from '../components/auth-brand.component';
 import {
   createLoginForm,
   fieldMessage,
@@ -34,6 +35,7 @@ import { safeReturnUrl } from '../navigation/return-url';
     InputDirective,
     PasswordToggleDirective,
     PageTitleComponent,
+    AuthBrandComponent,
   ],
   providers: [provideAuthI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
