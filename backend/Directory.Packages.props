@@ -9,6 +9,7 @@
     <PackageVersion Include="Dapper" Version="2.1.89" />
     <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.15" />
     <PackageVersion Include="FluentValidation" Version="12.2.0" />
+    <PackageVersion Include="Google.Cloud.Storage.V1" Version="5.0.0" />
     <PackageVersion Include="Handlebars.Net" Version="2.4.3" />
     <PackageVersion Include="MailKit" Version="4.18.2" />
     <PackageVersion Include="Mapster" Version="7.4.0" />

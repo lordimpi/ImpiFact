@@ -4,8 +4,8 @@ namespace ImpiFact.Infrastructure.Options;
 
 /// <summary>
 /// Almacenamiento de archivos (sección «Storage»; Arquitectura detallada, sección 11). Existen los proveedores
-/// <c>Local</c> (supuesto B3 de la fase 3: el XML firmado se guarda al emitir), <c>S3</c> (fase 4, supuesto C7) y
-/// <c>AzureBlob</c> (fase 6); <c>Gcs</c> llega en la fase 6 y elegirlo hoy detiene el arranque.
+/// <c>Local</c> (supuesto B3 de la fase 3: el XML firmado se guarda al emitir), <c>S3</c> (fase 4, supuesto C7),
+/// <c>AzureBlob</c> y <c>Gcs</c> (fase 6).
 /// </summary>
 public sealed class StorageOptions
 {
@@ -17,8 +17,10 @@ public sealed class StorageOptions
 
     public const string AzureBlobProvider = "AzureBlob";
 
+    public const string GcsProvider = "Gcs";
+
     [Required]
-    [AllowedValues(LocalProvider, AzureBlobProvider, S3Provider, "Gcs")]
+    [AllowedValues(LocalProvider, AzureBlobProvider, S3Provider, GcsProvider)]
     public string Provider { get; set; } = "";
 
     /// <summary>Ajustes del proveedor <c>Local</c>; solo se exigen cuando ese es el proveedor.</summary>
@@ -29,6 +31,9 @@ public sealed class StorageOptions
 
     /// <summary>Ajustes del proveedor <c>AzureBlob</c>; solo se exigen cuando ese es el proveedor.</summary>
     public AzureBlobStorageOptions AzureBlob { get; set; } = new();
+
+    /// <summary>Ajustes del proveedor <c>Gcs</c>; solo se exigen cuando ese es el proveedor.</summary>
+    public GcsStorageOptions Gcs { get; set; } = new();
 }
 
 /// <summary>Proveedor local: los archivos van a una carpeta del servidor, por ejemplo un volumen de Docker.</summary>
@@ -123,4 +128,33 @@ public sealed class AzureBlobStorageOptions
     /// <c>http://&lt;host&gt;:10000/devstoreaccount1</c>; con una cuenta de Azure no sirve. Apagado por omisión.
     /// </summary>
     public bool UseEmulatorAccount { get; set; }
+}
+
+/// <summary>
+/// Proveedor <c>Gcs</c>: Google Cloud Storage (fake-gcs-server en desarrollo, perfil <c>gcs</c> de
+/// <c>deploy/docker-compose.yml</c>). Cada clave de archivo es el nombre del objeto dentro del bucket.
+/// </summary>
+/// <remarks>
+/// Aquí no hay llaves: el cliente usa las credenciales predeterminadas de la aplicación de Google (ADC: la cuenta de
+/// servicio de Cloud Run o de GKE con identidad de la carga de trabajo; <c>gcloud auth application-default login</c> en
+/// un equipo de desarrollo). La cuenta necesita el rol «Storage Object User» sobre el bucket y, para las URL firmadas,
+/// el permiso <c>iam.serviceAccounts.signBlob</c> sobre sí misma («Service Account Token Creator»).
+/// </remarks>
+public sealed class GcsStorageOptions
+{
+    /// <summary>Límite superior de <see cref="SignedUrlMaxMinutes"/>: 7 días, lo máximo de una firma V4.</summary>
+    public const int SignedUrlLimitMinutes = 7 * 24 * 60;
+
+    /// <summary>Bucket donde se guardan los archivos; debe existir (lo crea el despliegue, no la aplicación).</summary>
+    public string Bucket { get; set; } = "";
+
+    /// <summary>
+    /// Solo para un emulador: dirección de fake-gcs-server (por ejemplo <c>http://127.0.0.1:4443</c>). Vacía para
+    /// usar Google Cloud. Con ella el cliente no manda credenciales. Absoluta, <c>http</c> o <c>https</c>, sin
+    /// usuario, contraseña, consulta ni fragmento.
+    /// </summary>
+    public string Endpoint { get; set; } = "";
+
+    /// <summary>Vigencia máxima, en minutos, de una URL firmada (V4) de descarga; por omisión una hora.</summary>
+    public int SignedUrlMaxMinutes { get; set; } = 60;
 }

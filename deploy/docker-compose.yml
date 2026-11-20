@@ -234,6 +234,40 @@ services:
         sleep 3; done; exit 1
     restart: "no"
 
+  # fake-gcs-server: emulador de código abierto de Google Cloud Storage, para Storage:Provider = Gcs. Perfil «gcs»:
+  #   docker compose -f deploy/docker-compose.yml --profile gcs up -d
+  # No pide credenciales. La aplicación llega por la dirección del emulador:
+  #   Storage__Provider=Gcs
+  #   Storage__Gcs__Bucket=impifact-documents
+  #   Storage__Gcs__Endpoint=http://127.0.0.1:4443
+  # El puerto 4443 es fijo: el emulador devuelve esa dirección (-external-url) en cada subida. Las URL firmadas necesitan
+  # una cuenta de servicio de Google (credenciales predeterminadas); el emulador no revisa firmas.
+  fake-gcs:
+    image: fsouza/fake-gcs-server:1.56.1
+    profiles: ["gcs"]
+    command: ["-scheme", "http", "-port", "4443", "-backend", "memory", "-external-url", "http://127.0.0.1:4443"]
+    ports:
+      - "127.0.0.1:4443:4443"
+
+  # Crea el bucket (GCS_BUCKET, por omisión «impifact-documents») una vez que el emulador responde; la aplicación no
+  # crea buckets.
+  fake-gcs-bucket:
+    image: curlimages/curl:8.23.0
+    profiles: ["gcs"]
+    depends_on:
+      - fake-gcs
+    environment:
+      GCS_BUCKET: ${GCS_BUCKET:-impifact-documents}
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        curl -fsS -o /dev/null -X POST -H "Content-Type: application/json" -d "{\"name\":\"$$GCS_BUCKET\"}"
+        "http://fake-gcs:4443/storage/v1/b?project=impifact-dev" && exit 0;
+        sleep 2; done; exit 1
+    restart: "no"
+
 volumes:
   postgres-data:
   mysql-data:

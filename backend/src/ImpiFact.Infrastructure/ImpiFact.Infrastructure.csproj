@@ -5,6 +5,7 @@
     <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="Azure.Identity" />
     <PackageReference Include="Azure.Storage.Blobs" />
+    <PackageReference Include="Google.Cloud.Storage.V1" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Handlebars.Net" />
     <PackageReference Include="MailKit" />
