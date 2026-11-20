@@ -606,6 +606,7 @@ Cobertura mínima exigida en CI: `Domain` y `Dian` 90 %, `Application` 80 %; los
 - Reproducir un motor en local: `Database__Provider=SqlServer dotnet test tests/ImpiFact.Integration.Tests --filter "Category=Integration"` desde `backend/` (con Docker; SQL Server pide unos 2 GB de memoria, conviene correr un motor a la vez).
 - Las pruebas de integración que no dependen del motor (emuladores de la nube, correo, PDF) también corren en las tres patas de la matriz: no tienen una categoría propia que permita separarlas.
 - Los flujos se revisan con `actionlint` (imagen `rhysd/actionlint`, fija por digest) antes de subirlos.
+- Imágenes base: `renovate.json` fija por digest las imágenes de los Dockerfile y de `deploy/docker-compose.yml` y agrupa sus actualizaciones en un PR semanal contra `develop` (las del SDK y el runtime de .NET juntas); las versiones mayores (motores de base, Node, nginx, .NET) esperan aprobación en el tablero de dependencias. El entorno de `backend/tools/golden-capture` queda fuera, porque reproduce el PHP byte a byte. NuGet y npm no entran en Renovate. Las imágenes de Testcontainers en `TestDatabase.cs` se actualizan a mano junto con las de compose. Renovate se activa instalando su aplicación de GitHub en el repositorio; no necesita secretos en el repositorio.
 
 ## 14. Despliegue
 
