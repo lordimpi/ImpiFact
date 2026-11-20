@@ -8,14 +8,12 @@ using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Platform.Outbox;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Model;
 using ImpiFact.Integration.Tests.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Outbox;
 
@@ -33,7 +31,7 @@ namespace ImpiFact.Integration.Tests.Outbox;
 [Category("Integration")]
 public sealed class OutboxDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseServer? container;
     private static int nitSequence;
 
     public static string ConnectionString =>
@@ -42,7 +40,7 @@ public sealed class OutboxDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
 
         await using var host = OutboxHost.Create();
@@ -77,7 +75,7 @@ public sealed class OutboxHost : IAsyncDisposable
     {
         var values = new Dictionary<string, string?>
         {
-            ["Database:Provider"] = "Postgres",
+            ["Database:Provider"] = TestDatabase.ProviderName,
             ["Database:ConnectionString"] = OutboxDatabase.ConnectionString,
         };
         foreach (var (key, value) in settings)
@@ -88,7 +86,7 @@ public sealed class OutboxHost : IAsyncDisposable
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         collection.AddApplication();
         collection.AddOutboxProcessing(configuration);
         collection.AddSingleton<IClock>(Clock);

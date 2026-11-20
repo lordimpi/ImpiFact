@@ -1,4 +1,4 @@
-import { inject } from '@angular/core';
+import { CSP_NONCE, inject } from '@angular/core';
 import { Optimus } from '@openng/optimus-ui/config';
 import { definePreset } from '@openng/optimus-ui-themes';
 import base from '@openng/optimus-ui-themes/aura/base';
@@ -149,11 +149,16 @@ export const impifactPreset = definePreset(
 /**
  * Aplica el preset de ImpiFact a Optimus UI. Corre en el contexto de inyección del arranque.
  * El modo oscuro lo deciden los tokens (prefers-color-scheme y `data-theme`), no Optimus.
+ *
+ * Nonce de la CSP: el de `options` o, si no hay, el de la página (`CSP_NONCE` de Angular, que lee el atributo
+ * `ngCspNonce` de `<app-root>`; el servidor del panel lo cambia en cada respuesta). La CSP no permite estilos en línea
+ * sin ese nonce, así que Optimus lo pone en cada etiqueta `<style>` que agrega.
  */
 export function applyUiTheme(options: UiThemeOptions): void {
+  const nonce = options.nonce ?? inject(CSP_NONCE, { optional: true }) ?? undefined;
   inject(Optimus).setConfig({
     ripple: false,
     theme: { preset: impifactPreset, options: { darkModeSelector: 'none', cssLayer: false } },
-    ...(options.nonce ? { csp: { nonce: options.nonce } } : {}),
+    ...(nonce ? { csp: { nonce } } : {}),
   });
 }

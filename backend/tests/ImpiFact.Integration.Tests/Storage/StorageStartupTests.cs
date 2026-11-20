@@ -93,16 +93,6 @@ public sealed class StorageStartupTests
         Assert.That(StartupFailure(settings), Does.Contain("must not overlap"));
     }
 
-    [TestCase("AzureBlob")]
-    [TestCase("Gcs")]
-    public void Startup_fails_with_a_cloud_provider_that_is_not_available_yet(string provider)
-    {
-        var settings = scratch.LocalSettings();
-        settings["Storage:Provider"] = provider;
-
-        Assert.That(StartupFailure(settings), Does.Contain($"Storage provider '{provider}' is not available yet"));
-    }
-
     [Test]
     public void Startup_fails_with_an_unknown_provider()
     {

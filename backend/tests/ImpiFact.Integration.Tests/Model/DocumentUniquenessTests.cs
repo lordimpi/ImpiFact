@@ -1,6 +1,5 @@
 using ImpiFact.Domain.Documents;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.Model;
 
@@ -84,8 +83,7 @@ public sealed class DocumentUniquenessTests
         });
     }
 
-    private static string? ConstraintOf(DbUpdateException? exception) =>
-        exception?.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } postgres ? postgres.ConstraintName : null;
+    private static string? ConstraintOf(DbUpdateException? exception) => TestDatabase.UniqueViolationName(exception);
 
     private static async Task SaveAsync(params object[] rows)
     {

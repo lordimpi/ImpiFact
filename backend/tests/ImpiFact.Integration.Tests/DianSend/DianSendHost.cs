@@ -18,7 +18,6 @@ using ImpiFact.Infrastructure.Dian;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Platform.Outbox;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Storage;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Model;
@@ -28,7 +27,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.DianSend;
 
@@ -41,7 +39,7 @@ namespace ImpiFact.Integration.Tests.DianSend;
 [Category("Integration")]
 public sealed class DianSendDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseServer? container;
     private static int nitSequence;
 
     public static string ConnectionString =>
@@ -50,7 +48,7 @@ public sealed class DianSendDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
 
         await using var host = DianSendHost.Create();
@@ -91,11 +89,11 @@ public sealed class DianSendHost : IAsyncDisposable
     private readonly ProtectionScratch protection = new();
     private readonly ServiceProvider services;
 
-    private DianSendHost(IReadOnlyDictionary<string, string?> settings, string connectionString)
+    private DianSendHost(IReadOnlyDictionary<string, string?> settings, string connectionString, Action<IServiceCollection>? configureServices)
     {
         var values = new Dictionary<string, string?>(protection.LocalAesGcmSettings())
         {
-            ["Database:Provider"] = "Postgres",
+            ["Database:Provider"] = TestDatabase.ProviderName,
             ["Database:ConnectionString"] = connectionString,
             ["Storage:Provider"] = "Local",
             ["Storage:Local:Root"] = Path.Combine(protection.Root, "storage"),
@@ -118,7 +116,7 @@ public sealed class DianSendHost : IAsyncDisposable
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var collection = new ServiceCollection();
         collection.AddLogging(logging => logging.AddProvider(Logs).SetMinimumLevel(LogLevel.Trace));
-        collection.AddWorkerServices(configuration, new PostgresDatabaseProvider());
+        collection.AddWorkerServices(configuration, TestDatabase.Providers);
         collection.AddSingleton<IClock>(Clock);
         collection.AddSingleton<IBlobStorage>(provider =>
         {
@@ -128,6 +126,7 @@ public sealed class DianSendHost : IAsyncDisposable
         collection.AddHttpClient(DianSoapClient.HttpClientName)
             .ConfigurePrimaryHttpMessageHandler(() => Dian)
             .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
+        configureServices?.Invoke(collection);
         services = collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
@@ -147,16 +146,19 @@ public sealed class DianSendHost : IAsyncDisposable
     public IServiceProvider Services => services;
 
     /// <param name="connectionString">Base de las pruebas; por defecto la de <see cref="DianSendDatabase"/>.</param>
-    public static DianSendHost Create(IReadOnlyDictionary<string, string?>? settings = null, string? connectionString = null) =>
-        new(settings ?? new Dictionary<string, string?>(), connectionString ?? DianSendDatabase.ConnectionString);
+    /// <param name="configureServices">Servicios de prueba adicionales, después de los del host.</param>
+    public static DianSendHost Create(
+        IReadOnlyDictionary<string, string?>? settings = null, string? connectionString = null, Action<IServiceCollection>? configureServices = null) =>
+        new(settings ?? new Dictionary<string, string?>(), connectionString ?? DianSendDatabase.ConnectionString, configureServices);
 
     /// <summary>
     /// Un host nuevo sin mensajes pendientes de otras pruebas: los que quedaron (por ejemplo, consultas programadas) se
     /// marcan hechos, para que el procesador de esta prueba solo tome los suyos.
     /// </summary>
-    public static async Task<DianSendHost> StartAsync(IReadOnlyDictionary<string, string?>? settings = null, string? connectionString = null)
+    public static async Task<DianSendHost> StartAsync(
+        IReadOnlyDictionary<string, string?>? settings = null, string? connectionString = null, Action<IServiceCollection>? configureServices = null)
     {
-        var host = Create(settings, connectionString);
+        var host = Create(settings, connectionString, configureServices);
         await using var scope = host.OpenScope();
         await scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>().Set<OutboxMessage>()
             .Where(message => message.Status == OutboxStatus.Pending || message.Status == OutboxStatus.Processing)
@@ -353,8 +355,11 @@ public sealed class DianSendHost : IAsyncDisposable
     public async Task<List<OutboxMessage>> MessagesAsync(Guid companyId, string type)
     {
         await using var scope = OpenScope();
-        return await Db(scope).Set<OutboxMessage>().AsNoTracking()
-            .Where(row => row.CompanyId == companyId && row.Type == type).OrderBy(row => row.CreatedAt).ThenBy(row => row.Id).ToListAsync();
+        // Se ordena aquí: SQL Server ordena un uniqueidentifier por sus últimos bytes, así que el orden de los uuid v7 en
+        // la base no es el de creación; Guid.CompareTo de .NET sí lo es.
+        var rows = await Db(scope).Set<OutboxMessage>().AsNoTracking()
+            .Where(row => row.CompanyId == companyId && row.Type == type).ToListAsync();
+        return [.. rows.OrderBy(row => row.CreatedAt).ThenBy(row => row.Id)];
     }
 
     public async Task<List<Notification>> NotificationsAsync(Guid companyId)

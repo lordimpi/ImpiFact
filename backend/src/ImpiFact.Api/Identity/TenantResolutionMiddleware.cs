@@ -14,11 +14,32 @@ namespace ImpiFact.Api.Identity;
 /// <item>API key sin empresa con alcance <c>platform:*</c>: sin empresa, actor <see cref="ActorType.Platform"/>.</item>
 /// <item>JWT (JSON Web Token) del panel: usuario de <c>sub</c>, empresa activa de <c>company_id</c>, actor <see cref="ActorType.User"/>.</item>
 /// </list>
-/// Sin credenciales válidas el contexto queda anónimo.
+/// Sin credenciales válidas el contexto queda anónimo. La empresa y el usuario quedan además en un ámbito de los
+/// registros (<c>CompanyId</c>, <c>UserId</c>; sección 12) para lo que se registre en el resto de la solicitud.
 /// </summary>
-internal sealed class TenantResolutionMiddleware(RequestDelegate next)
+internal sealed class TenantResolutionMiddleware(RequestDelegate next, ILogger<TenantResolutionMiddleware> logger)
 {
-    public Task InvokeAsync(HttpContext context, TenantContext tenant)
+    public async Task InvokeAsync(HttpContext context, TenantContext tenant)
+    {
+        Resolve(context, tenant);
+        var scope = new Dictionary<string, object>(2);
+        if (tenant.CompanyId is { } companyId)
+        {
+            scope["CompanyId"] = companyId;
+        }
+
+        if (tenant.UserId is { } userId)
+        {
+            scope["UserId"] = userId;
+        }
+
+        using (scope.Count > 0 ? logger.BeginScope(scope) : null)
+        {
+            await next(context);
+        }
+    }
+
+    private static void Resolve(HttpContext context, TenantContext tenant)
     {
         var user = context.User;
         if (user.Identity is { IsAuthenticated: true } identity)
@@ -38,8 +59,6 @@ internal sealed class TenantResolutionMiddleware(RequestDelegate next)
                     break;
             }
         }
-
-        return next(context);
     }
 
     private static Guid? ReadGuid(ClaimsPrincipal user, string claimType) =>

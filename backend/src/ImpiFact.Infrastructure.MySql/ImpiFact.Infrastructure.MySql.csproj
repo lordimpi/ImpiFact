@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Proveedor MySQL (8.0.14 o superior; se prueba con 8.4): conecta Entity Framework Core (EF, el mapeador de objetos a
+    tablas) y las lecturas con MySqlConnector (el controlador .NET de MySQL, licencia MIT). El proveedor de EF es el fork
+    de Pomelo que mantiene Microting (Microting.EntityFrameworkCore.MySql, MIT), elegido en ADR-08 porque Pomelo no
+    tiene versión para EF Core 10. Guarda aquí sus migraciones (carpeta Migrations), generadas con
+    dotnet ef migrations add <Nombre> -p src/ImpiFact.Infrastructure.MySql -s src/ImpiFact.Infrastructure.MySql
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Microting.EntityFrameworkCore.MySql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ImpiFact.Infrastructure\ImpiFact.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

@@ -7,7 +7,10 @@ public sealed class DatabaseOptions
 {
     public const string SectionName = "Database";
 
-    /// <summary>Motor de base de datos. En la fase 2 solo existe el proveedor de PostgreSQL.</summary>
+    /// <summary>
+    /// Motor de base de datos, sin valor por defecto. Elige entre los motores que registra el host (hoy solo PostgreSQL;
+    /// SQL Server y MySQL llegan con sus proyectos <c>ImpiFact.Infrastructure.&lt;Motor&gt;</c>).
+    /// </summary>
     [Required]
     [AllowedValues("Postgres", "SqlServer", "MySql")]
     public string Provider { get; set; } = "";
@@ -18,4 +21,11 @@ public sealed class DatabaseOptions
     /// </summary>
     [Required]
     public string ConnectionString { get; set; } = "";
+
+    /// <summary>
+    /// Si la API y el Worker revisan al arrancar que la base no tenga migraciones pendientes (por defecto, sí): con
+    /// alguna pendiente no arrancan (<see cref="Persistence.PendingMigrationsGuard"/>). Solo lo apagan las pruebas que
+    /// levantan la API sobre una base vacía y crean el esquema después, con el host ya arriba.
+    /// </summary>
+    public bool CheckPendingMigrationsAtStartup { get; set; } = true;
 }

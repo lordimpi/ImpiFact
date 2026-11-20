@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Amazon;
 using Amazon.S3;
 using ImpiFact.Application.Abstractions.Storage;
 using ImpiFact.Domain.Documents;
@@ -130,6 +131,25 @@ public sealed class S3BlobStorageTests
     }
 
     [Test]
+    [NonParallelizable]
+    public void A_signed_url_lasts_exactly_the_requested_lifetime_when_the_sdk_corrects_its_clock()
+    {
+        // The SDK subtracts its own clock-skew-corrected time, not DateTime.UtcNow. In CI a corrected clock produced
+        // X-Amz-Expires=301 for a five-minute link.
+        AWSConfigs.ManualClockCorrection = TimeSpan.FromSeconds(-2);
+        try
+        {
+            var url = Storage.CreateSignedUrl(NewKey(".pdf"), TimeSpan.FromMinutes(5));
+
+            Assert.That(ExpiresSeconds(url), Is.EqualTo(300), url.Query);
+        }
+        finally
+        {
+            AWSConfigs.ManualClockCorrection = null;
+        }
+    }
+
+    [Test]
     public async Task A_signed_url_stops_working_after_it_expires()
     {
         var key = NewKey(".pdf");
@@ -183,47 +203,5 @@ public sealed class S3BlobStorageTests
         await using var stream = await Storage.OpenReadAsync(key, CancellationToken.None);
         using var reader = new StreamReader(stream, Encoding.UTF8);
         return await reader.ReadToEndAsync();
-    }
-
-    /// <summary>Flujo que solo se lee hacia adelante y no informa su largo.</summary>
-    private sealed class ForwardOnlyStream(byte[] bytes) : Stream
-    {
-        private readonly MemoryStream inner = new(bytes);
-
-        public override bool CanRead => true;
-
-        public override bool CanSeek => false;
-
-        public override bool CanWrite => false;
-
-        public override long Length => throw new NotSupportedException();
-
-        public override long Position
-        {
-            get => throw new NotSupportedException();
-            set => throw new NotSupportedException();
-        }
-
-        public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
-
-        public override void Flush()
-        {
-        }
-
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
-
-        public override void SetLength(long value) => throw new NotSupportedException();
-
-        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                inner.Dispose();
-            }
-
-            base.Dispose(disposing);
-        }
     }
 }

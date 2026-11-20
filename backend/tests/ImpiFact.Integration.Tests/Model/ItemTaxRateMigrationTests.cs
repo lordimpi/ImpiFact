@@ -30,6 +30,9 @@ public sealed class ItemTaxRateMigrationTests
     [Test]
     public async Task ItemTaxRate_down_removes_only_its_two_columns_and_up_restores_them()
     {
+        // Solo PostgreSQL tiene la migración ItemTaxRate aparte: los demás motores empiezan con una sola InitialSchema que ya
+        // trae el cambio, así que no hay migración que revertir.
+        Assume.That(TestDatabase.IsPostgres, "ItemTaxRate is a PostgreSQL-only migration; SQL Server and MySQL start from one InitialSchema.");
         await using var session = ModelDatabase.Open(companyId: null);
         var migrator = session.Db.GetService<IMigrator>();
 

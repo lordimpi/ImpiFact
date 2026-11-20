@@ -1,6 +1,8 @@
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Options;
+using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Postgres;
+using ImpiFact.Infrastructure.SqlServer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -16,7 +18,7 @@ public sealed class ValidatedOptionsTests
 {
     private static readonly Dictionary<string, string?> ValidDatabase = new()
     {
-        ["Database:Provider"] = "Postgres",
+        ["Database:Provider"] = TestDatabase.ProviderName,
         ["Database:ConnectionString"] = "Host=localhost;Database=impifact",
     };
 
@@ -42,7 +44,7 @@ public sealed class ValidatedOptionsTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(options.Provider, Is.EqualTo("Postgres"));
+            Assert.That(options.Provider, Is.EqualTo(TestDatabase.ProviderName));
             Assert.That(options.ConnectionString, Is.EqualTo("Host=localhost;Database=impifact"));
         });
     }
@@ -68,7 +70,7 @@ public sealed class ValidatedOptionsTests
     public void Add_infrastructure_validates_every_phase_two_option_at_startup()
     {
         var services = Build(ValidDatabase,
-            (collection, configuration) => collection.AddInfrastructure(configuration, new PostgresDatabaseProvider()));
+            (collection, configuration) => collection.AddInfrastructure(configuration, TestDatabase.Providers));
 
         // Con varias opciones inválidas, la validación del arranque las reúne todas en una AggregateException.
         var exception = Assert.Throws<AggregateException>(() => services.GetRequiredService<IStartupValidator>().Validate());
@@ -94,14 +96,68 @@ public sealed class ValidatedOptionsTests
     {
         var configuration = Configuration(new()
         {
-            ["Database:Provider"] = "SqlServer",
+            ["Database:Provider"] = "Oracle",
             ["Database:ConnectionString"] = "Server=localhost",
         });
 
         var exception = Assert.Throws<InvalidOperationException>(
-            () => new ServiceCollection().AddInfrastructure(configuration, new PostgresDatabaseProvider()));
+            () => new ServiceCollection().AddInfrastructure(configuration, TestDatabase.Providers));
 
-        Assert.That(exception?.Message, Does.Contain("SqlServer"));
+        Assert.That(exception?.Message, Is.EqualTo("Database provider 'Oracle' is not available. " + TestDatabase.AvailableProvidersMessage));
+    }
+
+    // Sin Database:Provider ningún motor se elige por defecto: la API, el Worker y el Migrator no arrancan.
+    [TestCase(null)]
+    [TestCase("")]
+    [TestCase("  ")]
+    public void Add_infrastructure_requires_a_database_provider(string? provider)
+    {
+        var configuration = Configuration(new()
+        {
+            ["Database:Provider"] = provider,
+            ["Database:ConnectionString"] = "Server=localhost",
+        });
+
+        var exception = Assert.Throws<InvalidOperationException>(
+            () => new ServiceCollection().AddInfrastructure(configuration, TestDatabase.Providers));
+
+        Assert.That(exception?.Message, Is.EqualTo("Database:Provider is not set. " + TestDatabase.AvailableProvidersMessage));
+    }
+
+    // El nombre del motor no distingue mayúsculas, como el resto de la configuración de .NET.
+    [Test]
+    public void Add_infrastructure_picks_the_provider_named_in_the_configuration_ignoring_case()
+    {
+        var configuration = Configuration(new()
+        {
+            ["Database:Provider"] = "postgres",
+            ["Database:ConnectionString"] = "Host=localhost;Database=impifact",
+        });
+
+        using var services = new ServiceCollection().AddInfrastructure(configuration, TestDatabase.Providers).BuildServiceProvider();
+
+        Assert.That(services.GetRequiredService<IDatabaseProvider>(), Is.InstanceOf<PostgresDatabaseProvider>());
+    }
+
+    // SQL Server se elige igual, con su nombre en Database:Provider, y trae su propio SQL (consecutivo, cola, plan,
+    // bloqueos de tareas y dialecto de las lecturas).
+    [Test]
+    public void Add_infrastructure_picks_sql_server_with_its_engine_specific_sql()
+    {
+        var configuration = Configuration(new()
+        {
+            ["Database:Provider"] = "SqlServer",
+            ["Database:ConnectionString"] = "Server=localhost;Database=impifact",
+        });
+
+        using var services = new ServiceCollection().AddInfrastructure(configuration, TestDatabase.Providers).BuildServiceProvider();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(services.GetRequiredService<IDatabaseProvider>(), Is.InstanceOf<SqlServerDatabaseProvider>());
+            Assert.That(services.GetRequiredService<ISqlDialect>().Paging("@Take"), Is.EqualTo("offset 0 rows fetch next @Take rows only"));
+            Assert.That(services.GetRequiredService<ISqlDialect>().GetType().Assembly, Is.EqualTo(typeof(SqlServerDatabaseProvider).Assembly));
+        });
     }
 
     private static ServiceProvider Build(

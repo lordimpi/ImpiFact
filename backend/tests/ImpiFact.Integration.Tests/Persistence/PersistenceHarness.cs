@@ -2,7 +2,6 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Persistence;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,13 +22,13 @@ public sealed class PersistenceHarness : IDisposable
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Database:Provider"] = "Postgres",
+                ["Database:Provider"] = TestDatabase.ProviderName,
                 ["Database:ConnectionString"] = PostgresDatabase.ConnectionString,
             })
             .Build();
 
         var collection = new ServiceCollection();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         collection.AddSingleton<IClock>(Clock);
         collection.AddImpiFactDbContext<TestDbContext>();
         services = collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

@@ -7,7 +7,6 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence.Seeding;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Storage;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Documents;
@@ -17,7 +16,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.Minio;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Storage.Minio;
 
@@ -41,7 +39,7 @@ public sealed class MinioStorage
     public const string Bucket = "impifact-tests";
 
     private static MinioContainer? minio;
-    private static PostgreSqlContainer? postgres;
+    private static TestDatabaseServer? postgres;
     private static ServiceProvider? services;
     private static AmazonS3Client? client;
     private static int nitSequence;
@@ -72,19 +70,19 @@ public sealed class MinioStorage
         // Llave de cifrado de MinIO solo para esta corrida: «nombre:base64 de 32 bytes».
         var kmsKey = "impifact-tests:" + Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
         minio = new MinioBuilder(Image).WithEnvironment("MINIO_KMS_SECRET_KEY", kmsKey).Build();
-        postgres = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        postgres = TestDatabase.CreateServer();
         await Task.WhenAll(minio.StartAsync(), postgres.StartAsync());
 
         client = new AmazonS3Client(Credentials, new AmazonS3Config { ServiceURL = ServiceUrl, ForcePathStyle = true, AuthenticationRegion = "us-east-1" });
         await client.PutBucketAsync(Bucket);
 
         var settings = StorageSettings();
-        settings["Database:Provider"] = "Postgres";
+        settings["Database:Provider"] = TestDatabase.ProviderName;
         settings["Database:ConnectionString"] = postgres.GetConnectionString();
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         collection.AddApplication();
         collection.AddSingleton<IClock>(new FixedClock(new DateTimeOffset(2026, 1, 15, 10, 0, 0, TimeSpan.Zero)));
         collection.AddSingleton(new S3Credentials(Credentials));

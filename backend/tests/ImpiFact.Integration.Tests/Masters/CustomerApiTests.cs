@@ -247,6 +247,37 @@ public sealed class CustomerApiTests
         });
     }
 
+    // El cursor es (nombre, id): con nombres repetidos, el id desempata y ninguna fila se salta ni se repite entre páginas.
+    [Test]
+    public async Task Customers_with_the_same_name_are_paged_by_id_in_both_directions()
+    {
+        var company = await CompanyAsync();
+        using var client = await ClientAsync(company);
+        for (var i = 0; i < 5; i++)
+        {
+            var number = (2_000_000 + i).ToString(CultureInfo.InvariantCulture) + RandomNumberGenerator.GetInt32(100, 999).ToString(CultureInfo.InvariantCulture);
+            await CreateAsync(client, new CustomerBody { TypeDocumentIdentificationId = 3, IdentificationNumber = number, Name = "Repetido" });
+        }
+
+        var ascending = await WalkAsync(client, "/api/v1/customers?limit=2&status=all", "id");
+        var descending = await WalkAsync(client, "/api/v1/customers?limit=2&status=all&sort=-name", "id");
+
+        List<string> expected;
+        await using (var scope = MastersHost.Api.OpenScope(null, null, ActorType.System))
+        {
+            expected = (await scope.Db.Set<Customer>().IgnoreQueryFilters().Where(customer => customer.CompanyId == company)
+                .OrderBy(customer => customer.Name).ThenBy(customer => customer.Id).Select(customer => customer.Id).ToListAsync())
+                .Select(id => id.ToString()).ToList();
+        }
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ascending.Values, Is.EqualTo(expected));
+            Assert.That(ascending.Pages, Is.EqualTo(3));
+            Assert.That(descending.Values, Is.EqualTo(Enumerable.Reverse(expected)), "The descending order is the exact reverse.");
+        });
+    }
+
     [Test]
     public async Task Search_finds_the_text_inside_the_number_or_the_name_ignoring_case_and_wildcards()
     {

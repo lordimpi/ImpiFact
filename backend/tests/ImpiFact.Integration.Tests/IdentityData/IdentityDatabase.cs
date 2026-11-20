@@ -3,13 +3,11 @@ using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.IdentityData;
 
@@ -22,7 +20,7 @@ namespace ImpiFact.Integration.Tests.IdentityData;
 [Category("Integration")]
 public sealed class IdentityDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseServer? container;
     private static ServiceProvider? services;
 
     public static string ConnectionString =>
@@ -33,20 +31,20 @@ public sealed class IdentityDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Database:Provider"] = "Postgres",
+                ["Database:Provider"] = TestDatabase.ProviderName,
                 ["Database:ConnectionString"] = ConnectionString,
                 ["ApiKey:Prefix"] = "apk_",
             })
             .Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         collection.AddIdentityPersistence();
         services = collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 

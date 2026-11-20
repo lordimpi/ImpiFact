@@ -20,7 +20,6 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Companies;
 
@@ -37,7 +36,7 @@ public sealed class CompaniesHost
     /// <summary>Fecha fija de las pruebas: 15-ene-2026 a las 10:00 UTC (05:00 en Colombia).</summary>
     public static readonly DateTimeOffset Now = new(2026, 1, 15, 10, 0, 0, TimeSpan.Zero);
 
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseServer? container;
     private static CompanyApiFactory? factory;
 
     public static CompanyApiFactory Api => factory ?? throw new InvalidOperationException("The company API host is not running.");
@@ -45,7 +44,7 @@ public sealed class CompaniesHost
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
         factory = new CompanyApiFactory(container.GetConnectionString());
 
@@ -149,6 +148,9 @@ public sealed class CompanyApiFactory(string connectionString) : WebApplicationF
     {
         builder.UseEnvironment("Development");
         builder.UseSetting("Database:ConnectionString", connectionString);
+        // Quien usa esta fábrica crea el esquema con la API ya arriba (OpenScope arranca el host), así que al arrancar
+        // la base todavía está vacía: la revisión de migraciones pendientes (PendingMigrationsGuard) se apaga aquí.
+        builder.UseSetting("Database:CheckPendingMigrationsAtStartup", "false");
         builder.UseSetting("Secrets:LocalAesGcm:MasterKeyFile", _protection.MasterKeyFile);
         builder.UseSetting("Secrets:LocalAesGcm:CertificateDirectory", _protection.CertificateDirectory);
         builder.UseSetting("Storage:Local:Root", StorageRoot);

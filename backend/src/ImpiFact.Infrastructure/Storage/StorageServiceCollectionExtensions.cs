@@ -10,8 +10,9 @@ public static class StorageServiceCollectionExtensions
 {
     /// <summary>
     /// Registra el almacenamiento de archivos (<see cref="IBlobStorage"/>) con su validación al arrancar. El proveedor
-    /// sale de <c>Storage:Provider</c>: <c>Local</c> (una carpeta) o <c>S3</c> (un bucket de S3 o de un servicio
-    /// compatible). Espera que <see cref="StorageOptions"/> ya esté registrado.
+    /// sale de <c>Storage:Provider</c>: <c>Local</c> (una carpeta), <c>S3</c> (un bucket de S3 o de un servicio
+    /// compatible), <c>AzureBlob</c> (un contenedor de Azure Blob Storage) o <c>Gcs</c> (un bucket de Google Cloud
+    /// Storage). Espera que <see cref="StorageOptions"/> ya esté registrado.
     /// </summary>
     public static IServiceCollection AddStorage(this IServiceCollection services)
     {
@@ -19,9 +20,13 @@ public static class StorageServiceCollectionExtensions
         services.TryAddSingleton<IBlobStorage>(provider =>
         {
             var options = provider.GetRequiredService<IOptions<StorageOptions>>().Value;
-            return string.Equals(options.Provider, StorageOptions.S3Provider, StringComparison.Ordinal)
-                ? S3BlobStorage.Create(options.S3, provider.GetService<S3Credentials>()?.Value)
-                : ActivatorUtilities.CreateInstance<LocalBlobStorage>(provider);
+            return options.Provider switch
+            {
+                StorageOptions.S3Provider => S3BlobStorage.Create(options.S3, provider.GetService<S3Credentials>()?.Value),
+                StorageOptions.AzureBlobProvider => AzureBlobStorage.Create(options.AzureBlob, provider.GetService<AzureBlobServiceClient>()),
+                StorageOptions.GcsProvider => GcsBlobStorage.Create(options.Gcs, provider.GetService<GcsUrlSigner>()),
+                _ => ActivatorUtilities.CreateInstance<LocalBlobStorage>(provider),
+            };
         });
         return services;
     }

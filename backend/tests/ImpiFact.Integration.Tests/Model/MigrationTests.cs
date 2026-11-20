@@ -1,7 +1,11 @@
 using ImpiFact.Domain.Catalog;
+using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Postgres;
+using MySqlDesignTimeDbContextFactory = ImpiFact.Infrastructure.MySql.DesignTimeDbContextFactory;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace ImpiFact.Integration.Tests.Model;
 
@@ -20,7 +24,63 @@ public sealed class MigrationTests
     {
         using var db = new DesignTimeDbContextFactory().CreateDbContext([]);
 
-        Assert.That(db.Database.HasPendingModelChanges(), Is.False, "Run dotnet ef migrations add in ImpiFact.Infrastructure.Postgres.");
+        Assert.That(db.Database.HasPendingModelChanges(), Is.False, $"Run dotnet ef migrations add in ImpiFact.Infrastructure.{TestDatabase.ProviderName}.");
+    }
+
+    // Las configuraciones comunes declaran los índices parciales sin SQL; el personalizador del motor escribe cada filtro
+    // y quita la marca, así ninguna queda en el modelo ni en la instantánea.
+    [Test]
+    public void The_provider_writes_every_portable_index_filter()
+    {
+        using var db = new DesignTimeDbContextFactory().CreateDbContext([]);
+        var indexes = db.GetService<IDesignTimeModel>().Model.GetEntityTypes().SelectMany(entityType => entityType.GetDeclaredIndexes()).ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(indexes.Where(index => index.FindAnnotation(PortableIndexFilters.AnnotationName) is not null).Select(index => index.GetDatabaseName()), Is.Empty);
+            Assert.That(
+                indexes.Where(index => index.GetFilter() is not null).ToDictionary(index => index.GetDatabaseName()!, index => index.GetFilter()),
+                Is.EqualTo(new Dictionary<string, string?>
+                {
+                    ["ux_certificates_active"] = "is_active",
+                    ["ux_documents_cufe"] = "cufe IS NOT NULL",
+                    ["ix_documents_track"] = "track_id IS NOT NULL",
+                }));
+        });
+    }
+
+    // Lo mismo para las migraciones de MySQL, que salen del mismo modelo con su propio personalizador.
+    [Test]
+    public void The_model_has_no_changes_missing_from_the_mysql_migrations()
+    {
+        using var db = new MySqlDesignTimeDbContextFactory().CreateDbContext([]);
+
+        Assert.That(db.Database.HasPendingModelChanges(), Is.False, "Run dotnet ef migrations add in ImpiFact.Infrastructure.MySql.");
+    }
+
+    // MySQL no tiene índices parciales: cada garantía se conserva sin filtro (Modelo de datos detallado, sección 8, trampa 1).
+    // Un único certificado activo por empresa sale de la columna generada active_company_id; el CUFE puede repetir NULL
+    // porque un índice único de MySQL no considera iguales dos NULL.
+    [Test]
+    public void The_mysql_provider_keeps_each_partial_index_guarantee_without_filters()
+    {
+        using var db = new MySqlDesignTimeDbContextFactory().CreateDbContext([]);
+        var model = db.GetService<IDesignTimeModel>().Model;
+        var indexes = model.GetEntityTypes().SelectMany(entityType => entityType.GetDeclaredIndexes())
+            .ToDictionary(index => index.GetDatabaseName()!);
+        var activeCompany = model.GetEntityTypes().Single(entityType => entityType.GetTableName() == "certificates")
+            .GetProperties().Single(property => property.GetColumnName() == "active_company_id");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(indexes.Values.Where(index => index.GetFilter() is not null).Select(index => index.GetDatabaseName()), Is.Empty);
+            Assert.That(indexes["ux_certificates_active"].IsUnique, Is.True);
+            Assert.That(indexes["ux_certificates_active"].Properties.Select(property => property.GetColumnName()), Is.EqualTo(new[] { "active_company_id" }));
+            Assert.That(activeCompany.GetComputedColumnSql(), Is.EqualTo("case when `is_active` then `company_id` end"));
+            Assert.That(activeCompany.GetIsStored(), Is.False);
+            Assert.That(indexes["ux_documents_cufe"].IsUnique, Is.True);
+            Assert.That(indexes["ix_documents_track"].IsUnique, Is.False);
+        });
     }
 
     [Test]
@@ -50,8 +110,9 @@ public sealed class MigrationTests
     {
         await using (var session = ModelDatabase.Open(companyId: null))
         {
-            await session.Db.Database.ExecuteSqlRawAsync(
-                "UPDATE type_environments SET name = 'Cambiado a mano', is_active = false WHERE id = 2");
+            // Con parámetros: cada motor escribe el booleano a su modo (SQL Server no tiene true ni false).
+            await session.Db.Database.ExecuteSqlAsync(
+                $"UPDATE type_environments SET name = {"Cambiado a mano"}, is_active = {false} WHERE id = 2");
         }
 
         CatalogSyncReport report;
@@ -62,7 +123,7 @@ public sealed class MigrationTests
 
         await using var check = ModelDatabase.Open(companyId: null);
         var row = await check.Db.Set<TypeEnvironment>().AsNoTracking().SingleAsync(entry => entry.Id == 2);
-        await check.Db.Database.ExecuteSqlRawAsync("UPDATE type_environments SET is_active = true WHERE id = 2");
+        await check.Db.Database.ExecuteSqlAsync($"UPDATE type_environments SET is_active = {true} WHERE id = 2");
 
         Assert.That(report, Is.EqualTo(new CatalogSyncReport(Inserted: 0, Updated: 1)));
         Assert.That(row.Name, Is.EqualTo("Pruebas"));

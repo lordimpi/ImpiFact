@@ -1,0 +1,74 @@
+# Container image builds (docs/Arquitectura detallada.md, sections 13 and 14).
+# Build only: nothing is pushed to a registry, so the workflow needs no credentials and no secrets.
+# Runs when the backend, the web app, a Dockerfile or this file changes (path-filtered CI, ADR-28).
+name: images
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - "web/**"
+      - "Dockerfile.*"
+      - ".dockerignore"
+      - ".github/workflows/images.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "backend/**"
+      - "web/**"
+      - "Dockerfile.*"
+      - ".dockerignore"
+      - ".github/workflows/images.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: image (${{ matrix.image }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            dockerfile: Dockerfile.api
+            context: backend
+          - image: worker
+            dockerfile: Dockerfile.worker
+            context: backend
+          - image: migrator
+            dockerfile: Dockerfile.migrator
+            context: backend
+          - image: web
+            dockerfile: Dockerfile.web
+            context: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Layers are cached in the GitHub Actions cache, one scope per image. Only the web image is loaded into the
+      # local Docker engine, because its startup script is tested below; the others stay in the build cache.
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          tags: impifact-${{ matrix.image }}:ci
+          push: false
+          load: ${{ matrix.image == 'web' }}
+          cache-from: type=gha,scope=impifact-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=impifact-${{ matrix.image }}
+
+      # Regression test of web/docker/15-impifact-config.envsh: invalid values (line breaks, plain http, warn minutes
+      # not lower than logout) stop the container, and a valid value serves the expected config.json.
+      - name: Web image configuration test
+        if: matrix.image == 'web'
+        run: bash web/docker/test-config-envsh.sh impifact-web:ci

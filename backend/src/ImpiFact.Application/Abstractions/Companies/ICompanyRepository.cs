@@ -37,6 +37,9 @@ public interface ICompanyRepository
     /// <summary>Resoluciones activas e inactivas de un tipo de documento en un ambiente.</summary>
     Task<IReadOnlyList<Resolution>> GetResolutionsAsync(Guid companyId, int documentTypeId, int typeEnvironmentId, CancellationToken ct);
 
+    /// <summary>Una resolución de la empresa por su id; nula si no existe o es de otra empresa.</summary>
+    Task<Resolution?> FindResolutionAsync(Guid companyId, Guid resolutionId, CancellationToken ct);
+
     /// <summary>Agrega una fila nueva; se inserta cuando el decorador de transacción guarda los cambios.</summary>
     void Add<TEntity>(TEntity entity)
         where TEntity : class;

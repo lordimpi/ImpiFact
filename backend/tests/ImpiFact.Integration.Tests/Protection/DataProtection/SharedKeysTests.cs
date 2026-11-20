@@ -2,7 +2,6 @@ using System.Security.Cryptography;
 using Dapper;
 using ImpiFact.Application.Abstractions.Protection;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 
 namespace ImpiFact.Integration.Tests.Protection.DataProtection;
 
@@ -55,7 +54,7 @@ public sealed class SharedKeysTests
             instance.GetRequiredService<ISecretProtector>().Protect(SecretPurposes.SmtpPassword, "smtp-password");
         }
 
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.Connect(connectionString);
         var rows = (await connection.QueryAsync<(string? FriendlyName, string Xml)>(
             "select friendly_name, xml from data_protection_keys")).ToList();
 
@@ -97,24 +96,30 @@ public sealed class SharedKeysTests
     [Test]
     public async Task The_table_matches_the_data_model()
     {
-        await using var connection = new NpgsqlConnection(connectionString);
+        await using var connection = TestDatabase.Connect(connectionString);
+        // En MySQL information_schema ve todas las bases del servidor: se mira solo la de esta prueba. El largo de longtext
+        // (4294967295) no cabe en un int y no interesa.
+        var mysql = TestDatabase.IsMySql;
+        var inThisDatabase = mysql ? " and table_schema = database()" : "";
+        var length = mysql ? "if(data_type = 'longtext', null, character_maximum_length)" : "character_maximum_length";
         var columns = (await connection.QueryAsync<(string Column, string Type, int? Length, string Nullable)>(
-                "select column_name, data_type, character_maximum_length, is_nullable from information_schema.columns " +
-                "where table_name = 'data_protection_keys' order by ordinal_position"))
+                $"select column_name, data_type, {length}, is_nullable from information_schema.columns " +
+                $"where table_name = 'data_protection_keys'{inThisDatabase} order by ordinal_position"))
             .ToList();
         var primaryKey = await connection.ExecuteScalarAsync<string>(
             "select constraint_name from information_schema.table_constraints " +
-            "where table_name = 'data_protection_keys' and constraint_type = 'PRIMARY KEY'");
+            $"where table_name = 'data_protection_keys' and constraint_type = 'PRIMARY KEY'{inThisDatabase}");
 
         Assert.Multiple(() =>
         {
-            Assert.That(columns, Is.EquivalentTo(new (string, string, int?, string)[]
-            {
-                ("id", "integer", null, "NO"),
-                ("friendly_name", "character varying", 200, "YES"),
-                ("xml", "text", null, "YES"),
-            }));
-            Assert.That(primaryKey, Is.EqualTo("pk_data_protection_keys"));
+            // En SQL Server el texto es nvarchar (-1 es nvarchar(max)), como el resto del modelo.
+            // En MySQL el texto sin largo es longtext y la llave primaria siempre se llama PRIMARY.
+            Assert.That(columns, Is.EquivalentTo(TestDatabase.IsSqlServer
+                ? new (string, string, int?, string)[] { ("id", "int", null, "NO"), ("friendly_name", "nvarchar", 200, "YES"), ("xml", "nvarchar", -1, "YES") }
+                : mysql
+                    ? [("id", "int", null, "NO"), ("friendly_name", "varchar", 200, "YES"), ("xml", "longtext", null, "YES")]
+                    : [("id", "integer", null, "NO"), ("friendly_name", "character varying", 200, "YES"), ("xml", "text", null, "YES")]));
+            Assert.That(primaryKey, Is.EqualTo(mysql ? "PRIMARY" : "pk_data_protection_keys"));
         });
     }
 

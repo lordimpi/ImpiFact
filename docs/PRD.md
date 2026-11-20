@@ -484,7 +484,7 @@ Cada fase termina en una puerta de salida medible. No se pasa a la siguiente sin
 | 3. Documentos | Primera entrega: factura nacional, notas crédito y débito, resoluciones y consultas | Golden tests: XML y CUFE idénticos al PHP en factura y notas |
 | 4. Operación | Estados, Worker con reintentos, PDF, correo, almacenamiento, planes y consumo | Peticiones Postman de la primera entrega en verde (sección 13, revisión #9) |
 | 5. Panel Angular | Propietario, vendedor y cliente; configuración; paso a producción | Un flujo completo de alta de empresa y emisión sin usar el panel PHP |
-| 6. Endurecimiento | SQL Server, MySQL, Key Vault, Secrets Manager y Secret Manager, observabilidad, pruebas de carga | Mismo despliegue en Azure, AWS y GCP |
+| 6. Endurecimiento | SQL Server, MySQL, Key Vault, Secrets Manager y Secret Manager, observabilidad, pruebas de carga, plantillas de despliegue | Plantillas de despliegue listas para Azure, AWS y GCP, validadas sin conexión, y almacenes de secretos probados con emuladores locales en Docker; el despliegue real, al elegir la nube (decisión del 19-nov, ver abajo) |
 | 7. Paridad y salida | Piloto con una empresa real usando la primera entrega; después, el resto de Community: exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes y eventos RADIAN; cierre de la referencia PHP y borrado de las rutas heredadas (`/api/ubl2.1/...` y demás) | Una empresa emite en producción con .NET; golden de cada variante y colección Postman Community completa en verde |
 | 8. Enterprise | Nómina, POS, RIPS, extractor de compras, roles avanzados, app móvil | Se planifica en un PRD aparte |
 
@@ -508,6 +508,43 @@ flowchart LR
 **Estado al 17-nov-2026.** Fase 4 cerrada: Worker con bandeja de salida (reintentos, bloqueo entre instancias, reconsulta de estados sin confirmar y reconciliación de la regla 90), envío SOAP a la DIAN, AttachedDocument, PDF con plantillas HTML y Gotenberg, correo por empresa, almacenamiento local o S3, planes y consumo, rutas de utilidades (estado, descargas, regenerar PDF y AttachedDocument, reenvío de correo, rangos de numeración), tareas diarias (limpieza y avisos de vencimiento de certificado y resolución), documentación OpenAPI en español con ejemplos listos y el comando `seed-demo`. La puerta de salida se cumple: las 91 peticiones Postman de la primera entrega pasan contra el Api (28 iguales al PHP y 63 con diferencias conocidas y listadas, ninguna falla); 1.669 pruebas en verde. Pasan a la fase 5, en su versión `/api/v1` para el panel: lista de documentos con filtros, clientes (incluida la consulta `GetAcquirer` de la DIAN), siguiente consecutivo, logo y plantillas, vista previa del PDF antes de emitir, reenvío al cliente, unir PDF, borrar empresa, varias formas de pago en una factura y anticipos.
 
 **Estado al 19-nov-2026.** Fase 5 cerrada: panel Angular 22 (standalone, sin zone.js, signals, Signal Forms, NgRx SignalStore, paginación en el servidor, Transloco es-CO, librerías por funcionalidad con límites de ESLint y componentes propios sobre Optimus UI) con sesión por cookie `HttpOnly` y renovación entre pestañas; acceso y recuperación de contraseña; alta de empresas y de su primer dueño desde la plataforma; configuración de la empresa (datos, ambientes, certificado, software, resoluciones con consulta de rangos en la DIAN) y asistente de paso a producción; clientes y productos; emisión de factura y notas con totales del servidor, vista previa del PDF y envío por correo; lista, detalle y descargas de documentos; avisos, llaves de API, planes y tablero. Las rutas `/api/v1` que pidió el panel se sumaron al backend (B1 a B10). La puerta de salida se cumple con una prueba real de punta a punta en habilitación desde el panel: empresa nueva, certificado, software, resolución SETP, facturas aceptadas por la DIAN (`00`), PDF y correo con el ZIP (PDF y AttachedDocument). Esa prueba encontró y corrigió: solo dígitos y DV automático en NIT y teléfono, departamento y municipio con búsqueda, ayudas en los campos, id de plan asignado por el servidor, ojo para ver la contraseña, recuperación de contraseña conectada, vista previa en un diálogo, cantidades sin negativos, cierre de sesión y respuesta al robo de sesión que terminan aunque el navegador corte la petición, la regla 90 con un número ya usado por otro documento (pasa a rechazado con un mensaje claro), el aviso de rechazo de la DIAN y el pedido de correo desde el panel. Pruebas al cierre: backend 2.230 en verde (1 omitida) y compilación sin advertencias; panel con lint limpio, 509 pruebas unitarias, 49 E2E con Playwright y axe, y paquete inicial de 396 kB. Dos E2E que dependen del tiempo (paso a producción y seguimiento del estado de la factura) fallan a veces con muchas pruebas en paralelo y pasan solas; se pasan a un reloj simulado en la fase 6. Quedan para la fase 6: aviso al arrancar si faltan migraciones, período de gracia en la rotación del token de renovación, fijar el próximo número de una resolución desde el panel, `Referrer-Policy` en el servidor del panel el tamaño del paquete inicial (396 kB, límite de aviso 400 kB), un 503 en lugar de 500 si la revocación de sesiones supera su plazo y las pruebas E2E que dependen del tiempo. El diseño visual y el manual de uso con capturas (Playwright) se hacen en una tarea propia al final, con el panel PHP como referencia funcional.
+
+**Puerta de la fase 6 (decisión del 19-nov-2026).** La puerta original era «Mismo despliegue en Azure, AWS y GCP». Se ajustó con la opción que eligió el usuario: «Dejo listas las plantillas de despliegue de las tres nubes y pruebo los almacenes de secretos con emuladores locales en Docker. El despliegue real lo hacemos cuando vayas a vender y elijas la nube. Sin costo ni cuentas ahora.» Plantillas entregadas el 20-nov: `deploy/azure` (Bicep), `deploy/aws` y `deploy/gcp` (Terraform), con la misma configuración en las tres y validadas sin conexión (`bicep build` y `terraform validate`), sin cuentas ni costo; el detalle está en la sección 14 de «Arquitectura detallada».
+
+**Estado al 20-nov-2026.** Fase 6 cerrada. Se entregó lo siguiente:
+
+- **Motores de base de datos.** SQL Server y MySQL se suman a PostgreSQL con un solo `DbContext`, migraciones por proveedor y el motor elegido por configuración (`Database:Provider`). MySQL usa el fork de Microting de Pomelo (ADR-08). Las lecturas Dapper, los índices filtrados, los bloqueos de tareas, la bandeja de salida y la limpieza funcionan en los tres motores.
+- **Almacenes de secretos y de archivos.** Azure Key Vault, AWS Secrets Manager con KMS y GCP Secret Manager con Cloud KMS guardan los certificados y protegen las llaves de Data Protection. Azure Blob y Google Cloud Storage se suman al almacenamiento local y S3. Todo se probó con emuladores en Docker.
+- **Observabilidad.** Registros JSON con Serilog, sin datos sensibles. Trazas y métricas de OpenTelemetry por OTLP, con métricas de negocio. Rutas `/health/ready` y salud del Worker.
+- **Contenedores.** Imágenes del Api, el Worker, el Migrator y el panel, ninguna corre como root. El compose tiene perfiles. El panel usa nginx con CSP por nonce y `Referrer-Policy`.
+- **Despliegue.** Plantillas para Azure, AWS y GCP.
+- **Pruebas de carga.** Escenarios con k6, documentados en «Pruebas de carga».
+- **Pendientes de la fase 5.** Aviso de migraciones pendientes al arrancar, 503 cuando la revocación de sesiones supera su plazo, período de gracia en la rotación del token, próximo número de la resolución desde el panel, E2E con reloj simulado y paquete inicial del panel.
+
+La puerta ajustada se cumple:
+
+- las plantillas de las tres nubes están validadas;
+- los almacenes de secretos pasan contra sus emuladores;
+- la integración continua corre las pruebas de integración en PostgreSQL, SQL Server y MySQL, y construye las imágenes, todo en verde.
+
+**Hallazgos de esa última corrida, ya corregidos.** Una URL firmada de S3 duraba un segundo de más, porque el SDK de AWS usa su propio reloj corregido. En Linux, la conexión rechazada de SQL Server llega con el número 0 y no se tomaba como pasajera.
+
+**Límites de las pruebas de carga.**
+
+- La emisión llega a unas 15 facturas por segundo por resolución, porque el bloqueo del consecutivo dura toda la transacción.
+- Un Worker procesa cerca de 1,4 facturas por segundo, limitado por Gotenberg.
+- En SQL Server, la toma de mensajes de la bandeja de salida recorre el índice agrupado completo y escala a bloqueo de tabla.
+
+**Pendientes para el despliegue real.**
+
+- Un usuario de base de datos para la aplicación, separado del administrador.
+- Validar el certificado del servidor de base de datos.
+- Reducir los permisos de Secret Manager y de Key Vault.
+- Fijar por digest la imagen de SQL Server y sumar Renovate para las acciones de GitHub.
+- No registrar la cadena de consulta en el registro de errores de nginx.
+- Métricas de documentos sin confirmar y de vencimiento del certificado.
+
+El diseño visual del panel y el manual de uso con capturas (Playwright) siguen como tarea propia.
 
 **Estrategia de pruebas**
 
@@ -533,7 +570,7 @@ flowchart LR
 | Certificados con cifrado antiguo (el PHP los "moderniza") | Medio | El PHP manda el certificado y su contraseña a un servicio externo para convertirlo; ImpiFact convierte en local y prueba con certificados reales |
 | Diferencias de redondeo y decimales entre PHP y .NET | Alto: cambia el CUFE | Golden tests con casos límite; `decimal` y reglas del anexo |
 | Tres motores de BD triplican las pruebas | Medio | PostgreSQL primero; SQL Server y MySQL en la fase 6 |
-| Soporte de MySQL en EF Core para .NET 10 | Medio | Verificar el proveedor antes de comprometer MySQL |
+| Soporte de MySQL en EF Core para .NET 10 | Medio | Resuelto con ADR-08 (19-nov): fork de Pomelo de Microting, MIT; se vigila que Pomelo oficial publique para EF Core 10 |
 | Lógica de negocio escondida en controladores de más de 1.400 líneas | Alto | Fase 0: inventario de reglas antes de diseñar casos de uso |
 | Clientes que dependen de rutas públicas o de comportamientos no documentados | Medio | Compatibilidad de rutas y colección Postman como contrato |
 | Sin pruebas reales en el origen: la carpeta `tests` del PHP solo tiene 4 archivos de ejemplo de Laravel (72 líneas) | Medio | No se puede apoyar en pruebas existentes; los golden tests las reemplazan |
@@ -558,9 +595,9 @@ flowchart LR
 | ADR-05 | Almacenamiento de certificados | Key Vault y equivalentes o llave maestra local | Ambas detrás de `ICertificateStore` |
 | ADR-06 | Rutas públicas del PHP | Mantenerlas públicas o exigir API key | Resuelto: exigir API key |
 | ADR-07 | Migración de datos existentes | Empezar limpio o importar desde MySQL | Resuelto: empezar limpio, sin migración de datos |
-| ADR-08 | Proveedor de MySQL | Pomelo u Oracle | Por verificar para .NET 10 |
+| ADR-08 | Proveedor de MySQL | Pomelo u Oracle (y el fork de Pomelo de Microting) | Cerrado (19-nov-2026): `Microting.EntityFrameworkCore.MySql` 10.0.14, el fork de Pomelo que mantiene Microting (MIT, sobre MySqlConnector 2.6.2, también MIT). Pomelo oficial no publica nada desde agosto de 2025 y su 9.0.0 solo acepta EF Core 9 (issue #2007 abierto). El de Oracle (`MySql.EntityFrameworkCore` 10.0.12) sí es estable para EF Core 10, pero su licencia es GPL-2.0 con la excepción FOSS, que no cubre la licencia propia de reventa y viajaría en todas las imágenes (los hosts registran todos los motores). El fork es estable, activo (11.0.0 ya publicado) y conserva la API pública de Pomelo en `Microsoft.EntityFrameworkCore`; volver a Pomelo oficial cuando publique para EF Core 10 es cambiar el paquete y los espacios internos `Microting.*` («Arquitectura detallada», sección 15) |
 
-**Índice de ADR.** 01 a 08 y 22 están en este documento; 09 a 14 y 22 a 28, en «Arquitectura detallada» (sección 15 y sección 19.6); 15 a 21, en «Arquitectura frontend» (sección 15). Sigue abierto ADR-08 (MySQL); ADR-09, ADR-17 y ADR-18 se cerraron el 17-nov.
+**Índice de ADR.** 01 a 08 y 22 están en este documento; 09 a 14 y 22 a 28, en «Arquitectura detallada» (sección 15 y sección 19.6); 15 a 21, en «Arquitectura frontend» (sección 15). ADR-09, ADR-17 y ADR-18 se cerraron el 17-nov y ADR-08 (MySQL) el 19-nov.
 
 **Preguntas (respondidas el 13-nov-2026; ver «Decisiones confirmadas»)**
 
@@ -613,7 +650,7 @@ Revisión de todo el documento (PRD, anexo, modelo de datos, arquitectura y fron
 | 10 | **Nombre del producto: ImpiFact.** Para un producto propio y revendible conviene nombre, namespaces y marca propios antes de crear el repo (renombrar después es costoso) y sin usar la marca FacturaLatam. | Media | Corregido (14-nov). Nombre elegido: ImpiFact. Namespaces `ImpiFact.*` y repo impifact. Pendiente: verificar dominio y marca en la SIC. |
 | 11 | **Faltaban requisitos operativos:** llaves de Data Protection compartidas entre instancias, copias de seguridad y recuperación, retención de XML y protección de datos personales. | Media | Corregido en la pestaña de arquitectura, sección 19. |
 | 12 | **Alcance grande para una persona.** Tres motores, panel, Worker y multi-empresa. | Media | Mitigado: PostgreSQL primero, fase 1 dividida en 1a (sin DIAN) y 1b (con certificado), Enterprise fuera. Si hay que recortar, el panel Angular es lo primero que se simplifica. |
-| 13 | **Decisiones que siguen abiertas:** ADR-08 (proveedor MySQL). Cerradas el 17-nov: ADR-09 (el sobre SOAP propio pasó la habilitación con la DIAN real), ADR-17 (Optimus UI 2.0.2, MIT, aprobada en el spike `docs/spikes/optimus-ui.md`; tabla y paginador propios por tamaño) y ADR-18 (Transloco). | Baja | Abierto solo ADR-08. |
+| 13 | **Decisiones que siguen abiertas:** ninguna (ADR-08, proveedor MySQL, se cerró el 19-nov). Cerradas el 17-nov: ADR-09 (el sobre SOAP propio pasó la habilitación con la DIAN real), ADR-17 (Optimus UI 2.0.2, MIT, aprobada en el spike `docs/spikes/optimus-ui.md`; tabla y paginador propios por tamaño) y ADR-18 (Transloco). | Baja | Cerrado. |
 | 14 | **Licencia del origen ambigua.** `LICENSE` dice MIT y `composer.json` declara LGPL-3.0; la licencia de `torresoftware` no se ha revisado. Importa para revender. | Alta | Abierto. `torresoftware` es LGPL-3.0 (confirmado el 14-nov): ImpiFact implementa las fórmulas y la firma desde el anexo técnico de la DIAN y usa la librería solo como referencia de comportamiento, sin traducir su código. Falta confirmar la licencia de ApiDian (MIT o LGPL-3.0). |
 | 15 | **Correcciones sin propagar.** Varias correcciones marcadas como hechas seguían contradichas en otras secciones: reglas de dependencia, consecutivo, estados, índice único, motores por fase, numeración de fases, versionado de rutas, estado de los ADR y referencias entre archivos. Se recuperaron los dos diagramas perdidos al exportar. | Media | Corregido (14-nov, segunda pasada) en los cinco documentos. |
 | 16 | **Alcance de la primera entrega.** La decisión del 13-nov recorta la «fase 1» a factura, notas, resoluciones, certificado, ambiente y consultas, pero las fases 3 y 4 incluyen exportación, contingencia, documento soporte, eventos RADIAN y lotes. | Alta | Resuelto (14-nov): entrega corta. Fases 3 y 4 con factura, notas, resoluciones, certificado, ambiente y consultas; el resto de Community, en la fase 7. |

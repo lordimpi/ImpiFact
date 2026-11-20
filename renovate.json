@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Pins the base images of the Dockerfiles and the images of deploy/docker-compose.yml by digest and groups their updates. NuGet and npm stay out of scope: they are updated by hand.",
+  "extends": ["config:recommended", "docker:pinDigests"],
+  "enabledManagers": ["dockerfile", "docker-compose"],
+  "baseBranchPatterns": ["develop"],
+  "timezone": "America/Bogota",
+  "schedule": ["before 6am on monday"],
+  "packageRules": [
+    {
+      "description": "The golden-capture environment reproduces the original PHP byte for byte; its images change only by hand.",
+      "matchFileNames": ["backend/tools/golden-capture/**"],
+      "enabled": false
+    },
+    {
+      "description": "One weekly pull request for every non-major image update: the first digest pin, digest refreshes, minor and patch versions.",
+      "matchManagers": ["dockerfile", "docker-compose"],
+      "matchUpdateTypes": ["pinDigest", "digest", "minor", "patch"],
+      "groupName": "container images"
+    },
+    {
+      "description": "The .NET SDK and ASP.NET Core runtime images move together.",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mcr.microsoft.com/dotnet/sdk", "mcr.microsoft.com/dotnet/aspnet"],
+      "groupName": ".NET container images"
+    },
+    {
+      "description": "Major image versions (database engines, Node, nginx) need a deliberate change and a migration check.",
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}

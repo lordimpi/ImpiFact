@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+# Imagen del Migrator (Arquitectura detallada, sección 14): un contenedor de una sola corrida que aplica las
+# migraciones y sincroniza los catálogos DIAN antes de arrancar la API y el Worker. El contexto es la carpeta backend/,
+# desde la raíz del repositorio:
+#   docker build -f Dockerfile.migrator -t impifact-migrator backend
+#   docker run --rm -e Database__Provider=Postgres -e Database__ConnectionString=... impifact-migrator            (migrate)
+#   docker run --rm ... impifact-migrator create-platform-key <nombre>
+# En la nube corre como job de Kubernetes, tarea de ECS, job de Cloud Run o contenedor de inicio de Container Apps.
+# Solo necesita el runtime de .NET, pero corre sobre la imagen de ASP.NET Core para compartir todas sus capas con la
+# API y el Worker: en un servidor o un registro no ocupa más espacio.
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY . .
+RUN --mount=type=cache,id=impifact-nuget,target=/root/.nuget/packages \
+    dotnet publish src/ImpiFact.Migrator/ImpiFact.Migrator.csproj -c Release -o /app -p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+# seed-demo guarda el certificado de prueba cifrado en la carpeta de certificados que comparte con la API.
+RUN mkdir -p /data/certificates && chown -R "$APP_UID:$APP_UID" /data
+COPY --from=build /app .
+USER $APP_UID
+ENV ASPNETCORE_HTTP_PORTS= \
+    Secrets__LocalAesGcm__CertificateDirectory=/data/certificates
+ENTRYPOINT ["dotnet", "ImpiFact.Migrator.dll"]
+CMD ["migrate"]

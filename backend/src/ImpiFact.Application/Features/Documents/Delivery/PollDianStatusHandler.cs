@@ -2,6 +2,7 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Companies;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Messaging;
+using ImpiFact.Application.Abstractions.Observability;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Application.Abstractions.Protection;
 using ImpiFact.Dian.Soap;
@@ -38,6 +39,7 @@ internal sealed class PollDianStatusHandler(
     IDianServiceUrls urls,
     IUnitOfWork unitOfWork,
     IClock clock,
+    ImpiFactMetrics metrics,
     ILogger<PollDianStatusHandler> logger) : IOutboxMessageHandler
 {
     public string MessageType => OutboxMessageTypes.PollDianStatus;
@@ -100,6 +102,10 @@ internal sealed class PollDianStatusHandler(
         }
 
         await unitOfWork.SaveChangesAsync(ct);
+        if (answer is DianAnswer.Decided)
+        {
+            metrics.DocumentDecided(document);
+        }
     }
 
     /// <summary>

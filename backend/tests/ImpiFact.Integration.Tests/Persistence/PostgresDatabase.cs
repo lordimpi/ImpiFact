@@ -1,4 +1,3 @@
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Persistence;
 
@@ -12,7 +11,7 @@ namespace ImpiFact.Integration.Tests.Persistence;
 [Category("Integration")]
 public sealed class PostgresDatabase
 {
-    private static PostgreSqlContainer? container;
+    private static TestDatabaseServer? container;
 
     public static string ConnectionString =>
         container?.GetConnectionString() ?? throw new InvalidOperationException("The PostgreSQL container is not running.");
@@ -20,7 +19,7 @@ public sealed class PostgresDatabase
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        container = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        container = TestDatabase.CreateServer();
         await container.StartAsync();
 
         using var harness = new PersistenceHarness();

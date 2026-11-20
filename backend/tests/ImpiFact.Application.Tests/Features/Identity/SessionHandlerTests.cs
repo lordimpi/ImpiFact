@@ -22,6 +22,7 @@ public sealed class SessionHandlerTests
     private FakeRefreshTokenStore _refreshStore = null!;
     private FakeRefreshTokenFactory _refreshFactory = null!;
     private FakeAccessTokenIssuer _issuer = null!;
+    private FakeSessionPolicy _policy = null!;
 
     [SetUp]
     public void CreateFakes()
@@ -32,6 +33,7 @@ public sealed class SessionHandlerTests
         _refreshStore = new FakeRefreshTokenStore();
         _refreshFactory = new FakeRefreshTokenFactory(_clock);
         _issuer = new FakeAccessTokenIssuer(_clock);
+        _policy = new FakeSessionPolicy();
     }
 
     [Test]
@@ -179,12 +181,14 @@ public sealed class SessionHandlerTests
         });
     }
 
+    // Fuera del período de gracia (30 segundos desde la rotación), un token rotado que vuelve es robo.
     [Test]
     public async Task Presenting_a_revoked_refresh_token_again_revokes_all_active_tokens_of_the_user()
     {
         var user = _users.AddUser("ana@example.com");
         var login = (await Login("ana@example.com", Password)).Value;
         await Refresh(login.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(30);
 
         var reused = await Refresh(login.RefreshToken);
 
@@ -202,6 +206,7 @@ public sealed class SessionHandlerTests
         var user = _users.AddUser("ana@example.com");
         var login = (await Login("ana@example.com", Password)).Value;
         await Refresh(login.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddMinutes(1);
 
         // La pestaña del usuario se recargó justo al presentar el token viejo: la petición llega cancelada.
         var reused = await Refresh(login.RefreshToken, ct: new CancellationToken(canceled: true));
@@ -211,6 +216,282 @@ public sealed class SessionHandlerTests
             Assert.That(reused.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
             Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }),
                 "The response to a stolen token must finish even if nobody waits for the answer.");
+        });
+    }
+
+    // La revocación por robo tiene su propio plazo (no usa la cancelación de la petición). Si ese plazo se cumple porque
+    // la base no contesta, la API responde el 503 de una base caída, no un 500.
+    [Test]
+    public async Task A_theft_revocation_that_runs_out_of_time_reports_the_credential_store_as_unavailable()
+    {
+        _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddMinutes(1);
+        _refreshStore.RevokeAllHangs = true;
+        var started = DateTimeOffset.UtcNow;
+
+        var exception = Assert.ThrowsAsync<CredentialStoreUnavailableException>(() => Refresh(login.RefreshToken));
+        var elapsed = DateTimeOffset.UtcNow - started;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception?.InnerException, Is.InstanceOf<OperationCanceledException>());
+            Assert.That(elapsed, Is.LessThan(TimeSpan.FromSeconds(5)), "The policy deadline applies, not a fixed one.");
+            Assert.That(_refreshStore.RevokedAllFor, Is.Empty);
+            Assert.That(_refreshStore.Tokens, Has.Count.EqualTo(2), "No new token is issued for a reused one.");
+        });
+    }
+
+    // Respuesta perdida: el navegador cortó la renovación justo después de que el servidor rotara el token, se quedó con
+    // la cookie vieja y la presenta otra vez. Dentro del período de gracia y con el reemplazo sin usar, se revoca ese
+    // reemplazo y se entrega un par nuevo de la misma sesión, en lugar de cerrar todas las sesiones del usuario.
+    [Test]
+    public async Task A_rotated_token_presented_again_within_the_grace_period_with_an_unused_replacement_gets_a_fresh_pair()
+    {
+        var companyId = Guid.CreateVersion7();
+        var user = _users.AddUser("ana@example.com");
+        _users.Join(user.Id, companyId, "owner");
+        var login = (await Login("ana@example.com", Password)).Value;
+        _clock.UtcNow = _clock.UtcNow.AddMinutes(20);
+        var rotatedAt = _clock.UtcNow;
+        await Refresh(login.RefreshToken);
+        _clock.UtcNow = rotatedAt.AddSeconds(29);
+
+        var recovered = await Refresh(login.RefreshToken, ip: "203.0.113.7", agent: "Firefox");
+
+        var presented = _refreshStore.Tokens.Single(token => token.TokenHash == "sha:refresh-1");
+        var lost = _refreshStore.Tokens.Single(token => token.TokenHash == "sha:refresh-2");
+        var fresh = _refreshStore.Tokens.Single(token => token.TokenHash == "sha:refresh-3");
+        Assert.Multiple(() =>
+        {
+            Assert.That(recovered.IsSuccess, Is.True);
+            Assert.That(recovered.Value.RefreshToken, Is.EqualTo("refresh-3"));
+            Assert.That(recovered.Value.AccessToken, Is.EqualTo("jwt-3"));
+            Assert.That(recovered.Value.CompanyId, Is.EqualTo(companyId));
+            Assert.That(_issuer.Issued[^1].UserId, Is.EqualTo(user.Id));
+            Assert.That(presented.RevokedAt, Is.EqualTo(rotatedAt), "The presented token keeps its first rotation.");
+            Assert.That(presented.ReplacedBy, Is.EqualTo(lost.Id));
+            Assert.That(lost.RevokedAt, Is.EqualTo(_clock.UtcNow), "The replacement the browser never received is revoked.");
+            Assert.That(lost.ReplacedBy, Is.EqualTo(fresh.Id));
+            Assert.That(fresh.RevokedAt, Is.Null);
+            Assert.That(fresh.UserId, Is.EqualTo(user.Id));
+            Assert.That(fresh.CreatedIp, Is.EqualTo("203.0.113.7"));
+            Assert.That(fresh.UserAgent, Is.EqualTo("Firefox"));
+            Assert.That(_refreshStore.Tokens.Count(token => token.RevokedAt is null), Is.EqualTo(1));
+            Assert.That(_refreshStore.RevokedAllFor, Is.Empty, "A lost response is not a theft.");
+        });
+    }
+
+    [Test]
+    public async Task A_rotated_token_presented_again_when_the_grace_period_is_over_is_still_a_theft()
+    {
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(30);
+
+        var reused = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }));
+            Assert.That(_refreshStore.Tokens, Has.Count.EqualTo(2), "No new token is issued for a reused one.");
+            Assert.That(_refreshStore.Tokens.Single(token => token.TokenHash == "sha:refresh-2").RevokedAt, Is.Null,
+                "Only the theft response (RevokeAllActiveForUserAsync) ends the replacement.");
+        });
+    }
+
+    [Test]
+    public async Task A_rotated_token_whose_replacement_was_already_used_is_a_theft_even_within_the_grace_period()
+    {
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        var replacement = (await Refresh(login.RefreshToken)).Value;
+        await Refresh(replacement.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(5);
+
+        var reused = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }));
+            Assert.That(_refreshStore.Tokens, Has.Count.EqualTo(3), "No new token is issued for a reused one.");
+        });
+    }
+
+    // Dentro del período de gracia, decidir entre respuesta perdida y robo exige leer el reemplazo. Esa lectura tampoco
+    // usa la cancelación de la petición: si el dueño presenta su token viejo y su pestaña se recarga justo entonces, la
+    // respuesta de robo debe terminar igual.
+    [Test]
+    public async Task A_theft_within_the_grace_period_revokes_every_session_even_when_the_client_aborted_the_request()
+    {
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        var replacement = (await Refresh(login.RefreshToken)).Value;
+        await Refresh(replacement.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(5);
+
+        var reused = await Refresh(login.RefreshToken, ct: new CancellationToken(canceled: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }));
+        });
+    }
+
+    [Test]
+    public async Task A_token_closed_by_a_logout_is_a_theft_even_within_the_grace_period()
+    {
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Logout(login.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(5);
+
+        var reused = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }));
+            Assert.That(_refreshStore.Tokens, Has.Count.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task A_rotation_stamped_in_the_future_is_still_a_theft_when_grace_is_zero()
+    {
+        // Otra réplica con el reloj adelantado (o un ajuste del reloj hacia atrás) dejó la rotación en el futuro.
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        _policy.RotationGracePeriod = TimeSpan.Zero;
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(-2);
+
+        var reused = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }));
+        });
+    }
+
+    [Test]
+    public async Task A_rotation_stamped_in_the_future_does_not_widen_the_grace_window()
+    {
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(-2);
+
+        var reused = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }));
+        });
+    }
+
+    [Test]
+    public async Task A_logout_with_a_just_rotated_token_closes_its_unused_replacement()
+    {
+        // La respuesta de la renovación se perdió: la cookie tiene el token viejo y el reemplazo nunca se usó.
+        _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(2);
+
+        var loggedOut = await Logout(login.RefreshToken);
+        _clock.UtcNow = _clock.UtcNow.AddSeconds(2);
+        var replay = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loggedOut.Value.Revoked, Is.True, "The logout closed the session that the lost refresh left open.");
+            Assert.That(replay.IsSuccess, Is.False);
+            Assert.That(_refreshStore.Tokens.Count(token => token.RevokedAt is null), Is.Zero);
+        });
+    }
+
+    [Test]
+    public async Task A_logout_with_a_rotated_token_whose_replacement_was_used_leaves_the_live_session_alone()
+    {
+        _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        var rotated = (await Refresh(login.RefreshToken)).Value;
+        await Refresh(rotated.RefreshToken);
+
+        var loggedOut = await Logout(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loggedOut.Value.Revoked, Is.False);
+            Assert.That(_refreshStore.Tokens.Count(token => token.RevokedAt is null), Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public async Task A_grace_period_of_zero_turns_the_recovery_off()
+    {
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        _policy.RotationGracePeriod = TimeSpan.Zero;
+
+        var reused = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reused.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }));
+        });
+    }
+
+    [Test]
+    public async Task A_second_recovery_with_the_same_token_is_a_theft()
+    {
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        var first = await Refresh(login.RefreshToken);
+
+        var second = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.IsSuccess, Is.True);
+            Assert.That(second.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken), "The replacement is no longer unused.");
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }));
+            Assert.That(_refreshStore.Tokens, Has.Count.EqualTo(3));
+        });
+    }
+
+    // Dos solicitudes simultáneas con el mismo token viejo: las dos leen el reemplazo sin usar, pero solo una lo puede
+    // reclamar (RevokeAsync; en la base, la versión de fila). La otra recibe SessionIssuer.AlreadyUsed y se trata como
+    // robo: nunca quedan dos pares vivos.
+    [Test]
+    public async Task Two_simultaneous_recoveries_with_the_same_token_never_both_get_a_pair()
+    {
+        var user = _users.AddUser("ana@example.com");
+        var login = (await Login("ana@example.com", Password)).Value;
+        await Refresh(login.RefreshToken);
+        var unusedReplacement = _refreshStore.Tokens.Single(token => token.TokenHash == "sha:refresh-2");
+        var first = await Refresh(login.RefreshToken);
+        _refreshStore.StaleFindById = id => id == unusedReplacement.Id ? unusedReplacement : null;
+
+        var second = await Refresh(login.RefreshToken);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.IsSuccess, Is.True);
+            Assert.That(second.Error, Is.EqualTo(IdentityErrors.InvalidRefreshToken));
+            Assert.That(_refreshStore.RevokedAllFor, Is.EqualTo(new[] { (user.Id, _clock.UtcNow) }));
+            Assert.That(_refreshStore.Tokens, Has.Count.EqualTo(3), "The loser issues no token.");
         });
     }
 
@@ -318,11 +599,12 @@ public sealed class SessionHandlerTests
         new LoginHandler(_users, _hasher, _clock, _issuer, _refreshFactory, _refreshStore)
             .HandleAsync(new LoginCommand(email, password, companyId, ip, agent), CancellationToken.None);
 
-    private Task<Result<SessionTokens>> Refresh(string token, Guid? companyId = null, CancellationToken ct = default) =>
-        new RefreshTokenHandler(_refreshStore, _refreshFactory, _users, _issuer, _clock, NullLogger<RefreshTokenHandler>.Instance)
-            .HandleAsync(new RefreshTokenCommand(token, companyId, null, null), ct);
+    private Task<Result<SessionTokens>> Refresh(
+        string token, Guid? companyId = null, CancellationToken ct = default, string? ip = null, string? agent = null) =>
+        new RefreshTokenHandler(_refreshStore, _refreshFactory, _users, _issuer, _clock, _policy, NullLogger<RefreshTokenHandler>.Instance)
+            .HandleAsync(new RefreshTokenCommand(token, companyId, ip, agent), ct);
 
     private Task<Result<LoggedOut>> Logout(string token) =>
-        new LogoutHandler(_refreshStore, _refreshFactory, _clock, NullLogger<LogoutHandler>.Instance)
+        new LogoutHandler(_refreshStore, _refreshFactory, _clock, _policy, NullLogger<LogoutHandler>.Instance)
             .HandleAsync(new LogoutCommand(token), CancellationToken.None);
 }

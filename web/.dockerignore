@@ -1,0 +1,33 @@
+# Contexto de la imagen del panel (Dockerfile.web en la raíz del repositorio, con «web» como contexto). Las
+# dependencias se instalan dentro de la imagen con npm ci: nunca entran node_modules, salidas de compilación, reportes,
+# configuración local ni secretos.
+
+node_modules/
+dist/
+out-tsc/
+.angular/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.lighthouseci/
+lighthouse-reports/
+e2e/
+
+**/.env
+**/.env.*
+**/secrets/
+**/.local/
+**/*.pfx
+**/*.p12
+**/*.pem
+**/*.key
+**/*.crt
+**/*.cer
+
+**/.codegraph/
+**/.claude/
+**/.idea/
+**/.vscode/
+**/.DS_Store
+**/Thumbs.db

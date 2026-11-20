@@ -9,7 +9,6 @@ using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Platform.Scheduling;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
 using static ImpiFact.Integration.Tests.DocumentUtilities.UtilitiesHost;
 
 namespace ImpiFact.Integration.Tests.Scheduling;
@@ -44,11 +43,20 @@ public sealed class JobLockReleaseTests
         Assert.That(await AdvisoryLocksAsync(), Is.EqualTo(0), string.Join(",", runs.Select(run => run.Outcome)));
     }
 
+    /// <summary>
+    /// Bloqueos de tareas tomados en la base: advisory locks en PostgreSQL (<c>pg_locks</c>), bloqueos de aplicación de
+    /// esta base en SQL Server (<c>sys.dm_tran_locks</c>), bloqueos con nombre (<c>GET_LOCK</c>) en MySQL.
+    /// </summary>
     private static async Task<long> AdvisoryLocksAsync()
     {
-        await using var connection = new NpgsqlConnection(SchedulingEnvironment.ConnectionString);
+        await using var connection = TestDatabase.Connect(SchedulingEnvironment.ConnectionString);
         await connection.OpenAsync();
-        await using var command = new NpgsqlCommand("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted", connection);
-        return (long)(await command.ExecuteScalarAsync())!;
+        await using var command = connection.CreateCommand();
+        command.CommandText = TestDatabase.IsSqlServer
+            ? "SELECT count(*) FROM sys.dm_tran_locks WHERE resource_type = 'APPLICATION' AND request_status = 'GRANT' AND resource_database_id = DB_ID()"
+            : TestDatabase.IsMySql
+                ? "SELECT count(*) FROM performance_schema.metadata_locks WHERE object_type = 'USER LEVEL LOCK' AND lock_status = 'GRANTED'"
+                : "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted";
+        return Convert.ToInt64(await command.ExecuteScalarAsync(), System.Globalization.CultureInfo.InvariantCulture);
     }
 }

@@ -266,9 +266,18 @@ test('the production wizard steps follow what the API reports', async ({ page })
 
 test('switching to production requires an explicit confirmation', async ({ page }) => {
   const bodies: unknown[] = [];
+  // Como el Api, el estado del paso a producción trae el ambiente guardado: después del cambio, la factura en
+  // producción. Una lectura que devolviera el ambiente viejo borraría «En producción» (era la causa de la falla).
+  let environments = WITH_CERTIFICATE.environments;
   await signInAt(page, `/empresas/${COMPANY}/produccion`);
+  await page.route(`**/api/v1/companies/${NIT}/setup-status`, (route) =>
+    route.fulfill({ json: { ...WITH_CERTIFICATE, environments } }),
+  );
   await page.route(`**/api/v1/companies/${NIT}/environment`, (route) => {
     bodies.push(route.request().postDataJSON());
+    environments = environments.map((entry) =>
+      entry.document_kind === 1 ? { ...entry, type_environment_id: 1 } : entry,
+    );
     return route.fulfill({
       json: { success: true, environments: [{ document_kind: 1, type_environment_id: 1 }] },
     });
@@ -291,7 +300,14 @@ test('switching to production requires an explicit confirmation', async ({ page 
     .getByRole('button', { name: 'Pasar a producción: Factura electrónica y notas' })
     .click();
   await dialog.getByRole('checkbox').check();
+  // Después de guardar, el panel vuelve a leer el estado del paso a producción: se espera esa lectura.
+  const reload = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/v1/companies/${NIT}/setup-status`) &&
+      response.request().method() === 'GET',
+  );
   await confirm.click();
+  await reload;
 
   await expect(page.getByText('En producción', { exact: true })).toBeVisible();
   expect(bodies).toEqual([{ type_environment_id: 1 }]);

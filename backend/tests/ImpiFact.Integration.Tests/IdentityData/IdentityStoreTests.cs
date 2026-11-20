@@ -6,7 +6,6 @@ using ImpiFact.Infrastructure;
 using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
-using ImpiFact.Infrastructure.Postgres;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -76,7 +75,7 @@ public sealed class IdentityStoreTests
         }
 
         var row = await QuerySingleAsync<(DateTime? LastUsedAt, string Scopes, DateTime? RevokedAt)>(
-            "select last_used_at, scopes, revoked_at from api_keys where id = @id", new { id });
+            $"select {TestDatabase.Utc("last_used_at")}, scopes, {TestDatabase.Utc("revoked_at")} from api_keys where id = @id", new { id });
 
         Assert.Multiple(() =>
         {
@@ -147,7 +146,7 @@ public sealed class IdentityStoreTests
         }
 
         var row = await QuerySingleAsync<(DateTime? RevokedAt, Guid? ReplacedBy)>(
-            "select revoked_at, replaced_by from refresh_tokens where id = @id", new { id = old.Id });
+            $"select {TestDatabase.Utc("revoked_at")}, replaced_by from refresh_tokens where id = @id", new { id = old.Id });
         var newRow = await QuerySingleAsync<(string TokenHash, string UserAgent)>(
             "select token_hash, user_agent from refresh_tokens where id = @id", new { id = replacement.Id });
 
@@ -157,6 +156,27 @@ public sealed class IdentityStoreTests
             Assert.That(row.ReplacedBy, Is.EqualTo(replacement.Id));
             Assert.That(newRow.TokenHash, Is.EqualTo(replacement.TokenHash));
             Assert.That(newRow.UserAgent, Has.Length.EqualTo(300));
+        });
+    }
+
+    [Test]
+    public async Task A_refresh_token_is_found_by_id_even_when_revoked_and_an_unknown_id_finds_nothing()
+    {
+        var userId = await AddUserAsync(platformRoles: [], company: null);
+        var revoked = await AddRefreshTokenAsync(userId, revokedAt: Now.AddMinutes(-1));
+
+        await using var scope = IdentityDatabase.Open(companyId: null);
+        var store = Store<IRefreshTokenStore>(scope);
+        var found = await store.FindByIdAsync(revoked.Id, CancellationToken.None);
+        var missing = await store.FindByIdAsync(Guid.CreateVersion7(), CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(found?.Id, Is.EqualTo(revoked.Id));
+            Assert.That(found?.UserId, Is.EqualTo(userId));
+            Assert.That(found?.TokenHash, Is.EqualTo(revoked.TokenHash));
+            Assert.That(found?.RevokedAt, Is.EqualTo(Now.AddMinutes(-1)));
+            Assert.That(missing, Is.Null);
         });
     }
 
@@ -212,13 +232,13 @@ public sealed class IdentityStoreTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Database:Provider"] = "Postgres",
+                ["Database:Provider"] = TestDatabase.ProviderName,
                 ["Database:ConnectionString"] = UnreachableDatabase.ConnectionString,
             })
             .Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        collection.AddInfrastructure(configuration, TestDatabase.Providers);
         collection.AddIdentityPersistence();
         using var services = collection.BuildServiceProvider();
         using var scope = services.CreateScope();
@@ -271,7 +291,7 @@ public sealed class IdentityStoreTests
 
     private static async Task<T> QuerySingleAsync<T>(string sql, object parameters)
     {
-        await using var connection = new NpgsqlConnection(IdentityDatabase.ConnectionString);
+        await using var connection = TestDatabase.Connect(IdentityDatabase.ConnectionString);
         return await connection.QuerySingleAsync<T>(sql, parameters);
     }
 }

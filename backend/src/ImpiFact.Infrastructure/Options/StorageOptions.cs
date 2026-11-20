@@ -4,8 +4,8 @@ namespace ImpiFact.Infrastructure.Options;
 
 /// <summary>
 /// Almacenamiento de archivos (sección «Storage»; Arquitectura detallada, sección 11). Existen los proveedores
-/// <c>Local</c> (supuesto B3 de la fase 3: el XML firmado se guarda al emitir) y <c>S3</c> (fase 4, supuesto C7);
-/// los demás de nube (<c>AzureBlob</c>, <c>Gcs</c>) llegan en la fase 6 y elegirlos hoy detiene el arranque.
+/// <c>Local</c> (supuesto B3 de la fase 3: el XML firmado se guarda al emitir), <c>S3</c> (fase 4, supuesto C7),
+/// <c>AzureBlob</c> y <c>Gcs</c> (fase 6).
 /// </summary>
 public sealed class StorageOptions
 {
@@ -15,8 +15,12 @@ public sealed class StorageOptions
 
     public const string S3Provider = "S3";
 
+    public const string AzureBlobProvider = "AzureBlob";
+
+    public const string GcsProvider = "Gcs";
+
     [Required]
-    [AllowedValues(LocalProvider, "AzureBlob", S3Provider, "Gcs")]
+    [AllowedValues(LocalProvider, AzureBlobProvider, S3Provider, GcsProvider)]
     public string Provider { get; set; } = "";
 
     /// <summary>Ajustes del proveedor <c>Local</c>; solo se exigen cuando ese es el proveedor.</summary>
@@ -24,6 +28,12 @@ public sealed class StorageOptions
 
     /// <summary>Ajustes del proveedor <c>S3</c>; solo se exigen cuando ese es el proveedor.</summary>
     public S3StorageOptions S3 { get; set; } = new();
+
+    /// <summary>Ajustes del proveedor <c>AzureBlob</c>; solo se exigen cuando ese es el proveedor.</summary>
+    public AzureBlobStorageOptions AzureBlob { get; set; } = new();
+
+    /// <summary>Ajustes del proveedor <c>Gcs</c>; solo se exigen cuando ese es el proveedor.</summary>
+    public GcsStorageOptions Gcs { get; set; } = new();
 }
 
 /// <summary>Proveedor local: los archivos van a una carpeta del servidor, por ejemplo un volumen de Docker.</summary>
@@ -78,5 +88,73 @@ public sealed class S3StorageOptions
     public bool ServerSideEncryption { get; set; } = true;
 
     /// <summary>Vigencia máxima, en minutos, de una URL prefirmada de descarga (por omisión una hora).</summary>
+    public int SignedUrlMaxMinutes { get; set; } = 60;
+}
+
+/// <summary>
+/// Proveedor <c>AzureBlob</c>: Azure Blob Storage, el almacenamiento de objetos de Azure (Azurite en desarrollo, perfil
+/// <c>azurite</c> de <c>deploy/docker-compose.yml</c>). Cada clave de archivo es el nombre del blob dentro del
+/// contenedor (el equivalente del bucket de S3).
+/// </summary>
+/// <remarks>
+/// Aquí no hay llaves ni SAS: el cliente usa la identidad de la carga de trabajo con <c>DefaultAzureCredential</c>
+/// (identidad administrada en Azure; variables <c>AZURE_CLIENT_ID</c>, <c>AZURE_TENANT_ID</c> y el token federado
+/// en Kubernetes; la sesión de la CLI de Azure en un equipo de desarrollo). La identidad necesita el rol
+/// «Storage Blob Data Contributor» sobre el contenedor y, para las URL firmadas, «Storage Blob Delegator» sobre la
+/// cuenta.
+/// </remarks>
+public sealed class AzureBlobStorageOptions
+{
+    /// <summary>Límite superior de <see cref="SignedUrlMaxMinutes"/>: 7 días, lo máximo de una llave de delegación.</summary>
+    public const int SignedUrlLimitMinutes = 7 * 24 * 60;
+
+    /// <summary>
+    /// Dirección del servicio de blobs de la cuenta, por ejemplo <c>https://impifactdocs.blob.core.windows.net</c>.
+    /// Con Azurite es <c>http://127.0.0.1:10000/devstoreaccount1</c>. Absoluta, <c>http</c> o <c>https</c>, sin
+    /// usuario, contraseña, consulta (una SAS) ni fragmento.
+    /// </summary>
+    public string ServiceUri { get; set; } = "";
+
+    /// <summary>Contenedor donde se guardan los archivos; debe existir (lo crea el despliegue, no la aplicación).</summary>
+    public string Container { get; set; } = "";
+
+    /// <summary>Vigencia máxima, en minutos, de una URL firmada (SAS de solo lectura) de descarga; por omisión una hora.</summary>
+    public int SignedUrlMaxMinutes { get; set; } = 60;
+
+    /// <summary>
+    /// Solo para Azurite (perfil <c>azurite</c> del compose): entra con la cuenta de desarrollo que el SDK de Azure ya
+    /// conoce (<c>UseDevelopmentStorage=true</c>, la cuenta pública <c>devstoreaccount1</c>), porque Azurite no acepta
+    /// la identidad de la carga de trabajo por http. Exige <see cref="ServiceUri"/> de la forma
+    /// <c>http://&lt;host&gt;:10000/devstoreaccount1</c>; con una cuenta de Azure no sirve. Apagado por omisión.
+    /// </summary>
+    public bool UseEmulatorAccount { get; set; }
+}
+
+/// <summary>
+/// Proveedor <c>Gcs</c>: Google Cloud Storage (fake-gcs-server en desarrollo, perfil <c>gcs</c> de
+/// <c>deploy/docker-compose.yml</c>). Cada clave de archivo es el nombre del objeto dentro del bucket.
+/// </summary>
+/// <remarks>
+/// Aquí no hay llaves: el cliente usa las credenciales predeterminadas de la aplicación de Google (ADC: la cuenta de
+/// servicio de Cloud Run o de GKE con identidad de la carga de trabajo; <c>gcloud auth application-default login</c> en
+/// un equipo de desarrollo). La cuenta necesita el rol «Storage Object User» sobre el bucket y, para las URL firmadas,
+/// el permiso <c>iam.serviceAccounts.signBlob</c> sobre sí misma («Service Account Token Creator»).
+/// </remarks>
+public sealed class GcsStorageOptions
+{
+    /// <summary>Límite superior de <see cref="SignedUrlMaxMinutes"/>: 7 días, lo máximo de una firma V4.</summary>
+    public const int SignedUrlLimitMinutes = 7 * 24 * 60;
+
+    /// <summary>Bucket donde se guardan los archivos; debe existir (lo crea el despliegue, no la aplicación).</summary>
+    public string Bucket { get; set; } = "";
+
+    /// <summary>
+    /// Solo para un emulador: dirección de fake-gcs-server (por ejemplo <c>http://127.0.0.1:4443</c>). Vacía para
+    /// usar Google Cloud. Con ella el cliente no manda credenciales. Absoluta, <c>http</c> o <c>https</c>, sin
+    /// usuario, contraseña, consulta ni fragmento.
+    /// </summary>
+    public string Endpoint { get; set; } = "";
+
+    /// <summary>Vigencia máxima, en minutos, de una URL firmada (V4) de descarga; por omisión una hora.</summary>
     public int SignedUrlMaxMinutes { get; set; } = 60;
 }

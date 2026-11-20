@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Proveedor SQL Server: conecta Entity Framework Core (EF, el mapeador de objetos a tablas) y las lecturas con
+    Microsoft.Data.SqlClient (el controlador .NET de SQL Server). Guarda aquí sus migraciones (carpeta Migrations),
+    generadas con
+    dotnet ef migrations add <Nombre> -p src/ImpiFact.Infrastructure.SqlServer -s src/ImpiFact.Infrastructure.SqlServer
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <!-- SqlClient no emite trazas por sí mismo: este paquete (estable) las crea a partir de sus eventos de diagnóstico. -->
+    <PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ImpiFact.Infrastructure\ImpiFact.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

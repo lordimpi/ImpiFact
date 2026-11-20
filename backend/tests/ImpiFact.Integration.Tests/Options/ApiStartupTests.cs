@@ -64,6 +64,9 @@ public sealed class ApiStartupTests
             Assert.That(jwt.Audience, Is.EqualTo("impifact-web"));
             Assert.That(jwt.AccessMinutes, Is.EqualTo(15));
             Assert.That(jwt.RefreshDays, Is.EqualTo(14));
+            Assert.That(jwt.RefreshRotationGraceSeconds, Is.EqualTo(30));
+            Assert.That(factory.Services.GetRequiredService<ImpiFact.Application.Abstractions.Identity.ISessionPolicy>().RotationGracePeriod,
+                Is.EqualTo(TimeSpan.FromSeconds(30)));
             Assert.That(apiKey.Prefix, Is.EqualTo("apk_"));
             Assert.That(secrets.Provider, Is.EqualTo("LocalAesGcm"));
             Assert.That(storage.Provider, Is.EqualTo("Local"));

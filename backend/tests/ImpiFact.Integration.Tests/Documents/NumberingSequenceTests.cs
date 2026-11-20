@@ -260,6 +260,86 @@ public sealed class NumberingSequenceTests
         });
     }
 
+    [Test]
+    public async Task Advancing_moves_the_sequence_forward_and_never_back()
+    {
+        var (companyId, scopeKey) = await CreateSequenceAsync(next: 10);
+
+        var forward = await AdvanceAndCommitAsync(companyId, scopeKey, 40);
+        var backward = await AdvanceAndCommitAsync(companyId, scopeKey, 20);
+        var next = await TakeAndCommitAsync(companyId, scopeKey);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(forward, Is.EqualTo(40));
+            Assert.That(backward, Is.EqualTo(40), "A lower number leaves the sequence where it was.");
+            Assert.That(next, Is.EqualTo(40));
+        });
+    }
+
+    [Test]
+    public async Task Advancing_on_a_missing_sequence_returns_null()
+    {
+        var companyId = await DocumentsDatabase.CreateCompanyAsync();
+
+        Assert.That(await AdvanceAndCommitAsync(companyId, NumberingScope.ForResolution(Guid.CreateVersion7()), 5), Is.Null);
+    }
+
+    [Test]
+    public async Task Advancing_waits_for_a_running_take_and_then_never_hands_out_the_taken_number_again()
+    {
+        var (companyId, scopeKey) = await CreateSequenceAsync(next: 10);
+
+        await using var issue = DocumentsDatabase.Open(companyId);
+        await using var issueTransaction = await issue.UnitOfWork.BeginTransactionAsync(CancellationToken.None);
+        var taken = await issue.Get<INumberingSequences>().TakeNextAsync(companyId, scopeKey, CancellationToken.None);
+
+        // The panel read 10 as the next number before the issue committed and asks to keep 10.
+        var advance = Task.Run(() => AdvanceAndCommitAsync(companyId, scopeKey, 10));
+        var blocked = await Task.WhenAny(advance, Task.Delay(BlockedWindow)) != advance;
+        await issueTransaction.CommitAsync(CancellationToken.None);
+        var advanced = await advance;
+        var next = await TakeAndCommitAsync(companyId, scopeKey);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(blocked, Is.True, "The advance waits on the sequence row lock of the running issue.");
+            Assert.That(taken, Is.EqualTo(10));
+            Assert.That(advanced, Is.EqualTo(11), "The advance sees the committed take and does not move the sequence back.");
+            Assert.That(next, Is.EqualTo(11));
+        });
+    }
+
+    [Test]
+    public async Task Parallel_takers_and_an_advance_never_get_the_same_number()
+    {
+        const int takers = 20;
+        var (companyId, scopeKey) = await CreateSequenceAsync(next: 1);
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var tasks = Enumerable.Range(0, takers).Select(_ => Task.Run(async () =>
+        {
+            await start.Task;
+            return await TakeAndCommitAsync(companyId, scopeKey);
+        })).ToList();
+        var advance = Task.Run(async () =>
+        {
+            await start.Task;
+            return await AdvanceAndCommitAsync(companyId, scopeKey, 10);
+        });
+        start.SetResult();
+        var numbers = await Task.WhenAll(tasks);
+        await advance;
+
+        var sequence = await ReadSequenceAsync(companyId, scopeKey);
+        Assert.Multiple(() =>
+        {
+            Assert.That(numbers, Is.Unique);
+            Assert.That(numbers, Has.None.Null);
+            Assert.That(sequence.NextNumber, Is.EqualTo(numbers.Max() + 1));
+        });
+    }
+
     private static DocumentNumberKey Key(long number) => new(DocumentTypeId: 1, TypeEnvironmentId: 2, Prefix: "SETP", number);
 
     private static async Task<(Guid CompanyId, string ScopeKey)> CreateSequenceAsync(long next, string? scopeKey = null)
@@ -295,6 +375,15 @@ public sealed class NumberingSequenceTests
         var reservation = await session.Get<INumberingSequences>().ReserveAsync(companyId, scopeKey, number, CancellationToken.None);
         await transaction.CommitAsync(CancellationToken.None);
         return reservation;
+    }
+
+    private static async Task<long?> AdvanceAndCommitAsync(Guid companyId, string scopeKey, long nextNumber)
+    {
+        await using var session = DocumentsDatabase.Open(companyId);
+        await using var transaction = await session.UnitOfWork.BeginTransactionAsync(CancellationToken.None);
+        var next = await session.Get<INumberingAdvance>().AdvanceToAsync(companyId, scopeKey, nextNumber, CancellationToken.None);
+        await transaction.CommitAsync(CancellationToken.None);
+        return next;
     }
 
     private static async Task<NumberingSequence> ReadSequenceAsync(Guid companyId, string scopeKey)

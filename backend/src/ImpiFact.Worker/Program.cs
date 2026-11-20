@@ -1,5 +1,11 @@
+using ImpiFact.Infrastructure.Observability;
+using ImpiFact.Infrastructure.Persistence;
+using ImpiFact.Worker;
+using ImpiFact.Worker.Health;
 using ImpiFact.Infrastructure.Platform.Outbox;
+using ImpiFact.Infrastructure.MySql;
 using ImpiFact.Infrastructure.Postgres;
+using ImpiFact.Infrastructure.SqlServer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -25,6 +31,18 @@ builder.ConfigureContainer(new DefaultServiceProviderFactory(new ServiceProvider
 
 // Infrastructure, Application (con los handlers de la bandeja de salida) y el procesador: la misma composición que
 // arma la prueba del Worker (WorkerCompositionTests), que además resuelve cada handler porque aquí no se revisa al construir.
-builder.Services.AddWorkerServices(builder.Configuration, new PostgresDatabaseProvider());
+// Van todos los motores disponibles y Database:Provider elige uno.
+builder.Services.AddWorkerServices(
+    builder.Configuration,
+    new PostgresDatabaseProvider(),
+    new SqlServerDatabaseProvider(),
+    new MySqlDatabaseProvider());
 
-await builder.Build().RunAsync();
+// Registros JSON con Serilog, sin secretos, trazas y métricas por OTLP si está OTEL_EXPORTER_OTLP_ENDPOINT y las
+// pruebas de salud por HTTP en WorkerHealth:Port (Arquitectura detallada, sección 12).
+builder.AddImpiFactObservability(WorkerHost.ServiceName);
+builder.Services.AddWorkerHealthEndpoints(builder.Configuration);
+
+// Si la base tiene migraciones pendientes, el Worker no arranca (no corre ninguna tarea): escribe cuáles faltan y
+// termina con código 1. Es la misma revisión de la API (PendingMigrationsGuard).
+return await builder.Build().RunWhenDatabaseIsMigratedAsync();

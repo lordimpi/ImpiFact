@@ -51,6 +51,9 @@ public sealed class FakeCompanyRepository : ICompanyRepository
             .Where(row => row.CompanyId == companyId && row.DocumentTypeId == documentTypeId && row.TypeEnvironmentId == typeEnvironmentId)
             .ToList());
 
+    public Task<Resolution?> FindResolutionAsync(Guid companyId, Guid resolutionId, CancellationToken ct) =>
+        Task.FromResult(Stored.OfType<Resolution>().SingleOrDefault(row => row.CompanyId == companyId && row.Id == resolutionId));
+
     public void Add<TEntity>(TEntity entity)
         where TEntity : class => Added.Add(entity);
 
@@ -237,6 +240,26 @@ public sealed class FakeNumberingSequences : INumberingSequences
 
     public Task<NumberReservation> ReserveAsync(Guid companyId, string scopeKey, DocumentNumberKey number, CancellationToken ct) =>
         throw new NotSupportedException("Company use cases do not reserve numbers.");
+}
+
+/// <summary>
+/// Consecutivos en memoria para <see cref="INumberingAdvance"/>: <see cref="Next"/> es el próximo número de cada
+/// consecutivo y, como el UPDATE real, adelantar deja el mayor entre el actual y el pedido.
+/// </summary>
+public sealed class FakeNumberingAdvance : INumberingAdvance
+{
+    public Dictionary<(Guid CompanyId, string ScopeKey), long> Next { get; } = [];
+
+    public Task<long?> AdvanceToAsync(Guid companyId, string scopeKey, long nextNumber, CancellationToken ct)
+    {
+        if (!Next.TryGetValue((companyId, scopeKey), out var current))
+        {
+            return Task.FromResult<long?>(null);
+        }
+
+        Next[(companyId, scopeKey)] = Math.Max(current, nextNumber);
+        return Task.FromResult<long?>(Next[(companyId, scopeKey)]);
+    }
 }
 
 public sealed class FakeTenant : ITenantContext

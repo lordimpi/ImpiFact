@@ -1,0 +1,68 @@
+#!/bin/sh
+# Configuración del panel al arrancar el contenedor (Dockerfile.web). La imagen de nginx carga este archivo antes de
+# llenar sus plantillas (20-envsubst-on-templates.sh), así que las variables que exporta llegan a default.conf y a
+# security-headers.inc. Un valor inválido detiene el contenedor con un mensaje: nunca se sirve una configuración a medias.
+#
+#   IMPIFACT_API_BASE_URL               URL del Api que usa el panel (config.json). https, o http solo hacia localhost o
+#                                       127.0.0.1; sin usuario, consulta ni fragmento. Vacía: mismo origen (un proxy o
+#                                       ingress lleva /api/ al Api).
+#   IMPIFACT_INACTIVITY_WARN_MINUTES    minutos sin actividad para avisar (25 si falta).
+#   IMPIFACT_INACTIVITY_LOGOUT_MINUTES  minutos sin actividad para cerrar la sesión (30 si falta).
+#
+# Exporta además IMPIFACT_API_ORIGIN (esquema, host y puerto del Api), que la política de seguridad de contenido
+# (connect-src) necesita para dejar que el panel llame al Api.
+
+impifact_config_fail() {
+    echo "15-impifact-config.envsh: $1" >&2
+    exit 1
+}
+
+# Los valores terminan dentro de config.json y de un encabezado HTTP: un salto de línea u otro carácter de control
+# partiría el encabezado o el JSON. Se rechazan antes de cualquier otra revisión (grep revisa línea por línea, así que
+# un valor de varias líneas con la primera válida pasaría).
+impifact_reject_control() {
+    case "$2" in
+        *[[:cntrl:]]*) impifact_config_fail "$1 must not contain control characters such as line breaks." ;;
+    esac
+}
+impifact_reject_control IMPIFACT_API_BASE_URL "${IMPIFACT_API_BASE_URL:-}"
+impifact_reject_control IMPIFACT_INACTIVITY_WARN_MINUTES "${IMPIFACT_INACTIVITY_WARN_MINUTES:-}"
+impifact_reject_control IMPIFACT_INACTIVITY_LOGOUT_MINUTES "${IMPIFACT_INACTIVITY_LOGOUT_MINUTES:-}"
+
+impifact_url="${IMPIFACT_API_BASE_URL:-}"
+while [ "${impifact_url%/}" != "$impifact_url" ]; do
+    impifact_url="${impifact_url%/}"
+done
+
+impifact_origin=""
+if [ -n "$impifact_url" ]; then
+    # Solo letras, dígitos y los signos seguros de una URL: el valor termina dentro de config.json y de un encabezado.
+    if ! printf '%s' "$impifact_url" | grep -Eq '^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~-]+)*$'; then
+        impifact_config_fail "IMPIFACT_API_BASE_URL must be an absolute http(s) URL without user, query or fragment, for example https://api.example.com."
+    fi
+    impifact_origin=$(printf '%s' "$impifact_url" | sed -E 's#^(https?://[^/]+).*$#\1#')
+    case "$impifact_origin" in
+        https://*|http://localhost|http://localhost:*|http://127.0.0.1|http://127.0.0.1:*) ;;
+        *) impifact_config_fail "IMPIFACT_API_BASE_URL must use https (http only for localhost or 127.0.0.1): the panel sends the session token to it." ;;
+    esac
+fi
+
+impifact_warn="${IMPIFACT_INACTIVITY_WARN_MINUTES:-25}"
+impifact_logout="${IMPIFACT_INACTIVITY_LOGOUT_MINUTES:-30}"
+# Solo dígitos, sin cero a la izquierda y hasta cuatro cifras: el valor completo, no una línea de él.
+for impifact_minutes in "$impifact_warn" "$impifact_logout"; do
+    case "$impifact_minutes" in
+        [1-9] | [1-9][0-9] | [1-9][0-9][0-9] | [1-9][0-9][0-9][0-9]) ;;
+        *) impifact_config_fail "IMPIFACT_INACTIVITY_WARN_MINUTES and IMPIFACT_INACTIVITY_LOGOUT_MINUTES must be whole minutes between 1 and 9999." ;;
+    esac
+done
+# Falla cerrado: si la comparación misma diera error, el contenedor también se detiene.
+if ! [ "$impifact_warn" -lt "$impifact_logout" ] 2>/dev/null; then
+    impifact_config_fail "IMPIFACT_INACTIVITY_WARN_MINUTES must be lower than IMPIFACT_INACTIVITY_LOGOUT_MINUTES."
+fi
+
+export IMPIFACT_API_BASE_URL="$impifact_url"
+export IMPIFACT_API_ORIGIN="$impifact_origin"
+export IMPIFACT_INACTIVITY_WARN_MINUTES="$impifact_warn"
+export IMPIFACT_INACTIVITY_LOGOUT_MINUTES="$impifact_logout"
+echo "15-impifact-config.envsh: panel API base URL: ${impifact_url:-(same origin)}"

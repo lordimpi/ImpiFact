@@ -7,7 +7,9 @@ using ImpiFact.Infrastructure.Identity;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
+using ImpiFact.Infrastructure.MySql;
 using ImpiFact.Infrastructure.Postgres;
+using ImpiFact.Infrastructure.SqlServer;
 using ImpiFact.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -74,7 +76,19 @@ public static class MigratorApp
             configuration = WithSeedDemoDefaults(configuration);
         }
 
-        await using var services = BuildServices(configuration, withApplication: command == Command.SeedDemo);
+        ServiceProvider services;
+        try
+        {
+            services = BuildServices(configuration, withApplication: command == Command.SeedDemo);
+        }
+        catch (InvalidOperationException exception)
+        {
+            // El registro solo falla por la configuración, por ejemplo sin Database:Provider o con un motor que no existe.
+            await error.WriteLineAsync("Invalid configuration: " + exception.Message);
+            return 1;
+        }
+
+        await using var disposeServices = services;
         try
         {
             // Valida la configuración de la base antes de tocarla: así el error nombra el dato que falta. seed-demo
@@ -137,7 +151,13 @@ public static class MigratorApp
     private static ServiceProvider BuildServices(IConfiguration configuration, bool withApplication)
     {
         var services = new ServiceCollection();
-        services.AddInfrastructure(configuration, new PostgresDatabaseProvider());
+        // Todos los motores disponibles; Database:Provider elige uno (sin él, o con uno que no existe, el comando falla
+        // con un mensaje que lista los disponibles).
+        services.AddInfrastructure(
+            configuration,
+            new PostgresDatabaseProvider(),
+            new SqlServerDatabaseProvider(),
+            new MySqlDatabaseProvider());
         services.AddIdentityPersistence();
         if (withApplication)
         {

@@ -28,6 +28,15 @@ public sealed class JwtOptions
     public int RefreshDays { get; set; }
 
     /// <summary>
+    /// Período de gracia de la rotación, en segundos (30 por defecto; 0 lo apaga, máximo 300). Si el navegador corta una
+    /// renovación justo después de que el servidor rotó el token, se queda con el token viejo; presentarlo antes de que
+    /// pase este tiempo, con su reemplazo todavía sin usar, entrega un par nuevo en lugar de cerrar todas las sesiones del
+    /// usuario como un robo. Fuera de este tiempo, o con el reemplazo ya usado, sigue siendo robo.
+    /// </summary>
+    [Range(0, 300)]
+    public int RefreshRotationGraceSeconds { get; set; } = 30;
+
+    /// <summary>
     /// Secreto: llave privada ECDSA (firma digital con curvas elípticas) de la curva P-256, en formato PEM (texto
     /// que empieza con <c>-----BEGIN PRIVATE KEY-----</c>). Con ella se firman los tokens con ES256 (ECDSA P-256 con
     /// SHA-256). Fuera de Development es obligatoria y el arranque falla sin ella; en Development, si falta, se

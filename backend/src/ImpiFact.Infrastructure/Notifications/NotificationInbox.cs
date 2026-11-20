@@ -20,17 +20,18 @@ namespace ImpiFact.Infrastructure.Notifications;
 /// Usan el índice <c>ix_notifications_company_id_user_id_is_read_created_at</c> (company_id, user_id, is_read,
 /// created_at DESC): la empresa y el usuario (nulo o el de la sesión) son iguales en las dos ramas del OR. Los avisos de
 /// una empresa son pocos (decenas o cientos), así que el orden final por <c>(created_at, id)</c> no necesita otro índice.
-/// SQL de PostgreSQL, el único motor de esta fase.
+/// El SQL es común a los tres motores; el límite y el booleano los pone el dialecto del motor (<see cref="ISqlDialect"/>).
 /// </remarks>
-internal sealed class NotificationInbox(IReadConnectionFactory connections, ImpiFactDbContext db, ITenantContext tenant, IClock clock)
+internal sealed class NotificationInbox(
+    IReadConnectionFactory connections, ImpiFactDbContext db, ITenantContext tenant, IClock clock, ISqlDialect dialect)
     : INotificationInbox
 {
     public async Task<IReadOnlyList<NotificationItem>> ListAsync(NotificationListFilter filter, CancellationToken ct)
     {
         var parameters = Audience(filter.Audience);
         parameters.Add("Take", filter.Take);
-        var sql = new StringBuilder("""
-            select n.id as Id, n.type as Type, n.title as Title, n.body as Body, n.is_read as IsRead, n.created_at as CreatedAt
+        var sql = new StringBuilder($"""
+            select n.id as Id, n.type as Type, n.title as Title, n.body as Body, n.is_read as IsRead, {dialect.Instant("n.created_at")} as CreatedAt
             from notifications n
             where n.company_id = @CompanyId and (n.user_id is null or n.user_id = @UserId)
             """);
@@ -49,7 +50,7 @@ internal sealed class NotificationInbox(IReadConnectionFactory connections, Impi
             parameters.Add("AfterId", after.Id);
         }
 
-        sql.Append(" order by n.created_at desc, n.id desc limit @Take");
+        sql.Append($" order by n.created_at desc, n.id desc {dialect.Paging("@Take")}");
         await using var connection = await connections.OpenAsync(ct);
         var rows = await connection.QueryAsync<NotificationRow>(new CommandDefinition(sql.ToString(), parameters, cancellationToken: ct));
         return rows.Select(row => new NotificationItem(
@@ -60,9 +61,9 @@ internal sealed class NotificationInbox(IReadConnectionFactory connections, Impi
     {
         await using var connection = await connections.OpenAsync(ct);
         return await connection.ExecuteScalarAsync<long>(new CommandDefinition(
-            """
+            $"""
             select count(*) from notifications n
-            where n.company_id = @CompanyId and (n.user_id is null or n.user_id = @UserId) and n.is_read = false
+            where n.company_id = @CompanyId and (n.user_id is null or n.user_id = @UserId) and n.is_read = {dialect.Bool(false)}
             """,
             Audience(audience),
             cancellationToken: ct));

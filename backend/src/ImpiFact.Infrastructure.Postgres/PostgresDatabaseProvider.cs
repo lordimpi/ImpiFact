@@ -11,6 +11,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 namespace ImpiFact.Infrastructure.Postgres;
 
@@ -21,6 +23,9 @@ namespace ImpiFact.Infrastructure.Postgres;
 /// </summary>
 public sealed class PostgresDatabaseProvider : IDatabaseProvider
 {
+    /// <summary>Nombre de la fuente de trazas y del medidor propios de Npgsql.</summary>
+    internal const string NpgsqlTelemetry = "Npgsql";
+
     public string Name => "Postgres";
 
     public void AddServices(IServiceCollection services)
@@ -29,6 +34,7 @@ public sealed class PostgresDatabaseProvider : IDatabaseProvider
         services.TryAddSingleton(serviceProvider =>
             NpgsqlDataSource.Create(serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString));
         services.TryAddSingleton<IReadConnectionFactory, NpgsqlReadConnectionFactory>();
+        services.TryAddSingleton<ISqlDialect, PostgresSqlDialect>();
         services.TryAddSingleton<INumberingSql, PostgresNumberingSql>();
         services.TryAddSingleton<IOutboxQueueSql, PostgresOutboxQueueSql>();
         services.TryAddSingleton<IScheduledJobLockSql, PostgresScheduledJobLockSql>();
@@ -45,6 +51,16 @@ public sealed class PostgresDatabaseProvider : IDatabaseProvider
     // 23505 es el código de PostgreSQL para «unique_violation».
     public bool IsUniqueViolation(DbUpdateException exception) =>
         exception.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
+
+    /// <summary>
+    /// Npgsql emite por sí mismo un tramo por comando con la fuente «Npgsql» (sin los valores de los parámetros), así no
+    /// hace falta su paquete de OpenTelemetry (que solo agrega esa fuente) ni el de EF Core (que sigue en versión
+    /// preliminar).
+    /// </summary>
+    public void ConfigureTracing(TracerProviderBuilder tracing) => tracing.AddSource(NpgsqlTelemetry);
+
+    /// <summary>Npgsql también publica sus métricas (duración de comandos, conexiones del grupo) con el medidor «Npgsql».</summary>
+    public void ConfigureMetrics(MeterProviderBuilder metrics) => metrics.AddMeter(NpgsqlTelemetry);
 
     internal static DbContextOptionsBuilder Configure(DbContextOptionsBuilder options) =>
         options.ReplaceService<IModelCustomizer, PostgresModelCustomizer>();

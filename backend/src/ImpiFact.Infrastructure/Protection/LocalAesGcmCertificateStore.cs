@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
@@ -29,7 +28,7 @@ namespace ImpiFact.Infrastructure.Protection;
 /// </remarks>
 internal sealed class LocalAesGcmCertificateStore(LocalMasterKey masterKey, IOptions<SecretsOptions> options) : ICertificateStore
 {
-    private const string Scheme = "local:";
+    private const string Scheme = "local";
     private const string FileExtension = ".pfx.aesgcm";
     private const string KeyPurpose = "impifact/certificates/v1";
 
@@ -68,7 +67,7 @@ internal sealed class LocalAesGcmCertificateStore(LocalMasterKey masterKey, IOpt
             File.Delete(temporary);
             throw;
         }
-        return $"{Scheme}{companyId:D}/{blobId:D}";
+        return CertificateReference.Format(Scheme, companyId, blobId);
     }
 
     /// <summary>
@@ -98,16 +97,10 @@ internal sealed class LocalAesGcmCertificateStore(LocalMasterKey masterKey, IOpt
         var envelope = await File.ReadAllBytesAsync(path, ct);
         var key = masterKey.DeriveKey(KeyPurpose);
         byte[]? plaintext = null;
-        char[]? password = null;
         try
         {
             plaintext = AesGcmEnvelope.Open(key, envelope, AssociatedData(companyId, blobId));
-            var passwordLength = BinaryPrimitives.ReadInt32BigEndian(plaintext);
-            var passwordBytes = plaintext.AsSpan(sizeof(int), passwordLength);
-            password = new char[Encoding.UTF8.GetCharCount(passwordBytes)];
-            Encoding.UTF8.GetChars(passwordBytes, password);
-            return X509CertificateLoader.LoadPkcs12(
-                plaintext.AsSpan(sizeof(int) + passwordLength), password, X509KeyStorageFlags.EphemeralKeySet);
+            return CertificatePayload.Load(plaintext);
         }
         finally
         {
@@ -115,11 +108,6 @@ internal sealed class LocalAesGcmCertificateStore(LocalMasterKey masterKey, IOpt
             if (plaintext is not null)
             {
                 CryptographicOperations.ZeroMemory(plaintext);
-            }
-
-            if (password is not null)
-            {
-                Array.Clear(password);
             }
         }
     }
@@ -138,14 +126,10 @@ internal sealed class LocalAesGcmCertificateStore(LocalMasterKey masterKey, IOpt
     private byte[] Seal(Guid companyId, Guid blobId, byte[] pfx, string password)
     {
         // Contenido del sobre: largo de la contraseña (4 bytes) | contraseña en UTF-8 | PKCS#12.
-        var passwordLength = Encoding.UTF8.GetByteCount(password);
-        var plaintext = new byte[sizeof(int) + passwordLength + pfx.Length];
+        var plaintext = CertificatePayload.Pack(pfx, password);
         var key = masterKey.DeriveKey(KeyPurpose);
         try
         {
-            BinaryPrimitives.WriteInt32BigEndian(plaintext, passwordLength);
-            Encoding.UTF8.GetBytes(password, plaintext.AsSpan(sizeof(int)));
-            pfx.CopyTo(plaintext.AsSpan(sizeof(int) + passwordLength));
             return AesGcmEnvelope.Seal(key, plaintext, AssociatedData(companyId, blobId));
         }
         finally
@@ -162,25 +146,7 @@ internal sealed class LocalAesGcmCertificateStore(LocalMasterKey masterKey, IOpt
     /// Lee <c>local:{empresa}/{blob}</c>. Ambas partes deben ser identificadores en su forma canónica, así la
     /// referencia nunca puede salirse de la carpeta (por ejemplo con <c>../</c>).
     /// </summary>
-    private static Guid ParseReference(Guid companyId, string secretRef)
-    {
-        var parts = secretRef is not null && secretRef.StartsWith(Scheme, StringComparison.Ordinal)
-            ? secretRef[Scheme.Length..].Split('/')
-            : [];
-        if (parts is not [var company, var blob]
-            || !Guid.TryParseExact(company, "D", out var refCompanyId) || company != refCompanyId.ToString("D")
-            || !Guid.TryParseExact(blob, "D", out var blobId) || blob != blobId.ToString("D"))
-        {
-            throw new ArgumentException("The certificate reference is not valid.", nameof(secretRef));
-        }
-
-        if (refCompanyId != companyId)
-        {
-            throw new ArgumentException("The certificate reference does not belong to the company.", nameof(secretRef));
-        }
-
-        return blobId;
-    }
+    private static Guid ParseReference(Guid companyId, string secretRef) => CertificateReference.Parse(Scheme, companyId, secretRef);
 
     private string FilePath(Guid companyId, Guid blobId) =>
         Path.Combine(Path.GetFullPath(options.Value.LocalAesGcm.CertificateDirectory), companyId.ToString("D"), blobId.ToString("D") + FileExtension);

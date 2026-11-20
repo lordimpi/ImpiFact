@@ -13,6 +13,7 @@ using ImpiFact.Application.Features.Companies;
 using ImpiFact.Application.Features.Companies.NumberingRange;
 using ImpiFact.Application.Features.Companies.Reads;
 using ImpiFact.Application.Features.Companies.SetEnvironment;
+using ImpiFact.Application.Features.Companies.SetResolutionNextNumber;
 using ImpiFact.Application.Features.Companies.SetSoftware;
 using ImpiFact.Application.Features.Companies.UpdateCompany;
 using ImpiFact.Application.Features.Companies.UploadCertificate;
@@ -186,6 +187,22 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "`days_left` (días hasta el fin de la vigencia, en el calendario de Colombia). De la clave técnica solo dice " +
                 "si existe (`has_technical_key`); nunca la devuelve." + OwnNit);
 
+        canonical.MapPut("/{nit}/resolutions/{id:guid}/next-number", SetResolutionNextNumber).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces<ResolutionNextNumberResponse>()
+            .WithRequestExamples(ExampleBodies.ResolutionNextNumber)
+            .WithOperationId("setResolutionNextNumber")
+            .WithSummary("Fijar el próximo número de una resolución")
+            .WithDescription(
+                "Fija en `next_number` el número que tomará el próximo documento emitido con la resolución `{id}` (el `id` " +
+                "que devuelve `GET /api/v1/companies/{nit}/resolutions`). Se usa si la empresa viene de otro sistema de " +
+                "facturación y debe seguir desde su último número, o si ya usó números de este rango ante la DIAN (por " +
+                "ejemplo, un set de pruebas anterior con la misma resolución de habilitación, que la DIAN rechaza con la " +
+                "regla 90). El número debe estar dentro del rango `from`-`to` de la resolución y no puede ser menor que el " +
+                "próximo número actual, porque bajarlo podría repetir un número ya enviado a la DIAN: si no cumple, responde " +
+                "422 con el motivo en `errors.next_number`. Una emisión al mismo tiempo nunca recibe un número repetido. " +
+                "Resolución inexistente o de otra empresa: 404 (`resolution.not_found`). Responde el `next_number` que quedó." +
+                OwnNit);
+
         canonical.MapGet("/{nit}/setup-status", (string nit, IHandler<GetCompanySetupStatusQuery, CompanySetupStatusResponse> handler,
             CancellationToken ct) => Read(new GetCompanySetupStatusQuery(nit), handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<CompanySetupStatusResponse>()
@@ -316,6 +333,11 @@ internal sealed class CompanyEndpoints : IEndpointModule
     private static async Task<IResult> UpsertResolution(
         string? nit, UpsertResolutionCommand body, IHandler<UpsertResolutionCommand, ResolutionSavedResponse> handler, CancellationToken ct) =>
         (await handler.HandleAsync(body with { Nit = nit }, ct)).ToHttpResult();
+
+    private static async Task<IResult> SetResolutionNextNumber(
+        string nit, Guid id, SetResolutionNextNumberCommand body, IHandler<SetResolutionNextNumberCommand, ResolutionNextNumberResponse> handler,
+        CancellationToken ct) =>
+        (await handler.HandleAsync(body with { Nit = nit, ResolutionId = id }, ct)).ToHttpResult();
 
     private static async Task<IResult> ListCertificates(
         string? nit, IHandler<ListCertificatesQuery, CertificatesResponse> handler, CancellationToken ct) =>

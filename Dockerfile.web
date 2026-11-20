@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1
+# Imagen del panel (Arquitectura detallada, sección 14): el build de producción de Angular servido por nginx sin
+# privilegios (usuario 101, puerto 8080). El contexto es la carpeta web/, desde la raíz del repositorio:
+#   docker build -f Dockerfile.web -t impifact-web web
+# La URL del Api y los minutos de inactividad se fijan al arrancar, sin volver a compilar (variables IMPIFACT_* de
+# web/docker/15-impifact-config.envsh): el contenedor arma config.json y la política de seguridad de contenido con ellas.
+
+FROM node:24.22-alpine AS build
+WORKDIR /src
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,id=impifact-npm,target=/root/.npm \
+    npm ci --no-audit --no-fund
+COPY . .
+# Además del build: la revisión de que cada script y estilo en línea de index.html lleve el marcador del nonce de la
+# CSP (nginx lo cambia por uno nuevo en cada respuesta), y sin el config.json del repositorio (el de desarrollo),
+# porque nginx lo responde con las variables del contenedor.
+RUN npx ng build app --configuration production \
+    && node docker/check-csp-nonce.mjs dist/app/browser/index.html \
+    && rm dist/app/browser/config.json
+
+FROM nginxinc/nginx-unprivileged:1.30-alpine AS final
+# Las plantillas solo reemplazan las variables IMPIFACT_*: las de nginx ($uri, $host...) quedan como están.
+ENV NGINX_ENVSUBST_FILTER=^IMPIFACT_ \
+    IMPIFACT_API_BASE_URL= \
+    IMPIFACT_INACTIVITY_WARN_MINUTES=25 \
+    IMPIFACT_INACTIVITY_LOGOUT_MINUTES=30
+COPY docker/nginx/default.conf.template docker/nginx/security-headers.inc.template /etc/nginx/templates/
+COPY --chmod=0755 docker/15-impifact-config.envsh /docker-entrypoint.d/
+COPY --from=build /src/dist/app/browser /usr/share/nginx/html
+EXPOSE 8080
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/health/live"]

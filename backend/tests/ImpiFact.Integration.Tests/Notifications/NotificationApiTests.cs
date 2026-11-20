@@ -61,7 +61,7 @@ public sealed class NotificationApiTests
 
         // PostgreSQL ordena los uuid por sus bytes, que es el orden del texto en hexadecimal.
         var newestFirst = expected.OrderByDescending(row => row.CreatedAt)
-            .ThenByDescending(row => row.Id.ToString("N"), StringComparer.Ordinal)
+            .ThenByDescending(row => row.Id, TestDatabase.IdOrder)
             .Select(row => row.Id)
             .ToList();
         Assert.Multiple(() =>
@@ -348,7 +348,7 @@ public sealed class NotificationApiTests
         string body = "La DIAN no confirmó el documento.")
     {
         var id = Guid.CreateVersion7();
-        await using var connection = new NpgsqlConnection(NotificationsHost.ConnectionString);
+        await using var connection = TestDatabase.Connect(NotificationsHost.ConnectionString);
         await connection.ExecuteAsync(
             """
             insert into notifications (id, company_id, user_id, type, title, body, is_read, created_at, updated_at, row_version)
@@ -362,10 +362,10 @@ public sealed class NotificationApiTests
 
     private static async Task<StoredNotification> RowAsync(Guid id)
     {
-        await using var connection = new NpgsqlConnection(NotificationsHost.ConnectionString);
-        var row = await connection.QuerySingleAsync<(bool IsRead, DateTime UpdatedAt, long RowVersion)>(
+        await using var connection = TestDatabase.Connect(NotificationsHost.ConnectionString);
+        var row = await connection.QuerySingleAsync<(bool IsRead, object UpdatedAt, long RowVersion)>(
             "select is_read, updated_at, row_version from notifications where id = @Id", new { Id = id });
-        return new StoredNotification(row.IsRead, new DateTimeOffset(DateTime.SpecifyKind(row.UpdatedAt, DateTimeKind.Utc)), row.RowVersion);
+        return new StoredNotification(row.IsRead, TestDatabase.Instant(row.UpdatedAt), row.RowVersion);
     }
 
     private sealed record StoredNotification(bool IsRead, DateTimeOffset UpdatedAt, long RowVersion);

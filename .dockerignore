@@ -1,0 +1,33 @@
+# Las imágenes usan como contexto backend/ (API, Worker y Migrator) o web/ (panel), cada una con su .dockerignore.
+# Este archivo protege un build que tome la raíz del repositorio como contexto: nunca entran dependencias, salidas de
+# compilación, configuración local, secretos ni certificados.
+
+.git/
+**/node_modules/
+**/bin/
+**/obj/
+**/dist/
+**/.angular/
+**/TestResults/
+
+.local/
+odd/
+deploy/.env
+**/.env
+**/.env.*
+**/secrets/
+**/launchSettings.json
+**/*.pfx
+**/*.p12
+**/*.pem
+**/*.key
+**/*.crt
+**/*.cer
+
+.claude/
+.codegraph/
+.engram/
+.atl/
+**/.vs/
+**/.idea/
+**/.vscode/

@@ -59,6 +59,7 @@ public sealed class DocumentListFilterApiTests
     [TestCase("ACME s", new[] { 1 })]
     [TestCase("900123", new[] { 3, 1 })]
     [TestCase("%", new int[0])]
+    [TestCase("acme_sas", new int[0])]
     public async Task Customer_matches_a_piece_of_the_name_or_the_identification_without_case(string customer, int[] expected)
     {
         var company = await DocumentSeed.CompanyAsync();
@@ -150,7 +151,7 @@ public sealed class DocumentListFilterApiTests
         while (cursor is not null && pages < 10);
 
         // PostgreSQL ordena los uuid por sus bytes, que es el orden del texto en hexadecimal.
-        Assert.That(seen, Is.EqualTo(tied.OrderByDescending(id => id.ToString("N"), StringComparer.Ordinal).ToList()));
+        Assert.That(seen, Is.EqualTo(tied.OrderByDescending(id => id, TestDatabase.IdOrder).ToList()));
     }
 
     [TestCase("kind=receipt", "kind", "kind es inválido.")]

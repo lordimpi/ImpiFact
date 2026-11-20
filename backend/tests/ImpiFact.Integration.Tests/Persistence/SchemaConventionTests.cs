@@ -14,7 +14,7 @@ public sealed class SchemaConventionTests
     public async Task Tables_and_columns_use_snake_case()
     {
         var columns = await QueryAsync<string>(
-            "select column_name from information_schema.columns where table_schema = 'public' and table_name = 'widgets'");
+            $"select column_name from information_schema.columns where table_schema = '{TestDatabase.DefaultSchema}' and table_name = 'widgets'");
 
         Assert.That(columns, Is.EquivalentTo(new[]
         {
@@ -26,11 +26,17 @@ public sealed class SchemaConventionTests
     [Test]
     public async Task Keys_and_indexes_use_the_prefixed_snake_case_names()
     {
-        var indexes = await QueryAsync<string>("select indexname from pg_indexes where tablename = 'widgets'");
+        var indexes = await QueryAsync<string>(TestDatabase.IsSqlServer
+            ? "select i.name from sys.indexes i where i.object_id = object_id('widgets') and i.type > 0"
+            : TestDatabase.IsMySql
+                ? "select distinct index_name from information_schema.statistics where table_schema = database() and table_name = 'widgets'"
+                : "select indexname from pg_indexes where tablename = 'widgets'");
 
+        // MySQL llama siempre PRIMARY a la llave primaria; los demás nombres son los de la convención.
         Assert.That(indexes, Is.EquivalentTo(new[]
         {
-            "pk_widgets", "ux_widgets_company_id_display_name", "ix_widgets_occurred_at", "ix_widgets_group_id",
+            TestDatabase.IsMySql ? "PRIMARY" : "pk_widgets", "ux_widgets_company_id_display_name", "ix_widgets_occurred_at",
+            "ix_widgets_group_id",
         }));
     }
 
@@ -49,25 +55,30 @@ public sealed class SchemaConventionTests
     {
         var precisions = await QueryAsync<(string Column, int Precision, int Scale)>(
             "select column_name, numeric_precision, numeric_scale from information_schema.columns " +
-            "where table_name = 'widgets' and data_type = 'numeric' order by column_name");
+            "where table_name = 'widgets' and data_type in ('numeric', 'decimal') order by column_name");
 
         Assert.That(precisions, Is.EqualTo(new[] { ("price", 18, 2), ("unit_price", 18, 6) }));
     }
 
+    // Los tipos de cada motor (Modelo de datos detallado, sección 8): jsonb, timestamptz y uuid en PostgreSQL;
+    // nvarchar(max) con ISJSON, datetimeoffset y uniqueidentifier en SQL Server; json, datetime(6) en UTC (MySQL no tiene un
+    // tipo con desfase) y char(36) en MySQL.
     [Test]
     public async Task Json_values_use_jsonb_and_instants_use_timestamptz()
     {
+        var sqlServer = TestDatabase.IsSqlServer;
+        var mysql = TestDatabase.IsMySql;
         var types = (await QueryAsync<(string Column, string Type)>(
-                "select column_name, data_type from information_schema.columns where table_name = 'widgets'"))
+                $"select column_name, {(mysql ? "column_type" : "data_type")} from information_schema.columns where table_name = 'widgets'"))
             .ToDictionary(column => column.Column, column => column.Type);
 
         Assert.Multiple(() =>
         {
-            Assert.That(types["details"], Is.EqualTo("jsonb"));
-            Assert.That(types["occurred_at"], Is.EqualTo("timestamp with time zone"));
-            Assert.That(types["deleted_at"], Is.EqualTo("timestamp with time zone"));
+            Assert.That(types["details"], Is.EqualTo(sqlServer ? "nvarchar" : mysql ? "json" : "jsonb"));
+            Assert.That(types["occurred_at"], Is.EqualTo(sqlServer ? "datetimeoffset" : mysql ? "datetime(6)" : "timestamp with time zone"));
+            Assert.That(types["deleted_at"], Is.EqualTo(sqlServer ? "datetimeoffset" : mysql ? "datetime(6)" : "timestamp with time zone"));
             Assert.That(types["row_version"], Is.EqualTo("bigint"));
-            Assert.That(types["id"], Is.EqualTo("uuid"));
+            Assert.That(types["id"], Is.EqualTo(sqlServer ? "uniqueidentifier" : mysql ? "char(36)" : "uuid"));
         });
     }
 

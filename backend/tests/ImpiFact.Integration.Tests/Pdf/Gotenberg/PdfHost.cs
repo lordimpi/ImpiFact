@@ -13,7 +13,6 @@ using ImpiFact.Domain.Platform;
 using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Seeding;
 using ImpiFact.Infrastructure.Platform.Outbox;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Model;
 using ImpiFact.Integration.Tests.Persistence;
@@ -21,7 +20,6 @@ using ImpiFact.Integration.Tests.Protection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Testcontainers.PostgreSql;
 
 namespace ImpiFact.Integration.Tests.Pdf.Gotenberg;
 
@@ -39,7 +37,7 @@ public sealed class PdfContainers
 
     private const ushort GotenbergPort = 3000;
 
-    private static PostgreSqlContainer? postgres;
+    private static TestDatabaseServer? postgres;
     private static IContainer? gotenberg;
     private static int nitSequence;
 
@@ -53,7 +51,7 @@ public sealed class PdfContainers
     [OneTimeSetUp]
     public async Task StartAsync()
     {
-        postgres = new PostgreSqlBuilder("postgres:18.1-alpine").Build();
+        postgres = TestDatabase.CreateServer();
         gotenberg = new ContainerBuilder(GotenbergImage)
             .WithPortBinding(GotenbergPort, assignRandomHostPort: true)
             .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(request => request.ForPort(GotenbergPort).ForPath("/health")))
@@ -100,7 +98,7 @@ public sealed class PdfHost : IAsyncDisposable
     {
         var values = new Dictionary<string, string?>(scratch.LocalAesGcmSettings())
         {
-            ["Database:Provider"] = "Postgres",
+            ["Database:Provider"] = TestDatabase.ProviderName,
             ["Database:ConnectionString"] = PdfContainers.ConnectionString,
             ["Storage:Provider"] = "Local",
             ["Storage:Local:Root"] = Path.Combine(scratch.Root, "storage"),
@@ -114,7 +112,7 @@ public sealed class PdfHost : IAsyncDisposable
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddWorkerServices(configuration, new PostgresDatabaseProvider());
+        collection.AddWorkerServices(configuration, TestDatabase.Providers);
         collection.AddSingleton<IClock>(Clock);
         services = collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
@@ -246,8 +244,10 @@ public sealed class PdfHost : IAsyncDisposable
     public async Task<List<OutboxMessage>> MessagesAsync(Guid companyId, string type)
     {
         await using var scope = OpenScope();
-        return await scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>().Set<OutboxMessage>().AsNoTracking()
-            .Where(row => row.CompanyId == companyId && row.Type == type).OrderBy(row => row.CreatedAt).ThenBy(row => row.Id).ToListAsync();
+        // Ordenado aquí: SQL Server no ordena los uuid v7 por su creación (ver DianSendHost.MessagesAsync).
+        var rows = await scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>().Set<OutboxMessage>().AsNoTracking()
+            .Where(row => row.CompanyId == companyId && row.Type == type).ToListAsync();
+        return [.. rows.OrderBy(row => row.CreatedAt).ThenBy(row => row.Id)];
     }
 
     /// <summary>Contenido guardado de un archivo de documento.</summary>

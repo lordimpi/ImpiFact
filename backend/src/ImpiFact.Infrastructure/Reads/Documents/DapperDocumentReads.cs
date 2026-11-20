@@ -5,6 +5,7 @@ using Dapper;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Domain.Documents;
+using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Persistence.Conversions;
 
 namespace ImpiFact.Infrastructure.Reads.Documents;
@@ -26,17 +27,17 @@ namespace ImpiFact.Infrastructure.Reads.Documents;
 /// </list>
 /// </summary>
 /// <remarks>
-/// SQL de PostgreSQL, el único motor de esta fase: <c>limit</c> y <c>offset</c> cambian en SQL Server. Las listas
-/// (<c>in (...)</c>) se arman con un parámetro por valor y no con la expansión de Dapper, que con Npgsql (el controlador
-/// de PostgreSQL) envía un arreglo que <c>in</c> no acepta.
+/// El SQL es común a los tres motores; el límite, la búsqueda sin mayúsculas y la lectura de la columna JSON los pone el
+/// dialecto del motor (<see cref="ISqlDialect"/>). Las listas (<c>in (...)</c>) se arman con un parámetro por valor y no
+/// con la expansión de Dapper, que con Npgsql (el controlador de PostgreSQL) envía un arreglo que <c>in</c> no acepta.
 /// </remarks>
-internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : IDocumentReads
+internal sealed class DapperDocumentReads(IReadConnectionFactory connections, ISqlDialect dialect) : IDocumentReads
 {
     /// <summary>Columnas de la cabecera; los alias son los nombres de <see cref="HeaderRow"/>.</summary>
-    private const string HeaderColumns = """
+    private string HeaderColumns => $"""
         d.id as Id, d.document_type_id as DocumentTypeId, d.type_environment_id as TypeEnvironmentId, d.prefix as Prefix,
         d.number as Number, d.full_number as FullNumber, d.status as Status, d.cufe as Cufe, d.issue_date as IssueDate,
-        d.issue_time as IssueTime, d.issued_at as IssuedAt, d.currency_id as CurrencyId, d.customer_snapshot as CustomerSnapshot,
+        d.issue_time as IssueTime, {dialect.Instant("d.issued_at")} as IssuedAt, d.currency_id as CurrencyId, d.customer_snapshot as CustomerSnapshot,
         d.line_extension_amount as LineExtensionAmount, d.tax_exclusive_amount as TaxExclusiveAmount,
         d.tax_inclusive_amount as TaxInclusiveAmount, d.allowance_total_amount as AllowanceTotalAmount,
         d.charge_total_amount as ChargeTotalAmount, d.prepaid_amount as PrepaidAmount, d.payable_amount as PayableAmount,
@@ -44,12 +45,12 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
         """;
 
     /// <summary>Columnas que solo trae el detalle.</summary>
-    private const string DetailColumns = """
+    private string DetailColumns => $"""
         d.uuid_algorithm as UuidAlgorithm, d.resolution_id as ResolutionId, d.reference_document_id as ReferenceDocumentId,
         d.type_operation_id as TypeOperationId, d.exchange_rate as ExchangeRate, d.discrepancy_code as DiscrepancyCode,
         d.discrepancy_description as DiscrepancyDescription, d.notes as Notes, d.head_note as HeadNote, d.foot_note as FootNote,
         d.track_id as TrackId, d.dian_status_code as DianStatusCode, d.dian_status_description as DianStatusDescription,
-        d.sent_at as SentAt, d.accepted_at as AcceptedAt
+        {dialect.Instant("d.sent_at")} as SentAt, {dialect.Instant("d.accepted_at")} as AcceptedAt
         """;
 
     // La tabla companies no tiene company_id: su id es la empresa. El parámetro se llama company_id para que la regla
@@ -60,11 +61,12 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
         where c.id = @company_id
         """;
 
-    private const string TaxesSql = """
-        select t.tax_id as TaxId, t.percent as Percent, t.taxable_amount as TaxableAmount, t.tax_amount as TaxAmount
+    // percent es palabra reservada en SQL Server: la columna va con ISqlDialect.Identifier y el alias es TaxPercent.
+    private string TaxesSql => $"""
+        select t.tax_id as TaxId, t.{dialect.Identifier("percent")} as TaxPercent, t.taxable_amount as TaxableAmount, t.tax_amount as TaxAmount
         from document_taxes t
         where t.company_id = @CompanyId and t.document_id = @DocumentId
-        order by t.tax_id, t.percent
+        order by t.tax_id, t.{dialect.Identifier("percent")}
         """;
 
     private const string LinesSql = """
@@ -77,12 +79,12 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
         order by l.line_number
         """;
 
-    private const string LineTaxesSql = """
-        select t.line_id as LineId, t.tax_id as TaxId, t.percent as Percent, t.taxable_amount as TaxableAmount,
+    private string LineTaxesSql => $"""
+        select t.line_id as LineId, t.tax_id as TaxId, t.{dialect.Identifier("percent")} as TaxPercent, t.taxable_amount as TaxableAmount,
             t.tax_amount as TaxAmount, t.per_unit_amount as PerUnitAmount, t.unit_measure_id as UnitMeasureId
         from document_line_taxes t
         where t.company_id = @CompanyId and t.document_id = @DocumentId
-        order by t.tax_id, t.percent
+        order by t.tax_id, t.{dialect.Identifier("percent")}
         """;
 
     private const string NextNumberSql = """
@@ -126,7 +128,7 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
         if (page is { } window)
         {
             // Las páginas numeradas del contrato heredado no se pueden pedir por clave: son de a 100 y usan offset.
-            sql.Append(" limit @Take offset @Skip");
+            sql.Append(' ').Append(dialect.Paging("@Take", "@Skip"));
             parameters.Add("Take", window.Take);
             parameters.Add("Skip", window.Skip);
         }
@@ -188,7 +190,7 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
     }
 
     /// <summary>Consulta del listado: los filtros, el cursor, el orden <c>(issued_at, id)</c> descendente y el límite.</summary>
-    private static (string Sql, DynamicParameters Parameters) ListSql(DocumentListFilter filter)
+    private (string Sql, DynamicParameters Parameters) ListSql(DocumentListFilter filter)
     {
         var parameters = new DynamicParameters(new { filter.CompanyId, filter.Take });
         var sql = new StringBuilder($"""
@@ -197,12 +199,12 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
             where d.company_id = @CompanyId
             """);
         AppendListFilters(sql, parameters, filter);
-        sql.Append(" order by d.issued_at desc, d.id desc limit @Take");
+        sql.Append(" order by d.issued_at desc, d.id desc ").Append(dialect.Paging("@Take"));
         return (sql.ToString(), parameters);
     }
 
     /// <summary>Condiciones del listado después de <c>company_id</c>; los filtros nulos o vacíos no agregan nada.</summary>
-    private static void AppendListFilters(StringBuilder sql, DynamicParameters parameters, DocumentListFilter filter)
+    private void AppendListFilters(StringBuilder sql, DynamicParameters parameters, DocumentListFilter filter)
     {
         if (filter.DocumentTypeId is { } typeId)
         {
@@ -229,10 +231,11 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
 
         if (filter.Customer is { } customer)
         {
-            // Busca en la copia del adquiriente que quedó en el documento (columna jsonb), sin distinguir mayúsculas. Los
+            // Busca en la copia del adquiriente que quedó en el documento (columna JSON), sin distinguir mayúsculas. Los
             // comodines de LIKE que escriba el usuario (%, _) se escapan: se buscan como texto.
-            sql.Append(" and (d.customer_snapshot ->> 'identification_number' ilike @Customer escape '\\'")
-                .Append(" or d.customer_snapshot ->> 'name' ilike @Customer escape '\\')");
+            var identification = dialect.LikeIgnoreCase(dialect.JsonText("d.customer_snapshot", "identification_number"), "@Customer");
+            var name = dialect.LikeIgnoreCase(dialect.JsonText("d.customer_snapshot", "name"), "@Customer");
+            sql.Append($" and ({identification} or {name})");
             parameters.Add("Customer", "%" + EscapeLike(customer) + "%");
         }
 
@@ -393,7 +396,7 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
     }
 
     private static DocumentTaxAmount Tax(TaxRow row) =>
-        new(row.TaxId, row.Percent, row.TaxableAmount, row.TaxAmount, row.PerUnitAmount, row.UnitMeasureId);
+        new(row.TaxId, row.TaxPercent, row.TaxableAmount, row.TaxAmount, row.PerUnitAmount, row.UnitMeasureId);
 
     // Npgsql entrega timestamptz como DateTime en UTC.
     private static DateTimeOffset Utc(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
@@ -499,7 +502,7 @@ internal sealed class DapperDocumentReads(IReadConnectionFactory connections) : 
 
         public int TaxId { get; init; }
 
-        public decimal? Percent { get; init; }
+        public decimal? TaxPercent { get; init; }
 
         public decimal TaxableAmount { get; init; }
 

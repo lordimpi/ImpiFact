@@ -92,6 +92,13 @@ internal static class ExampleBodies
             """), "La usa el ejemplo de nota débito."),
     ];
 
+    public static RequestExample[] ResolutionNextNumber { get; } =
+    [
+        new("continuar-numeracion", "Seguir desde el número 990000101 del rango SETP", Parse("""
+            { "next_number": 990000101 }
+            """), "El número debe estar dentro del rango de la resolución y no puede ser menor que su próximo número actual."),
+    ];
+
     public static RequestExample[] Plan { get; } =
     [
         new("mensual", "Plan mensual de 100 facturas", Parse("""

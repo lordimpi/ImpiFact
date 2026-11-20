@@ -4,7 +4,6 @@ using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Infrastructure.Options;
 using ImpiFact.Infrastructure.Platform.Outbox;
 using ImpiFact.Infrastructure.Platform.Scheduling;
-using ImpiFact.Infrastructure.Postgres;
 using ImpiFact.Infrastructure.Tenancy;
 using ImpiFact.Integration.Tests.Protection;
 using Microsoft.Extensions.Configuration;
@@ -211,7 +210,7 @@ public sealed class WorkerCompositionTests
     {
         var values = new Dictionary<string, string?>(protection.LocalAesGcmSettings())
         {
-            ["Database:Provider"] = "Postgres",
+            ["Database:Provider"] = TestDatabase.ProviderName,
             ["Database:ConnectionString"] = DianSendDatabase.ConnectionString,
             ["Storage:Local:Root"] = Path.Combine(protection.Root, "storage"),
         };
@@ -227,7 +226,7 @@ public sealed class WorkerCompositionTests
             .Build();
         var collection = new ServiceCollection();
         collection.AddLogging();
-        collection.AddWorkerServices(configuration, new PostgresDatabaseProvider());
+        collection.AddWorkerServices(configuration, TestDatabase.Providers);
         return collection.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 

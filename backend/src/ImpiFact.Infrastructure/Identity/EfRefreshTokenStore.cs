@@ -10,7 +10,7 @@ namespace ImpiFact.Infrastructure.Identity;
 /// Adaptador de <see cref="IRefreshTokenStore"/> sobre la tabla <c>refresh_tokens</c> con EF Core (Entity
 /// Framework). Solo guarda el resumen SHA-256 de cada token (<c>token_hash</c>), nunca el valor.
 /// </summary>
-internal sealed class EfRefreshTokenStore(ImpiFactDbContext db, IServiceScopeFactory scopes) : IRefreshTokenStore
+internal sealed class EfRefreshTokenStore(ImpiFactDbContext db, CredentialStoreGuard guard, IServiceScopeFactory scopes) : IRefreshTokenStore
 {
     /// <summary>Largo de <c>created_ip</c>: el de una dirección IPv6 escrita completa.</summary>
     internal const int CreatedIpLength = 45;
@@ -35,14 +35,19 @@ internal sealed class EfRefreshTokenStore(ImpiFactDbContext db, IServiceScopeFac
     }
 
     public Task<RefreshTokenRecord?> FindByHashAsync(string tokenHash, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(async () =>
-        {
-            var token = await db.Set<RefreshToken>().AsNoTracking().FirstOrDefaultAsync(candidate => candidate.TokenHash == tokenHash, ct);
-            return token is null
-                ? null
-                : new RefreshTokenRecord(
-                    token.Id, token.UserId, token.TokenHash, token.ExpiresAt, token.RevokedAt, token.ReplacedBy, token.CreatedIp, token.UserAgent);
-        });
+        guard.RunAsync(async () =>
+            ToRecord(await db.Set<RefreshToken>().AsNoTracking().FirstOrDefaultAsync(candidate => candidate.TokenHash == tokenHash, ct)));
+
+    // Sin seguimiento: si después se rota este token, RevokeAsync lo vuelve a leer con seguimiento y su row_version.
+    public Task<RefreshTokenRecord?> FindByIdAsync(Guid tokenId, CancellationToken ct) =>
+        guard.RunAsync(async () =>
+            ToRecord(await db.Set<RefreshToken>().AsNoTracking().FirstOrDefaultAsync(candidate => candidate.Id == tokenId, ct)));
+
+    private static RefreshTokenRecord? ToRecord(RefreshToken? token) =>
+        token is null
+            ? null
+            : new RefreshTokenRecord(
+                token.Id, token.UserId, token.TokenHash, token.ExpiresAt, token.RevokedAt, token.ReplacedBy, token.CreatedIp, token.UserAgent);
 
     /// <summary>
     /// Carga la fila con su <c>row_version</c>: si dos solicitudes rotan el mismo token a la vez, la segunda en
@@ -51,7 +56,7 @@ internal sealed class EfRefreshTokenStore(ImpiFactDbContext db, IServiceScopeFac
     // Se lee la fila con seguimiento: si otra solicitud la revocó y confirmó antes, aquí se ve y se devuelve false. Si
     // las dos la leen a la vez, row_version hace fallar el segundo guardado (conflicto de concurrencia).
     public Task<bool> RevokeAsync(Guid tokenId, DateTimeOffset revokedAt, Guid? replacedBy, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(async () =>
+        guard.RunAsync(async () =>
         {
             var token = await db.Set<RefreshToken>().FirstOrDefaultAsync(candidate => candidate.Id == tokenId, ct);
             if (token is null || token.RevokedAt is not null)
@@ -69,7 +74,7 @@ internal sealed class EfRefreshTokenStore(ImpiFactDbContext db, IServiceScopeFac
     /// transacción de la solicitud se va a revertir porque el caso de uso responde con un error.
     /// </summary>
     public Task RevokeAllActiveForUserAsync(Guid userId, DateTimeOffset revokedAt, CancellationToken ct) =>
-        CredentialStoreGuard.RunAsync(async () =>
+        guard.RunAsync(async () =>
         {
             await using var scope = scopes.CreateAsyncScope();
             var independent = scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>();
