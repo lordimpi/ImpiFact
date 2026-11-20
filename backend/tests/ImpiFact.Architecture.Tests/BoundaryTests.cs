@@ -6,7 +6,8 @@ namespace ImpiFact.Architecture.Tests;
 
 /// <summary>
 /// Reglas de frontera de Arquitectura detallada, secciones 1 y 16, además de las dependencias entre capas: el
-/// controlador de cada motor (PostgreSQL, SQL Server) solo vive en su proyecto de proveedor, los endpoints no acceden a datos y toda consulta
+/// controlador de cada motor (PostgreSQL, SQL Server) solo vive en su proyecto de proveedor, los SDK de las nubes solo en
+/// los adaptadores de almacenamiento y secretos, los endpoints no acceden a datos y toda consulta
 /// Dapper (la librería de lecturas con SQL escrito a mano) filtra por empresa.
 /// </summary>
 public class BoundaryTests
@@ -62,6 +63,39 @@ public class BoundaryTests
             .GetResult();
 
         Assert.That(result.FailingTypeNames ?? [], Is.Empty, "MySqlConnector belongs in ImpiFact.Infrastructure.MySql.");
+    }
+
+    /// <summary>Espacios de nombres de los SDK de las nubes (Azure, AWS, Google Cloud) y del gRPC que usa el de Google.</summary>
+    private static readonly string[] CloudSdkNamespaces = ["Azure", "Amazon", "Google.Cloud", "Google.Apis", "Google.Api.Gax", "Grpc"];
+
+    // Los SDK de las nubes solo los usan los adaptadores de almacenamiento y de secretos (y sus pruebas de salud, en
+    // Observability): el resto de Infrastructure, los proveedores de base y los hosts nunca los nombran.
+    [Test]
+    public void Only_the_storage_secrets_and_readiness_adapters_use_the_cloud_sdks()
+    {
+        var infrastructure = Types.InAssembly(Load("ImpiFact.Infrastructure"))
+            .That()
+            .DoNotResideInNamespace("ImpiFact.Infrastructure.Storage")
+            .And()
+            .DoNotResideInNamespace("ImpiFact.Infrastructure.Protection")
+            .And()
+            .DoNotResideInNamespace("ImpiFact.Infrastructure.Observability")
+            .ShouldNot()
+            .HaveDependencyOnAny(CloudSdkNamespaces)
+            .GetResult();
+        var others = Types.InAssemblies([
+                Load("ImpiFact.Application"), Load("ImpiFact.Api"), Load("ImpiFact.Worker"),
+                Load("ImpiFact.Infrastructure.Postgres"), Load("ImpiFact.Infrastructure.SqlServer"), Load("ImpiFact.Infrastructure.MySql"),
+            ])
+            .ShouldNot()
+            .HaveDependencyOnAny(CloudSdkNamespaces)
+            .GetResult();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(infrastructure.FailingTypeNames ?? [], Is.Empty, "Cloud SDKs belong in Infrastructure/Storage and Infrastructure/Protection.");
+            Assert.That(others.FailingTypeNames ?? [], Is.Empty, "Only Infrastructure talks to the cloud SDKs.");
+        });
     }
 
     // Los endpoints solo traducen HTTP a un caso de uso: no abren el DbContext ni escriben SQL.

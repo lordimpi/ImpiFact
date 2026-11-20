@@ -34,6 +34,8 @@ internal sealed partial class SensitiveDataRedactor : ILogEventEnricher
         "pfx", "connectionstring",
         // Las cookies de sesión (impifact_refresh, impifact_session y las de otros sistemas) valen lo que una credencial.
         "refresh", "session",
+        // La firma de una URL firmada (X-Amz-Signature de S3, X-Goog-Signature de Cloud Storage) da acceso mientras no vence.
+        "signature",
     ];
 
     public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
@@ -60,9 +62,26 @@ internal sealed partial class SensitiveDataRedactor : ILogEventEnricher
         var compact = name.Replace("_", "", StringComparison.Ordinal).Replace("-", "", StringComparison.Ordinal)
             .Replace(".", "", StringComparison.Ordinal).ToLowerInvariant();
         return SensitiveFragments.Any(fragment => compact.Contains(fragment, StringComparison.Ordinal))
-            // «pin» como palabra entera: «Pin», «UserPin», «pin_code»; no «Shipping» ni «Mapping».
-            || Words(name).Any(word => word.Equals("pin", StringComparison.OrdinalIgnoreCase));
+            // «pin» como palabra entera: «Pin», «UserPin», «pin_code»; no «Shipping» ni «Mapping». «sig» también: la firma
+            // de una SAS de Azure, que da acceso a un blob mientras no vence; no «Signed» ni «Design».
+            || Words(name).Any(word => word.Equals("pin", StringComparison.OrdinalIgnoreCase) || word.Equals("sig", StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>
+    /// Tapa el valor de cada parámetro con nombre sensible. Un valor entre comillas de un parámetro que no lo es se revisa
+    /// por dentro: puede traer otros parámetros, como el <c>Detail="…"</c> de una excepción de gRPC con una URL firmada.
+    /// </summary>
+    private static string RedactParameters(string text) => Parameter().Replace(text, match =>
+    {
+        var key = match.Groups["key"].Value;
+        if (IsSensitiveName(key))
+        {
+            return key + "=" + Mask;
+        }
+
+        var value = match.Groups["value"].Value;
+        return value.Length > 1 && value[0] == '"' ? key + "=\"" + RedactParameters(value[1..^1]) + "\"" : match.Value;
+    });
 
     /// <summary>El texto sin credenciales ni valores de parámetros sensibles; el mismo objeto si no había nada.</summary>
     public static string RedactText(string text)
@@ -75,8 +94,7 @@ internal sealed partial class SensitiveDataRedactor : ILogEventEnricher
         var result = Credential().Replace(text, match => match.Groups["scheme"].Value + " " + Mask);
         result = Jwt().Replace(result, Mask);
         result = ApiKey().Replace(result, "apk_" + Mask);
-        result = Parameter().Replace(result, match =>
-            IsSensitiveName(match.Groups["key"].Value) ? match.Groups["key"].Value + "=" + Mask : match.Value);
+        result = RedactParameters(result);
         result = LongByteArray().Replace(result, "[${length} bytes]");
         if (HexBytes().IsMatch(result))
         {

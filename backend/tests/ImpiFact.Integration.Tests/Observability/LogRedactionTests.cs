@@ -113,6 +113,40 @@ public sealed class LogRedactionTests
         });
     }
 
+    // Las excepciones de los SDK de las nubes pasan por la misma limpieza; las firmas de las URL firmadas (sig de una SAS
+    // de Azure, X-Amz-Signature y X-Goog-Signature) valen lo que una credencial mientras la URL no vence.
+    [Test]
+    public void Cloud_sdk_exceptions_and_signed_url_signatures_are_masked()
+    {
+        var output = new LogCapture();
+        var azure = ThrowForTheStackTrace(() => new Azure.RequestFailedException(
+            403, "Download of https://impifact.blob.core.windows.net/docs/a.pdf?sv=2025-01-05&sp=r&sig=azure-secret-1 was denied."));
+        var aws = ThrowForTheStackTrace(() => new Amazon.SecretsManager.Model.InvalidRequestException(
+            "Call to https://bucket.s3.amazonaws.com/a.pdf?X-Amz-Expires=300&X-Amz-Signature=aws-secret-2 failed."));
+        var gcp = ThrowForTheStackTrace(() => new Grpc.Core.RpcException(new Grpc.Core.Status(
+            Grpc.Core.StatusCode.PermissionDenied, "Denied https://storage.googleapis.com/b/a.pdf?X-Goog-Signature=gcp-secret-3 with Bearer gcp-secret-4")));
+        using (var services = Logging(output))
+        {
+            Logger(services).LogError(azure, "Azure.");
+            Logger(services).LogError(aws, "Aws.");
+            Logger(services).LogError(gcp, "Gcp.");
+        }
+
+        var lines = JsonLines(output);
+        string Exception(string message) => lines.Single(line => line.GetProperty("@m").GetString() == message).GetProperty("@x").GetString()!;
+        Assert.Multiple(() =>
+        {
+            foreach (var secret in new[] { "azure-secret-1", "aws-secret-2", "gcp-secret-3", "gcp-secret-4" })
+            {
+                Assert.That(output.ToString(), Does.Not.Contain(secret));
+            }
+
+            Assert.That(Exception("Azure."), Does.StartWith("Azure.RequestFailedException:").And.Contain("sp=r&sig=***"));
+            Assert.That(Exception("Aws."), Does.StartWith("Amazon.SecretsManager.Model.InvalidRequestException:").And.Contain("X-Amz-Expires=300&X-Amz-Signature=***"));
+            Assert.That(Exception("Gcp."), Does.StartWith("Grpc.Core.RpcException:").And.Contain("X-Goog-Signature=***").And.Contain("Bearer ***"));
+        });
+    }
+
     [Test]
     public void An_exception_without_secrets_is_written_as_is()
     {
