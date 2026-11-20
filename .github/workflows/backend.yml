@@ -18,6 +18,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Everything that does not depend on the database engine runs once: build, OpenAPI check, unit, architecture,
+  # golden and contract tests, and the vulnerability scan. Integration tests run per engine in the job below.
   build-and-test:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -48,10 +50,6 @@ jobs:
       - name: Unit, architecture and golden tests
         run: dotnet test --no-build --filter "Category!=Integration&Category!=Contract"
 
-      # Integración contra PostgreSQL real en un contenedor (Testcontainers); el runner ya trae Docker.
-      - name: Integration tests
-        run: dotnet test --no-build --filter "Category=Integration"
-
       # Contrato: la colección Postman de ApiDian (copia en tests/ImpiFact.Contract.Tests/collection) contra la API,
       # con PostgreSQL en Testcontainers y la DIAN falsa. Escribe la tabla de resultados por carpeta.
       - name: Contract tests
@@ -65,3 +63,51 @@ jobs:
             echo "Vulnerable packages found."
             exit 1
           fi
+
+  # Integration tests against a real engine in Testcontainers (the runner already has Docker). The engine is chosen
+  # the same way the API, the Worker and the Migrator choose it: Database__Provider, read by TestDatabase.cs, which
+  # starts postgres:18.1-alpine, mcr.microsoft.com/mssql/server:2022-latest (one shared container per run, about 2 GB)
+  # or mysql:8.4 (data in tmpfs). Some behaviour exists only on one engine (for example the SQL Server outbox claim with
+  # sp_getapplock), so every engine runs the whole suite. fail-fast is off: one engine failing never hides another.
+  integration:
+    name: integration (${{ matrix.provider }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [Postgres, SqlServer, MySql]
+    env:
+      Database__Provider: ${{ matrix.provider }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: backend/global.json
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -warnaserror
+
+      # Only the integration project has Category=Integration tests; targeting it keeps one TRX file per engine.
+      - name: Integration tests
+        run: >-
+          dotnet test tests/ImpiFact.Integration.Tests --no-build
+          --filter "Category=Integration"
+          --logger "trx;LogFileName=integration-${{ matrix.provider }}.trx"
+          --results-directory TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-results-${{ matrix.provider }}
+          path: backend/TestResults
+          if-no-files-found: ignore
+          retention-days: 7
