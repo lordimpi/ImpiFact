@@ -1,0 +1,6 @@
+# Terraform working files and local values (never versioned)
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+backend.hcl

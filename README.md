@@ -52,6 +52,10 @@ Los servicios corren con `APP_ENVIRONMENT=Production` por omisión (registros JS
 
 Las imágenes se pueden construir por separado (`docker build -f Dockerfile.api -t impifact-api backend`, igual con `Dockerfile.worker` y `Dockerfile.migrator`, y `docker build -f Dockerfile.web -t impifact-web web`). La configuración de cada una, sus variables y los encabezados del panel están en la sección 14 de `docs/Arquitectura detallada.md`.
 
+### Desplegar en la nube
+
+Hay plantillas de despliegue para Azure ([`deploy/azure`](deploy/azure/README.md), Bicep), AWS ([`deploy/aws`](deploy/aws/README.md), Terraform) y GCP ([`deploy/gcp`](deploy/gcp/README.md), Terraform): cómputo de contenedores para la API, el Worker y el panel, el Migrator como paso previo, base de datos administrada, almacenamiento de archivos, secretos e identidad de la carga de trabajo sin llaves. Todavía no se han desplegado: se validan sin conexión, sin cuentas ni costo. Cada carpeta explica los pasos; el resumen está en la sección 14 de `docs/Arquitectura detallada.md`.
+
 Los casos golden (XML y CUFE de referencia) están en `backend/tests/golden`; cómo se generan se explica en [`backend/tools/golden-capture`](backend/tools/golden-capture/README.md).
 
 ## Documentación

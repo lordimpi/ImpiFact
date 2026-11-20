@@ -1,0 +1,17 @@
+# Copy to terraform.tfvars (not versioned) and replace the placeholders. Never put secret values here: pass
+# database_password, jwt_signing_key and email_password as TF_VAR_* environment variables (README.md).
+region      = "us-east-1"
+name_prefix = "impifact"
+
+image_registry = "123456789012.dkr.ecr.us-east-1.amazonaws.com/impifact"
+image_tag      = "0.6.0"
+
+database_engine = "Postgres"
+
+api_host_name   = "api.example.com"
+panel_host_name = "panel.example.com"
+certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+
+email_host         = "smtp.example.com"
+email_from_address = "no-reply@example.com"
+email_username     = ""
