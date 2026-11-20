@@ -1,0 +1,77 @@
+# Servidor del panel (Dockerfile.web): archivos estáticos del build de Angular. Al arrancar, la imagen de nginx llena
+# esta plantilla con las variables IMPIFACT_* (las prepara 15-impifact-config.envsh) y la deja en
+# /etc/nginx/conf.d/default.conf.
+
+# Registro de accesos sin la consulta ni el Referer: el enlace para restablecer la contraseña lleva el token en la
+# consulta (/restablecer?token=...) y no debe quedar escrito en ningún registro.
+log_format impifact '$remote_addr [$time_local] "$request_method $uri $server_protocol" $status $body_bytes_sent $request_time';
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    server_tokens off;
+    access_log /var/log/nginx/access.log impifact;
+
+    gzip on;
+    gzip_min_length 1024;
+    gzip_types application/javascript text/css application/json image/svg+xml;
+
+    include /etc/nginx/conf.d/security-headers.inc;
+
+    # Configuración del panel en tiempo de ejecución (RuntimeConfig de @impifact/core): sale de las variables del
+    # contenedor, así la misma imagen sirve para cualquier ambiente sin volver a compilar.
+    location = /config.json {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "no-store" always;
+        default_type application/json;
+        return 200 '{"apiBaseUrl":"${IMPIFACT_API_BASE_URL}","inactivity":{"warnMinutes":${IMPIFACT_INACTIVITY_WARN_MINUTES},"logoutMinutes":${IMPIFACT_INACTIVITY_LOGOUT_MINUTES}},"features":{}}';
+    }
+
+    # Prueba de vida de la imagen (HEALTHCHECK de Dockerfile.web y sondas del orquestador), fuera del registro de
+    # accesos para no llenarlo.
+    location = /health/live {
+        access_log off;
+        default_type text/plain;
+        return 200 'Healthy';
+    }
+
+    # index.html nombra los archivos de la versión vigente: el navegador lo revalida siempre.
+    location = /index.html {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "no-cache" always;
+    }
+
+    # Archivos con el hash del contenido en el nombre (main-4EHFUUSO.js, chunk-D-0VbNMD.js, styles-RRKL3FZL.css y
+    # media/): una versión nueva cambia el nombre, así que se guardan un año sin volver a preguntar.
+    location ~ "^/(?:main|chunk|polyfills|styles|worker)-[A-Za-z0-9_-]{8}\.(?:js|css)$" {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    location ^~ /media/ {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    # El panel llama al Api en IMPIFACT_API_BASE_URL. Si está vacía (mismo origen), un proxy o ingress lleva /api/ al
+    # Api antes de llegar aquí; este servidor nunca responde index.html por una ruta del Api.
+    location ^~ /api/ {
+        return 404;
+    }
+
+    # Otros archivos (los textos de i18n, el favicon): su nombre no cambia entre versiones, se revalidan siempre. Un
+    # archivo que no existe es un 404, no la página del panel.
+    location ~ "\.[A-Za-z0-9]+$" {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri =404;
+    }
+
+    # Rutas del panel (/login, /documentos/...): todas sirven index.html y el router de Angular las resuelve.
+    location / {
+        try_files $uri /index.html;
+    }
+}

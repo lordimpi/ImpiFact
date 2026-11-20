@@ -1,0 +1,61 @@
+#!/bin/sh
+# Configuración del panel al arrancar el contenedor (Dockerfile.web). La imagen de nginx carga este archivo antes de
+# llenar sus plantillas (20-envsubst-on-templates.sh), así que las variables que exporta llegan a default.conf y a
+# security-headers.inc. Un valor inválido detiene el contenedor con un mensaje: nunca se sirve una configuración a medias.
+#
+#   IMPIFACT_API_BASE_URL               URL del Api que usa el panel (config.json). https, o http solo hacia localhost o
+#                                       127.0.0.1; sin usuario, consulta ni fragmento. Vacía: mismo origen (un proxy o
+#                                       ingress lleva /api/ al Api).
+#   IMPIFACT_INACTIVITY_WARN_MINUTES    minutos sin actividad para avisar (25 si falta).
+#   IMPIFACT_INACTIVITY_LOGOUT_MINUTES  minutos sin actividad para cerrar la sesión (30 si falta).
+#
+# Exporta además IMPIFACT_API_ORIGIN (esquema, host y puerto del Api), que la política de seguridad de contenido
+# (connect-src) necesita para dejar que el panel llame al Api, e IMPIFACT_CSP_SCRIPT_HASHES, los hashes de los scripts
+# en línea de index.html que calculó el build de la imagen (script-src).
+
+impifact_config_fail() {
+    echo "15-impifact-config.envsh: $1" >&2
+    exit 1
+}
+
+impifact_url="${IMPIFACT_API_BASE_URL:-}"
+while [ "${impifact_url%/}" != "$impifact_url" ]; do
+    impifact_url="${impifact_url%/}"
+done
+
+impifact_origin=""
+if [ -n "$impifact_url" ]; then
+    # Solo letras, dígitos y los signos seguros de una URL: el valor termina dentro de config.json y de un encabezado.
+    if ! printf '%s' "$impifact_url" | grep -Eq '^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~-]+)*$'; then
+        impifact_config_fail "IMPIFACT_API_BASE_URL must be an absolute http(s) URL without user, query or fragment, for example https://api.example.com."
+    fi
+    impifact_origin=$(printf '%s' "$impifact_url" | sed -E 's#^(https?://[^/]+).*$#\1#')
+    case "$impifact_origin" in
+        https://*|http://localhost|http://localhost:*|http://127.0.0.1|http://127.0.0.1:*) ;;
+        *) impifact_config_fail "IMPIFACT_API_BASE_URL must use https (http only for localhost or 127.0.0.1): the panel sends the session token to it." ;;
+    esac
+fi
+
+impifact_warn="${IMPIFACT_INACTIVITY_WARN_MINUTES:-25}"
+impifact_logout="${IMPIFACT_INACTIVITY_LOGOUT_MINUTES:-30}"
+for impifact_minutes in "$impifact_warn" "$impifact_logout"; do
+    if ! printf '%s' "$impifact_minutes" | grep -Eq '^[1-9][0-9]{0,3}$'; then
+        impifact_config_fail "IMPIFACT_INACTIVITY_WARN_MINUTES and IMPIFACT_INACTIVITY_LOGOUT_MINUTES must be whole minutes between 1 and 9999."
+    fi
+done
+if [ "$impifact_warn" -ge "$impifact_logout" ]; then
+    impifact_config_fail "IMPIFACT_INACTIVITY_WARN_MINUTES must be lower than IMPIFACT_INACTIVITY_LOGOUT_MINUTES."
+fi
+
+impifact_hashes_file=/etc/nginx/impifact/csp-script-hashes
+impifact_hashes=$(cat "$impifact_hashes_file" 2>/dev/null) || impifact_config_fail "$impifact_hashes_file is missing: rebuild the image."
+if ! printf '%s' "$impifact_hashes" | grep -Eq "^('sha256-[A-Za-z0-9+/]+=*')?( 'sha256-[A-Za-z0-9+/]+=*')*\$"; then
+    impifact_config_fail "$impifact_hashes_file does not hold CSP script hashes: rebuild the image."
+fi
+
+export IMPIFACT_API_BASE_URL="$impifact_url"
+export IMPIFACT_API_ORIGIN="$impifact_origin"
+export IMPIFACT_INACTIVITY_WARN_MINUTES="$impifact_warn"
+export IMPIFACT_INACTIVITY_LOGOUT_MINUTES="$impifact_logout"
+export IMPIFACT_CSP_SCRIPT_HASHES="$impifact_hashes"
+echo "15-impifact-config.envsh: panel API base URL: ${impifact_url:-(same origin)}"

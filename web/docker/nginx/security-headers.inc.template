@@ -1,0 +1,20 @@
+# Encabezados de seguridad de todas las respuestas del panel (los incluye default.conf en el servidor y en cada
+# location que agrega encabezados propios: en nginx, un add_header en una location anula los heredados).
+#
+# Content-Security-Policy, probada con el panel compilado en un navegador (e2e/served-panel.spec.ts):
+#   script-src   solo los archivos del panel y los scripts en línea de index.html, por su hash (los calcula el build
+#                de la imagen; hoy, el que activa la hoja de estilos que Angular carga sin bloquear el primer dibujo).
+#   style-src    'unsafe-inline' porque Angular agrega los estilos de cada componente como elementos <style> al
+#                dibujarlo e index.html trae el CSS crítico en línea; ningún script en línea queda permitido por esto.
+#   connect-src  el propio origen (config.json y los textos) y el del Api (IMPIFACT_API_ORIGIN).
+#   img-src      data: y blob: para las imágenes que arma el navegador (íconos en CSS, archivos elegidos).
+#   frame-src    blob: para la vista previa del PDF, que se muestra en un iframe con el PDF que devolvió el Api.
+#   frame-ancestors 'none' (y X-Frame-Options DENY para navegadores viejos): nadie puede incrustar el panel.
+# Referrer-Policy no-referrer: el panel no necesita mandar el Referer a nadie y el enlace para restablecer la
+# contraseña lleva el token en la consulta (/restablecer?token=...); con no-referrer ni el Api ni otro sitio lo reciben.
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' ${IMPIFACT_CSP_SCRIPT_HASHES}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ${IMPIFACT_API_ORIGIN}; frame-src blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "no-referrer" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+add_header Cross-Origin-Opener-Policy "same-origin" always;
