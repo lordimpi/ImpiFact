@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
 using ImpiFact.Application.Abstractions.Results;
@@ -292,6 +293,25 @@ public sealed class IssueDocumentTests
             new FieldError("customer.type_regime_id", "customer.type regime id es inválido."),
             new FieldError("invoice_lines.0.unit_measure_id", "invoice lines.0.unit measure id es inválido."),
         }));
+    }
+
+    // Laravel's «required» only treats null and blank text as missing, so a NIT whose check digit is 0 is valid.
+    [TestCase("text")]
+    [TestCase("number")]
+    public async Task A_customer_nit_whose_check_digit_is_zero_is_accepted(string form)
+    {
+        using var harness = IssueHarness.Create();
+        var nit = Enumerable.Range(900_000_001, 200).Select(n => n.ToString(CultureInfo.InvariantCulture))
+            .First(candidate => DianCheckDigit.Of(candidate) == 0);
+
+        var result = await harness.IssueAsync("invoice", IssueHarness.Edited(IssueHarness.FirstInvoice, json =>
+        {
+            json["customer"]!["identification_number"] = nit;
+            json["customer"]!["type_document_identification_id"] = 6;
+            json["customer"]!["dv"] = form == "text" ? JsonValue.Create("0") : JsonValue.Create(0);
+        }));
+
+        Assert.That(result.IsSuccess, Is.True, Describe(result));
     }
 
     [Test]

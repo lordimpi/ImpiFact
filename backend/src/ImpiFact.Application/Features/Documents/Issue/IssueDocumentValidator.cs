@@ -90,7 +90,8 @@ internal static class IssueDocumentRules
         }
 
         var identificationType = check.Integer("customer.type_document_identification_id", customer.TypeDocumentIdentificationId);
-        if (customer.Dv is { IsPhpEmpty: false } dv)
+        // Laravel's «required» treats only null and blank text as missing: a check digit of 0 is a value.
+        if (!LegacyScalar.IsMissing(customer.Dv) && customer.Dv is { } dv)
         {
             if (!dv.TryInteger(out _) || dv.Text.Trim().Length != 1)
             {
