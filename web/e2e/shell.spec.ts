@@ -70,6 +70,18 @@ test('keeps showing who is signed in after a page reload', async ({ page }) => {
   await expect(account).toContainText('ana@example.test');
 });
 
+test('offers the user manual from the top bar in a new tab', async ({ page }) => {
+  await mockApi(page);
+  await signInAt(page, '/');
+
+  const help = page.getByRole('banner').getByRole('link', { name: /Ayuda/ });
+
+  await expect(help).toHaveAttribute('href', '/ayuda/manual-de-uso.pdf');
+  await expect(help).toHaveAttribute('target', '_blank');
+  await expect(help).toHaveAttribute('rel', /noopener/);
+  await expect(help).toHaveAccessibleName(/manual de uso/i);
+});
+
 test('hides the issuing entries from a seller without the issuing scope', async ({ page }) => {
   await signInAt(page, '/', { roles: ['seller'], scopes: ['documents:read'] });
 

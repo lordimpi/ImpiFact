@@ -31,7 +31,9 @@
   },
   "topbar": {
     "switchCompany": "{{ name }}, elegir otra empresa activa",
-    "platform": "Administración de la plataforma"
+    "platform": "Administración de la plataforma",
+    "help": "Ayuda",
+    "helpLabel": "Ayuda: manual de uso (PDF, se abre en otra pestaña)"
   },
   "userMenu": {
     "account": "Mi cuenta",

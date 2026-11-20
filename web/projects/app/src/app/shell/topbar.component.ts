@@ -59,6 +59,20 @@ import { UserMenuComponent } from './user-menu.component';
       <span class="topbar__company">{{ 'topbar.platform' | transloco }}</span>
     }
     <div class="topbar__actions">
+      <!-- The manual is a static PDF built by \`npm run manual\`; it opens in a new tab so the panel keeps its state. -->
+      <a
+        class="topbar__help"
+        href="/ayuda/manual-de-uso.pdf"
+        target="_blank"
+        rel="noopener"
+        [attr.aria-label]="'topbar.helpLabel' | transloco"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.3M12 17h.01" />
+        </svg>
+        <span class="topbar__help-text">{{ 'topbar.help' | transloco }}</span>
+      </a>
       <app-notification-bell />
       <app-user-menu />
     </div>

@@ -71,3 +71,27 @@ a.topbar__company:hover {
   gap: var(--if-space-2);
   margin-inline-start: auto;
 }
+
+.topbar__help {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--if-space-1);
+  min-block-size: 2.5rem;
+  padding-inline: var(--if-space-2);
+  color: var(--if-color-text-muted);
+  font-size: var(--if-font-size-sm);
+  font-weight: var(--if-font-weight-medium);
+  text-decoration: none;
+  border-radius: var(--if-radius-sm);
+
+  &:hover {
+    color: var(--if-color-text);
+    background: var(--if-sidebar-hover-bg);
+  }
+}
+
+.topbar__help-text {
+  @media (max-width: 40rem) {
+    display: none;
+  }
+}
