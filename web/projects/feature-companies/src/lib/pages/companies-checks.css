@@ -1,0 +1,37 @@
+/* Checkbox group of the fiscal liabilities, with its hint and error. */
+
+.companies-checks {
+  /* Positioning box of the legend help tooltip (ui-help). */
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(15rem, 100%), 1fr));
+  gap: var(--if-space-2) var(--if-space-4);
+  margin: 0 0 var(--if-space-3);
+  padding: 0;
+  border: 0;
+}
+
+.companies-checks legend {
+  margin-block-end: var(--if-space-2);
+  font-weight: var(--if-font-weight-medium);
+}
+
+.companies-checks > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.companies-check {
+  display: flex;
+  gap: var(--if-space-2);
+  align-items: center;
+}
+
+.companies-field-error {
+  font-size: var(--if-font-size-sm);
+  color: var(--if-color-danger);
+}
+
+.companies-field-error:empty {
+  display: none;
+}

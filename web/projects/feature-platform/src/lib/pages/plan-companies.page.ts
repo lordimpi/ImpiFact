@@ -5,6 +5,8 @@ import { RouterLink } from '@angular/router';
 import { Api, PlanCompanyResponse, PlanResponse, getPlan, listPlanCompanies } from '@impifact/api';
 import { AppError, SKIP_ERROR_TOAST } from '@impifact/core';
 import {
+  BadgeComponent,
+  CardComponent,
   PageTitleComponent,
   TableCellDirective,
   TableComponent,
@@ -32,6 +34,8 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 @Component({
   selector: 'feat-plan-companies-page',
   imports: [
+    BadgeComponent,
+    CardComponent,
     RouterLink,
     TranslocoPipe,
     PageTitleComponent,

@@ -7,21 +7,27 @@ import {
   input,
   untracked,
 } from '@angular/core';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
 import { MyCompaniesStore } from '@impifact/core';
-import { ErrorStateComponent, LoadingComponent, PageTitleComponent } from '@impifact/ui';
-import { TranslocoPipe } from '@jsverse/transloco';
-import { provideCompaniesI18n } from '../companies-i18n';
+import {
+  ErrorStateComponent,
+  LoadingComponent,
+  PageTitleComponent,
+  TabsComponent,
+  UiTab,
+} from '@impifact/ui';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { companiesText, provideCompaniesI18n } from '../companies-i18n';
 import { CompanySetupStore } from '../state/company-setup.store';
 
 /** Secciones de la configuración, en el orden del paso a producción. */
 const SECTIONS = [
-  { path: 'datos', label: 'companies.layout.tabs.data' },
-  { path: 'ambientes', label: 'companies.layout.tabs.environments' },
-  { path: 'software', label: 'companies.layout.tabs.software' },
-  { path: 'certificado', label: 'companies.layout.tabs.certificate' },
-  { path: 'resoluciones', label: 'companies.layout.tabs.resolutions' },
-  { path: 'produccion', label: 'companies.layout.tabs.production' },
+  { path: 'datos', label: 'layout.tabs.data' },
+  { path: 'ambientes', label: 'layout.tabs.environments' },
+  { path: 'software', label: 'layout.tabs.software' },
+  { path: 'certificado', label: 'layout.tabs.certificate' },
+  { path: 'resoluciones', label: 'layout.tabs.resolutions' },
+  { path: 'produccion', label: 'layout.tabs.production' },
 ] as const;
 
 /**
@@ -32,43 +38,31 @@ const SECTIONS = [
 @Component({
   selector: 'feat-company-layout-page',
   imports: [
-    RouterLink,
-    RouterLinkActive,
     RouterOutlet,
     TranslocoPipe,
     ErrorStateComponent,
     LoadingComponent,
     PageTitleComponent,
+    TabsComponent,
   ],
   providers: [provideCompaniesI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="companies-page">
-      <header class="companies-header">
-        <div>
-          <ui-page-title>{{ 'companies.layout.title' | transloco }}</ui-page-title>
-          @if (company(); as company) {
-            <p class="companies-company">
-              <strong>{{ company.name }}</strong>
-              <span>{{
-                'companies.layout.nit' | transloco: { nit: company.nit, dv: company.dv }
-              }}</span>
-            </p>
-          }
-        </div>
-      </header>
+      <ui-page-title [subtitle]="'companies.layout.subtitle' | transloco">
+        {{ 'companies.layout.title' | transloco }}
+        @if (company(); as company) {
+          <p uiPageTitleActions class="companies-company">
+            <strong>{{ company.name }}</strong>
+            <span>{{
+              'companies.layout.nit' | transloco: { nit: company.nit, dv: company.dv }
+            }}</span>
+          </p>
+        }
+      </ui-page-title>
 
       @if (company()) {
-        <nav class="companies-tabs" [attr.aria-label]="'companies.layout.sections' | transloco">
-          @for (section of sections; track section.path) {
-            <a
-              [routerLink]="section.path"
-              routerLinkActive="is-active"
-              ariaCurrentWhenActive="page"
-              >{{ section.label | transloco }}</a
-            >
-          }
-        </nav>
+        <ui-tabs [label]="'companies.layout.sections' | transloco" [tabs]="tabs" />
         <router-outlet />
       } @else if (directory.status() === 'loading' || directory.status() === 'idle') {
         <ui-loading [label]="'companies.common.loading' | transloco" />
@@ -91,7 +85,14 @@ export class CompanyLayoutPage {
   /** Id de la empresa en la ruta (el guard ya comprobó que es la activa). */
   readonly id = input.required<string>();
 
-  protected readonly sections = SECTIONS;
+  private readonly transloco = inject(TranslocoService);
+
+  /** Section tabs; they also stay active on any child route of their section. */
+  protected readonly tabs: readonly UiTab[] = SECTIONS.map((section) => ({
+    label: companiesText(this.transloco, section.label),
+    link: section.path,
+    exact: false,
+  }));
 
   /** La empresa con la que trabaja el store; las secciones solo se abren cuando ya está fijada. */
   protected readonly company = computed(() => {

@@ -195,7 +195,13 @@
     },
     "departmentPlaceholder": "Escriba para buscar el departamento…",
     "departmentNone": "Ningún departamento coincide con lo que escribió.",
-    "municipalityPlaceholder": "Escriba para buscar el municipio…"
+    "municipalityPlaceholder": "Escriba para buscar el municipio…",
+    "formTitle": "Datos de la empresa",
+    "nextTitle": "Siguiente paso",
+    "groups": {
+      "identity": "Identificación tributaria",
+      "location": "Ubicación y contacto"
+    }
   },
   "companyKey": {
     "title": "Copie la llave de la empresa",

@@ -9,8 +9,12 @@ import {
 } from '@angular/core';
 import { AppError } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   ErrorStateComponent,
+  UiBadgeTone,
   FieldComponent,
   InputDirective,
   PasswordToggleDirective,
@@ -45,7 +49,10 @@ function readAsBase64(file: File): Promise<string> {
   selector: 'feat-certificate-page',
   imports: [
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     ErrorStateComponent,
     FieldComponent,
     InputDirective,
@@ -56,109 +63,124 @@ function readAsBase64(file: File): Promise<string> {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="companies-section">
-      <h2>{{ 'companies.certificate.title' | transloco }}</h2>
-      <p class="companies-lead">{{ 'companies.certificate.description' | transloco }}</p>
-
-      @switch (setup.certificatesStatus()) {
-        @case ('error') {
-          <ui-error-state
-            [title]="'companies.certificate.loadError' | transloco"
-            [retryLabel]="'companies.common.retry' | transloco"
-            (retry)="setup.loadCertificates()"
-          />
-        }
-        @case ('ready') {
-          @if (certificates().length === 0) {
-            <p class="companies-lead">{{ 'companies.certificate.empty' | transloco }}</p>
-          } @else {
-            <ul
-              class="companies-cards"
-              [attr.aria-label]="'companies.certificate.current' | transloco"
-            >
-              @for (certificate of certificates(); track certificate.id) {
-                <li class="companies-card">
-                  <span class="companies-badge" [class.companies-badge--done]="certificate.active">
-                    {{
-                      (certificate.active
-                        ? 'companies.certificate.active'
-                        : 'companies.certificate.inactive'
-                      ) | transloco
-                    }}
-                  </span>
-                  <p>
-                    <strong>{{ 'companies.certificate.subject' | transloco }}:</strong>
-                    <span>{{ certificate.subject }}</span>
-                  </p>
-                  <p>{{ 'companies.certificate.issuer' | transloco }}: {{ certificate.issuer }}</p>
-                  <p>
-                    {{ 'companies.certificate.expiration' | transloco }}:
-                    {{ certificate.expiration }}
-                  </p>
-                  <p>
-                    @if (certificate.expired) {
-                      {{ 'companies.certificate.expired' | transloco }}
-                    } @else {
-                      {{
-                        'companies.certificate.daysLeft' | transloco: { days: certificate.daysLeft }
-                      }}
-                    }
-                  </p>
-                </li>
-              }
-            </ul>
+      <ui-card
+        [title]="'companies.certificate.title' | transloco"
+        [subtitle]="'companies.certificate.description' | transloco"
+        [padding]="
+          setup.certificatesStatus() === 'ready' && certificates().length ? 'none' : 'normal'
+        "
+      >
+        @switch (setup.certificatesStatus()) {
+          @case ('error') {
+            <ui-error-state
+              [title]="'companies.certificate.loadError' | transloco"
+              [retryLabel]="'companies.common.retry' | transloco"
+              (retry)="setup.loadCertificates()"
+            />
+          }
+          @case ('ready') {
+            @if (certificates().length === 0) {
+              <p class="companies-lead">{{ 'companies.certificate.empty' | transloco }}</p>
+            } @else {
+              <ul
+                class="companies-list"
+                [attr.aria-label]="'companies.certificate.current' | transloco"
+              >
+                @for (certificate of certificates(); track certificate.id) {
+                  <li>
+                    <div>
+                      <p>
+                        <strong>{{ 'companies.certificate.subject' | transloco }}:</strong>&ngsp;
+                        <span>{{ certificate.subject }}</span>
+                      </p>
+                      <p class="companies-lead">
+                        {{ 'companies.certificate.issuer' | transloco }}: {{ certificate.issuer }}
+                      </p>
+                      <p class="companies-lead">
+                        {{ 'companies.certificate.expiration' | transloco }}:
+                        {{ certificate.expiration }}
+                      </p>
+                    </div>
+                    <div class="companies-badges">
+                      <ui-badge [tone]="certificate.active ? 'success' : 'neutral'">{{
+                        (certificate.active
+                          ? 'companies.certificate.active'
+                          : 'companies.certificate.inactive'
+                        ) | transloco
+                      }}</ui-badge>
+                      <ui-badge [tone]="certificate.validityTone">
+                        @if (certificate.expired) {
+                          {{ 'companies.certificate.expired' | transloco }}
+                        } @else {
+                          {{
+                            'companies.certificate.daysLeft'
+                              | transloco: { days: certificate.daysLeft }
+                          }}
+                        }
+                      </ui-badge>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          }
+          @default {
+            <ui-loading [label]="'companies.common.loading' | transloco" />
           }
         }
-        @default {
-          <ui-loading [label]="'companies.common.loading' | transloco" />
-        }
-      }
+      </ui-card>
 
-      <form
-        class="companies-form"
-        novalidate
-        (submit)="onSubmit($event)"
-        [attr.aria-busy]="uploading() || null"
-      >
-        @if (result(); as message) {
-          <p class="companies-message companies-message--success" role="status">{{ message }}</p>
-        }
-        @if (generalError(); as message) {
-          <p class="companies-message companies-message--error" role="alert">{{ message }}</p>
-        }
-        <ui-field
-          [label]="'companies.certificate.file' | transloco"
-          [hint]="'companies.certificate.fileHint' | transloco"
-          [error]="fileError()"
-          required
+      <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="uploading() || null">
+        <ui-card
+          [headingLevel]="3"
+          [title]="'companies.certificate.uploadTitle' | transloco"
+          [subtitle]="'companies.certificate.uploadHint' | transloco"
         >
-          <input #file uiInput type="file" accept=".p12,.pfx" (change)="fileError.set(null)" />
-        </ui-field>
-        <ui-field
-          [label]="'companies.certificate.password' | transloco"
-          [hint]="'companies.certificate.passwordHint' | transloco"
-          [error]="passwordError()"
-          required
-        >
-          <input
-            #password
-            uiInput
-            uiPasswordToggle
-            type="password"
-            autocomplete="new-password"
-            (input)="passwordError.set(null)"
-          />
-        </ui-field>
-        <div class="companies-form__actions">
-          <ui-button
-            type="submit"
-            [label]="'companies.certificate.upload' | transloco"
-            [loading]="uploading()"
-          />
-        </div>
+          <div class="companies-grid">
+            @if (result(); as message) {
+              <p class="companies-message companies-message--success" role="status">
+                {{ message }}
+              </p>
+            }
+            @if (generalError(); as message) {
+              <p class="companies-message companies-message--error" role="alert">{{ message }}</p>
+            }
+            <ui-field
+              [label]="'companies.certificate.file' | transloco"
+              [hint]="'companies.certificate.fileHint' | transloco"
+              [error]="fileError()"
+              required
+            >
+              <input #file uiInput type="file" accept=".p12,.pfx" (change)="fileError.set(null)" />
+            </ui-field>
+            <ui-field
+              [label]="'companies.certificate.password' | transloco"
+              [hint]="'companies.certificate.passwordHint' | transloco"
+              [error]="passwordError()"
+              required
+            >
+              <input
+                #password
+                uiInput
+                uiPasswordToggle
+                type="password"
+                autocomplete="new-password"
+                (input)="passwordError.set(null)"
+              />
+            </ui-field>
+          </div>
+          <div uiCardFooter class="companies-actions">
+            <ui-button
+              type="submit"
+              [label]="'companies.certificate.upload' | transloco"
+              [loading]="uploading()"
+            />
+          </div>
+        </ui-card>
       </form>
     </section>
   `,
-  styleUrl: './companies-page.css',
+  styleUrls: ['./companies-page.css', './companies-list.css'],
 })
 export class CertificatePage {
   protected readonly setup = inject(CompanySetupStore);
@@ -184,6 +206,7 @@ export class CertificatePage {
         daysLeft,
         expired: daysLeft <= 0,
         active: !!certificate.is_active,
+        validityTone: validityTone(daysLeft),
       };
     }),
   );
@@ -252,4 +275,15 @@ export class CertificatePage {
   protected text(key: string, params?: Record<string, unknown>): string {
     return companiesText(this.transloco, key, params);
   }
+}
+
+/** Days of validity at or below which a certificate is about to expire and should be renewed. */
+const EXPIRING_DAYS = 30;
+
+/** Badge tone of the validity: expired (danger), about to expire (warning) or valid (success). */
+function validityTone(daysLeft: number): UiBadgeTone {
+  if (daysLeft <= 0) {
+    return 'danger';
+  }
+  return daysLeft <= EXPIRING_DAYS ? 'warning' : 'success';
 }

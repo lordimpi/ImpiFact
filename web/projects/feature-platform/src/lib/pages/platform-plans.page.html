@@ -1,51 +1,57 @@
 <section class="platform-page">
-  <feat-platform-nav />
-  <header class="platform-header">
-    <div>
-      <ui-page-title>{{ 'platform.plans.title' | transloco }}</ui-page-title>
-      <p class="platform-lead">{{ 'platform.plans.description' | transloco }}</p>
-      <p class="platform-lead">{{ 'platform.plans.notPaginated' | transloco }}</p>
-    </div>
-    <ui-button [label]="'platform.plans.new' | transloco" (pressed)="openNew()" />
+  <header>
+    <ui-page-title [subtitle]="'platform.plans.description' | transloco">
+      {{ 'platform.plans.title' | transloco }}
+      <ui-button
+        uiPageTitleActions
+        [label]="'platform.plans.new' | transloco"
+        (pressed)="openNew()"
+      />
+    </ui-page-title>
+    <feat-platform-nav />
   </header>
 
-  <ui-table
-    [caption]="'platform.plans.caption' | transloco"
-    [columns]="columns()"
-    [rows]="store.plans()"
-    [labels]="tableLabels()"
-    [loading]="store.loading()"
-    [error]="store.error() !== null"
-    [trackBy]="trackById"
-    (retry)="store.load()"
-  >
-    <ng-template uiTableCell="period" let-row>{{ periodLabel(row.period) }}</ng-template>
-    <ng-template uiTableCell="qtyInvoice" let-row>{{ quantity(row.qtyInvoice) }}</ng-template>
-    <ng-template uiTableCell="qtyPayroll" let-row>{{ quantity(row.qtyPayroll) }}</ng-template>
-    <ng-template uiTableCell="qtyRadian" let-row>{{ quantity(row.qtyRadian) }}</ng-template>
-    <ng-template uiTableCell="qtyDs" let-row>{{ quantity(row.qtyDs) }}</ng-template>
-    <ng-template uiTableCell="active" let-row>
-      <span class="platform-status" [class.platform-status--inactive]="!row.active">{{
-        (row.active ? 'platform.plans.active' : 'platform.plans.inactive') | transloco
-      }}</span>
-    </ng-template>
-    <ng-template uiTableCell="actions" let-row>
-      <div class="platform-row-actions">
-        <ui-button
-          variant="text"
-          size="small"
-          [label]="'platform.plans.edit' | transloco"
-          [ariaLabel]="rowText('plans.editRow', row)"
-          (pressed)="openEdit(row)"
-        />
-        <a
-          [routerLink]="['/plataforma/planes', row.id]"
-          [attr.aria-label]="rowText('plans.companiesRow', row)"
-          >{{ 'platform.plans.companies' | transloco }}</a
-        >
-      </div>
-    </ng-template>
-  </ui-table>
+  <ui-card padding="none">
+    <ui-table
+      flush
+      [caption]="'platform.plans.caption' | transloco"
+      [columns]="columns()"
+      [rows]="store.plans()"
+      [labels]="tableLabels()"
+      [loading]="store.loading()"
+      [error]="store.error() !== null"
+      [trackBy]="trackById"
+      (retry)="store.load()"
+    >
+      <ng-template uiTableCell="period" let-row>{{ periodLabel(row.period) }}</ng-template>
+      <ng-template uiTableCell="qtyInvoice" let-row>{{ quantity(row.qtyInvoice) }}</ng-template>
+      <ng-template uiTableCell="qtyPayroll" let-row>{{ quantity(row.qtyPayroll) }}</ng-template>
+      <ng-template uiTableCell="qtyRadian" let-row>{{ quantity(row.qtyRadian) }}</ng-template>
+      <ng-template uiTableCell="qtyDs" let-row>{{ quantity(row.qtyDs) }}</ng-template>
+      <ng-template uiTableCell="active" let-row>
+        <ui-badge [tone]="row.active ? 'success' : 'neutral'">{{
+          (row.active ? 'platform.plans.active' : 'platform.plans.inactive') | transloco
+        }}</ui-badge>
+      </ng-template>
+      <ng-template uiTableCell="actions" let-row>
+        <div class="platform-row-actions">
+          <ui-button
+            variant="ghost"
+            size="small"
+            [label]="'platform.plans.edit' | transloco"
+            [ariaLabel]="rowText('plans.editRow', row)"
+            (pressed)="openEdit(row)"
+          />
+          <a
+            [routerLink]="['/plataforma/planes', row.id]"
+            [attr.aria-label]="rowText('plans.companiesRow', row)"
+            >{{ 'platform.plans.companies' | transloco }}</a
+          >
+        </div>
+      </ng-template>
+    </ui-table>
+    <p uiCardFooter class="platform-lead">{{ 'platform.plans.notPaginated' | transloco }}</p>
+  </ui-card>
 
   <ui-dialog
     [header]="dialogTitle()"
@@ -60,7 +66,9 @@
       [attr.aria-busy]="submitting() || null"
     >
       @if (generalError(); as message) {
-        <p class="platform-message platform-message--error" role="alert">{{ message }}</p>
+        <p class="platform-message platform-message--error platform-alert" role="alert">
+          {{ message }}
+        </p>
       }
       <div class="platform-form-row">
         @if (editing()) {

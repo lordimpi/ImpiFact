@@ -12,11 +12,15 @@ import { RouterLink } from '@angular/router';
 import { Api, calculateDocumentTotals, getDocument, issueTestSetInvoice } from '@impifact/api';
 import { IDEMPOTENCY_KEY, SKIP_ERROR_TOAST, ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardActionsDirective,
+  CardComponent,
   ErrorStateComponent,
   FieldComponent,
   InputDirective,
   LoadingComponent,
+  UiBadgeTone,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -53,6 +57,14 @@ interface Step {
   section?: { path: string; label: string };
 }
 
+/** Badge tone of each step status: done (success), pending (warning), running (info) and locked (neutral). */
+const STATUS_TONES: Record<StepStatus, UiBadgeTone> = {
+  done: 'success',
+  missing: 'warning',
+  inProgress: 'info',
+  locked: 'neutral',
+};
+
 const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 
 /**
@@ -70,7 +82,10 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
   imports: [
     RouterLink,
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardActionsDirective,
+    CardComponent,
     ErrorStateComponent,
     FieldComponent,
     InputDirective,
@@ -80,9 +95,11 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
   providers: [provideCompaniesI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './production-wizard.page.html',
-  styleUrl: './companies-page.css',
+  styleUrls: ['./companies-page.css', './production-wizard.page.css'],
 })
 export class ProductionWizardPage {
+  protected readonly tones = STATUS_TONES;
+
   protected readonly setup = inject(CompanySetupStore);
   private readonly api = inject(Api);
   private readonly toasts = inject(ToastStore);

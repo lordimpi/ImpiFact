@@ -40,7 +40,7 @@ export interface NextNumberLabels {
   template: `
     <ui-dialog [header]="labels().header" [closeLabel]="labels().close" [(visible)]="visible">
       <form novalidate (submit)="onSubmit($event)">
-        <p>{{ labels().help }}</p>
+        <p class="next-number-help">{{ labels().help }}</p>
         <ui-field [label]="labels().field" [hint]="labels().range" [error]="error()" required>
           <input
             uiInput
@@ -59,6 +59,10 @@ export interface NextNumberLabels {
     </ui-dialog>
   `,
   styles: `
+    .next-number-help {
+      margin: 0 0 var(--if-space-3);
+      color: var(--if-color-text-muted);
+    }
     .next-number-actions {
       display: flex;
       justify-content: flex-end;

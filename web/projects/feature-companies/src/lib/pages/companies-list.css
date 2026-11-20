@@ -1,0 +1,31 @@
+/* Row lists inside cards (environments, certificates) with their status badges. */
+
+.companies-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.companies-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2) var(--if-space-4);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--if-space-3) var(--if-space-4);
+  border-block-end: 1px solid var(--if-color-border-subtle);
+}
+
+.companies-list > li:last-child {
+  border: 0;
+}
+
+.companies-list p {
+  margin: 0;
+}
+
+.companies-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+}

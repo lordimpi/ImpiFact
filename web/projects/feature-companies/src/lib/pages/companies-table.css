@@ -1,0 +1,51 @@
+/* Tables of the company pages (saved software, resolutions and DIAN ranges) and the range lookup row. */
+
+.companies-scroll {
+  overflow-x: auto;
+}
+
+.companies-table {
+  inline-size: 100%;
+  font-size: var(--if-font-size-sm);
+  border-collapse: collapse;
+}
+
+.companies-table th,
+.companies-table td {
+  padding: var(--if-cell-padding-y) var(--if-space-2);
+  text-align: start;
+  border-block-end: 1px solid var(--if-color-border-subtle);
+}
+
+.companies-table th {
+  font-weight: var(--if-font-weight-medium);
+  color: var(--if-color-text-muted);
+  background: var(--if-color-surface);
+}
+
+.companies-table :is(th, td):first-child {
+  padding-inline-start: var(--if-space-4);
+}
+
+.companies-nowrap {
+  white-space: nowrap;
+}
+
+.companies-table tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+.companies-lookup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--if-space-3);
+  align-items: flex-end;
+}
+
+.companies-lookup ui-field {
+  flex: 1 1 16rem;
+}
+
+.companies-lookup .companies-actions {
+  margin-block-end: var(--if-space-3);
+}

@@ -1,4 +1,4 @@
-/* Estilos comunes de las páginas de la plataforma: listados y formularios, cómodos en móvil y en escritorio. */
+/* Shared styles of the platform pages: tables and forms in cards, two columns on wide screens, one on phones. */
 :host {
   display: block;
 }
@@ -9,18 +9,15 @@
   gap: var(--if-space-4);
   max-inline-size: 72rem;
   margin-inline: auto;
+  container-type: inline-size;
 }
 
-.platform-header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--if-space-3);
-  align-items: flex-start;
-  justify-content: space-between;
+.platform-lead,
+.platform-message {
+  margin: 0;
 }
 
 .platform-lead {
-  margin: 0;
   color: var(--if-color-text-muted);
 }
 
@@ -30,37 +27,29 @@
   gap: var(--if-space-3);
 }
 
-.platform-card {
-  max-inline-size: 36rem;
-  padding: var(--if-space-4);
-  background: var(--if-color-surface);
-  border: 1px solid var(--if-color-border);
-  border-radius: var(--if-radius-md);
-}
-
 .platform-form-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr));
-  gap: var(--if-space-3);
+  gap: 0 var(--if-space-3);
 }
 
 .platform-fieldset {
-  /* Contenedor del tooltip de ayuda (ui-help) de la leyenda. */
+  /* Positioning box of the legend help tooltip (ui-help). */
   position: relative;
   margin: 0;
   padding: var(--if-space-3);
   border: 1px solid var(--if-color-border);
-  border-radius: var(--if-radius-sm);
+  border-radius: var(--if-radius-md);
 }
 
 .platform-fieldset legend {
+  padding-inline: var(--if-space-1);
   font-weight: var(--if-font-weight-medium);
 }
 
-/* Casilla con su botón de ayuda al lado (fuera de la etiqueta, para que tocarlo no marque la casilla). */
+/* Checkbox with its help button beside it (outside the label, so tapping it does not toggle the box). */
 .platform-check--help {
   position: relative;
-  align-items: center;
 }
 
 .platform-check {
@@ -76,67 +65,47 @@
   gap: var(--if-space-2);
 }
 
-.platform-message {
-  margin: 0;
-}
-
 .platform-message--error {
   color: var(--if-color-danger);
+}
+
+.platform-message--error:empty {
+  display: none;
 }
 
 .platform-message--success {
   color: var(--if-color-success);
 }
 
-.platform-status {
-  color: var(--if-color-success);
-  font-weight: var(--if-font-weight-medium);
+.platform-alert {
+  padding: var(--if-space-2) var(--if-space-3);
+  background: var(--if-color-danger-subtle);
+  border-inline-start: 4px solid currentColor;
+  border-radius: var(--if-radius-sm);
 }
 
-.platform-status--inactive {
-  color: var(--if-color-text-muted);
+.platform-message--success:not(:empty) {
+  margin-block-start: var(--if-space-3);
+  padding: var(--if-space-2) var(--if-space-3);
+  background: var(--if-color-success-subtle);
+  border-inline-start: 4px solid currentColor;
+  border-radius: var(--if-radius-sm);
+}
+
+.platform-toolbar {
+  padding: var(--if-space-3) var(--if-space-4) 0;
+  border-block-end: 1px solid var(--if-color-border);
 }
 
 .platform-row-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--if-space-2);
+  gap: var(--if-space-1) var(--if-space-2);
   align-items: center;
 }
 
 .platform-row-actions a,
 .platform-back {
   color: var(--if-color-primary);
-}
-
-/* Formulario de alta de empresa: dos columnas en escritorio, una en móvil. */
-.platform-company-form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
-  gap: var(--if-space-3) var(--if-space-4);
-  padding: var(--if-space-4);
-  background: var(--if-color-surface);
-  border: 1px solid var(--if-color-border);
-  border-radius: var(--if-radius-md);
-}
-
-.platform-wide {
-  grid-column: 1 / -1;
-}
-
-/* Llave de API mostrada una sola vez. */
-.platform-secret-label {
-  margin-block-end: var(--if-space-1);
   font-weight: var(--if-font-weight-medium);
-}
-
-.platform-secret {
-  display: block;
-  padding: var(--if-space-3);
-  font-family: var(--if-font-family-mono);
-  overflow-wrap: anywhere;
-  background: var(--if-color-bg);
-  border: 1px solid var(--if-color-border-strong);
-  border-radius: var(--if-radius-sm);
-  user-select: all;
 }
