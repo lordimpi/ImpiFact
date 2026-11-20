@@ -16,6 +16,7 @@
     <PackageReference Include="NUnit3TestAdapter" />
     <PackageReference Include="Testcontainers.Minio" />
     <PackageReference Include="Testcontainers" />
+    <PackageReference Include="Testcontainers.Azurite" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="Testcontainers.MySql" />

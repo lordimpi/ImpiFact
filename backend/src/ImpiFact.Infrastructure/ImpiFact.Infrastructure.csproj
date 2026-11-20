@@ -1,7 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Adaptadores: persistencia, almacenamiento, secretos, correo y PDF. -->
   <ItemGroup>
+    <!-- SDK oficiales de cada nube para el almacenamiento (Storage) y los secretos (Protection); solo se usan ahí. -->
     <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="Azure.Identity" />
+    <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Handlebars.Net" />
     <PackageReference Include="MailKit" />

@@ -7,8 +7,9 @@ namespace ImpiFact.Infrastructure.Storage;
 /// <summary>
 /// Validación de <see cref="StorageOptions"/> que corre al arrancar, junto con sus atributos. Con <c>Local</c> exige
 /// una carpeta raíz con ruta absoluta que se pueda crear y escribir; con <c>S3</c>, un bucket con nombre válido,
-/// una región (o una URL de servicio compatible) y una vigencia máxima de URL prefirmada dentro del rango; si no, la
-/// aplicación no arranca. Los demás proveedores de nube todavía no existen: elegirlos también detiene el arranque.
+/// una región (o una URL de servicio compatible) y una vigencia máxima de URL prefirmada dentro del rango; con
+/// <c>AzureBlob</c>, la dirección de la cuenta y un contenedor con nombre válido; si no, la aplicación no arranca. Los
+/// demás proveedores de nube todavía no existen: elegirlos también detiene el arranque.
 /// </summary>
 internal sealed partial class StorageOptionsValidator(IEnumerable<ReservedDirectory> reserved) : IValidateOptions<StorageOptions>
 {
@@ -25,10 +26,15 @@ internal sealed partial class StorageOptionsValidator(IEnumerable<ReservedDirect
             return ValidateS3(options.S3);
         }
 
+        if (string.Equals(options.Provider, StorageOptions.AzureBlobProvider, StringComparison.Ordinal))
+        {
+            return ValidateAzureBlob(options.AzureBlob);
+        }
+
         if (!string.Equals(options.Provider, StorageOptions.LocalProvider, StringComparison.Ordinal))
         {
             return ValidateOptionsResult.Fail(
-                $"Storage provider '{options.Provider}' is not available yet; use '{StorageOptions.LocalProvider}' or '{StorageOptions.S3Provider}'.");
+                $"Storage provider '{options.Provider}' is not available yet; use '{StorageOptions.LocalProvider}', '{StorageOptions.S3Provider}' or '{StorageOptions.AzureBlobProvider}'.");
         }
 
         return ValidateLocal(options);
@@ -82,7 +88,7 @@ internal sealed partial class StorageOptionsValidator(IEnumerable<ReservedDirect
         }
 
         var hasServiceUrl = !string.IsNullOrWhiteSpace(s3.ServiceUrl);
-        if (hasServiceUrl && !IsValidServiceUrl(s3.ServiceUrl))
+        if (hasServiceUrl && !ServiceEndpoint.IsValidUrl(s3.ServiceUrl))
         {
             return ValidateOptionsResult.Fail(
                 $"Storage:S3:ServiceUrl '{s3.ServiceUrl}' must be an absolute http or https URL without user information, query or fragment.");
@@ -95,7 +101,7 @@ internal sealed partial class StorageOptionsValidator(IEnumerable<ReservedDirect
                 return ValidateOptionsResult.Fail("Storage:S3:Region is required when Storage:S3:ServiceUrl is not set.");
             }
         }
-        else if (!RegionName().IsMatch(s3.Region))
+        else if (!ServiceEndpoint.IsAwsRegion(s3.Region))
         {
             return ValidateOptionsResult.Fail($"Storage:S3:Region '{s3.Region}' is not a valid AWS region, for example 'us-east-1'.");
         }
@@ -109,22 +115,55 @@ internal sealed partial class StorageOptionsValidator(IEnumerable<ReservedDirect
         return ValidateOptionsResult.Success;
     }
 
-    // Sin usuario ni contraseña en la URL: las credenciales salen de la cadena estándar de AWS, nunca de la configuración.
-    private static bool IsValidServiceUrl(string value) =>
-        Uri.TryCreate(value, UriKind.Absolute, out var url)
-        && (url.Scheme == Uri.UriSchemeHttp || url.Scheme == Uri.UriSchemeHttps)
-        && url.UserInfo.Length == 0
-        && url.Query.Length == 0
-        && url.Fragment.Length == 0;
+    private static ValidateOptionsResult ValidateAzureBlob(AzureBlobStorageOptions azure)
+    {
+        if (string.IsNullOrWhiteSpace(azure.ServiceUri))
+        {
+            return ValidateOptionsResult.Fail("Storage:AzureBlob:ServiceUri is required when Storage:Provider is AzureBlob.");
+        }
+
+        // Sin SAS ni llave en la URL: el acceso sale de la identidad de la carga de trabajo, nunca de la configuración.
+        if (!ServiceEndpoint.IsValidUrl(azure.ServiceUri))
+        {
+            return ValidateOptionsResult.Fail(
+                $"Storage:AzureBlob:ServiceUri {ServiceEndpoint.Describe(azure.ServiceUri)} must be an absolute http or https URL without user information, query or fragment.");
+        }
+
+        if (string.IsNullOrWhiteSpace(azure.Container))
+        {
+            return ValidateOptionsResult.Fail("Storage:AzureBlob:Container is required when Storage:Provider is AzureBlob.");
+        }
+
+        if (!ContainerName().IsMatch(azure.Container))
+        {
+            return ValidateOptionsResult.Fail(
+                $"Storage:AzureBlob:Container '{azure.Container}' is not a valid Azure Blob container name: use 3 to 63 lower-case letters, digits or single '-'.");
+        }
+
+        if (azure.UseEmulatorAccount && !AzureBlobStorage.IsEmulatorEndpoint(new Uri(azure.ServiceUri)))
+        {
+            return ValidateOptionsResult.Fail(
+                "Storage:AzureBlob:UseEmulatorAccount only works with Azurite: Storage:AzureBlob:ServiceUri must be http://<host>:10000/devstoreaccount1.");
+        }
+
+        if (azure.SignedUrlMaxMinutes is < 1 or > AzureBlobStorageOptions.SignedUrlLimitMinutes)
+        {
+            return ValidateOptionsResult.Fail(
+                $"Storage:AzureBlob:SignedUrlMaxMinutes must be between 1 and {AzureBlobStorageOptions.SignedUrlLimitMinutes}.");
+        }
+
+        return ValidateOptionsResult.Success;
+    }
 
     // Reglas de nombres de bucket de AWS: de 3 a 63 caracteres, minúsculas, dígitos, «.» o «-», y empieza y termina
     // con letra o dígito.
     [GeneratedRegex(@"^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]\z", RegexOptions.CultureInvariant)]
     private static partial Regex BucketName();
 
-    // Forma de una región de AWS: «us-east-1», «sa-east-1», «us-gov-west-1».
-    [GeneratedRegex(@"^[a-z]{2}(?:-[a-z]+)+-[0-9]+\z", RegexOptions.CultureInvariant)]
-    private static partial Regex RegionName();
+    // Reglas de nombres de contenedor de Azure: de 3 a 63 caracteres, minúsculas, dígitos o «-», empieza y termina con
+    // letra o dígito y nunca lleva dos «-» seguidos.
+    [GeneratedRegex(@"^(?!.*--)[a-z0-9][a-z0-9-]{1,61}[a-z0-9]\z", RegexOptions.CultureInvariant)]
+    private static partial Regex ContainerName();
 
     // Se comparan sin distinguir mayúsculas: en Windows y macOS «A» y «a» son la misma carpeta.
     private static bool Overlap(string first, string second)
