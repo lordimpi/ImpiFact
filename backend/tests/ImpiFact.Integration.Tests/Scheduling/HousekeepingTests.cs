@@ -170,6 +170,106 @@ public sealed class HousekeepingTests
         });
     }
 
+    // Si se acortó Jwt:RefreshDays entre dos rotaciones, el sucesor vence antes que su antecesor: borrar por fecha de
+    // vencimiento quitaría primero la fila apuntada. Cada caso usa su propio host y su propio usuario: una cadena que no
+    // se pudiera borrar haría fallar todas las corridas siguientes.
+    [Test]
+    public async Task A_successor_that_expires_before_its_predecessor_is_deleted_with_it()
+    {
+        await using var host = SchedulingHost.Create();
+        var now = host.Clock.UtcNow;
+        var userId = await AddUserAsync(host);
+        var successor = await AddTokenAsync(host, userId, now.AddDays(-20), replacedBy: null);
+        await AddTokenAsync(host, userId, now.AddDays(-1), replacedBy: successor);
+
+        var run = await host.RunJobAsync("Housekeeping");
+
+        await AssertTokensLeftAsync(host, run, userId, []);
+    }
+
+    // Tokens que vencen en el mismo instante no tienen un orden: la cadena se borra entera igual, en una tanda o en
+    // varias, armada del más antiguo al más nuevo o al revés.
+    [TestCase(2, true)]
+    [TestCase(2, false)]
+    [TestCase(100, true)]
+    [TestCase(100, false)]
+    public async Task A_chain_whose_tokens_expire_at_the_same_instant_is_deleted_whole(int batchSize, bool builtOldestFirst)
+    {
+        await using var host = SchedulingHost.Create(new Dictionary<string, string?>
+        {
+            ["ScheduledJobs:DeleteBatchSize"] = batchSize.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        });
+        var expiresAt = host.Clock.UtcNow.AddDays(-2);
+        var userId = await AddUserAsync(host);
+        Guid? previous = null;
+        for (var index = 0; index < 7; index++)
+        {
+            if (builtOldestFirst)
+            {
+                // Cada token nuevo reemplaza al anterior: el anterior pasa a apuntar a él.
+                var id = await AddTokenAsync(host, userId, expiresAt, replacedBy: null);
+                if (previous is { } replaced)
+                {
+                    await SetReplacedByAsync(host, replaced, id);
+                }
+
+                previous = id;
+            }
+            else
+            {
+                previous = await AddTokenAsync(host, userId, expiresAt, replacedBy: previous);
+            }
+        }
+
+        var run = await host.RunJobAsync("Housekeeping");
+
+        await AssertTokensLeftAsync(host, run, userId, []);
+    }
+
+    // Un token vencido al que apunta uno vivo se queda; lo que ese token vencido apunta (su sucesor, también vencido) se
+    // borra, y la referencia del que se queda se suelta.
+    [Test]
+    public async Task A_token_that_a_live_token_points_to_is_kept_and_its_expired_successor_deleted()
+    {
+        await using var host = SchedulingHost.Create();
+        var now = host.Clock.UtcNow;
+        var userId = await AddUserAsync(host);
+        var expiredSuccessor = await AddTokenAsync(host, userId, now.AddDays(-3), replacedBy: null);
+        var keptByLive = await AddTokenAsync(host, userId, now.AddDays(-2), replacedBy: expiredSuccessor);
+        var live = await AddTokenAsync(host, userId, now.AddDays(5), replacedBy: keptByLive);
+        var stray = await AddTokenAsync(host, userId, now.AddDays(-9), replacedBy: null);
+
+        var run = await host.RunJobAsync("Housekeeping");
+
+        await AssertTokensLeftAsync(host, run, userId, [live, keptByLive]);
+        await using var scope = host.Worker.OpenScope();
+        var tokens = await SchedulingHost.Db(scope).Set<RefreshToken>().AsNoTracking().Where(token => token.UserId == userId).ToListAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(tokens.Single(token => token.Id == live).ReplacedBy, Is.EqualTo(keptByLive), "The live token keeps its reference.");
+            Assert.That(tokens.Single(token => token.Id == keptByLive).ReplacedBy, Is.Null, $"stray {stray}, successor {expiredSuccessor}");
+        });
+    }
+
+    private static async Task AssertTokensLeftAsync(SchedulingHost host, ScheduledJobRun run, Guid userId, Guid[] expected)
+    {
+        await using var scope = host.Worker.OpenScope();
+        var left = await SchedulingHost.Db(scope).Set<RefreshToken>().Where(token => token.UserId == userId).Select(token => token.Id).ToListAsync();
+        var errors = string.Join("\n", host.Worker.Logs.Entries.Where(entry => entry.StartsWith("Error", StringComparison.Ordinal)).Take(3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(run.Outcome, Is.EqualTo(ScheduledJobOutcome.Completed), errors);
+            Assert.That(left, Is.EquivalentTo(expected));
+        });
+    }
+
+    private static async Task SetReplacedByAsync(SchedulingHost host, Guid id, Guid replacedBy)
+    {
+        await using var scope = host.Worker.OpenScope();
+        await SchedulingHost.Db(scope).Set<RefreshToken>().Where(token => token.Id == id)
+            .ExecuteUpdateAsync(set => set.SetProperty(token => token.ReplacedBy, replacedBy));
+    }
+
     private static async Task<Guid> AddMessageAsync(SchedulingHost host, OutboxStatus status, DateTimeOffset? processedAt)
     {
         var message = new OutboxMessage
