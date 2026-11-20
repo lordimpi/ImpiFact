@@ -511,6 +511,41 @@ flowchart LR
 
 **Puerta de la fase 6 (decisión del 19-nov-2026).** La puerta original era «Mismo despliegue en Azure, AWS y GCP». Se ajustó con la opción que eligió el usuario: «Dejo listas las plantillas de despliegue de las tres nubes y pruebo los almacenes de secretos con emuladores locales en Docker. El despliegue real lo hacemos cuando vayas a vender y elijas la nube. Sin costo ni cuentas ahora.» Plantillas entregadas el 20-nov: `deploy/azure` (Bicep), `deploy/aws` y `deploy/gcp` (Terraform), con la misma configuración en las tres y validadas sin conexión (`bicep build` y `terraform validate`), sin cuentas ni costo; el detalle está en la sección 14 de «Arquitectura detallada».
 
+**Estado al 20-nov-2026.** Fase 6 cerrada. Se entregó lo siguiente:
+
+- **Motores de base de datos.** SQL Server y MySQL se suman a PostgreSQL con un solo `DbContext`, migraciones por proveedor y el motor elegido por configuración (`Database:Provider`). MySQL usa el fork de Microting de Pomelo (ADR-08). Las lecturas Dapper, los índices filtrados, los bloqueos de tareas, la bandeja de salida y la limpieza funcionan en los tres motores.
+- **Almacenes de secretos y de archivos.** Azure Key Vault, AWS Secrets Manager con KMS y GCP Secret Manager con Cloud KMS guardan los certificados y protegen las llaves de Data Protection. Azure Blob y Google Cloud Storage se suman al almacenamiento local y S3. Todo se probó con emuladores en Docker.
+- **Observabilidad.** Registros JSON con Serilog, sin datos sensibles. Trazas y métricas de OpenTelemetry por OTLP, con métricas de negocio. Rutas `/health/ready` y salud del Worker.
+- **Contenedores.** Imágenes del Api, el Worker, el Migrator y el panel, ninguna corre como root. El compose tiene perfiles. El panel usa nginx con CSP por nonce y `Referrer-Policy`.
+- **Despliegue.** Plantillas para Azure, AWS y GCP.
+- **Pruebas de carga.** Escenarios con k6, documentados en «Pruebas de carga».
+- **Pendientes de la fase 5.** Aviso de migraciones pendientes al arrancar, 503 cuando la revocación de sesiones supera su plazo, período de gracia en la rotación del token, próximo número de la resolución desde el panel, E2E con reloj simulado y paquete inicial del panel.
+
+La puerta ajustada se cumple:
+
+- las plantillas de las tres nubes están validadas;
+- los almacenes de secretos pasan contra sus emuladores;
+- la integración continua corre las pruebas de integración en PostgreSQL, SQL Server y MySQL, y construye las imágenes, todo en verde.
+
+**Hallazgos de esa última corrida, ya corregidos.** Una URL firmada de S3 duraba un segundo de más, porque el SDK de AWS usa su propio reloj corregido. En Linux, la conexión rechazada de SQL Server llega con el número 0 y no se tomaba como pasajera.
+
+**Límites de las pruebas de carga.**
+
+- La emisión llega a unas 15 facturas por segundo por resolución, porque el bloqueo del consecutivo dura toda la transacción.
+- Un Worker procesa cerca de 1,4 facturas por segundo, limitado por Gotenberg.
+- En SQL Server, la toma de mensajes de la bandeja de salida recorre el índice agrupado completo y escala a bloqueo de tabla.
+
+**Pendientes para el despliegue real.**
+
+- Un usuario de base de datos para la aplicación, separado del administrador.
+- Validar el certificado del servidor de base de datos.
+- Reducir los permisos de Secret Manager y de Key Vault.
+- Fijar por digest la imagen de SQL Server y sumar Renovate para las acciones de GitHub.
+- No registrar la cadena de consulta en el registro de errores de nginx.
+- Métricas de documentos sin confirmar y de vencimiento del certificado.
+
+El diseño visual del panel y el manual de uso con capturas (Playwright) siguen como tarea propia.
+
 **Estrategia de pruebas**
 
 1. **Golden tests (la más importante).** Se corre el PHP con un conjunto de JSON de entrada, se guarda el XML y el CUFE, y .NET debe producir los mismos. Cubre cada tipo de documento y los casos límite: descuentos, impuestos, retenciones, moneda extranjera y redondeo.
