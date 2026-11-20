@@ -78,7 +78,8 @@ public sealed class MySqlDatabaseProvider : IDatabaseProvider
     /// <item>Los uuid son <c>char(36)</c> (texto con guiones) y el controlador los lee como <see cref="Guid"/>.</item>
     /// <item>Las fechas <c>datetime(6)</c> se guardan en UTC y se leen como <see cref="DateTime"/> en UTC.</item>
     /// <item>
-    /// Cada sesión usa <c>READ COMMITTED</c> como PostgreSQL (Modelo de datos detallado, sección 8, punto 8): sin eso
+    /// Cada sesión usa <c>READ COMMITTED</c> como PostgreSQL (y las transacciones de EF también:
+    /// <see cref="ReadCommittedTransactions"/>) (Modelo de datos detallado, sección 8, punto 8): sin eso
     /// MySQL usa <c>REPEATABLE READ</c>, que bloquea huecos del índice y deja leer datos viejos dentro de una
     /// transacción. Se fija al abrir una conexión nueva o reiniciada (al volver al grupo, MySQL borra las variables de la
     /// sesión).
@@ -102,7 +103,7 @@ public sealed class MySqlDatabaseProvider : IDatabaseProvider
     /// migraciones viven en este proyecto y los tipos propios de MySQL (como json) los fija el personalizador.
     /// </summary>
     internal static DbContextOptionsBuilder Configure(DbContextOptionsBuilder options) =>
-        options.ReplaceService<IModelCustomizer, MySqlModelCustomizer>();
+        options.ReplaceService<IModelCustomizer, MySqlModelCustomizer>().AddInterceptors(ReadCommittedTransactions.Instance);
 
     internal static void UseThisAssemblyForMigrations(MySqlDbContextOptionsBuilder mysql) =>
         mysql.MigrationsAssembly(typeof(MySqlDatabaseProvider).Assembly.GetName().Name);

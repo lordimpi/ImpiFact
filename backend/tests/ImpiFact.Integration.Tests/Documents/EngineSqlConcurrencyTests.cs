@@ -186,6 +186,84 @@ public sealed class EngineSqlConcurrencyTests
         });
     }
 
+    // READ COMMITTED en los tres motores (Modelo de datos detallado, sección 8, punto 8): dentro de una transacción de EF,
+    // una segunda lectura ve lo que otra sesión confirmó entre medio. Con REPEATABLE READ (el de MySQL por defecto, y el
+    // que MySqlConnector pide si la transacción no dice nivel) seguiría viendo el valor de la primera lectura.
+    [Test]
+    public async Task An_ef_transaction_sees_what_another_session_committed_in_between()
+    {
+        var companyId = await DocumentsDatabase.CreateCompanyAsync();
+        var scopeKey = NumberingScope.ForResolution(Guid.CreateVersion7());
+        await using (var seed = DocumentsDatabase.Open(companyId: null))
+        {
+            seed.Db.Add(new NumberingSequence { CompanyId = companyId, ScopeKey = scopeKey, NextNumber = 1 });
+            await seed.Db.SaveChangesAsync();
+        }
+
+        await using var session = DocumentsDatabase.Open(companyId: null);
+        await using var transaction = await session.Db.Database.BeginTransactionAsync();
+        var before = await NextNumberAsync(session, companyId, scopeKey);
+        await using (var other = DocumentsDatabase.Open(companyId: null))
+        {
+            await other.Db.Set<NumberingSequence>().IgnoreQueryFilters()
+                .Where(sequence => sequence.CompanyId == companyId && sequence.ScopeKey == scopeKey)
+                .ExecuteUpdateAsync(set => set.SetProperty(sequence => sequence.NextNumber, 50));
+        }
+
+        var after = await NextNumberAsync(session, companyId, scopeKey);
+        await transaction.RollbackAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(before, Is.EqualTo(1));
+            Assert.That(after, Is.EqualTo(50));
+        });
+    }
+
+    // MySqlConnector convierte una transacción sin nivel en REPEATABLE READ; el proveedor de MySQL la abre en READ COMMITTED.
+    [Test]
+    public async Task On_mysql_an_ef_transaction_runs_read_committed()
+    {
+        Assume.That(TestDatabase.IsMySql, "MySQL only: @@transaction_isolation is a MySQL variable.");
+        await using var session = DocumentsDatabase.Open(companyId: null);
+        await using var transaction = await session.Db.Database.BeginTransactionAsync();
+        await using var command = session.Db.Database.GetDbConnection().CreateCommand();
+        command.Transaction = transaction.GetDbTransaction();
+        command.CommandText = "select @@transaction_isolation";
+
+        Assert.That(await command.ExecuteScalarAsync(), Is.EqualTo("READ-COMMITTED"));
+    }
+
+    // GET_LOCK vale para todo el servidor; el bloqueo de una tarea tiene que ser de su base, como en PostgreSQL y SQL
+    // Server: otra base del mismo servidor (otra instalación) toma la misma tarea, otra sesión de la misma base no.
+    [Test]
+    public async Task On_mysql_a_job_lock_belongs_to_its_database_and_not_to_the_whole_server()
+    {
+        Assume.That(TestDatabase.IsMySql, "MySQL only: PostgreSQL and SQL Server locks are per database already.");
+        var key = Random.Shared.NextInt64();
+        await using var holder = await OpenLockSessionAsync();
+        await using var sameDatabase = await OpenLockSessionAsync();
+        var sql = holder.Get<IScheduledJobLockSql>();
+        await using var otherDatabase = TestDatabase.Connect(
+            new MySqlConnector.MySqlConnectionStringBuilder(DocumentsDatabase.ConnectionString) { Database = "mysql" }.ConnectionString);
+        await otherDatabase.OpenAsync();
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(await sql.TryLockAsync(Connection(holder), key, CancellationToken.None), Is.True);
+            Assert.That(await sql.TryLockAsync(Connection(sameDatabase), key, CancellationToken.None), Is.False);
+            Assert.That(await sql.TryLockAsync(otherDatabase, key, CancellationToken.None), Is.True, "Another database on the same server.");
+        });
+        await sql.UnlockAsync(Connection(holder), key, CancellationToken.None);
+        Assert.That(await sql.TryLockAsync(Connection(sameDatabase), key, CancellationToken.None), Is.True, "Unlock uses the same name.");
+    }
+
+    private static async Task<long> NextNumberAsync(DocumentsSession session, Guid companyId, string scopeKey) =>
+        await session.Db.Set<NumberingSequence>().IgnoreQueryFilters().AsNoTracking()
+            .Where(sequence => sequence.CompanyId == companyId && sequence.ScopeKey == scopeKey)
+            .Select(sequence => sequence.NextNumber)
+            .SingleAsync();
+
     private static async Task<DbUpdateException> SaveFailureAsync(NumberingSequence sequence)
     {
         await using var session = DocumentsDatabase.Open(companyId: null);
