@@ -36,6 +36,22 @@ Nada de esto se versiona: cada equipo arma sus propios archivos.
 
 Salud de los procesos: la API responde `/health/live` (el proceso está arriba) y `/health/ready` (base de datos, almacenamiento y secretos; la DIAN solo como degradada). El Worker responde las mismas dos rutas en `WorkerHealth:Host` y `WorkerHealth:Port` (127.0.0.1:8091 por defecto; en contenedores, `WorkerHealth__Host=0.0.0.0`). Las métricas y alertas sugeridas están en la sección 12 de `docs/Arquitectura detallada.md`.
 
+### Correr todo en contenedores
+
+El perfil `app` de `deploy/docker-compose.yml` construye y levanta la aplicación completa (Migrator, API, Worker y panel) contra el PostgreSQL, Gotenberg y MailHog del mismo archivo. Solo necesita Docker.
+
+1. `deploy/.env` (no se versiona) con:
+   - `POSTGRES_PASSWORD=<contraseña propia>`, sin `;` ni comillas.
+   - `JWT_SIGNING_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"`: la llave que firma los tokens, en una línea, entre comillas dobles y con `\n` en lugar de los saltos de línea. Se crea con `openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt`.
+   - La llave maestra queda en `.local/master.key`, como en «Correr en local», o en otra ruta con `IMPIFACT_MASTER_KEY_FILE=<ruta>`. Entra al contenedor como secreto montado; en Linux el usuario del contenedor (uid 1654) tiene que poder leerla.
+2. Desde la raíz: `docker compose -f deploy/docker-compose.yml --profile app up -d --build`. El Migrator corre primero y la API y el Worker arrancan cuando termina bien.
+3. Panel en `http://127.0.0.1:8180`, API en `http://127.0.0.1:5180` y salud del Worker en `http://127.0.0.1:8191/health/live`. Los puertos se cambian con `WEB_PORT`, `API_PORT` y `WORKER_HEALTH_PORT` en `deploy/.env`.
+4. Primer usuario del panel: `docker compose -f deploy/docker-compose.yml --profile app run --rm migrator create-platform-key <nombre>` muestra una llave de plataforma una sola vez; con ella, `POST http://127.0.0.1:5180/api/v1/users` (`Authorization: Bearer <llave>`) con `email`, `password`, `name` y `role: "platform_admin"` crea el administrador que entra al panel.
+
+Los servicios corren con `APP_ENVIRONMENT=Production` por omisión (registros JSON, sin Scalar); `APP_ENVIRONMENT=Development` en `deploy/.env` abre Scalar en `/scalar`. Los archivos y certificados quedan en el volumen `app-data`. `docker compose -f deploy/docker-compose.yml --profile app down` detiene todo y conserva los datos; con `-v` también borra los volúmenes, incluida la base.
+
+Las imágenes se pueden construir por separado (`docker build -f Dockerfile.api -t impifact-api backend`, igual con `Dockerfile.worker` y `Dockerfile.migrator`, y `docker build -f Dockerfile.web -t impifact-web web`). La configuración de cada una, sus variables y los encabezados del panel están en la sección 14 de `docs/Arquitectura detallada.md`.
+
 Los casos golden (XML y CUFE de referencia) están en `backend/tests/golden`; cómo se generan se explica en [`backend/tools/golden-capture`](backend/tools/golden-capture/README.md).
 
 ## Documentación

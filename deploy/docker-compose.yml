@@ -9,8 +9,22 @@
 # El panel de observabilidad (registros, trazas y métricas por OTLP) va en el perfil «observability».
 # SQL Server (Database:Provider = SqlServer) va en el perfil «sqlserver»; ver el servicio más abajo.
 # MySQL (Database:Provider = MySql) va en el perfil «mysql» (necesita MYSQL_PASSWORD en deploy/.env); ver el servicio más abajo.
-# Los demás servicios (Api, Worker y web) se agregan en la fase que los necesita.
+# La aplicación (Migrator, Api, Worker y panel) construida desde este repositorio va en el perfil «app»; ver sus servicios más abajo.
 name: impifact
+
+# Configuración común del Migrator, la API y el Worker del perfil «app» (ver sus servicios más abajo). Sin secretos en
+# el archivo: la contraseña sale de deploy/.env y la llave maestra es un secreto montado.
+x-impifact-backend-env: &impifact-backend-env
+  ASPNETCORE_ENVIRONMENT: ${APP_ENVIRONMENT:-Production}
+  DOTNET_ENVIRONMENT: ${APP_ENVIRONMENT:-Production}
+  Database__Provider: Postgres
+  # GSS Encryption Mode=Disable: sin él, Npgsql busca la librería de Kerberos (libgssapi_krb5), que la imagen de .NET
+  # no trae, y escribe un error al abrir la primera conexión; la base usa usuario y contraseña.
+  Database__ConnectionString: Host=postgres;Port=5432;Database=impifact;Username=impifact;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable
+  Secrets__Provider: LocalAesGcm
+  Secrets__LocalAesGcm__MasterKeyFile: /run/secrets/master_key
+  Storage__Provider: Local
+  Pdf__GotenbergUrl: http://gotenberg:3000
 
 services:
   postgres:
@@ -176,6 +190,115 @@ services:
     ports:
       - "127.0.0.1:${MAILHOG_SMTP_PORT:-1025}:1025"
       - "127.0.0.1:${MAILHOG_UI_PORT:-8025}:8025"
+
+  # ─── Aplicación (perfil «app») ─────────────────────────────────────────────────────────────────────────────────────
+  # El Migrator, la API, el Worker y el panel construidos desde este repositorio (Dockerfile.migrator, Dockerfile.api,
+  # Dockerfile.worker y Dockerfile.web; Arquitectura detallada, sección 14), contra el PostgreSQL, Gotenberg y MailHog de
+  # este archivo. Arrancan, desde la raíz, con:
+  #   docker compose -f deploy/docker-compose.yml --profile app up -d --build
+  # El Migrator corre primero (migrate: migraciones y catálogos DIAN) y la API y el Worker arrancan cuando termina bien.
+  # Panel en http://127.0.0.1:8180, API en http://127.0.0.1:5180 y salud del Worker en http://127.0.0.1:8191/health/live.
+  # Necesita en deploy/.env, además de POSTGRES_PASSWORD (sin «;» ni comillas, porque va dentro de la cadena de conexión):
+  #   JWT_SIGNING_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+  #     Llave privada ECDSA P-256 en PEM con «\n» en lugar de los saltos de línea, entre comillas dobles. Se crea con
+  #     openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt
+  #   IMPIFACT_MASTER_KEY_FILE=<ruta del archivo de la llave maestra>   (por omisión ../.local/master.key, la de «Correr
+  #     en local» del README; relativa a esta carpeta). Llega al contenedor como secreto en /run/secrets/master_key; en
+  #     Linux el usuario del contenedor (uid 1654) tiene que poder leerlo.
+  # Opcionales: API_PORT, WEB_PORT y WORKER_HEALTH_PORT (los puertos del equipo), APP_ENVIRONMENT (Production por omisión;
+  # Development abre Scalar en /scalar) y APP_EMAIL_FROM (remitente de los correos que captura MailHog).
+  # Los archivos y certificados quedan en el volumen app-data. Comandos del Migrator:
+  #   docker compose -f deploy/docker-compose.yml --profile app run --rm migrator create-platform-key <nombre>
+  #   docker compose -f deploy/docker-compose.yml --profile app run --rm migrator seed-demo --force
+  migrator:
+    image: impifact-migrator:local
+    build:
+      context: ../backend
+      dockerfile: ../Dockerfile.migrator
+    profiles: ["app"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *impifact-backend-env
+    secrets:
+      - master_key
+    volumes:
+      - app-data:/data
+    restart: "no"
+
+  api:
+    image: impifact-api:local
+    build:
+      context: ../backend
+      dockerfile: ../Dockerfile.api
+    profiles: ["app"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+      gotenberg:
+        condition: service_started
+    environment:
+      <<: *impifact-backend-env
+      # Secreto: obligatorio fuera de Development; sin él la API no arranca y lo dice en su registro.
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:-}
+      # El panel llama a la API desde otro puerto (otro origen): CORS con credenciales solo para él.
+      Cors__Origins__0: http://127.0.0.1:${WEB_PORT:-8180}
+    secrets:
+      - master_key
+    volumes:
+      - app-data:/data
+    ports:
+      - "127.0.0.1:${API_PORT:-5180}:8080"
+
+  worker:
+    image: impifact-worker:local
+    build:
+      context: ../backend
+      dockerfile: ../Dockerfile.worker
+    profiles: ["app"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+      gotenberg:
+        condition: service_started
+      mailhog:
+        condition: service_started
+    environment:
+      <<: *impifact-backend-env
+      # Enlaces de los correos (restablecer la contraseña) hacia el panel de este archivo.
+      Panel__BaseUrl: http://127.0.0.1:${WEB_PORT:-8180}
+      Email__Host: mailhog
+      Email__Port: "1025"
+      Email__Encryption: none
+      Email__FromAddress: ${APP_EMAIL_FROM:-no-reply@impifact.local}
+      # La imagen ya escucha en 0.0.0.0 (WorkerHealth__Host): la sonda y el puerto publicado llegan desde fuera.
+    secrets:
+      - master_key
+    volumes:
+      - app-data:/data
+    ports:
+      - "127.0.0.1:${WORKER_HEALTH_PORT:-8191}:8091"
+
+  web:
+    image: impifact-web:local
+    build:
+      context: ../web
+      dockerfile: ../Dockerfile.web
+    profiles: ["app"]
+    # El panel arranca cuando la API responde: lo primero que hace al abrirse es renovar la sesión contra ella.
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      # URL de la API que usa el navegador (config.json y connect-src de la política de seguridad de contenido).
+      IMPIFACT_API_BASE_URL: http://127.0.0.1:${API_PORT:-5180}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8180}:8080"
 
   # Panel de observabilidad local (.NET Aspire Dashboard; Arquitectura detallada, sección 12): recibe OTLP y muestra los
   # registros, las trazas y las métricas de la API y del Worker. Va en el perfil «observability», así que solo arranca
@@ -352,7 +475,14 @@ services:
     restart: "no"
 
 volumes:
+  # Archivos y certificados de la API, el Worker y el Migrator del perfil «app».
+  app-data:
   postgres-data:
   mysql-data:
   minio-data:
   sqlserver-data:
+
+secrets:
+  # Llave maestra de LocalAesGcm para el perfil «app»: 32 bytes al azar en base64 (openssl rand -base64 32).
+  master_key:
+    file: ${IMPIFACT_MASTER_KEY_FILE:-../.local/master.key}

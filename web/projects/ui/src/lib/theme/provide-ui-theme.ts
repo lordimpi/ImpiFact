@@ -9,7 +9,10 @@ import {
 
 /** Opciones del tema de ui. */
 export interface UiThemeOptions {
-  /** Nonce de la CSP (política de seguridad de contenido) para las etiquetas <style> que inyecta Optimus UI. */
+  /**
+   * Nonce de la CSP (política de seguridad de contenido) para las etiquetas <style> que inyecta Optimus UI. Si falta,
+   * se usa el de la página (`CSP_NONCE` de Angular, del atributo `ngCspNonce` de `<app-root>`).
+   */
   nonce?: string;
 }
 

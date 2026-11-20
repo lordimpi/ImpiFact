@@ -48,7 +48,9 @@ public sealed class PendingMigrationsStartupTests
         var db = scope.ServiceProvider.GetRequiredService<ImpiFactDbContext>();
         await db.Database.MigrateAsync();
         _expectedLine = "La base de datos tiene migraciones pendientes: " + string.Join(", ", db.Database.GetMigrations()) +
-            ". Corra el Migrator (dotnet run --project src/ImpiFact.Migrator) antes de arrancar.";
+            ". Corra el Migrator (comando migrate) antes de arrancar: en local, «dotnet run --project src/ImpiFact.Migrator -- migrate» " +
+            "desde backend/; en contenedores, «docker compose -f deploy/docker-compose.yml --profile app run --rm migrator» " +
+            "o la imagen del Migrator con el comando migrate.";
     }
 
     [OneTimeTearDown]
