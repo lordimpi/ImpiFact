@@ -261,6 +261,9 @@ test('keeps the list filters in the URL and sends them to the API', async ({ pag
 
   await page.getByLabel('Desde').fill('2026-11-01');
   await page.getByLabel('Tipo de documento').selectOption('invoice');
+  // The DIAN statuses are folded under «Más filtros» until someone opens it.
+  await expect(page.getByLabel('En cola')).toBeHidden();
+  await page.getByText('Más filtros').click();
   await page.getByLabel('En cola').check();
   await page.getByLabel('Enviado a la DIAN').check();
   await page.getByLabel('Cliente', { exact: true }).fill('golden');
@@ -281,6 +284,9 @@ test('keeps the list filters in the URL and sends them to the API', async ({ pag
   // La misma URL, recargada, consulta lo mismo y muestra los filtros.
   await page.reload();
   await expect(page.getByLabel('Cliente', { exact: true })).toHaveValue('golden');
+  // With statuses in the URL the section opens by itself, so the active filter is in sight.
+  await expect(page.getByLabel('Enviado a la DIAN')).toBeVisible();
+  await expect(page.getByLabel('Enviado a la DIAN')).toBeChecked();
   expect(api.listRequests.at(-1)!.searchParams.getAll('status')).toEqual(['Queued', 'Sent']);
 
   expect(await seriousViolations(page)).toEqual([]);
@@ -408,6 +414,14 @@ test('previews the invoice PDF in a dialog and explains when the PDF service is 
   await page.getByRole('button', { name: 'Vista previa' }).click();
   const dialog = page.getByRole('dialog', { name: 'Vista previa del PDF' });
   await expect(dialog.locator('iframe')).toHaveAttribute('src', /^blob:/);
+  // The dialog sits above the fixed sidebar and top bar: nothing covers its title.
+  const title = dialog.getByText('Vista previa del PDF').first();
+  const box = (await title.boundingBox())!;
+  const topmost = await page.evaluate(
+    ([x, y]) => document.elementFromPoint(x, y)?.closest('[role="dialog"]') !== null,
+    [box.x + 4, box.y + box.height / 2],
+  );
+  expect(topmost).toBe(true);
   expect(page.context().pages()).toHaveLength(1);
   const download = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Descargar PDF' }).click();
@@ -473,7 +487,7 @@ test('a debit note found from the list shows why the API rejects it', async ({ p
   const api = await mockDocuments(page);
   await logIn(page);
   await page.goto('/documentos');
-  await page.getByRole('link', { name: 'Nota débito' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Nota débito' }).click();
 
   await expect(page.getByRole('heading', { level: 1, name: 'Emitir nota débito' })).toBeVisible();
   await page.getByLabel('Buscar factura').fill('990000001');

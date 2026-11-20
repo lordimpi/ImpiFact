@@ -3,7 +3,10 @@ import { FormField, submit } from '@angular/forms/signals';
 import { ApiKeyItem, CreatedApiKey } from '@impifact/api';
 import { AppError, SessionStore, ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   DialogComponent,
   FieldComponent,
   InputDirective,
@@ -36,7 +39,10 @@ const DATE = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeZone: '
   imports: [
     FormField,
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     DialogComponent,
     FieldComponent,
     InputDirective,

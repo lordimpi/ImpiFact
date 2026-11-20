@@ -9,6 +9,10 @@ namespace ImpiFact.Application.Features.Identity.Sessions;
 /// <param name="CompanyId">Empresa activa del token; nula si no tiene (por ejemplo, un administrador de plataforma).</param>
 /// <param name="Roles">Roles que van en el token.</param>
 /// <param name="Companies">Empresas a las que pertenece el usuario, para elegir otra con la renovación.</param>
+/// <param name="Email">
+/// Correo del usuario, tal como está guardado. El panel lo muestra en la barra superior; al recargar la página solo
+/// tiene la renovación para saberlo, porque el JWT no lo lleva.
+/// </param>
 public sealed record SessionTokens(
     [property: JsonPropertyName("access_token")] string AccessToken,
     [property: JsonPropertyName("expires_at")] DateTimeOffset AccessTokenExpiresAt,
@@ -16,7 +20,8 @@ public sealed record SessionTokens(
     [property: JsonPropertyName("refresh_token_expires_at")] DateTimeOffset RefreshTokenExpiresAt,
     [property: JsonPropertyName("company_id")] Guid? CompanyId,
     [property: JsonPropertyName("roles")] IReadOnlyList<string> Roles,
-    [property: JsonPropertyName("companies")] IReadOnlyList<Guid> Companies)
+    [property: JsonPropertyName("companies")] IReadOnlyList<Guid> Companies,
+    [property: JsonPropertyName("email")] string Email)
 {
     [JsonPropertyName("token_type")]
     public string TokenType => "Bearer";

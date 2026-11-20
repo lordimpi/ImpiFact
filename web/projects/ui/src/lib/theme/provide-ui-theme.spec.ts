@@ -32,6 +32,15 @@ describe('provideUiTheme', () => {
     expect(css).toContain('--p-button-danger-background:var(--if-color-danger)');
   });
 
+  it('styles the secondary button as a white button with a soft border', async () => {
+    await renderThemedButton();
+
+    const css = injectedCss();
+    expect(css).toContain('--p-button-secondary-background:var(--if-color-bg)');
+    expect(css).toContain('--p-button-secondary-border-color:var(--if-color-border-emphasis)');
+    expect(css).toContain('--p-button-secondary-color:var(--if-color-text)');
+  });
+
   it('does not emit an Optimus dark scheme: the tokens decide light or dark', async () => {
     await renderThemedButton();
 

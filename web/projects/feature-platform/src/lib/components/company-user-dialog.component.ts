@@ -132,7 +132,11 @@ export interface UserCompany {
     }
     .user-error {
       margin: 0;
+      padding: var(--if-space-2) var(--if-space-3);
       color: var(--if-color-danger);
+      background: var(--if-color-danger-subtle);
+      border-inline-start: 4px solid currentColor;
+      border-radius: var(--if-radius-sm);
     }
     .user-actions {
       display: flex;

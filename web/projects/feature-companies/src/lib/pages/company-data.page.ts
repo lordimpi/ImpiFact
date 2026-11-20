@@ -12,6 +12,8 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   ComboboxComponent,
   ComboboxLabels,
   DigitsOnlyDirective,
@@ -47,6 +49,8 @@ import { CompanySetupStore } from '../state/company-setup.store';
     FormField,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     ComboboxComponent,
     DigitsOnlyDirective,
     ErrorStateComponent,
@@ -59,7 +63,7 @@ import { CompanySetupStore } from '../state/company-setup.store';
   providers: [provideCompaniesI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './company-data.page.html',
-  styleUrl: './companies-page.css',
+  styleUrls: ['./companies-page.css', './companies-checks.css'],
 })
 export class CompanyDataPage implements HasUnsavedChanges {
   protected readonly setup = inject(CompanySetupStore);

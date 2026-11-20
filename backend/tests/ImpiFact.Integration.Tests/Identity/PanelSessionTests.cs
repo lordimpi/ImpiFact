@@ -148,6 +148,7 @@ public sealed class PanelSessionTests
             Assert.That(response.Headers.CacheControl?.NoStore, Is.True);
             Assert.That(body.TryGetProperty("refresh_token", out _), Is.False);
             Assert.That(body.GetProperty("access_token").GetString(), Is.Not.Empty);
+            Assert.That(body.GetProperty("email").GetString(), Is.EqualTo(email), "A reloaded panel shows the user again.");
             Assert.That(rotated.Value.Value, Is.Not.EqualTo(original));
             Assert.That(rotated.HttpOnly, Is.True);
             Assert.That(rotated.SameSite, Is.EqualTo(SameSiteMode.Strict));

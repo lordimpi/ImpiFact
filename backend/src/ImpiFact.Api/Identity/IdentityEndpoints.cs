@@ -47,7 +47,8 @@ internal sealed class IdentityEndpoints : IEndpointModule
             .WithSummary("Iniciar sesión en el panel")
             .WithDescription(
                 "Recibe `email` y `password` (y, si quiere, `company_id`, la empresa con la que va a trabajar) y entrega un " +
-                "`access_token` (JWT de vida corta) y un `refresh_token`. El `access_token` se usa como credencial Bearer. " +
+                "`access_token` (JWT de vida corta), un `refresh_token` y el `email` del usuario tal como está guardado. El " +
+                "`access_token` se usa como credencial Bearer. " +
                 "Un correo desconocido, una contraseña equivocada o un usuario inactivo o bloqueado responden el mismo 401 " +
                 "(`identity.invalid_credentials`); una empresa a la que el usuario no pertenece responde 403 " +
                 "(`identity.company_not_allowed`). Tiene un límite estricto de intentos por minuto y por IP (429).\n\n" +
@@ -58,7 +59,8 @@ internal sealed class IdentityEndpoints : IEndpointModule
             .WithOperationId("refreshSession")
             .WithSummary("Renovar la sesión")
             .WithDescription(
-                "Cambia un `refresh_token` vigente por un `access_token` y un `refresh_token` nuevos; el usado queda revocado. " +
+                "Cambia un `refresh_token` vigente por un `access_token` y un `refresh_token` nuevos (con el `email` del usuario, " +
+                "que el JWT no lleva); el usado queda revocado. " +
                 "Con `company_id` cambia la empresa activa del token. Un token vencido, revocado o desconocido responde 401 " +
                 "(`identity.invalid_refresh_token`); presentar uno ya revocado revoca todas las sesiones del usuario (respuesta a " +
                 "un token robado). Excepción: si la respuesta de una renovación se perdió (el token se rotó hace menos que el " +

@@ -19,6 +19,8 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  CardActionsDirective,
+  CardComponent,
   FieldComponent,
   InputDirective,
   NonNegativeDirective,
@@ -66,6 +68,8 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardActionsDirective,
     FieldComponent,
     InputDirective,
     NonNegativeDirective,

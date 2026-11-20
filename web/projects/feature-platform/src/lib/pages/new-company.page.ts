@@ -16,6 +16,8 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   ComboboxComponent,
   ComboboxLabels,
   DialogComponent,
@@ -68,6 +70,8 @@ const FORMAT_KEYS: Partial<Record<keyof NewCompanyModel, string>> = {
 @Component({
   selector: 'feat-new-company-page',
   imports: [
+    CardComponent,
+    CardFooterDirective,
     FormField,
     RouterLink,
     TranslocoPipe,
@@ -86,7 +90,7 @@ const FORMAT_KEYS: Partial<Record<keyof NewCompanyModel, string>> = {
   providers: [providePlatformI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './new-company.page.html',
-  styleUrl: './platform-page.css',
+  styleUrls: ['./platform-page.css', './new-company.page.css'],
 })
 export class NewCompanyPage {
   private readonly api = inject(Api);

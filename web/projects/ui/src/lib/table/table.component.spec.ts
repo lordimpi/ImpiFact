@@ -193,4 +193,18 @@ describe('TableComponent', () => {
 
     expect(screen.getByText('Aceptado!').tagName).toBe('STRONG');
   });
+
+  it('can drop its own frame to sit flush inside a card, and stripe its rows', async () => {
+    const { view } = await renderTable();
+    const scroll = () => view.container.querySelector('.ui-table__scroll');
+    expect(scroll()?.classList).not.toContain('ui-table__scroll--flush');
+    expect(view.container.querySelector('table')?.classList).not.toContain('ui-table--striped');
+
+    view.fixture.componentRef.setInput('flush', true);
+    view.fixture.componentRef.setInput('striped', true);
+    view.detectChanges();
+
+    expect(scroll()?.classList).toContain('ui-table__scroll--flush');
+    expect(view.container.querySelector('table')?.classList).toContain('ui-table--striped');
+  });
 });

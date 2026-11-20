@@ -3,7 +3,9 @@ import { RouterLink } from '@angular/router';
 import { ProductResponse } from '@impifact/api';
 import { ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
   PageTitleComponent,
   TableCellDirective,
   TableComponent,
@@ -34,7 +36,9 @@ const PRICE_FORMAT = new Intl.NumberFormat('es-CO', {
   imports: [
     RouterLink,
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardComponent,
     PageTitleComponent,
     TableComponent,
     TableCellDirective,

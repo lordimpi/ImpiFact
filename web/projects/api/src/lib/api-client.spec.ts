@@ -54,6 +54,7 @@ describe('generated api client', () => {
       company_id: null,
       roles: ['owner'],
       companies: [],
+      email: 'ana@example.test',
     };
 
     const response = firstValueFrom(api.invoke(refreshSession, { 'X-Client': 'panel' }));

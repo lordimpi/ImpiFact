@@ -76,6 +76,9 @@ let nextId = 0;
       border-radius: 50%;
       cursor: help;
     }
+    .ui-help__button:hover {
+      background: var(--if-color-primary-subtle-strong);
+    }
     .ui-help__name {
       position: absolute;
       inline-size: 1px;
@@ -104,8 +107,8 @@ let nextId = 0;
       line-height: var(--if-line-height);
       color: var(--if-color-text);
       background: var(--if-color-bg);
-      border: 1px solid var(--if-color-border-strong);
-      border-radius: var(--if-radius-sm);
+      border: 1px solid var(--if-color-border);
+      border-radius: var(--if-radius-md);
       box-shadow: var(--if-shadow-overlay);
     }
     .ui-help__tooltip--open {

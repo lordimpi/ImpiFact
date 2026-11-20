@@ -39,7 +39,8 @@
       "certificate": "Certificado",
       "resolutions": "Resoluciones",
       "production": "Paso a producción"
-    }
+    },
+    "subtitle": "Datos fiscales, ambientes, certificado y numeración con los que la empresa factura ante la DIAN."
   },
   "data": {
     "title": "Datos de la empresa",
@@ -78,7 +79,11 @@
     },
     "departmentPlaceholder": "Escriba para buscar el departamento…",
     "departmentNone": "Ningún departamento coincide con lo que escribió.",
-    "municipalityPlaceholder": "Escriba para buscar el municipio…"
+    "municipalityPlaceholder": "Escriba para buscar el municipio…",
+    "groups": {
+      "identity": "Identificación tributaria",
+      "location": "Ubicación y contacto"
+    }
   },
   "environments": {
     "title": "Ambientes",
@@ -102,6 +107,14 @@
       "body": "En producción cada documento tiene efecto fiscal real ante la DIAN y no se puede borrar: solo se corrige con notas. Familias que pasan a producción: {{ kinds }}.",
       "accept": "Entiendo que los documentos tendrán efecto fiscal real.",
       "confirm": "Pasar a producción"
+    },
+    "summary": "Ambiente actual por familia",
+    "change": "Cambiar de ambiente",
+    "changeHint": "Elija solo las familias que cambian; las demás quedan como están.",
+    "badge": {
+      "unknown": "Sin definir",
+      "loading": "Consultando…",
+      "error": "No disponible"
     }
   },
   "software": {
@@ -152,7 +165,9 @@
       "fileType": "El archivo debe ser .p12 o .pfx.",
       "fileSize": "El archivo pesa más de 1 MB.",
       "passwordRequired": "Escriba la contraseña del certificado."
-    }
+    },
+    "uploadTitle": "Cargar un certificado",
+    "uploadHint": "El certificado nuevo reemplaza al activo."
   },
   "resolutions": {
     "title": "Resoluciones de numeración",

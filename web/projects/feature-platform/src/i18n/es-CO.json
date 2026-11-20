@@ -38,7 +38,6 @@
   "plans": {
     "title": "Planes de la plataforma",
     "description": "Planes que se asignan a las empresas, con la cantidad de documentos por familia y su periodo.",
-    "notPaginated": "El Api devuelve todos los planes en una sola respuesta (no pagina).",
     "new": "Nuevo plan",
     "caption": "Planes",
     "id": "Id",
@@ -195,7 +194,13 @@
     },
     "departmentPlaceholder": "Escriba para buscar el departamento…",
     "departmentNone": "Ningún departamento coincide con lo que escribió.",
-    "municipalityPlaceholder": "Escriba para buscar el municipio…"
+    "municipalityPlaceholder": "Escriba para buscar el municipio…",
+    "formTitle": "Datos de la empresa",
+    "nextTitle": "Siguiente paso",
+    "groups": {
+      "identity": "Identificación tributaria",
+      "location": "Ubicación y contacto"
+    }
   },
   "companyKey": {
     "title": "Copie la llave de la empresa",

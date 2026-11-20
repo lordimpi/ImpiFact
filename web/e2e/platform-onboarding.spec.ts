@@ -190,7 +190,8 @@ test('creates a company, shows its key once, creates its owner and the owner sig
     const body = route.request().postDataJSON() as { email?: string; password?: string } | null;
     return users.some((user) => user.email === body?.email && user.password === body?.password);
   };
-  const ownerTokens = () => sessionTokens(COMPANY_ID, [COMPANY_ID], ['owner'], OWNER_SCOPES);
+  const ownerTokens = () =>
+    sessionTokens(COMPANY_ID, [COMPANY_ID], ['owner'], OWNER_SCOPES, OWNER.email);
   await page.route('**/api/v1/auth/login', (route) => {
     if (!isOwner(route)) {
       return route.fallback();

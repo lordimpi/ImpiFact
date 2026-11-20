@@ -17,7 +17,9 @@ export async function seriousViolations(page: Page) {
 }
 
 /**
- * Violaciones graves o críticas de la página en modo claro y en modo oscuro (sigue `prefers-color-scheme`).
+ * Serious or critical violations of the page under a light and under a dark system preference
+ * (`prefers-color-scheme`). The panel is light only (`data-theme="light"` on <html>), so both runs check the same
+ * light theme: the dark run proves a dark system preference does not leak into the panel and break its contrast.
  * Al terminar quita la emulación del esquema de color. Uso: `toEqual({ light: [], dark: [] })`.
  */
 export async function seriousViolationsInBothThemes(page: Page) {

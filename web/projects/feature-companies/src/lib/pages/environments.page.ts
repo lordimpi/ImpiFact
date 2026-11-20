@@ -1,7 +1,15 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { SetEnvironmentCommand } from '@impifact/api';
 import { AppError, ToastStore } from '@impifact/core';
-import { ButtonComponent, FieldComponent, SelectDirective } from '@impifact/ui';
+import {
+  BadgeComponent,
+  UiBadgeTone,
+  ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
+  FieldComponent,
+  SelectDirective,
+} from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { companiesText, provideCompaniesI18n } from '../companies-i18n';
 import {
@@ -22,7 +30,10 @@ type Choice = '' | `${typeof PRODUCTION}` | `${typeof HABILITATION}`;
   selector: 'feat-environments-page',
   imports: [
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     FieldComponent,
     SelectDirective,
     ProductionConfirmDialogComponent,
@@ -31,42 +42,57 @@ type Choice = '' | `${typeof PRODUCTION}` | `${typeof HABILITATION}`;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="companies-section">
-      <h2>{{ 'companies.environments.title' | transloco }}</h2>
-      <p class="companies-lead">{{ 'companies.environments.description' | transloco }}</p>
-
-      <form
-        class="companies-form"
-        novalidate
-        (submit)="onSubmit($event)"
-        [attr.aria-busy]="saving() || null"
+      <ui-card
+        padding="none"
+        [title]="'companies.environments.title' | transloco"
+        [subtitle]="'companies.environments.description' | transloco"
       >
-        @if (message(); as text) {
-          <p class="companies-message companies-message--error" role="alert">{{ text }}</p>
-        }
-        @for (row of rows(); track row.kind) {
-          <ui-field [label]="row.label" [hint]="row.current">
-            <select
-              uiSelect
-              [value]="row.choice"
-              (change)="choose(row.kind, $any($event.target).value)"
-            >
-              <option value="">{{ 'companies.common.noChange' | transloco }}</option>
-              <option [value]="'' + habilitation">
-                {{ 'companies.environments.habilitation' | transloco }}
-              </option>
-              <option [value]="'' + production">
-                {{ 'companies.environments.production' | transloco }}
-              </option>
-            </select>
-          </ui-field>
-        }
-        <div class="companies-form__actions">
-          <ui-button
-            type="submit"
-            [label]="'companies.common.save' | transloco"
-            [loading]="saving()"
-          />
-        </div>
+        <ul class="companies-list" [attr.aria-label]="'companies.environments.summary' | transloco">
+          @for (row of rows(); track row.kind) {
+            <li>
+              <span>{{ row.label }}</span>
+              <ui-badge [tone]="row.tone">{{ row.badge }}</ui-badge>
+            </li>
+          }
+        </ul>
+      </ui-card>
+
+      <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="saving() || null">
+        <ui-card
+          [headingLevel]="3"
+          [title]="'companies.environments.change' | transloco"
+          [subtitle]="'companies.environments.changeHint' | transloco"
+        >
+          <div class="companies-grid">
+            @if (message(); as text) {
+              <p class="companies-message companies-message--error" role="alert">{{ text }}</p>
+            }
+            @for (row of rows(); track row.kind) {
+              <ui-field [label]="row.label" [hint]="row.current">
+                <select
+                  uiSelect
+                  [value]="row.choice"
+                  (change)="choose(row.kind, $any($event.target).value)"
+                >
+                  <option value="">{{ 'companies.common.noChange' | transloco }}</option>
+                  <option [value]="'' + habilitation">
+                    {{ 'companies.environments.habilitation' | transloco }}
+                  </option>
+                  <option [value]="'' + production">
+                    {{ 'companies.environments.production' | transloco }}
+                  </option>
+                </select>
+              </ui-field>
+            }
+          </div>
+          <div uiCardFooter class="companies-actions">
+            <ui-button
+              type="submit"
+              [label]="'companies.common.save' | transloco"
+              [loading]="saving()"
+            />
+          </div>
+        </ui-card>
       </form>
     </section>
 
@@ -77,7 +103,7 @@ type Choice = '' | `${typeof PRODUCTION}` | `${typeof HABILITATION}`;
       (confirmed)="send()"
     />
   `,
-  styleUrl: './companies-page.css',
+  styleUrls: ['./companies-page.css', './companies-list.css'],
 })
 export class EnvironmentsPage {
   private readonly setup = inject(CompanySetupStore);
@@ -100,6 +126,7 @@ export class EnvironmentsPage {
         label: this.text(kindKey(kind)),
         choice: this.choices()[kind] ?? '',
         current: this.currentText(current),
+        ...this.badge(current),
       };
     }),
   );
@@ -183,6 +210,19 @@ export class EnvironmentsPage {
       this.saving.set(false);
       this.confirming.set(false);
     }
+  }
+
+  /** Status badge of a family: production is final (success), habilitation is the test environment (info). */
+  private badge(current: number | null): { badge: string; tone: UiBadgeTone } {
+    if (current === null) {
+      const status = this.setup.environmentsStatus();
+      const state = status === 'ready' ? 'unknown' : status === 'error' ? 'error' : 'loading';
+      return { badge: this.text(`environments.badge.${state}`), tone: 'neutral' };
+    }
+    return {
+      badge: this.environmentName(current),
+      tone: current === PRODUCTION ? 'success' : 'info',
+    };
   }
 
   private environmentName(id: number): string {

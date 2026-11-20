@@ -1,244 +1,287 @@
 <section class="companies-section">
-  <h2>{{ 'companies.resolutions.title' | transloco }}</h2>
-  <p class="companies-lead">{{ 'companies.resolutions.description' | transloco }}</p>
-
-  <feat-next-number-dialog
-    [labels]="nextNumberLabels()"
-    [(visible)]="nextNumberOpen"
-    [initial]="nextNumberTarget()?.next ?? ''"
-    [error]="nextNumberError()"
-    [busy]="nextNumberBusy()"
-    (saved)="saveNextNumber($event)"
-  />
-
-  @if (setup.resolutionsStatus() === 'error' && saved().length === 0) {
-    <ui-error-state
-      [title]="'companies.resolutions.loadError' | transloco"
-      [retryLabel]="'companies.common.retry' | transloco"
-      (retry)="setup.loadResolutions()"
-    />
-  } @else if (saved().length > 0) {
-    <div class="companies-scroll">
-      <table class="companies-table">
-        <caption>
-          {{
-            'companies.resolutions.saved' | transloco
-          }}
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">{{ 'companies.resolutions.typeDocument' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.ranges.columns.prefix' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.ranges.columns.resolution' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.ranges.columns.range' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.ranges.columns.validity' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.columns.next' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.columns.remaining' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.columns.daysLeft' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.columns.status' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.ranges.columns.actions' | transloco }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of saved(); track row.id) {
-            <tr>
-              <td>{{ row.type }}</td>
-              <td>{{ row.prefix }}</td>
-              <td>{{ row.resolution }}</td>
-              <td>{{ row.range }}</td>
-              <td>{{ row.validity }}</td>
-              <td>{{ row.next }}</td>
-              <td>{{ row.remaining }}</td>
-              <td>{{ row.daysLeft }}</td>
-              <td>{{ row.status }}</td>
-              <td>
-                <ui-button
-                  variant="text"
-                  [label]="'companies.resolutions.nextNumber.action' | transloco"
-                  (pressed)="openNextNumber(row.target)"
-                />
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  } @else if (setup.resolutionsStatus() === 'ready') {
-    <p class="companies-message">{{ 'companies.resolutions.savedEmpty' | transloco }}</p>
-  } @else {
-    <ui-loading [label]="'companies.common.loading' | transloco" />
-  }
-
-  <h3>{{ 'companies.resolutions.form' | transloco }}</h3>
-  <div class="companies-form__actions">
-    <ui-button
-      variant="secondary"
-      [label]="'companies.resolutions.habilitationExample' | transloco"
-      (pressed)="useExample()"
-    />
-    <p class="companies-lead">{{ 'companies.resolutions.habilitationExampleHint' | transloco }}</p>
-  </div>
-
-  <form
-    class="companies-form"
-    novalidate
-    (submit)="onSubmit($event)"
-    [attr.aria-busy]="submitting() || null"
+  <ui-card
+    [title]="'companies.resolutions.title' | transloco"
+    [subtitle]="'companies.resolutions.description' | transloco"
+    [padding]="saved().length > 0 ? 'none' : 'normal'"
   >
-    @if (generalError(); as message) {
-      <p class="companies-message companies-message--error" role="alert">{{ message }}</p>
+    @if (setup.resolutionsStatus() === 'error' && saved().length === 0) {
+      <ui-error-state
+        [title]="'companies.resolutions.loadError' | transloco"
+        [retryLabel]="'companies.common.retry' | transloco"
+        (retry)="setup.loadResolutions()"
+      />
+    } @else if (saved().length > 0) {
+      <div class="companies-scroll">
+        <table class="companies-table">
+          <caption class="companies-hidden">
+            {{
+              'companies.resolutions.saved' | transloco
+            }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ 'companies.resolutions.typeDocument' | transloco }}</th>
+              <th scope="col">{{ 'companies.resolutions.ranges.columns.prefix' | transloco }}</th>
+              <th scope="col">
+                {{ 'companies.resolutions.ranges.columns.resolution' | transloco }}
+              </th>
+              <th scope="col">{{ 'companies.resolutions.ranges.columns.range' | transloco }}</th>
+              <th scope="col">{{ 'companies.resolutions.ranges.columns.validity' | transloco }}</th>
+              <th scope="col">{{ 'companies.resolutions.columns.next' | transloco }}</th>
+              <th scope="col">{{ 'companies.resolutions.columns.remaining' | transloco }}</th>
+              <th scope="col">{{ 'companies.resolutions.columns.daysLeft' | transloco }}</th>
+              <th scope="col">{{ 'companies.resolutions.columns.status' | transloco }}</th>
+              <th scope="col">{{ 'companies.resolutions.ranges.columns.actions' | transloco }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of saved(); track row.id) {
+              <tr>
+                <td>{{ row.type }}</td>
+                <td>{{ row.prefix }}</td>
+                <td>{{ row.resolution }}</td>
+                <td>
+                  <span class="companies-nowrap">{{ row.range[0] }} –</span>&ngsp;<span
+                    class="companies-nowrap"
+                    >{{ row.range[1] }}</span
+                  >
+                </td>
+                <td>
+                  <span class="companies-nowrap">{{ row.validity[0] }} –</span>&ngsp;<span
+                    class="companies-nowrap"
+                    >{{ row.validity[1] }}</span
+                  >
+                </td>
+                <td>{{ row.next }}</td>
+                <td>{{ row.remaining }}</td>
+                <td>{{ row.daysLeft }}</td>
+                <td>
+                  <ui-badge [tone]="row.statusTone">{{ row.status }}</ui-badge>
+                </td>
+                <td>
+                  <ui-button
+                    variant="ghost"
+                    size="small"
+                    [label]="'companies.resolutions.nextNumber.action' | transloco"
+                    (pressed)="openNextNumber(row.target)"
+                  />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else if (setup.resolutionsStatus() === 'ready') {
+      <p class="companies-lead">{{ 'companies.resolutions.savedEmpty' | transloco }}</p>
+    } @else {
+      <ui-loading [label]="'companies.common.loading' | transloco" />
     }
-    <ui-field
-      [label]="'companies.resolutions.typeDocument' | transloco"
-      [error]="errors().type_document_id"
-      required
-    >
-      <select uiSelect [formField]="resolutionForm.type_document_id">
-        @for (type of documentTypes; track type) {
-          <option [value]="'' + type">
-            {{ 'companies.resolutions.documentTypes.' + type | transloco }}
-          </option>
-        }
-      </select>
-    </ui-field>
-    <ui-field [label]="'companies.resolutions.prefix' | transloco" [error]="errors().prefix">
-      <input uiInput type="text" autocomplete="off" [formField]="resolutionForm.prefix" />
-    </ui-field>
-    <ui-field
-      [label]="'companies.resolutions.resolution' | transloco"
-      [error]="errors().resolution"
-      required
-    >
-      <input
-        uiInput
-        type="text"
-        inputmode="numeric"
-        autocomplete="off"
-        [formField]="resolutionForm.resolution"
-      />
-    </ui-field>
-    <ui-field
-      [label]="'companies.resolutions.resolutionDate' | transloco"
-      [error]="errors().resolution_date"
-    >
-      <input uiInput type="date" [formField]="resolutionForm.resolution_date" />
-    </ui-field>
-    <ui-field
-      class="companies-form__wide"
-      [label]="'companies.resolutions.technicalKey' | transloco"
-      [hint]="'companies.resolutions.technicalKeyHint' | transloco"
-      [error]="errors().technical_key"
-    >
-      <input uiInput type="text" autocomplete="off" [formField]="resolutionForm.technical_key" />
-    </ui-field>
-    <ui-field [label]="'companies.resolutions.from' | transloco" [error]="errors().from" required>
-      <input
-        uiInput
-        type="text"
-        inputmode="numeric"
-        autocomplete="off"
-        [formField]="resolutionForm.from"
-      />
-    </ui-field>
-    <ui-field [label]="'companies.resolutions.to' | transloco" [error]="errors().to" required>
-      <input
-        uiInput
-        type="text"
-        inputmode="numeric"
-        autocomplete="off"
-        [formField]="resolutionForm.to"
-      />
-    </ui-field>
-    <ui-field
-      [label]="'companies.resolutions.dateFrom' | transloco"
-      [error]="errors().date_from"
-      required
-    >
-      <input uiInput type="date" [formField]="resolutionForm.date_from" />
-    </ui-field>
-    <ui-field
-      [label]="'companies.resolutions.dateTo' | transloco"
-      [error]="errors().date_to"
-      required
-    >
-      <input uiInput type="date" [formField]="resolutionForm.date_to" />
-    </ui-field>
-    <div class="companies-form__actions">
+  </ui-card>
+
+  <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="submitting() || null">
+    <ui-card [headingLevel]="3" [title]="'companies.resolutions.form' | transloco">
       <ui-button
-        type="submit"
-        [label]="'companies.resolutions.save' | transloco"
-        [loading]="submitting()"
+        uiCardActions
+        variant="secondary"
+        size="small"
+        [label]="'companies.resolutions.habilitationExample' | transloco"
+        (pressed)="useExample()"
       />
-    </div>
+      <div class="companies-grid">
+        <p class="companies-message">
+          {{ 'companies.resolutions.habilitationExampleHint' | transloco }}
+        </p>
+        @if (generalError(); as message) {
+          <p class="companies-message companies-message--error" role="alert">{{ message }}</p>
+        }
+        <ui-field
+          [label]="'companies.resolutions.typeDocument' | transloco"
+          [error]="errors().type_document_id"
+          required
+        >
+          <select uiSelect [formField]="resolutionForm.type_document_id">
+            @for (type of documentTypes; track type) {
+              <option [value]="'' + type">
+                {{ 'companies.resolutions.documentTypes.' + type | transloco }}
+              </option>
+            }
+          </select>
+        </ui-field>
+        <ui-field [label]="'companies.resolutions.prefix' | transloco" [error]="errors().prefix">
+          <input uiInput type="text" autocomplete="off" [formField]="resolutionForm.prefix" />
+        </ui-field>
+        <ui-field
+          [label]="'companies.resolutions.resolution' | transloco"
+          [error]="errors().resolution"
+          required
+        >
+          <input
+            uiInput
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            [formField]="resolutionForm.resolution"
+          />
+        </ui-field>
+        <ui-field
+          [label]="'companies.resolutions.resolutionDate' | transloco"
+          [error]="errors().resolution_date"
+        >
+          <input uiInput type="date" [formField]="resolutionForm.resolution_date" />
+        </ui-field>
+        <ui-field
+          class="companies-wide"
+          [label]="'companies.resolutions.technicalKey' | transloco"
+          [hint]="'companies.resolutions.technicalKeyHint' | transloco"
+          [error]="errors().technical_key"
+        >
+          <input
+            uiInput
+            type="text"
+            autocomplete="off"
+            [formField]="resolutionForm.technical_key"
+          />
+        </ui-field>
+        <ui-field
+          [label]="'companies.resolutions.from' | transloco"
+          [error]="errors().from"
+          required
+        >
+          <input
+            uiInput
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            [formField]="resolutionForm.from"
+          />
+        </ui-field>
+        <ui-field [label]="'companies.resolutions.to' | transloco" [error]="errors().to" required>
+          <input
+            uiInput
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            [formField]="resolutionForm.to"
+          />
+        </ui-field>
+        <ui-field
+          [label]="'companies.resolutions.dateFrom' | transloco"
+          [error]="errors().date_from"
+          required
+        >
+          <input uiInput type="date" [formField]="resolutionForm.date_from" />
+        </ui-field>
+        <ui-field
+          [label]="'companies.resolutions.dateTo' | transloco"
+          [error]="errors().date_to"
+          required
+        >
+          <input uiInput type="date" [formField]="resolutionForm.date_to" />
+        </ui-field>
+      </div>
+      <div uiCardFooter class="companies-actions">
+        <ui-button
+          type="submit"
+          [label]="'companies.resolutions.save' | transloco"
+          [loading]="submitting()"
+        />
+      </div>
+    </ui-card>
   </form>
 
-  <h3>{{ 'companies.resolutions.ranges.title' | transloco }}</h3>
-  <p class="companies-lead">{{ 'companies.resolutions.ranges.description' | transloco }}</p>
-  <div class="companies-form">
-    <ui-field [label]="'companies.resolutions.ranges.softwareId' | transloco">
-      <input
-        uiInput
-        type="text"
-        autocomplete="off"
-        [value]="softwareId()"
-        (input)="softwareId.set($any($event.target).value)"
-      />
-    </ui-field>
-    <div class="companies-form__actions">
-      <ui-button
-        variant="secondary"
-        [label]="'companies.resolutions.ranges.lookup' | transloco"
-        [loading]="lookup().kind === 'loading'"
-        (pressed)="lookUp()"
-      />
+  <ui-card
+    [headingLevel]="3"
+    [title]="'companies.resolutions.ranges.title' | transloco"
+    [subtitle]="'companies.resolutions.ranges.description' | transloco"
+  >
+    <div class="companies-lookup">
+      <ui-field [label]="'companies.resolutions.ranges.softwareId' | transloco">
+        <input
+          uiInput
+          type="text"
+          autocomplete="off"
+          [value]="softwareId()"
+          (input)="softwareId.set($any($event.target).value)"
+        />
+      </ui-field>
+      <div class="companies-actions companies-actions--start">
+        <ui-button
+          variant="secondary"
+          [label]="'companies.resolutions.ranges.lookup' | transloco"
+          [loading]="lookup().kind === 'loading'"
+          (pressed)="lookUp()"
+        />
+      </div>
     </div>
-  </div>
 
-  @if (ranges().length > 0) {
-    <div class="companies-scroll">
-      <table class="companies-table">
-        <caption>
-          {{
-            'companies.resolutions.ranges.title' | transloco
-          }}
-        </caption>
-        <thead>
-          <tr>
-            <th scope="col">{{ 'companies.resolutions.ranges.columns.resolution' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.ranges.columns.prefix' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.ranges.columns.range' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.ranges.columns.validity' | transloco }}</th>
-            <th scope="col">{{ 'companies.resolutions.ranges.columns.actions' | transloco }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (range of ranges(); track $index) {
+    @if (ranges().length > 0) {
+      <div class="companies-scroll">
+        <table class="companies-table">
+          <caption class="companies-hidden">
+            {{
+              'companies.resolutions.ranges.title' | transloco
+            }}
+          </caption>
+          <thead>
             <tr>
-              <td>{{ range.resolution_number }}</td>
-              <td>{{ range.prefix }}</td>
-              <td>{{ range.from }} – {{ range.to }}</td>
-              <td>{{ range.valid_date_from }} – {{ range.valid_date_to }}</td>
-              <td>
-                <ui-button
-                  variant="text"
-                  [label]="'companies.resolutions.use' | transloco"
-                  (pressed)="useRange(range)"
-                />
-              </td>
+              <th scope="col">
+                {{ 'companies.resolutions.ranges.columns.resolution' | transloco }}
+              </th>
+              <th scope="col">{{ 'companies.resolutions.ranges.columns.prefix' | transloco }}</th>
+              <th scope="col">{{ 'companies.resolutions.ranges.columns.range' | transloco }}</th>
+              <th scope="col">{{ 'companies.resolutions.ranges.columns.validity' | transloco }}</th>
+              <th scope="col">{{ 'companies.resolutions.ranges.columns.actions' | transloco }}</th>
             </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  }
-  @if (lookupMessage(); as message) {
-    <p
-      class="companies-message"
-      [class.companies-message--error]="message.error"
-      [class.companies-message--info]="!message.error"
-      role="status"
-    >
-      {{ message.text }}
-    </p>
-  }
+          </thead>
+          <tbody>
+            @for (range of ranges(); track $index) {
+              <tr>
+                <td>{{ range.resolution_number }}</td>
+                <td>{{ range.prefix }}</td>
+                <td>
+                  <span class="companies-nowrap">{{ range.from }} –</span>&ngsp;<span
+                    class="companies-nowrap"
+                    >{{ range.to }}</span
+                  >
+                </td>
+                <td>
+                  <span class="companies-nowrap">{{ range.valid_date_from }} –</span>&ngsp;<span
+                    class="companies-nowrap"
+                    >{{ range.valid_date_to }}</span
+                  >
+                </td>
+                <td>
+                  <ui-button
+                    variant="ghost"
+                    size="small"
+                    [label]="'companies.resolutions.use' | transloco"
+                    (pressed)="useRange(range)"
+                  />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+    @if (lookupMessage(); as message) {
+      <p
+        class="companies-message"
+        [class.companies-message--error]="message.error"
+        [class.companies-message--info]="!message.error"
+        role="status"
+      >
+        {{ message.text }}
+      </p>
+    }
+  </ui-card>
 </section>
+
+<feat-next-number-dialog
+  [labels]="nextNumberLabels()"
+  [(visible)]="nextNumberOpen"
+  [initial]="nextNumberTarget()?.next ?? ''"
+  [error]="nextNumberError()"
+  [busy]="nextNumberBusy()"
+  (saved)="saveNextNumber($event)"
+/>

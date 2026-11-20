@@ -2,79 +2,55 @@ import { NgComponentOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
+  ElementRef,
+  Injector,
   Type,
+  afterNextRender,
   computed,
   effect,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
-import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
 import { InactivityMonitor, SessionStore, ToastStore } from '@impifact/core';
 import { loadAuthTexts, loadInactivityWarning } from '@impifact/feature-auth';
-import { COMPANY_ROLES } from '@impifact/feature-companies';
-import { API_KEYS_ROLES } from '@impifact/feature-api-keys';
-import { MASTERS_ROLES } from '@impifact/feature-masters';
-import { NOTIFICATIONS_ROLES } from '@impifact/feature-notifications';
-import { PLANS_ROLES } from '@impifact/feature-plans';
-import { PLATFORM_ROLES, PLATFORM_SCOPE } from '@impifact/feature-platform';
 import { ToastRegionComponent, UiToast } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { NotificationBellComponent } from './shell/notification-bell.component';
-import { UserMenuComponent } from './shell/user-menu.component';
+import { injectCurrentPath } from './shell/current-path';
+import { SidebarComponent } from './shell/sidebar.component';
+import { TopbarComponent } from './shell/topbar.component';
 
-/** Entrada del menú principal; sin `roles` la ve cualquiera, con `roles` solo quien tiene alguno (sección 7). */
-interface NavItem {
-  path: string;
-  /** Clave del texto en `nav.*`. */
-  label: string;
-  exact?: boolean;
-  roles?: readonly string[];
-  /** Alcance del token que además exige la entrada (por ejemplo, `platform:*`, que solo va sin empresa activa). */
-  scope?: string;
-}
+/** From this width the sidebar is fixed and the drawer does not exist; it matches the stylesheets. */
+const WIDE_LAYOUT = '(min-width: 64rem)';
 
-/** Menú principal, filtrado por rol. Cada feature agrega aquí sus entradas. */
-const NAV_ITEMS: readonly NavItem[] = [
-  { path: '/', label: 'nav.home', exact: true },
-  { path: '/clientes', label: 'nav.customers', roles: MASTERS_ROLES },
-  { path: '/productos', label: 'nav.products', roles: MASTERS_ROLES },
-  { path: '/documentos', label: 'nav.documents', roles: ['owner', 'seller'] },
-  { path: '/empresa', label: 'nav.company', roles: COMPANY_ROLES },
-  { path: '/empresa/produccion', label: 'nav.production', roles: COMPANY_ROLES },
-  { path: '/notificaciones', label: 'nav.notifications', roles: NOTIFICATIONS_ROLES },
-  { path: '/llaves-api', label: 'nav.apiKeys', roles: API_KEYS_ROLES },
-  { path: '/plan', label: 'nav.plan', roles: PLANS_ROLES },
-  {
-    path: '/plataforma/planes',
-    label: 'nav.platformPlans',
-    roles: PLATFORM_ROLES,
-    scope: PLATFORM_SCOPE,
-  },
-  {
-    path: '/plataforma/empresas',
-    label: 'nav.platformCompanies',
-    roles: PLATFORM_ROLES,
-    scope: PLATFORM_SCOPE,
-  },
+/** Pages shown without the sidebar and the top bar: access pages and the company selection. */
+const BARE_PATHS: readonly string[] = [
+  '/login',
+  '/recuperar',
+  '/restablecer',
+  '/empresas/seleccionar',
 ];
 
 /**
- * Shell del panel: encabezado con el menú principal (filtrado por rol), el de usuario y la campana de avisos, zona
- * de contenido, avisos (*toasts*) de core y el diálogo de inactividad.
+ * Panel shell: with a session, sidebar (menu grouped by section and filtered by role) and top bar (company, notices
+ * and user menu) around the content; access pages and the company selection show only the content. It also hosts
+ * the core toasts and the inactivity dialog. The sidebar and the top bar load in deferred chunks the first time a
+ * page needs them, so the access pages keep them out of the initial bundle. Below 1024px the open drawer is modal:
+ * the skip link, the top bar and the content become inert until it closes.
  */
 @Component({
   selector: 'app-root',
   imports: [
     NgComponentOutlet,
     RouterOutlet,
-    RouterLink,
-    RouterLinkActive,
     TranslocoPipe,
     ToastRegionComponent,
-    UserMenuComponent,
-    NotificationBellComponent,
+    SidebarComponent,
+    TopbarComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
@@ -85,15 +61,21 @@ export class App {
   protected readonly toastStore = inject(ToastStore);
   private readonly inactivity = inject(InactivityMonitor);
   private readonly session = inject(SessionStore);
+  private readonly injector = inject(Injector);
+  private readonly path = injectCurrentPath();
+  // Queried by template reference: a class predicate would import the deferred components eagerly.
+  private readonly sidebar = viewChild<unknown, ElementRef<HTMLElement>>('sidebar', {
+    read: ElementRef,
+  });
+  private readonly topbar = viewChild<Pick<TopbarComponent, 'focusMenuToggle'>>('topbar');
 
-  /** Entradas del menú que corresponden a la sesión: las que piden rol solo aparecen con sesión y ese rol. */
-  protected readonly navItems = computed(() =>
-    NAV_ITEMS.filter(
-      (item) =>
-        (!item.roles || (this.session.isAuthenticated() && this.session.hasRole(...item.roles))) &&
-        (!item.scope || this.session.hasScope(item.scope)),
-    ),
+  /** Sidebar and top bar only with a session and outside the access pages and the company selection. */
+  protected readonly layout = computed(
+    () => this.session.isAuthenticated() && !BARE_PATHS.includes(this.path()),
   );
+
+  /** Sidebar drawer on narrow screens; it closes after every navigation. */
+  protected readonly drawerOpen = signal(false);
 
   /**
    * Diálogo de inactividad de feature-auth. Se carga (con sus textos) la primera vez que el monitor avisa, así no
@@ -119,11 +101,49 @@ export class App {
       .subscribe((text) => title.setTitle(text));
 
     effect(() => {
+      this.path();
+      this.drawerOpen.set(false);
+    });
+
+    // Widening the window past the drawer breakpoint closes it, so the fixed sidebar never leaves the page inert.
+    if (typeof window.matchMedia === 'function') {
+      const wide = window.matchMedia(WIDE_LAYOUT);
+      const onChange = (event: MediaQueryListEvent) => event.matches && this.drawerOpen.set(false);
+      wide.addEventListener('change', onChange);
+      inject(DestroyRef).onDestroy(() => wide.removeEventListener('change', onChange));
+    }
+
+    effect(() => {
       if (this.inactivity.warning() && !this.loadingWarning) {
         this.loadingWarning = true;
         void this.loadWarning();
       }
     });
+  }
+
+  protected toggleDrawer(): void {
+    if (this.drawerOpen()) {
+      this.closeDrawer(true);
+      return;
+    }
+    this.drawerOpen.set(true);
+    // Move the focus into the drawer once it is visible.
+    afterNextRender(
+      () => this.sidebar()?.nativeElement.querySelector<HTMLElement>('nav a')?.focus(),
+      { injector: this.injector },
+    );
+  }
+
+  /** Closes the drawer; after Escape or the close button the focus goes back to the menu button. */
+  protected closeDrawer(returnFocus: boolean): void {
+    if (!this.drawerOpen()) {
+      return;
+    }
+    this.drawerOpen.set(false);
+    if (returnFocus) {
+      // The top bar stays inert until the next render; an inert button refuses the focus.
+      afterNextRender(() => this.topbar()?.focusMenuToggle(), { injector: this.injector });
+    }
   }
 
   private async loadWarning(): Promise<void> {

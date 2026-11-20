@@ -103,7 +103,7 @@ internal sealed class RefreshTokenHandler(
             return IdentityErrors.InvalidRefreshToken;
         }
 
-        var issued = await _sessions.IssueAsync(user.Id, request.CompanyId, request.ClientIp, request.UserAgent, claimed.Id, now, ct);
+        var issued = await _sessions.IssueAsync(user, request.CompanyId, request.ClientIp, request.UserAgent, claimed.Id, now, ct);
         if (!issued.IsSuccess && issued.Error == SessionIssuer.AlreadyUsed)
         {
             // Otra solicitud usó este mismo token un instante antes: se trata igual que un token robado y reusado.

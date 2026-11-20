@@ -1,83 +1,89 @@
 <section class="platform-page">
-  <feat-platform-nav />
-  <header class="platform-header">
-    <div>
-      <ui-page-title>{{ 'platform.companies.title' | transloco }}</ui-page-title>
-      <p class="platform-lead">{{ 'platform.companies.description' | transloco }}</p>
-    </div>
-    <ui-button [label]="'platform.companies.new' | transloco" (pressed)="newCompany()" />
+  <header>
+    <ui-page-title [subtitle]="'platform.companies.description' | transloco">
+      {{ 'platform.companies.title' | transloco }}
+      <ui-button
+        uiPageTitleActions
+        [label]="'platform.companies.new' | transloco"
+        (pressed)="newCompany()"
+      />
+    </ui-page-title>
+    <feat-platform-nav />
+
+    <p class="platform-message platform-message--success" role="status">
+      @if (done(); as message) {
+        {{ message }}
+      }
+    </p>
   </header>
 
-  <div class="platform-form">
-    <ui-field
-      [label]="'platform.companies.search' | transloco"
-      [hint]="'platform.companies.searchHint' | transloco"
-    >
-      <input
-        uiInput
-        type="search"
-        autocomplete="off"
-        [value]="query()"
-        (input)="onSearch($any($event.target).value)"
-      />
-    </ui-field>
-  </div>
-
-  <p class="platform-message platform-message--success" role="status">
-    @if (done(); as message) {
-      {{ message }}
-    }
-  </p>
-
-  <ui-table
-    [caption]="'platform.companies.caption' | transloco"
-    [columns]="columns()"
-    [rows]="companies.items()"
-    [labels]="tableLabels()"
-    [loading]="companies.status() === 'loading'"
-    [error]="companies.status() === 'error'"
-    [trackBy]="trackById"
-    (retry)="companies.retry()"
-  >
-    <ng-template uiTableCell="nit" let-row>{{ row.nit }}-{{ row.dv }}</ng-template>
-    <ng-template uiTableCell="plan" let-row>{{
-      row.plan_name ?? ('platform.companies.noPlan' | transloco)
-    }}</ng-template>
-    <ng-template uiTableCell="active" let-row>
-      <span class="platform-status" [class.platform-status--inactive]="!row.is_active">{{
-        (row.is_active ? 'platform.companies.active' : 'platform.companies.inactive') | transloco
-      }}</span>
-    </ng-template>
-    <ng-template uiTableCell="actions" let-row>
-      <div class="platform-row-actions">
-        <ui-button
-          variant="text"
-          size="small"
-          [label]="'platform.assign.submit' | transloco"
-          [ariaLabel]="rowText('assign.title', row)"
-          (pressed)="openAssign(row)"
+  <ui-card padding="none">
+    <div class="platform-toolbar">
+      <ui-field
+        [label]="'platform.companies.search' | transloco"
+        [hint]="'platform.companies.searchHint' | transloco"
+      >
+        <input
+          uiInput
+          type="search"
+          autocomplete="off"
+          [value]="query()"
+          (input)="onSearch($any($event.target).value)"
         />
+      </ui-field>
+    </div>
+
+    <ui-table
+      flush
+      [caption]="'platform.companies.caption' | transloco"
+      [columns]="columns()"
+      [rows]="companies.items()"
+      [labels]="tableLabels()"
+      [loading]="companies.status() === 'loading'"
+      [error]="companies.status() === 'error'"
+      [trackBy]="trackById"
+      (retry)="companies.retry()"
+    >
+      <ng-template uiTableCell="nit" let-row>{{ row.nit }}-{{ row.dv }}</ng-template>
+      <ng-template uiTableCell="plan" let-row>{{
+        row.plan_name ?? ('platform.companies.noPlan' | transloco)
+      }}</ng-template>
+      <ng-template uiTableCell="active" let-row>
+        <ui-badge [tone]="row.is_active ? 'success' : 'neutral'">{{
+          (row.is_active ? 'platform.companies.active' : 'platform.companies.inactive') | transloco
+        }}</ui-badge>
+      </ng-template>
+      <ng-template uiTableCell="actions" let-row>
+        <div class="platform-row-actions">
+          <ui-button
+            variant="ghost"
+            size="small"
+            [label]="'platform.assign.submit' | transloco"
+            [ariaLabel]="rowText('assign.title', row)"
+            (pressed)="openAssign(row)"
+          />
+          <ui-button
+            variant="ghost"
+            size="small"
+            [label]="'platform.user.open' | transloco"
+            [ariaLabel]="rowText('user.title', row)"
+            (pressed)="openUser(row)"
+          />
+        </div>
+      </ng-template>
+    </ui-table>
+
+    @if (companies.nextCursor()) {
+      <div uiCardFooter class="platform-actions">
         <ui-button
-          variant="text"
-          size="small"
-          [label]="'platform.user.open' | transloco"
-          [ariaLabel]="rowText('user.title', row)"
-          (pressed)="openUser(row)"
+          variant="secondary"
+          [label]="'platform.companies.more' | transloco"
+          [loading]="companies.loadingMore()"
+          (pressed)="companies.loadMore()"
         />
       </div>
-    </ng-template>
-  </ui-table>
-
-  @if (companies.nextCursor()) {
-    <div>
-      <ui-button
-        variant="secondary"
-        [label]="'platform.companies.more' | transloco"
-        [loading]="companies.loadingMore()"
-        (pressed)="companies.loadMore()"
-      />
-    </div>
-  }
+    }
+  </ui-card>
 
   <ui-dialog
     [header]="dialogTitle()"
@@ -92,7 +98,9 @@
     >
       <p class="platform-lead">{{ 'platform.assign.description' | transloco }}</p>
       @if (generalError(); as message) {
-        <p class="platform-message platform-message--error" role="alert">{{ message }}</p>
+        <p class="platform-message platform-message--error platform-alert" role="alert">
+          {{ message }}
+        </p>
       }
       <ui-field
         [label]="'platform.assign.plan' | transloco"

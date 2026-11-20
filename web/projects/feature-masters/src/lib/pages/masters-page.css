@@ -1,4 +1,4 @@
-/* Estilos comunes de las páginas del feature: listados y formularios, cómodos en móvil y en escritorio. */
+/* Shared masters styles: lists (toolbar and table in a card) and forms (section cards with a two-column grid). */
 :host {
   display: block;
 }
@@ -7,98 +7,127 @@
   display: flex;
   flex-direction: column;
   gap: var(--if-space-4);
-  max-inline-size: 72rem;
-  margin-inline: auto;
 }
 
-.masters-header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--if-space-3);
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.masters-lead {
-  margin: 0;
-  color: var(--if-color-text-muted);
+/* The page title keeps its own bottom margin: cancel the flex gap after it. */
+.masters-page > ui-page-title {
+  margin-block-end: calc(-1 * var(--if-space-4));
 }
 
 .masters-primary-link {
-  padding: var(--if-control-padding-y) var(--if-control-padding-x);
-  color: var(--if-color-on-primary);
-  background: var(--if-color-primary);
-  border-radius: var(--if-radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--if-space-2);
+  min-block-size: var(--if-control-min-height);
+  padding: var(--if-control-padding-y) var(--if-space-3);
   font-weight: var(--if-font-weight-medium);
+  color: var(--if-color-on-primary);
   text-decoration: none;
+  background: var(--if-color-primary);
+  border-radius: var(--if-radius-md);
+  box-shadow: var(--if-shadow-card);
 }
 
 .masters-primary-link:hover {
   background: var(--if-color-primary-hover);
 }
 
-.masters-status {
-  font-weight: var(--if-font-weight-medium);
-  color: var(--if-color-success);
+.masters-primary-link:active {
+  background: var(--if-color-primary-active);
 }
 
-.masters-status--inactive {
-  color: var(--if-color-text-muted);
+.masters-icon {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
 }
 
 .masters-row-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--if-space-2);
+  gap: var(--if-space-1) var(--if-space-2);
   align-items: center;
 }
 
 .masters-row-actions a,
-.masters-back {
+.masters-back,
+.masters-cancel {
+  font-weight: var(--if-font-weight-medium);
   color: var(--if-color-primary);
+  text-decoration: none;
+}
+
+.masters-row-actions a:hover,
+.masters-back:hover,
+.masters-cancel:hover {
+  text-decoration: underline;
+}
+
+.masters-back {
+  font-size: var(--if-font-size-sm);
 }
 
 .masters-form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  column-gap: var(--if-space-4);
-  padding: var(--if-space-4);
-  background: var(--if-color-surface);
-  border: 1px solid var(--if-color-border);
-  border-radius: var(--if-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-4);
 }
 
-.masters-form__wide,
-.masters-form__actions,
-.masters-message {
-  grid-column: 1 / -1;
+.masters-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: var(--if-space-4);
+  /* Fields keep a bottom margin; the last row does not need it inside the card body. */
+  margin-block-end: calc(-1 * var(--if-space-3));
+}
+
+@media (min-width: 48rem) {
+  .masters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .masters-form__wide {
+    grid-column: 1 / -1;
+  }
 }
 
 .masters-form__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--if-space-2);
+  gap: var(--if-space-3);
   align-items: center;
+  justify-content: flex-end;
 }
 
 .masters-lookup {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--if-space-2);
+  gap: var(--if-space-2) var(--if-space-3);
   align-items: center;
   margin-block-end: var(--if-space-3);
 }
 
+.masters-lookup .masters-message {
+  flex: 1 1 16rem;
+  margin: 0;
+}
+
 .masters-message {
-  margin: 0 0 var(--if-space-3);
-  padding: var(--if-space-3);
-  border-radius: var(--if-radius-sm);
-  border-inline-start: 4px solid currentColor;
-  background: var(--if-color-surface-raised);
+  margin: 0;
+  padding: var(--if-space-2) var(--if-space-3);
+  font-size: var(--if-font-size-sm);
+  color: var(--if-color-info);
+  background: var(--if-color-info-subtle);
+  border: 1px solid currentColor;
+  border-radius: var(--if-radius-md);
 }
 
 .masters-message--error {
   color: var(--if-color-danger);
+  background: var(--if-color-danger-subtle);
 }
 
 .masters-check {
@@ -106,4 +135,10 @@
   gap: var(--if-space-2);
   align-items: center;
   margin-block-end: var(--if-space-3);
+}
+
+.masters-check input {
+  inline-size: 1rem;
+  block-size: 1rem;
+  accent-color: var(--if-color-primary);
 }

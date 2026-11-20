@@ -12,7 +12,9 @@ import { Router } from '@angular/router';
 import { NotificationResponse } from '@impifact/api';
 import { NotificationsStore, ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
   FieldComponent,
   PageTitleComponent,
   SelectDirective,
@@ -41,7 +43,9 @@ const UNREAD_PARAM = 'sin-leer';
   selector: 'feat-notification-list-page',
   imports: [
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardComponent,
     FieldComponent,
     PageTitleComponent,
     SelectDirective,

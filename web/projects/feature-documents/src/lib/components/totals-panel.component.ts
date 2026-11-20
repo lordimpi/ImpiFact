@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { ButtonComponent, LoadingComponent } from '@impifact/ui';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { CopCurrencyPipe } from './cop-currency.pipe';
+import { CopCurrencyPipe, formatPercent } from './cop-currency.pipe';
 
 /** Totales del documento como los da el Api (`legal_monetary_totals` o `totals`). */
 export interface TotalsView {
@@ -71,7 +71,7 @@ export type TotalsState = 'ready' | 'loading' | 'error' | 'empty';
                       | transloco
                         : {
                             name: 'documents.taxes.' + taxKey(tax.tax_id) | transloco,
-                            percent: tax.percent ?? '',
+                            percent: percent(tax.percent),
                           }
                   }}
                 </dt>
@@ -97,17 +97,34 @@ export type TotalsState = 'ready' | 'loading' | 'error' | 'empty';
     .totals {
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: var(--if-space-1) var(--if-space-3);
+      gap: var(--if-space-2) 0;
       margin: 0;
+      font-size: var(--if-font-size-sm);
+    }
+    .totals dt {
+      color: var(--if-color-text-muted);
     }
     .totals dd {
       margin: 0;
+      padding-inline-start: var(--if-space-3);
       text-align: end;
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
     .totals__payable {
+      padding-block-start: var(--if-space-3);
+      border-block-start: 1px solid var(--if-color-border);
       font-weight: var(--if-font-weight-bold);
-      font-size: var(--if-font-size-md);
+    }
+    dt.totals__payable {
+      display: flex;
+      align-items: flex-end;
+      color: var(--if-color-text);
+      font-size: var(--if-font-size-base);
+    }
+    dd.totals__payable {
+      font-size: var(--if-font-size-lg);
+      color: var(--if-color-text);
     }
     .totals__muted {
       margin: 0;
@@ -126,6 +143,8 @@ export class TotalsPanelComponent {
   readonly retry = output<void>();
 
   /** Solo compara con cero para decidir si se muestra la fila; no opera con el valor. */
+  protected readonly percent = formatPercent;
+
   protected nonZero(value: number | string | undefined): boolean {
     return value !== undefined && Number(value) !== 0;
   }

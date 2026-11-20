@@ -1,0 +1,81 @@
+/* Document detail: summary strip with the downloads, then lines and DIAN answer beside customer and totals. */
+.detail-back {
+  color: var(--if-color-text-muted);
+  text-decoration: none;
+}
+
+.detail-back::before {
+  content: '← ' / '';
+}
+
+.detail-back:hover {
+  color: var(--if-color-primary);
+  text-decoration: underline;
+}
+
+.detail-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--if-space-3) var(--if-space-4);
+  margin: 0;
+}
+
+.detail-summary__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-1);
+  min-inline-size: 0;
+}
+
+.detail-summary dt {
+  font-size: var(--if-font-size-xs);
+  font-weight: var(--if-font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--if-color-text-muted);
+}
+
+.detail-summary dd {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--if-space-1);
+  margin: 0;
+}
+
+.detail-summary__total {
+  font-size: var(--if-font-size-lg);
+  font-weight: var(--if-font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2) var(--if-space-3);
+  align-items: center;
+}
+
+.detail-files__title {
+  margin: 0;
+  font-size: var(--if-font-size-sm);
+  font-weight: var(--if-font-weight-bold);
+}
+
+.detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--if-space-4);
+  align-items: start;
+}
+
+@media (min-width: 64rem) {
+  .detail-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  }
+}
+
+.detail-code {
+  font-family: var(--if-font-family-mono);
+  font-size: var(--if-font-size-sm);
+}

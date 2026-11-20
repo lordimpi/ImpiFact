@@ -1,0 +1,83 @@
+/**
+ * Spanish (es-CO) texts of the newer showcase sections, merged into Transloco when the page opens
+ * (`TranslocoService.setTranslation`, flat keys). The showcase is development only (the route does not exist in the
+ * production build), so these keys stay next to it instead of growing the common es-CO.json the whole panel downloads.
+ * They follow the same `devUi.*` naming, so moving them into public/i18n/es-CO.json later is a copy and paste.
+ */
+export const SHOWCASE_TEXTS: Readonly<Record<string, string>> = {
+  'devUi.breadcrumb.label': 'Ruta de navegación',
+  'devUi.breadcrumb.home': 'Inicio',
+  'devUi.breadcrumb.current': 'Vitrina',
+  'devUi.pageAction': 'Nueva factura',
+  'devUi.buttons.variants': 'Variantes',
+  'devUi.buttons.sizes': 'Tamaños',
+  'devUi.buttons.small': 'Pequeño',
+  'devUi.buttons.normal': 'Normal',
+  'devUi.buttons.large': 'Grande',
+  'devUi.stats.title': 'Indicadores',
+  'devUi.stats.issued': 'Facturas emitidas',
+  'devUi.stats.issuedValue': '1.284',
+  'devUi.stats.issuedTrend': '+12 % frente a octubre',
+  'devUi.stats.sales': 'Ventas del mes',
+  'devUi.stats.salesValue': '$ 48.920.000',
+  'devUi.stats.period': 'Noviembre de 2026',
+  'devUi.stats.rejected': 'Rechazadas',
+  'devUi.stats.rejectedValue': '3',
+  'devUi.stats.rejectedTrend': '+2 frente a octubre',
+  'devUi.stats.customers': 'Clientes activos',
+  'devUi.stats.customersValue': '312',
+  'devUi.stats.customersHint': 'Con al menos una factura este año',
+  'devUi.badges.title': 'Insignias',
+  'devUi.badges.neutral': 'Borrador',
+  'devUi.badges.info': 'En cola',
+  'devUi.badges.success': 'Aceptado',
+  'devUi.badges.warning': 'Pendiente',
+  'devUi.badges.danger': 'Rechazado',
+  'devUi.tabs.title': 'Pestañas',
+  'devUi.tabs.label': 'Secciones de la empresa',
+  'devUi.tabs.data': 'Datos',
+  'devUi.tabs.resolutions': 'Resoluciones',
+  'devUi.tabs.certificate': 'Certificado',
+  'devUi.tabs.users': 'Usuarios',
+  'devUi.cards.title': 'Tarjetas',
+  'devUi.cards.resolution': 'Resolución de facturación',
+  'devUi.cards.resolutionSubtitle': 'Vigente hasta el 31 de diciembre de 2026',
+  'devUi.cards.resolutionBody':
+    'Prefijo SETP, del 990000000 al 995000000. Quedan 4.998.716 números.',
+  'devUi.cards.edit': 'Editar',
+  'devUi.cards.updated': 'Actualizada hace 2 días',
+  'devUi.cards.latest': 'Últimos documentos',
+  'devUi.cards.latestCaption': 'Últimos documentos emitidos',
+  'devUi.cards.viewAll': 'Ver todos',
+  'devUi.cards.plain':
+    'Una tarjeta sin encabezado, con relleno compacto, para agrupar contenido suelto.',
+  'devUi.fields.nitHelp':
+    'Número de identificación tributaria de la empresa, tal como aparece en el RUT, sin el dígito de verificación.',
+  'devUi.fields.documentType': 'Tipo de documento',
+  'devUi.fields.documentTypes.cc': 'Cédula de ciudadanía',
+  'devUi.fields.documentTypes.nit': 'NIT',
+  'devUi.fields.documentTypes.ce': 'Cédula de extranjería',
+  'devUi.fields.municipality': 'Municipio',
+  'devUi.fields.municipalityPlaceholder': 'Escriba para buscar…',
+  'devUi.fields.municipalityLoading': 'Buscando municipios',
+  'devUi.fields.municipalityError': 'No se pudieron cargar los municipios',
+  'devUi.fields.municipalityEmpty': 'Ningún municipio coincide',
+  'devUi.meter.title': 'Consumo del plan',
+  'devUi.meter.label': 'Documentos del plan',
+  'devUi.meter.value': '820 de 1.000 documentos',
+  'devUi.meter.highValue': '960 de 1.000 documentos',
+  'devUi.toasts.title': 'Avisos',
+  'devUi.toasts.show': 'Mostrar avisos',
+  'devUi.toasts.success': 'La factura SETP990000004 se envió a la DIAN.',
+  'devUi.toasts.error': 'No se pudo enviar la factura. Intente de nuevo.',
+};
+
+/** Municipalities of the combobox example (sample data, like the table rows). */
+export const SAMPLE_MUNICIPALITIES = [
+  { id: 11001, name: 'Bogotá, D.C.' },
+  { id: 5001, name: 'Medellín' },
+  { id: 76001, name: 'Cali' },
+  { id: 8001, name: 'Barranquilla' },
+  { id: 13001, name: 'Cartagena de Indias' },
+  { id: 68001, name: 'Bucaramanga' },
+] as const;

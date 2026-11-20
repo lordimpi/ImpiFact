@@ -1,11 +1,15 @@
+// Shell layout: fixed sidebar from 1024px (64rem), off-canvas drawer below; the content keeps a readable width.
 :host {
-  display: flex;
-  flex-direction: column;
+  --shell-content-max-width: 80rem;
+
+  display: block;
   min-height: 100vh;
+  background: var(--if-color-page);
 }
 
 .skip-link {
   position: absolute;
+  z-index: 40;
   left: var(--if-space-2);
   top: -3rem;
   padding: var(--if-space-2) var(--if-space-3);
@@ -18,33 +22,50 @@
   }
 }
 
-.shell-header {
-  display: flex;
-  align-items: center;
-  gap: var(--if-space-4);
-  padding: var(--if-space-3) var(--if-space-4);
-  background: var(--if-color-surface);
-  border-bottom: 1px solid var(--if-color-border);
+.shell-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  background: rgb(16 24 40 / 40%);
+
+  @media (min-width: 64rem) {
+    display: none;
+  }
 }
 
-.shell-brand {
-  font-weight: 600;
+.shell-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+
+  &.has-layout {
+    @media (min-width: 64rem) {
+      margin-inline-start: var(--if-sidebar-width);
+    }
+  }
 }
 
-.shell-nav {
-  display: flex;
-  gap: var(--if-space-3);
-
-  a {
-    color: var(--if-color-primary);
-  }
-
-  .is-active {
-    font-weight: 600;
-  }
+// Keeps the place of the top bar while its deferred chunk loads, so the content does not shift.
+.shell-topbar-placeholder {
+  min-block-size: var(--if-topbar-height);
+  background: var(--if-topbar-bg);
+  border-block-end: 1px solid var(--if-color-border);
 }
 
 .shell-main {
   flex: 1;
-  padding: var(--if-space-4);
+  padding: var(--if-space-3);
+
+  &:focus {
+    outline: none;
+  }
+
+  @media (min-width: 48rem) {
+    padding: var(--if-space-5);
+  }
+}
+
+.shell-content {
+  max-width: var(--shell-content-max-width);
+  margin-inline: auto;
 }

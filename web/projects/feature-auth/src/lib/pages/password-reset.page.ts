@@ -23,6 +23,7 @@ import {
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { AUTH_I18N_SCOPE, provideAuthI18n } from '../auth-i18n';
+import { AuthBrandComponent } from '../components/auth-brand.component';
 import {
   createResetForm,
   isInvalidLink,
@@ -52,13 +53,18 @@ export const PASSWORD_RESET_REASON = 'password-reset';
     InputDirective,
     PasswordToggleDirective,
     PageTitleComponent,
+    AuthBrandComponent,
   ],
   providers: [provideAuthI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="auth-page">
+      <feat-auth-brand />
       <div class="auth-card">
-        <ui-page-title>{{ 'auth.reset.title' | transloco }}</ui-page-title>
+        <ui-page-title
+          [subtitle]="invalidLink() ? undefined : ('auth.reset.description' | transloco)"
+          >{{ 'auth.reset.title' | transloco }}</ui-page-title
+        >
 
         @if (invalidLink()) {
           <div class="auth-error" role="alert">
@@ -68,7 +74,6 @@ export const PASSWORD_RESET_REASON = 'password-reset';
             }}</a>
           </div>
         } @else {
-          <p class="auth-lead">{{ 'auth.reset.description' | transloco }}</p>
           <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="submitting() || null">
             @if (generalError(); as message) {
               <p class="auth-error" role="alert">{{ message }}</p>
@@ -103,6 +108,7 @@ export const PASSWORD_RESET_REASON = 'password-reset';
             <div class="auth-actions">
               <ui-button
                 type="submit"
+                block
                 [label]="'auth.reset.submit' | transloco"
                 [loading]="submitting()"
               />

@@ -1,10 +1,7 @@
 <section class="doc-page">
-  <header class="doc-header">
-    <div>
-      <ui-page-title>{{ 'documents.list.title' | transloco }}</ui-page-title>
-      <p class="doc-lead">{{ 'documents.list.description' | transloco }}</p>
-    </div>
-    <div class="doc-actions">
+  <ui-page-title [subtitle]="'documents.list.description' | transloco">
+    {{ 'documents.list.title' | transloco }}
+    <div uiPageTitleActions class="doc-actions">
       <ui-button
         variant="secondary"
         [label]="'documents.list.export' | transloco"
@@ -12,79 +9,126 @@
         (pressed)="exportCsv()"
       />
       @if (canIssue()) {
-        <a class="doc-link-button" routerLink="/documentos/nota-credito">{{
-          'documents.list.creditNote' | transloco
-        }}</a>
-        <a class="doc-link-button" routerLink="/documentos/nota-debito">{{
-          'documents.list.debitNote' | transloco
-        }}</a>
+        <a
+          class="doc-link-button doc-link-button--secondary"
+          routerLink="/documentos/nota-credito"
+          >{{ 'documents.list.creditNote' | transloco }}</a
+        >
+        <a
+          class="doc-link-button doc-link-button--secondary"
+          routerLink="/documentos/nota-debito"
+          >{{ 'documents.list.debitNote' | transloco }}</a
+        >
         <a class="doc-link-button" routerLink="/documentos/nuevo">{{
           'documents.list.issue' | transloco
         }}</a>
       }
     </div>
-  </header>
+  </ui-page-title>
 
-  <feat-document-filters class="doc-section" [filters]="filters()" (apply)="applyFilters($event)" />
+  <ui-card padding="compact">
+    <feat-document-filters [filters]="filters()" (apply)="applyFilters($event)" />
+  </ui-card>
 
-  @if (store.totalCount(); as count) {
-    <p class="doc-muted" role="status">
-      {{ 'documents.list.count' | transloco: { count } }}
-    </p>
-  }
-
-  <ui-table
-    [caption]="'documents.list.caption' | transloco"
-    [columns]="columns()"
-    [rows]="store.items()"
-    [labels]="labels()"
-    [loading]="store.loading()"
-    [error]="store.error() !== null"
-    [pagination]="store.pagination()"
-    [trackBy]="trackById"
-    (pageChange)="store.changePage($event)"
-    (retry)="store.refresh()"
-  >
-    <ng-template uiTableCell="full_number" let-row>
-      <a [routerLink]="['/documentos', row.id]">{{ row.full_number }}</a>
-    </ng-template>
-    <ng-template uiTableCell="kind" let-row>
-      {{ 'documents.' + kindKey(row.kind) | transloco }}
-    </ng-template>
-    <ng-template uiTableCell="customer" let-row>
-      {{ row.customer?.name }}
-      <span class="doc-muted">{{ row.customer?.identification_number }}</span>
-    </ng-template>
-    <ng-template uiTableCell="total" let-row>
-      <span class="doc-amount">{{ row.totals?.payable_amount | cop }}</span>
-    </ng-template>
-    <ng-template uiTableCell="status" let-row>
-      <feat-status-badge [status]="row.status" />
-    </ng-template>
-    <ng-template uiTableCell="actions" let-row>
-      <div class="doc-row-actions">
-        <a
-          [routerLink]="['/documentos', row.id]"
-          [attr.aria-label]="'documents.list.actions.view' | transloco: { number: row.full_number }"
-          >{{ 'documents.list.actions.viewShort' | transloco }}</a
-        >
-        <button type="button" [disabled]="busyRow() === row.id" (click)="download(row, 'xml')">
-          {{ 'documents.list.actions.downloadXml' | transloco }}
-        </button>
-        @if (filesAvailable(row.status)) {
-          <button type="button" [disabled]="busyRow() === row.id" (click)="download(row, 'pdf')">
-            {{ 'documents.list.actions.downloadPdf' | transloco }}
+  <ui-card [title]="'documents.list.caption' | transloco" padding="none">
+    @if (store.totalCount(); as count) {
+      <p uiCardActions class="doc-muted doc-count" role="status">
+        {{ 'documents.list.count' | transloco: { count } }}
+      </p>
+    }
+    <ui-table
+      flush
+      class="doc-results"
+      [caption]="'documents.list.caption' | transloco"
+      [columns]="columns()"
+      [rows]="store.items()"
+      [labels]="labels()"
+      [loading]="store.loading()"
+      [error]="store.error() !== null"
+      [pagination]="store.pagination()"
+      [trackBy]="trackById"
+      (pageChange)="store.changePage($event)"
+      (retry)="store.refresh()"
+    >
+      <ng-template uiTableCell="full_number" let-row>
+        <a class="doc-number" [routerLink]="['/documentos', row.id]">{{ row.full_number }}</a>
+      </ng-template>
+      <ng-template uiTableCell="kind" let-row>
+        {{ 'documents.' + kindKey(row.kind) | transloco }}
+      </ng-template>
+      <ng-template uiTableCell="issue_date" let-row>
+        <span class="doc-nowrap">{{ row.issue_date }}</span>
+      </ng-template>
+      <ng-template uiTableCell="customer" let-row>
+        <span class="doc-customer">
+          <span>{{ row.customer?.name }}</span>
+          <span class="doc-muted doc-small">{{ row.customer?.identification_number }}</span>
+        </span>
+      </ng-template>
+      <ng-template uiTableCell="total" let-row>
+        <span class="doc-amount">{{ row.totals?.payable_amount | cop }}</span>
+      </ng-template>
+      <ng-template uiTableCell="status" let-row>
+        <feat-status-badge [status]="row.status" />
+      </ng-template>
+      <ng-template uiTableCell="actions" let-row>
+        <div class="doc-row-actions">
+          <a
+            [routerLink]="['/documentos', row.id]"
+            [attr.aria-label]="
+              'documents.list.actions.view' | transloco: { number: row.full_number }
+            "
+            >{{ 'documents.list.actions.viewShort' | transloco }}</a
+          >
+          <!-- Short visible text; the accessible name keeps the full verb («Descargar XML»). -->
+          <button
+            type="button"
+            [attr.aria-label]="'documents.list.actions.downloadXml' | transloco"
+            [disabled]="busyRow() === row.id"
+            (click)="download(row, 'xml')"
+          >
+            {{ 'documents.list.actions.xmlShort' | transloco }}
           </button>
-          @if (canIssue()) {
-            <button type="button" [disabled]="busyRow() === row.id" (click)="resendEmail(row)">
-              {{ 'documents.list.actions.resendEmail' | transloco }}
+          @if (filesAvailable(row.status)) {
+            <button
+              type="button"
+              [attr.aria-label]="'documents.list.actions.downloadPdf' | transloco"
+              [disabled]="busyRow() === row.id"
+              (click)="download(row, 'pdf')"
+            >
+              {{ 'documents.list.actions.pdfShort' | transloco }}
             </button>
-            <button type="button" [disabled]="busyRow() === row.id" (click)="regeneratePdf(row)">
-              {{ 'documents.list.actions.regeneratePdf' | transloco }}
-            </button>
+            @if (canIssue()) {
+              <!-- Less frequent actions fold under «Más», so each row keeps a single line. -->
+              <details class="doc-more">
+                <summary
+                  [attr.aria-label]="
+                    'documents.list.actions.more' | transloco: { number: row.full_number }
+                  "
+                >
+                  {{ 'documents.list.actions.moreShort' | transloco }}
+                </summary>
+                <div class="doc-more__menu">
+                  <button
+                    type="button"
+                    [disabled]="busyRow() === row.id"
+                    (click)="resendEmail(row)"
+                  >
+                    {{ 'documents.list.actions.resendEmail' | transloco }}
+                  </button>
+                  <button
+                    type="button"
+                    [disabled]="busyRow() === row.id"
+                    (click)="regeneratePdf(row)"
+                  >
+                    {{ 'documents.list.actions.regeneratePdf' | transloco }}
+                  </button>
+                </div>
+              </details>
+            }
           }
-        }
-      </div>
-    </ng-template>
-  </ui-table>
+        </div>
+      </ng-template>
+    </ui-table>
+  </ui-card>
 </section>

@@ -1,38 +1,42 @@
 <section class="platform-page">
-  <feat-platform-nav />
   <header>
-    <ui-page-title>{{ title() }}</ui-page-title>
-    <p class="platform-lead">{{ 'platform.planCompanies.description' | transloco }}</p>
-    <a class="platform-back" routerLink="/plataforma/planes">{{
-      'platform.planCompanies.back' | transloco
-    }}</a>
+    <ui-page-title [subtitle]="'platform.planCompanies.description' | transloco">
+      <a uiPageTitleBreadcrumb class="platform-back" routerLink="/plataforma/planes">{{
+        'platform.planCompanies.back' | transloco
+      }}</a>
+      {{ title() }}
+    </ui-page-title>
+    <feat-platform-nav />
   </header>
 
   @if (notFound()) {
-    <p class="platform-message platform-message--error" role="alert">
+    <p class="platform-message platform-message--error platform-alert" role="alert">
       {{ 'platform.planCompanies.notFound' | transloco }}
     </p>
   } @else {
-    <ui-table
-      [caption]="'platform.planCompanies.caption' | transloco"
-      [columns]="columns()"
-      [rows]="rows()"
-      [labels]="tableLabels()"
-      [loading]="companies.isLoading()"
-      [error]="!!companies.error()"
-      [trackBy]="trackByNit"
-      (retry)="reload()"
-    >
-      <ng-template uiTableCell="identification_number" let-row>{{ nit(row) }}</ng-template>
-      <ng-template uiTableCell="start_plan_date" let-row>{{
-        date(row.start_plan_date)
-      }}</ng-template>
-      <ng-template uiTableCell="state" let-row>
-        <span class="platform-status" [class.platform-status--inactive]="!row.state">{{
-          (row.state ? 'platform.planCompanies.active' : 'platform.planCompanies.inactive')
-            | transloco
-        }}</span>
-      </ng-template>
-    </ui-table>
+    <ui-card padding="none">
+      <ui-table
+        flush
+        [caption]="'platform.planCompanies.caption' | transloco"
+        [columns]="columns()"
+        [rows]="rows()"
+        [labels]="tableLabels()"
+        [loading]="companies.isLoading()"
+        [error]="!!companies.error()"
+        [trackBy]="trackByNit"
+        (retry)="reload()"
+      >
+        <ng-template uiTableCell="identification_number" let-row>{{ nit(row) }}</ng-template>
+        <ng-template uiTableCell="start_plan_date" let-row>{{
+          date(row.start_plan_date)
+        }}</ng-template>
+        <ng-template uiTableCell="state" let-row>
+          <ui-badge [tone]="row.state ? 'success' : 'neutral'">{{
+            (row.state ? 'platform.planCompanies.active' : 'platform.planCompanies.inactive')
+              | transloco
+          }}</ui-badge>
+        </ng-template>
+      </ui-table>
+    </ui-card>
   }
 </section>

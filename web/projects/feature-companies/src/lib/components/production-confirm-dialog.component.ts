@@ -30,7 +30,7 @@ export interface ProductionConfirmLabels {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ui-dialog [header]="labels().header" [closeLabel]="labels().close" [(visible)]="visible">
-      <p>{{ labels().body }}</p>
+      <p class="confirm-warning">{{ labels().body }}</p>
       <label class="confirm-accept">
         <input
           type="checkbox"
@@ -52,6 +52,17 @@ export interface ProductionConfirmLabels {
     </ui-dialog>
   `,
   styles: `
+    /* Irreversible at the DIAN: the warning uses the danger tone so it cannot be missed. */
+    .confirm-warning {
+      margin: 0 0 var(--if-space-3);
+      padding: var(--if-space-3);
+      font-weight: var(--if-font-weight-medium);
+      color: var(--if-color-danger);
+      background: var(--if-color-danger-subtle);
+      border: 1px solid var(--if-color-danger);
+      border-inline-start-width: 4px;
+      border-radius: var(--if-radius-sm);
+    }
     .confirm-accept {
       display: flex;
       gap: var(--if-space-2);

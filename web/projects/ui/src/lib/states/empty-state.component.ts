@@ -10,7 +10,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       @if (description()) {
         <p class="ui-empty-state__description">{{ description() }}</p>
       }
-      <ng-content />
+      <div class="ui-empty-state__action"><ng-content /></div>
     </div>
   `,
   styles: `
@@ -19,17 +19,25 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       flex-direction: column;
       align-items: center;
       gap: var(--if-space-2);
-      padding: var(--if-space-5) var(--if-space-3);
+      padding: var(--if-space-6) var(--if-space-3);
       text-align: center;
     }
     .ui-empty-state__title {
       margin: 0;
-      font-size: var(--if-font-size-md);
+      font-size: var(--if-font-size-base);
       font-weight: var(--if-font-weight-bold);
       color: var(--if-color-text);
     }
+    .ui-empty-state__action {
+      margin-block-start: var(--if-space-2);
+    }
+    .ui-empty-state__action:empty {
+      display: none;
+    }
     .ui-empty-state__description {
+      max-inline-size: 32rem;
       margin: 0;
+      font-size: var(--if-font-size-sm);
       color: var(--if-color-text-muted);
     }
   `,

@@ -1,243 +1,267 @@
 <section class="platform-page">
-  <feat-platform-nav />
-  <a class="platform-back" routerLink="/plataforma/empresas">{{
-    'platform.newCompany.back' | transloco
-  }}</a>
   <header>
-    <ui-page-title>{{ 'platform.newCompany.title' | transloco }}</ui-page-title>
-    <p class="platform-lead">{{ 'platform.newCompany.description' | transloco }}</p>
+    <ui-page-title [subtitle]="'platform.newCompany.description' | transloco">
+      <a uiPageTitleBreadcrumb class="platform-back" routerLink="/plataforma/empresas">{{
+        'platform.newCompany.back' | transloco
+      }}</a>
+      {{ 'platform.newCompany.title' | transloco }}
+    </ui-page-title>
+    <feat-platform-nav />
+
+    <div class="platform-message platform-message--success" role="status">
+      @if (result()) {
+        <p class="platform-message">{{ resultText() }}</p>
+      }
+      @if (userDone(); as message) {
+        <p class="platform-message">{{ message }}</p>
+      }
+    </div>
   </header>
 
-  <div class="platform-message platform-message--success" role="status">
-    @if (result()) {
-      <p class="platform-message">{{ resultText() }}</p>
-    }
-    @if (userDone(); as message) {
-      <p class="platform-message">{{ message }}</p>
-    }
-  </div>
-
   @if (result(); as company) {
-    <div class="platform-card platform-form">
+    <ui-card [title]="'platform.newCompany.nextTitle' | transloco">
       <p class="platform-lead">{{ 'platform.newCompany.nextStep' | transloco }}</p>
-      <div class="platform-row-actions">
-        <ui-button
-          [label]="'platform.user.open' | transloco"
-          [ariaLabel]="userButtonLabel()"
-          (pressed)="userOpen.set(true)"
-        />
+      <div uiCardFooter class="platform-actions">
         <ui-button
           variant="secondary"
           [label]="'platform.newCompany.another' | transloco"
           (pressed)="startOver()"
         />
-      </div>
-    </div>
-  } @else {
-    <form
-      class="platform-company-form"
-      novalidate
-      (submit)="onSubmit($event)"
-      [attr.aria-busy]="submitting() || null"
-    >
-      @if (generalError(); as message) {
-        <p class="platform-message platform-message--error platform-wide" role="alert">
-          {{ message }}
-        </p>
-      }
-
-      <ui-field
-        [label]="'platform.newCompany.nit' | transloco"
-        [hint]="'platform.newCompany.nitHint' | transloco"
-        [help]="'platform.newCompany.help.nit' | transloco"
-        [error]="errors().nit"
-        required
-      >
-        <input uiInput uiDigitsOnly type="text" autocomplete="off" [formField]="companyForm.nit" />
-      </ui-field>
-
-      <ui-field
-        [label]="'platform.newCompany.dv' | transloco"
-        [hint]="'platform.newCompany.dvHint' | transloco"
-        [help]="'platform.newCompany.help.dv' | transloco"
-        [error]="errors().dv"
-      >
-        <input uiInput type="text" autocomplete="off" tabindex="-1" [formField]="companyForm.dv" />
-      </ui-field>
-
-      <ui-field
-        class="platform-wide"
-        [label]="'platform.newCompany.businessName' | transloco"
-        [help]="'platform.newCompany.help.businessName' | transloco"
-        [error]="errors().business_name"
-        required
-      >
-        <input
-          uiInput
-          type="text"
-          autocomplete="organization"
-          [formField]="companyForm.business_name"
-        />
-      </ui-field>
-
-      <ui-field
-        [label]="'platform.newCompany.identificationType' | transloco"
-        [help]="'platform.newCompany.help.identificationType' | transloco"
-        [error]="errors().type_document_identification_id"
-        required
-      >
-        <select uiSelect [formField]="companyForm.type_document_identification_id">
-          @for (option of identificationTypes(); track option.id) {
-            <option [value]="'' + option.id">{{ option.name }}</option>
-          }
-        </select>
-      </ui-field>
-
-      <ui-field
-        [label]="'platform.newCompany.organization' | transloco"
-        [help]="'platform.newCompany.help.organization' | transloco"
-        [error]="errors().type_organization_id"
-        required
-      >
-        <select uiSelect [formField]="companyForm.type_organization_id">
-          <option value="">{{ 'platform.common.noneOption' | transloco }}</option>
-          @for (option of organizationTypes(); track option.id) {
-            <option [value]="'' + option.id">{{ option.name }}</option>
-          }
-        </select>
-      </ui-field>
-
-      <ui-field
-        [label]="'platform.newCompany.regime' | transloco"
-        [help]="'platform.newCompany.help.regime' | transloco"
-        [error]="errors().type_regime_id"
-        required
-      >
-        <select uiSelect [formField]="companyForm.type_regime_id">
-          <option value="">{{ 'platform.common.noneOption' | transloco }}</option>
-          @for (option of regimes(); track option.id) {
-            <option [value]="'' + option.id">{{ option.name }}</option>
-          }
-        </select>
-      </ui-field>
-
-      <fieldset
-        class="platform-fieldset platform-wide"
-        aria-describedby="new-company-liabilities-hint new-company-liabilities-help new-company-liabilities-error"
-      >
-        <legend>
-          {{ 'platform.newCompany.liabilities' | transloco }}
-          <ui-help
-            tooltipId="new-company-liabilities-help"
-            [label]="'platform.newCompany.liabilities' | transloco"
-            [text]="'platform.newCompany.help.liabilities' | transloco"
-          />
-        </legend>
-        <p id="new-company-liabilities-hint" class="platform-lead">
-          {{ 'platform.newCompany.liabilitiesHint' | transloco }}
-        </p>
-        @for (option of liabilities(); track option.id) {
-          <label class="platform-check">
-            <input
-              type="checkbox"
-              [checked]="liabilityIds().has(option.id)"
-              (change)="toggleLiability(option.id, $any($event.target).checked)"
-            />
-            {{ option.name }}
-          </label>
-        }
-        <p id="new-company-liabilities-error" class="platform-message platform-message--error">
-          {{ errors().type_liability_ids }}
-        </p>
-      </fieldset>
-
-      <ui-field
-        [label]="'platform.newCompany.department' | transloco"
-        [help]="'platform.newCompany.help.department' | transloco"
-        required
-      >
-        <ui-combobox
-          [value]="location.department()"
-          (valueChange)="location.selectDepartment($event)"
-          [options]="location.departmentOptions()"
-          [labels]="departmentLabels"
-          (termChange)="location.searchDepartments($event)"
-        />
-      </ui-field>
-
-      <ui-field
-        [label]="'platform.newCompany.municipality' | transloco"
-        [help]="'platform.newCompany.help.municipality' | transloco"
-        [error]="errors().municipality_id"
-        required
-      >
-        <ui-combobox
-          [formField]="companyForm.municipality_id"
-          [options]="municipalities.options()"
-          [status]="municipalities.state().status"
-          [hasMore]="municipalities.hasMore()"
-          [labels]="municipalityLabels"
-          (termChange)="municipalities.search($event)"
-          (loadMore)="municipalities.loadMore()"
-          (retry)="municipalities.retry()"
-        />
-      </ui-field>
-
-      <ui-field
-        [label]="'platform.newCompany.address' | transloco"
-        [help]="'platform.newCompany.help.address' | transloco"
-        [error]="errors().address"
-        required
-      >
-        <input
-          uiInput
-          type="text"
-          autocomplete="street-address"
-          [formField]="companyForm.address"
-        />
-      </ui-field>
-
-      <ui-field
-        [label]="'platform.newCompany.phone' | transloco"
-        [hint]="'platform.newCompany.phoneHint' | transloco"
-        [help]="'platform.newCompany.help.phone' | transloco"
-        [error]="errors().phone"
-        required
-      >
-        <input uiInput uiDigitsOnly type="tel" autocomplete="tel" [formField]="companyForm.phone" />
-      </ui-field>
-
-      <ui-field
-        [label]="'platform.newCompany.email' | transloco"
-        [help]="'platform.newCompany.help.email' | transloco"
-        [error]="errors().email"
-        required
-      >
-        <input uiInput type="email" autocomplete="email" [formField]="companyForm.email" />
-      </ui-field>
-
-      <ui-field
-        [label]="'platform.newCompany.merchantRegistration' | transloco"
-        [hint]="'platform.newCompany.merchantRegistrationHint' | transloco"
-        [help]="'platform.newCompany.help.merchantRegistration' | transloco"
-        [error]="errors().merchant_registration"
-        required
-      >
-        <input
-          uiInput
-          type="text"
-          autocomplete="off"
-          [formField]="companyForm.merchant_registration"
-        />
-      </ui-field>
-
-      <div class="platform-actions platform-wide">
         <ui-button
-          type="submit"
-          [label]="'platform.newCompany.submit' | transloco"
-          [loading]="submitting()"
+          [label]="'platform.user.open' | transloco"
+          [ariaLabel]="userButtonLabel()"
+          (pressed)="userOpen.set(true)"
         />
       </div>
+    </ui-card>
+  } @else {
+    <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="submitting() || null">
+      <ui-card [title]="'platform.newCompany.formTitle' | transloco">
+        <div class="platform-grid">
+          @if (generalError(); as message) {
+            <p
+              class="platform-message platform-message--error platform-alert platform-wide"
+              role="alert"
+            >
+              {{ message }}
+            </p>
+          }
+
+          <h3 class="platform-group">{{ 'platform.newCompany.groups.identity' | transloco }}</h3>
+
+          <ui-field
+            [label]="'platform.newCompany.nit' | transloco"
+            [hint]="'platform.newCompany.nitHint' | transloco"
+            [help]="'platform.newCompany.help.nit' | transloco"
+            [error]="errors().nit"
+            required
+          >
+            <input
+              uiInput
+              uiDigitsOnly
+              type="text"
+              autocomplete="off"
+              [formField]="companyForm.nit"
+            />
+          </ui-field>
+
+          <ui-field
+            [label]="'platform.newCompany.dv' | transloco"
+            [hint]="'platform.newCompany.dvHint' | transloco"
+            [help]="'platform.newCompany.help.dv' | transloco"
+            [error]="errors().dv"
+          >
+            <input
+              uiInput
+              type="text"
+              autocomplete="off"
+              tabindex="-1"
+              [formField]="companyForm.dv"
+            />
+          </ui-field>
+
+          <ui-field
+            class="platform-wide"
+            [label]="'platform.newCompany.businessName' | transloco"
+            [help]="'platform.newCompany.help.businessName' | transloco"
+            [error]="errors().business_name"
+            required
+          >
+            <input
+              uiInput
+              type="text"
+              autocomplete="organization"
+              [formField]="companyForm.business_name"
+            />
+          </ui-field>
+
+          <ui-field
+            [label]="'platform.newCompany.identificationType' | transloco"
+            [help]="'platform.newCompany.help.identificationType' | transloco"
+            [error]="errors().type_document_identification_id"
+            required
+          >
+            <select uiSelect [formField]="companyForm.type_document_identification_id">
+              @for (option of identificationTypes(); track option.id) {
+                <option [value]="'' + option.id">{{ option.name }}</option>
+              }
+            </select>
+          </ui-field>
+
+          <ui-field
+            [label]="'platform.newCompany.organization' | transloco"
+            [help]="'platform.newCompany.help.organization' | transloco"
+            [error]="errors().type_organization_id"
+            required
+          >
+            <select uiSelect [formField]="companyForm.type_organization_id">
+              <option value="">{{ 'platform.common.noneOption' | transloco }}</option>
+              @for (option of organizationTypes(); track option.id) {
+                <option [value]="'' + option.id">{{ option.name }}</option>
+              }
+            </select>
+          </ui-field>
+
+          <ui-field
+            [label]="'platform.newCompany.regime' | transloco"
+            [help]="'platform.newCompany.help.regime' | transloco"
+            [error]="errors().type_regime_id"
+            required
+          >
+            <select uiSelect [formField]="companyForm.type_regime_id">
+              <option value="">{{ 'platform.common.noneOption' | transloco }}</option>
+              @for (option of regimes(); track option.id) {
+                <option [value]="'' + option.id">{{ option.name }}</option>
+              }
+            </select>
+          </ui-field>
+
+          <fieldset
+            class="platform-fieldset platform-checks platform-wide"
+            aria-describedby="new-company-liabilities-hint new-company-liabilities-help new-company-liabilities-error"
+          >
+            <legend>
+              {{ 'platform.newCompany.liabilities' | transloco }}
+              <ui-help
+                tooltipId="new-company-liabilities-help"
+                [label]="'platform.newCompany.liabilities' | transloco"
+                [text]="'platform.newCompany.help.liabilities' | transloco"
+              />
+            </legend>
+            <p id="new-company-liabilities-hint" class="platform-lead">
+              {{ 'platform.newCompany.liabilitiesHint' | transloco }}
+            </p>
+            @for (option of liabilities(); track option.id) {
+              <label class="platform-check">
+                <input
+                  type="checkbox"
+                  [checked]="liabilityIds().has(option.id)"
+                  (change)="toggleLiability(option.id, $any($event.target).checked)"
+                />
+                {{ option.name }}
+              </label>
+            }
+            <p id="new-company-liabilities-error" class="platform-message platform-message--error">
+              {{ errors().type_liability_ids }}
+            </p>
+          </fieldset>
+
+          <h3 class="platform-group">{{ 'platform.newCompany.groups.location' | transloco }}</h3>
+
+          <ui-field
+            [label]="'platform.newCompany.department' | transloco"
+            [help]="'platform.newCompany.help.department' | transloco"
+            required
+          >
+            <ui-combobox
+              [value]="location.department()"
+              (valueChange)="location.selectDepartment($event)"
+              [options]="location.departmentOptions()"
+              [labels]="departmentLabels"
+              (termChange)="location.searchDepartments($event)"
+            />
+          </ui-field>
+
+          <ui-field
+            [label]="'platform.newCompany.municipality' | transloco"
+            [help]="'platform.newCompany.help.municipality' | transloco"
+            [error]="errors().municipality_id"
+            required
+          >
+            <ui-combobox
+              [formField]="companyForm.municipality_id"
+              [options]="municipalities.options()"
+              [status]="municipalities.state().status"
+              [hasMore]="municipalities.hasMore()"
+              [labels]="municipalityLabels"
+              (termChange)="municipalities.search($event)"
+              (loadMore)="municipalities.loadMore()"
+              (retry)="municipalities.retry()"
+            />
+          </ui-field>
+
+          <ui-field
+            [label]="'platform.newCompany.address' | transloco"
+            [help]="'platform.newCompany.help.address' | transloco"
+            [error]="errors().address"
+            required
+          >
+            <input
+              uiInput
+              type="text"
+              autocomplete="street-address"
+              [formField]="companyForm.address"
+            />
+          </ui-field>
+
+          <ui-field
+            [label]="'platform.newCompany.phone' | transloco"
+            [hint]="'platform.newCompany.phoneHint' | transloco"
+            [help]="'platform.newCompany.help.phone' | transloco"
+            [error]="errors().phone"
+            required
+          >
+            <input
+              uiInput
+              uiDigitsOnly
+              type="tel"
+              autocomplete="tel"
+              [formField]="companyForm.phone"
+            />
+          </ui-field>
+
+          <ui-field
+            [label]="'platform.newCompany.email' | transloco"
+            [help]="'platform.newCompany.help.email' | transloco"
+            [error]="errors().email"
+            required
+          >
+            <input uiInput type="email" autocomplete="email" [formField]="companyForm.email" />
+          </ui-field>
+
+          <ui-field
+            [label]="'platform.newCompany.merchantRegistration' | transloco"
+            [hint]="'platform.newCompany.merchantRegistrationHint' | transloco"
+            [help]="'platform.newCompany.help.merchantRegistration' | transloco"
+            [error]="errors().merchant_registration"
+            required
+          >
+            <input
+              uiInput
+              type="text"
+              autocomplete="off"
+              [formField]="companyForm.merchant_registration"
+            />
+          </ui-field>
+        </div>
+        <div uiCardFooter class="platform-actions">
+          <ui-button
+            type="submit"
+            [label]="'platform.newCompany.submit' | transloco"
+            [loading]="submitting()"
+          />
+        </div>
+      </ui-card>
     </form>
   }
 

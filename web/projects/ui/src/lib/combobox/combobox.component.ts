@@ -182,13 +182,15 @@ const LOAD_MORE_THRESHOLD_PX = 48;
       overflow-y: auto;
       list-style: none;
       background: var(--if-color-bg);
-      border: 1px solid var(--if-color-border-strong);
-      border-radius: var(--if-radius-sm);
+      border: 1px solid var(--if-color-border);
+      border-radius: var(--if-radius-md);
       box-shadow: var(--if-shadow-overlay);
     }
     .ui-combobox__option {
+      margin-inline: var(--if-space-1);
       padding: var(--if-space-2) var(--if-control-padding-x);
       color: var(--if-color-text);
+      border-radius: var(--if-radius-sm);
       cursor: pointer;
     }
     .ui-combobox__option:hover,

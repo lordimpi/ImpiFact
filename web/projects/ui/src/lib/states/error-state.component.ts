@@ -16,7 +16,13 @@ import { ButtonComponent } from '../button/button.component';
         <p class="ui-error-state__description">{{ description() }}</p>
       }
       @if (retryLabel(); as retryText) {
-        <ui-button variant="secondary" [label]="retryText" (pressed)="retry.emit()" />
+        <ui-button
+          class="ui-error-state__retry"
+          variant="secondary"
+          size="small"
+          [label]="retryText"
+          (pressed)="retry.emit()"
+        />
       }
     </div>
   `,
@@ -26,17 +32,22 @@ import { ButtonComponent } from '../button/button.component';
       flex-direction: column;
       align-items: center;
       gap: var(--if-space-2);
-      padding: var(--if-space-5) var(--if-space-3);
+      padding: var(--if-space-6) var(--if-space-3);
       text-align: center;
     }
     .ui-error-state__title {
       margin: 0;
-      font-size: var(--if-font-size-md);
+      font-size: var(--if-font-size-base);
       font-weight: var(--if-font-weight-bold);
       color: var(--if-color-danger);
     }
+    .ui-error-state__retry {
+      margin-block-start: var(--if-space-2);
+    }
     .ui-error-state__description {
+      max-inline-size: 32rem;
       margin: 0;
+      font-size: var(--if-font-size-sm);
       color: var(--if-color-text-muted);
     }
   `,

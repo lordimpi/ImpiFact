@@ -52,7 +52,7 @@ let nextId = 0;
       position: relative;
       display: flex;
       flex-direction: column;
-      gap: var(--if-space-1);
+      gap: 0.375rem;
       margin-block-end: var(--if-space-3);
     }
     .ui-field__head {
@@ -61,8 +61,12 @@ let nextId = 0;
       gap: var(--if-space-2);
     }
     .ui-field__label {
+      font-size: var(--if-font-size-sm);
       font-weight: var(--if-font-weight-medium);
       color: var(--if-color-text);
+    }
+    .ui-field__control {
+      min-block-size: var(--if-control-min-height);
     }
     .ui-field__required {
       margin-inline-start: var(--if-space-1);
@@ -87,13 +91,24 @@ let nextId = 0;
       padding: var(--if-control-padding-y) var(--if-control-padding-x);
       font: inherit;
       color: var(--if-color-text);
-      background: var(--if-color-surface);
+      background: var(--if-color-bg);
       border: 1px solid var(--if-color-border-strong);
       border-radius: var(--if-radius-sm);
+      box-shadow: 0 1px 2px rgb(16 24 40 / 5%);
+      cursor: pointer;
+    }
+    .ui-select:hover {
+      border-color: var(--if-color-text-muted);
     }
     .ui-select:focus-visible {
+      border-color: var(--if-color-primary);
       outline: var(--if-focus-ring-width) solid var(--if-color-focus);
-      outline-offset: var(--if-focus-ring-offset);
+      outline-offset: 0;
+    }
+    .ui-select:disabled {
+      color: var(--if-color-text-muted);
+      background: var(--if-color-surface-raised);
+      cursor: not-allowed;
     }
     /* Campo de contraseña con el botón para mostrarla (uiPasswordToggle). */
     .ui-password {

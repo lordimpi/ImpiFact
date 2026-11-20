@@ -5,7 +5,10 @@ import { Router } from '@angular/router';
 import { Api, PlatformCompanyItem, assignCompanyPlan } from '@impifact/api';
 import { AppError, SKIP_ERROR_TOAST } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   DialogComponent,
   FieldComponent,
   InputDirective,
@@ -53,6 +56,9 @@ const ASSIGN_FIELDS: readonly (keyof AssignModel & string)[] = ['plan_id'];
 @Component({
   selector: 'feat-platform-companies-page',
   imports: [
+    BadgeComponent,
+    CardComponent,
+    CardFooterDirective,
     FormField,
     TranslocoPipe,
     ButtonComponent,

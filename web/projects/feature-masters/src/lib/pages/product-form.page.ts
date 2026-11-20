@@ -24,6 +24,8 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   ComboboxComponent,
   ComboboxLabels,
   ErrorStateComponent,
@@ -71,6 +73,8 @@ const AMOUNT_FIELDS: readonly (keyof ProductModel)[] = [
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     ComboboxComponent,
     ErrorStateComponent,
     FieldComponent,

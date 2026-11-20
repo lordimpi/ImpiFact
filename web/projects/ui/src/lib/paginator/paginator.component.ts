@@ -35,6 +35,8 @@ type PageItem = { kind: 'page'; page: number } | { kind: 'gap'; id: string };
                 <button
                   pButton
                   type="button"
+                  size="small"
+                  class="ui-paginator__page"
                   [text]="item.page !== currentPage()"
                   [attr.aria-label]="pageLabel(item.page)"
                   [attr.aria-current]="item.page === currentPage() ? 'page' : null"
@@ -68,7 +70,13 @@ type PageItem = { kind: 'page'; page: number } | { kind: 'gap'; id: string };
       align-items: center;
       justify-content: flex-end;
       gap: var(--if-space-1);
-      padding-block: var(--if-space-2);
+      padding: var(--if-space-2) var(--if-space-1);
+      font-size: var(--if-font-size-sm);
+    }
+    .ui-paginator__page {
+      min-inline-size: 2.25rem;
+      justify-content: center;
+      font-variant-numeric: tabular-nums;
     }
     .ui-paginator__pages {
       display: flex;

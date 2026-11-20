@@ -3,8 +3,13 @@ import { FormField, submit } from '@angular/forms/signals';
 import { NumberingRangeItem } from '@impifact/api';
 import { AppError, HasUnsavedChanges, ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardActionsDirective,
+  CardComponent,
+  CardFooterDirective,
   ErrorStateComponent,
+  UiBadgeTone,
   FieldComponent,
   InputDirective,
   LoadingComponent,
@@ -57,7 +62,11 @@ const DIGITS = /^\d+$/;
   imports: [
     FormField,
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardActionsDirective,
+    CardComponent,
+    CardFooterDirective,
     ErrorStateComponent,
     FieldComponent,
     InputDirective,
@@ -68,7 +77,7 @@ const DIGITS = /^\d+$/;
   providers: [provideCompaniesI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './resolutions.page.html',
-  styleUrl: './companies-page.css',
+  styleUrls: ['./companies-page.css', './companies-table.css'],
 })
 export class ResolutionsPage implements HasUnsavedChanges {
   protected readonly setup = inject(CompanySetupStore);
@@ -98,8 +107,8 @@ export class ResolutionsPage implements HasUnsavedChanges {
       type: this.text(`resolutions.documentTypes.${resolution.type_document_id}`),
       prefix: resolution.prefix ?? '',
       resolution: resolution.resolution ?? '',
-      range: `${resolution.from} – ${resolution.to}`,
-      validity: `${resolution.date_from ?? ''} – ${resolution.date_to ?? ''}`,
+      range: [`${resolution.from}`, `${resolution.to}`],
+      validity: [resolution.date_from ?? '', resolution.date_to ?? ''],
       next: `${resolution.next_number ?? ''}`,
       remaining: `${resolution.remaining ?? ''}`,
       daysLeft:
@@ -107,6 +116,7 @@ export class ResolutionsPage implements HasUnsavedChanges {
           ? this.text('resolutions.noExpiry')
           : `${resolution.days_left}`,
       status: this.text(resolution.is_active ? 'resolutions.active' : 'resolutions.inactive'),
+      statusTone: statusTone(resolution.is_active, resolution.days_left),
       target: {
         id: resolution.id ?? '',
         next: `${resolution.next_number ?? ''}`,
@@ -265,4 +275,20 @@ export class ResolutionsPage implements HasUnsavedChanges {
 
   protected readonly text = (key: string, params?: Record<string, unknown>): string =>
     companiesText(this.transloco, key, params);
+}
+
+/** Days of validity at or below which an active resolution is about to expire and should be renewed. */
+const EXPIRING_DAYS = 30;
+
+/** Badge tone of a saved resolution: inactive (neutral), about to expire (warning) or active (success). */
+function statusTone(
+  active: boolean | null | undefined,
+  daysLeft: string | number | null | undefined,
+): UiBadgeTone {
+  if (!active) {
+    return 'neutral';
+  }
+  const days =
+    daysLeft === null || daysLeft === undefined || daysLeft === '' ? NaN : Number(daysLeft);
+  return days <= EXPIRING_DAYS ? 'warning' : 'success';
 }

@@ -9,11 +9,14 @@ import {
 } from '@impifact/api';
 import { SKIP_ERROR_TOAST } from '@impifact/core';
 import {
+  BadgeComponent,
+  CardComponent,
   EmptyStateComponent,
   ErrorStateComponent,
   LoadingComponent,
   MeterComponent,
   PageTitleComponent,
+  UiBadgeTone,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { plansText, providePlansI18n } from '../plans-i18n';
@@ -46,6 +49,8 @@ interface QuotaView {
   selector: 'feat-current-plan-page',
   imports: [
     TranslocoPipe,
+    BadgeComponent,
+    CardComponent,
     EmptyStateComponent,
     ErrorStateComponent,
     LoadingComponent,
@@ -84,6 +89,15 @@ export class CurrentPlanPage {
       return this.text('summary.expired');
     }
     return this.text(plan.is_active ? 'summary.active' : 'summary.inactive');
+  });
+
+  /** Badge color of the plan status: in force, expired or inactive. */
+  protected readonly statusTone = computed<UiBadgeTone>(() => {
+    const plan = this.plan();
+    if (plan?.expired) {
+      return 'danger';
+    }
+    return plan?.is_active ? 'success' : 'neutral';
   });
 
   protected periodLabel(period: string | undefined): string {

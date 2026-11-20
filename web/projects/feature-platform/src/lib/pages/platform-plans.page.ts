@@ -3,7 +3,10 @@ import { FormField, submit } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 import { AppError, ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   DialogComponent,
   DigitsOnlyDirective,
   FieldComponent,
@@ -45,6 +48,9 @@ const NUMBER = new Intl.NumberFormat('es-CO');
 @Component({
   selector: 'feat-platform-plans-page',
   imports: [
+    BadgeComponent,
+    CardComponent,
+    CardFooterDirective,
     FormField,
     RouterLink,
     TranslocoPipe,

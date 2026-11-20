@@ -57,7 +57,8 @@ const step = (title: string) => {
     .getAllByRole('listitem')
     .find((item) => within(item).queryByRole('heading', { name: title }))!;
 };
-const badge = (title: string) => step(title).querySelector('.companies-badge')?.textContent?.trim();
+const badge = (title: string) =>
+  step(title).querySelector('.wizard-step__status')?.textContent?.trim();
 const sendButton = () =>
   within(step('Set de pruebas de la DIAN')).getByRole('button', {
     name: 'Enviar factura de prueba',

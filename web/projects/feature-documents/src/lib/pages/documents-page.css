@@ -1,26 +1,19 @@
-/* Estilos comunes de las páginas del feature: encabezado con acciones, secciones y listas de datos. */
+/* Shared styles of the feature pages: page column, link buttons, data lists, amounts and messages. */
 :host {
   display: block;
 }
 
 .doc-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--if-space-4);
-  padding-block: var(--if-space-4);
+  min-inline-size: 0;
 }
 
-.doc-header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--if-space-3);
-  align-items: flex-start;
-  justify-content: space-between;
+/* Blocks of the page are spaced evenly; the page title already brings its own bottom margin. */
+.doc-page > * + * {
+  margin-block-start: var(--if-space-4);
 }
 
-.doc-lead {
-  margin: var(--if-space-1) 0 0;
-  color: var(--if-color-text-muted);
+.doc-page > ui-page-title + * {
+  margin-block-start: 0;
 }
 
 .doc-actions {
@@ -30,26 +23,15 @@
   align-items: center;
 }
 
-.doc-section {
-  padding: var(--if-space-3);
-  background: var(--if-color-surface);
-  border: 1px solid var(--if-color-border);
-  border-radius: var(--if-radius-md);
-}
-
-.doc-section h2 {
-  margin: 0 0 var(--if-space-3);
-  font-size: var(--if-font-size-md);
-}
-
 .doc-data {
   display: grid;
-  grid-template-columns: minmax(8rem, max-content) 1fr;
-  gap: var(--if-space-1) var(--if-space-3);
+  grid-template-columns: fit-content(14rem) minmax(0, 1fr);
+  gap: var(--if-space-2) var(--if-space-4);
   margin: 0;
 }
 
 .doc-data dt {
+  font-size: var(--if-font-size-sm);
   color: var(--if-color-text-muted);
 }
 
@@ -58,52 +40,76 @@
   overflow-wrap: anywhere;
 }
 
+/* Label above its value, for narrow cards and phones. */
+.doc-data--stacked {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+}
+
+.doc-data--stacked dd + dt {
+  margin-block-start: var(--if-space-2);
+}
+
+@media (max-width: 40rem) {
+  .doc-data {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .doc-data dd + dt {
+    margin-block-start: var(--if-space-2);
+  }
+}
+
 .doc-amount {
+  display: block;
   text-align: end;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .doc-muted {
+  margin: 0;
   color: var(--if-color-text-muted);
 }
 
+.doc-small {
+  font-size: var(--if-font-size-sm);
+}
+
+/* A router link with the look of `ui-button` (primary by default). */
 .doc-link-button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-block-size: var(--if-control-min-height);
   padding-inline: var(--if-control-padding-x);
   color: var(--if-color-on-primary);
   background: var(--if-color-primary);
-  border-radius: var(--if-radius-sm);
-  text-decoration: none;
+  border: 1px solid var(--if-color-primary);
+  border-radius: var(--if-radius-md);
   font-weight: var(--if-font-weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 .doc-link-button:hover {
   background: var(--if-color-primary-hover);
 }
 
-.doc-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--if-space-1) var(--if-space-2);
-  align-items: center;
+.doc-link-button--secondary {
+  color: var(--if-color-text);
+  background: var(--if-color-bg);
+  border-color: var(--if-color-border-strong);
 }
 
-.doc-row-actions button {
-  padding: 0;
-  font: inherit;
-  font-size: var(--if-font-size-sm);
-  color: var(--if-color-primary);
-  background: none;
-  border: 0;
-  text-decoration: underline;
-  cursor: pointer;
+.doc-link-button--secondary:hover {
+  background: var(--if-color-surface);
 }
 
-.doc-row-actions button:disabled {
-  color: var(--if-color-text-muted);
-  cursor: wait;
+.doc-link-button:focus-visible {
+  outline: var(--if-focus-ring-width) solid var(--if-color-focus);
+  outline-offset: var(--if-focus-ring-offset);
 }
 
 .doc-error {
@@ -113,4 +119,15 @@
   background: var(--if-color-danger-subtle);
   border-inline-start: 4px solid currentColor;
   border-radius: var(--if-radius-sm);
+}
+
+.doc-error p,
+.doc-error ul {
+  margin: 0;
+}
+
+.doc-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-3);
 }

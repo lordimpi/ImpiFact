@@ -15,6 +15,9 @@ const ROW = {
 
 const isList = (request: { url: string }) => request.url === '/api/v1/documents';
 
+/** The collapsible section that holds the DIAN status checkboxes. */
+const moreFilters = () => screen.getByText('Más filtros').closest('details')!;
+
 describe('DocumentListPage', () => {
   beforeEach(() => {
     URL.createObjectURL = vi.fn(() => 'blob:documents');
@@ -42,12 +45,17 @@ describe('DocumentListPage', () => {
     );
     expect((screen.getByLabelText('Cliente') as HTMLInputElement).value).toBe('golden');
     expect((screen.getByLabelText('Rechazado') as HTMLInputElement).checked).toBe(true);
+    // With DIAN statuses in the URL the collapsible section opens, so the active filter is visible.
+    expect(moreFilters().open).toBe(true);
+    expect(moreFilters().textContent).toContain('Estado DIAN: 2');
   });
 
   it('puts the applied filters in the URL and asks the API again', async () => {
     const { http, router } = await renderDocumentsRoute('/documentos');
     (await waitFor(() => http.expectOne(isList))).flush({ items: [], next_cursor: null });
 
+    // Without DIAN statuses the long status list stays folded under «Más filtros».
+    expect(moreFilters().open).toBe(false);
     fireEvent.change(await screen.findByLabelText('Tipo de documento'), {
       target: { value: 'credit_note' },
     });

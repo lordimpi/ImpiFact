@@ -1,0 +1,65 @@
+/* New company form: two columns on wide screens, one on phones; liabilities checkboxes; API key shown once. */
+
+.platform-checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(15rem, 100%), 1fr));
+  gap: var(--if-space-2) var(--if-space-4);
+}
+
+.platform-checks > p {
+  grid-column: 1 / -1;
+}
+
+.platform-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: var(--if-space-4);
+}
+
+@container (min-width: 40rem) {
+  .platform-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.platform-wide {
+  grid-column: 1 / -1;
+}
+
+.platform-group {
+  grid-column: 1 / -1;
+  margin: var(--if-space-2) 0 var(--if-space-3);
+  padding-block-start: var(--if-space-3);
+  font-size: var(--if-font-size-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--if-color-text-muted);
+  border-block-start: 1px solid var(--if-color-border-subtle);
+}
+
+.platform-group:first-child {
+  margin-block-start: 0;
+  padding-block-start: 0;
+  border: 0;
+}
+
+.platform-fieldset.platform-wide {
+  margin-block-end: var(--if-space-3);
+}
+
+/* API key shown only once. */
+.platform-secret-label {
+  margin-block-end: var(--if-space-1);
+  font-weight: var(--if-font-weight-medium);
+}
+
+.platform-secret {
+  display: block;
+  padding: var(--if-space-3);
+  font-family: var(--if-font-family-mono);
+  overflow-wrap: anywhere;
+  background: var(--if-color-surface);
+  border: 1px solid var(--if-color-border-strong);
+  border-radius: var(--if-radius-sm);
+  user-select: all;
+}

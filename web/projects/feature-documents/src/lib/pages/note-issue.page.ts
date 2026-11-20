@@ -33,6 +33,8 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  CardActionsDirective,
+  CardComponent,
   FieldComponent,
   InputDirective,
   PageTitleComponent,
@@ -93,6 +95,8 @@ type OriginalState =
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardActionsDirective,
     FieldComponent,
     InputDirective,
     PageTitleComponent,

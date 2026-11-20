@@ -1,0 +1,43 @@
+<div class="sidebar__brand">
+  <span class="sidebar__mark" aria-hidden="true">IF</span>
+  <span class="sidebar__name">{{ 'app.name' | transloco }}</span>
+  <button
+    type="button"
+    class="sidebar__close"
+    [attr.aria-label]="'app.closeMenu' | transloco"
+    (click)="closed.emit(true)"
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  </button>
+</div>
+<nav class="sidebar__nav" [attr.aria-label]="'app.mainNav' | transloco">
+  @for (group of groups(); track group.label ?? '') {
+    @let labelId = group.label ? 'nav-' + group.label : null;
+    <div class="sidebar__group">
+      @if (group.label) {
+        <span class="sidebar__label" [id]="labelId">{{ group.label | transloco }}</span>
+      }
+      <ul class="sidebar__list" [attr.aria-labelledby]="labelId">
+        @for (item of group.items; track item.path) {
+          @let active = item.path === activePath();
+          <li>
+            <a
+              class="sidebar__link"
+              [class.is-active]="active"
+              [routerLink]="item.path"
+              [attr.aria-current]="active ? 'page' : null"
+              (click)="closed.emit(false)"
+            >
+              <svg class="sidebar__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path [attr.d]="item.icon" />
+              </svg>
+              <span>{{ item.label | transloco }}</span>
+            </a>
+          </li>
+        }
+      </ul>
+    </div>
+  }
+</nav>
