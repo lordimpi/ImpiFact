@@ -39,7 +39,9 @@ public static class PendingMigrationsGuard
         if (options.CheckPendingMigrationsAtStartup && await FindPendingAsync(host.Services, logger, ct) is [_, ..] pending)
         {
             logger.LogCritical(
-                "La base de datos tiene migraciones pendientes: {Migrations}. Corra el Migrator (dotnet run --project src/ImpiFact.Migrator) antes de arrancar.",
+                "La base de datos tiene migraciones pendientes: {Migrations}. Corra el Migrator (comando migrate) antes de arrancar: " +
+                "en local, «dotnet run --project src/ImpiFact.Migrator -- migrate» desde backend/; en contenedores, " +
+                "«docker compose -f deploy/docker-compose.yml --profile app run --rm migrator» o la imagen del Migrator con el comando migrate.",
                 string.Join(", ", pending));
             // Liberar el host vacía la cola de los registros antes de que el proceso termine.
             await DisposeAsync(host);

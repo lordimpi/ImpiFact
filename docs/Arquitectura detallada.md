@@ -586,10 +586,10 @@ Cobertura mínima exigida en CI: `Domain` y `Dian` 90 %, `Application` 80 %; los
 
 ## 14. Despliegue
 
-- Imágenes: `Dockerfile.api`, `Dockerfile.worker`, `Dockerfile.web` (Nginx con el build de Angular), multi-etapa, usuario no root, sin secretos en capas.
+- Imágenes: `Dockerfile.api`, `Dockerfile.worker`, `Dockerfile.migrator` y `Dockerfile.web` (Nginx con el build de Angular), multi-etapa, usuario no root, sin secretos en capas. Detalle en «Contenedores», al final de esta sección.
 - `docker-compose.yml` para desarrollo: Postgres, SQL Server (perfil `sqlserver`, con `MSSQL_SA_PASSWORD` en `deploy/.env`), MySQL (perfil), Azurite/MinIO para blobs, MailHog para correo, Api, Worker y web.
 - CI (GitHub Actions): restaurar → compilar con `TreatWarningsAsErrors` → pruebas unitarias → integración (PostgreSQL; matriz de motores desde la fase 6) → golden → contract → análisis de vulnerabilidades → imágenes.
-- **Migraciones pendientes al arrancar**: la API y el Worker revisan al arrancar, con `GetPendingMigrationsAsync` de EF Core (igual en los tres motores), que la base no tenga migraciones pendientes (`PendingMigrationsGuard`, en Infrastructure). Si falta alguna no arrancan (ningún servicio en segundo plano llega a correr): escriben una sola línea crítica, «La base de datos tiene migraciones pendientes: <nombres>. Corra el Migrator (dotnet run --project src/ImpiFact.Migrator) antes de arrancar.», y terminan con código 1. Caso real: el Worker arrancó sobre una base sin `password_reset_tokens` y Housekeeping falló con `42P01: relation "password_reset_tokens" does not exist`. Es una revisión del esquema, no de la disponibilidad: si la base no responde (error transitorio), queda una advertencia y el proceso arranca como antes, porque `/health/live` no depende de la base. `Database:CheckPendingMigrationsAtStartup` (por defecto `true`) solo se apaga en las pruebas que levantan la API sobre una base vacía y crean el esquema con el host ya arriba.
+- **Migraciones pendientes al arrancar**: la API y el Worker revisan al arrancar, con `GetPendingMigrationsAsync` de EF Core (igual en los tres motores), que la base no tenga migraciones pendientes (`PendingMigrationsGuard`, en Infrastructure). Si falta alguna no arrancan (ningún servicio en segundo plano llega a correr): escriben una sola línea crítica, «La base de datos tiene migraciones pendientes: <nombres>. Corra el Migrator (comando migrate) antes de arrancar: en local, «dotnet run --project src/ImpiFact.Migrator -- migrate» desde backend/; en contenedores, «docker compose -f deploy/docker-compose.yml --profile app run --rm migrator» o la imagen del Migrator con el comando migrate.», y terminan con código 1. Caso real: el Worker arrancó sobre una base sin `password_reset_tokens` y Housekeeping falló con `42P01: relation "password_reset_tokens" does not exist`. Es una revisión del esquema, no de la disponibilidad: si la base no responde (error transitorio), queda una advertencia y el proceso arranca como antes, porque `/health/live` no depende de la base. `Database:CheckPendingMigrationsAtStartup` (por defecto `true`) solo se apaga en las pruebas que levantan la API sobre una base vacía y crean el esquema con el host ya arriba.
 - Migraciones se aplican con `ImpiFact.Migrator migrate` como paso previo al despliegue (job de Kubernetes, tarea ECS, job de Cloud Run o contenedor de inicio en Azure Container Apps); el mismo comando sincroniza los catálogos DIAN. `ImpiFact.Migrator create-platform-key <nombre>` crea la primera API key de plataforma de una instalación nueva. Solo en desarrollo, `ImpiFact.Migrator seed-demo` crea una empresa de prueba lista para emitir en habilitación (resolución SETP de pruebas y certificado autofirmado, que la DIAN rechaza) y muestra una API key de esa empresa; fuera de Development exige `--force`.
 
 | Necesidad | Azure | AWS | GCP |
@@ -602,6 +602,66 @@ Cobertura mínima exigida en CI: `Domain` y `Dian` 90 %, `Application` 80 %; los
 | Identidad de carga de trabajo | Managed Identity | IAM role del task | Service account |
 
 Las implementaciones de `IBlobStorage` y `ICertificateStore` usan la identidad de la carga de trabajo, sin llaves estáticas. Una instalación mínima (Docker en un servidor) usa Local + `LocalAesGcm` con la llave maestra montada como secreto.
+
+### Contenedores (fase 6)
+
+Cuatro imágenes, con los Dockerfile en la raíz del repositorio. Las del backend usan `backend/` como contexto y la del panel `web/`; cada contexto tiene su `.dockerignore` (y la raíz uno de respaldo) que deja fuera `bin`, `obj`, `node_modules`, `.local`, `odd`, los `.env`, `launchSettings.json`, `appsettings.*.json` y los certificados y llaves (`*.pfx`, `*.p12`, `*.pem`, `*.key`, `*.crt`, `*.cer`). Ningún secreto entra en una capa: la cadena de conexión, la llave de JWT y la llave maestra llegan al arrancar por variables de entorno o archivos montados.
+
+| Imagen | Compila con | Corre sobre | Usuario | Puerto | Prueba de salud |
+| --- | --- | --- | --- | --- | --- |
+| `Dockerfile.api` | `mcr.microsoft.com/dotnet/sdk:10.0` | `mcr.microsoft.com/dotnet/aspnet:10.0` (Ubuntu 24.04) | `app` (uid 1654) | 8080 | `/health/live` |
+| `Dockerfile.worker` | igual | igual: su Kestrel de salud necesita el runtime de ASP.NET Core | `app` | 8091 | `/health/live` del Worker |
+| `Dockerfile.migrator` | igual | igual: solo necesita el runtime de .NET, pero así comparte todas las capas con la API y el Worker | `app` | ninguno | ninguna: corre una vez y termina; el código de salida dice si funcionó |
+| `Dockerfile.web` | `node:24.22-alpine` | `nginxinc/nginx-unprivileged:1.30-alpine` | `nginx` (uid 101) | 8080 | `/health/live` de nginx |
+
+- Las pruebas de salud de las imágenes .NET no instalan curl: `bash` abre la conexión con `/dev/tcp` y espera un 200 de `/health/live`. Si un despliegue cambia el puerto (`ASPNETCORE_HTTP_PORTS` en la API, `WorkerHealth__Port` en el Worker), cambia también la sonda.
+- Variables que fijan las imágenes (se pueden cambiar al arrancar): `Storage__Local__Root=/data/storage` y `Secrets__LocalAesGcm__CertificateDirectory=/data/certificates` en la API, el Worker y el Migrator (la carpeta `/data` es de `app`, para montar un volumen), y `WorkerHealth__Host=0.0.0.0` en el Worker, porque la sonda llega desde fuera del contenedor. La API y el Worker siguen exigiendo al arrancar lo mismo que en cualquier ambiente (sección 11); fuera de Development, la API no arranca sin `Jwt__SigningKey`.
+- El Migrator corre `migrate` por omisión (`docker run --rm ... impifact-migrator`); otro comando va como argumento (`create-platform-key <nombre>`, `seed-demo --force`). En la nube es el job previo al despliegue de la tabla de arriba.
+- HTTPS lo termina el proxy, el ingress o el balanceador: los contenedores hablan HTTP.
+- La imagen de .NET no trae la librería de Kerberos (`libgssapi_krb5`). Con PostgreSQL, la cadena de conexión lleva `GSS Encryption Mode=Disable`; sin eso, Npgsql intenta cargarla y escribe un error (inofensivo) al abrir la primera conexión. Quien use Kerberos instala `libgssapi-krb5-2` en una imagen propia.
+
+**Panel (`Dockerfile.web`).** El build de producción de Angular servido por nginx, con su configuración en `web/docker/`:
+
+- **Configuración al arrancar, sin volver a compilar.** nginx responde `/config.json` (sección 13 de «Arquitectura frontend») con tres variables del contenedor, que `web/docker/15-impifact-config.envsh` revisa al arrancar; si una no cumple, el contenedor termina con un mensaje y nunca sirve una configuración a medias:
+
+  | Variable | Por omisión | Qué es |
+  | --- | --- | --- |
+  | `IMPIFACT_API_BASE_URL` | vacía | URL del Api para el navegador: `https`, o `http` solo hacia `localhost` o `127.0.0.1` (la misma regla del panel); sin usuario, consulta ni fragmento. Vacía: mismo origen, con un proxy o ingress que lleva `/api/` al Api antes de llegar al panel |
+  | `IMPIFACT_INACTIVITY_WARN_MINUTES` | 25 | Minutos sin actividad para avisar |
+  | `IMPIFACT_INACTIVITY_LOGOUT_MINUTES` | 30 | Minutos sin actividad para cerrar la sesión; mayor que el aviso |
+
+  Se eligió que el navegador llame al Api directamente (CORS con credenciales: `Cors__Origins__0` del Api es el origen del panel) y no un proxy inverso en nginx: es una sola variable, la imagen sirve igual detrás de cualquier ingress y la API no tiene que confiar en un proxy más para leer la IP real del cliente (`ForwardedHeaders`, que usa el límite de intentos de inicio de sesión). La cookie de sesión (`SameSite=Strict`) necesita que el panel y el Api estén en el mismo sitio, por ejemplo `panel.impifact.co` y `api.impifact.co`.
+- **Rutas y caché.** Cualquier ruta del panel (`/login`, `/documentos/...`) sirve `index.html`, que el router resuelve. `index.html` va con `Cache-Control: no-cache` (nombra los archivos de la versión vigente), `config.json` con `no-store`, los archivos con el hash del contenido en el nombre (`main-*.js`, `chunk-*.js`, `styles-*.css`, `media/`) con `public, max-age=31536000, immutable` y los demás (textos de `i18n/`, favicon) con `no-cache`. Un archivo que no existe es un 404, no la página del panel, y `/api/` responde 404: este servidor nunca contesta `index.html` por una ruta del Api.
+- **Encabezados de seguridad**, en todas las respuestas:
+
+  | Encabezado | Valor |
+  | --- | --- |
+  | `Content-Security-Policy` | `default-src 'self'; script-src 'self' <hashes>; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' <origen del Api>; frame-src blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'` |
+  | `Referrer-Policy` | `no-referrer` |
+  | `X-Content-Type-Options` | `nosniff` |
+  | `X-Frame-Options` | `DENY` |
+  | `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=(), usb=()` |
+  | `Cross-Origin-Opener-Policy` | `same-origin` |
+
+  - `script-src`: solo los archivos del panel y los scripts en línea de `index.html` por su hash SHA-256. Hoy es uno, el que activa la hoja de estilos que Angular carga sin bloquear el primer dibujo (CSS crítico en línea). El build de la imagen calcula los hashes (`web/docker/csp-script-hashes.mjs`), así la política sigue a una actualización de Angular, y falla si `index.html` trae atributos de eventos en línea (`onload="..."`).
+  - `style-src 'unsafe-inline'`: Angular agrega los estilos de cada componente como elementos `<style>` al dibujarlo, Optimus UI agrega los de su tema e `index.html` trae el CSS crítico en línea. Quitarlo pide un *nonce* por respuesta en Angular (`ngCspNonce`) y en la configuración de Optimus UI (`csp.nonce`, en `projects/ui`); queda pendiente. Es un desvío de la tabla de seguridad de «Arquitectura frontend» (sección 6, fila CSP), que pide los estilos con *nonce* o hash. Ningún script en línea queda permitido por esto.
+  - `connect-src`: el propio origen (`config.json` y los textos) y el origen de `IMPIFACT_API_BASE_URL`. `frame-src blob:`: la vista previa del PDF es un iframe con el PDF que devolvió el Api. `img-src data: blob:`: imágenes que arma el navegador (íconos en CSS, archivos elegidos).
+  - `Referrer-Policy: no-referrer` y no `strict-origin-when-cross-origin`: el panel no necesita mandar el `Referer` a nadie, y el enlace para restablecer la contraseña lleva el token en la consulta (`/restablecer?token=...`). Con `strict-origin-when-cross-origin`, las solicitudes al propio servidor (los textos de `i18n`, `config.json`) mandarían la URL completa, con el token. Por la misma razón, el registro de accesos de nginx escribe la ruta sin la consulta ni el `Referer`.
+  - `frame-ancestors 'none'` y `X-Frame-Options: DENY` (para navegadores viejos): nadie puede incrustar el panel. `Strict-Transport-Security` lo pone quien termina HTTPS.
+  - Probado en un navegador con el panel compilado: `e2e/served-panel.spec.ts` revisa los encabezados, la caché, las rutas y que el panel corra sin violaciones de la política (estilos activados, inicio de sesión, iframe `blob:`). Con `ng serve` no hay CSP y esas pruebas se omiten; contra el contenedor: `E2E_PORT=8180 npx playwright test e2e/served-panel.spec.ts`.
+
+**Compose (perfil `app` de `deploy/docker-compose.yml`).** `docker compose -f deploy/docker-compose.yml --profile app up -d --build` construye las cuatro imágenes y arranca el Migrator (una corrida, `migrate`), la API y el Worker (cuando el Migrator termina bien) y el panel, contra el PostgreSQL, Gotenberg y MailHog del mismo archivo. Los demás perfiles no cambian. Los puertos quedan en `127.0.0.1`; los archivos y certificados, en el volumen `app-data`. Variables de `deploy/.env` que usa:
+
+| Variable | Por omisión | Qué es |
+| --- | --- | --- |
+| `POSTGRES_PASSWORD` | obligatoria | La de PostgreSQL; va dentro de la cadena de conexión, así que sin `;` ni comillas |
+| `JWT_SIGNING_KEY` | vacía (la API no arranca fuera de Development) | Llave privada ECDSA P-256 en PEM (`Jwt__SigningKey`), en una línea entre comillas dobles, con `\n` en lugar de los saltos de línea |
+| `IMPIFACT_MASTER_KEY_FILE` | `../.local/master.key` (relativa a `deploy/`) | Archivo de la llave maestra de `LocalAesGcm`; llega como secreto a `/run/secrets/master_key`. En Linux, el uid 1654 tiene que poder leerlo |
+| `API_PORT`, `WEB_PORT`, `WORKER_HEALTH_PORT` | 5180, 8180, 8191 | Puertos del equipo para la API, el panel y la salud del Worker; distintos de los de `dotnet run` (5080) y `npm start` (4200), para correr las dos cosas a la vez |
+| `APP_ENVIRONMENT` | `Production` | `ASPNETCORE_ENVIRONMENT` y `DOTNET_ENVIRONMENT` de los tres procesos .NET; `Development` abre Scalar en `/scalar` |
+| `APP_EMAIL_FROM` | `no-reply@impifact.local` | Remitente de los correos del Worker, que captura MailHog |
+
+El compose fija además, sin secretos: `Database__Provider=Postgres` y la cadena de conexión hacia el servicio `postgres`, `Storage__Provider=Local`, `Secrets__Provider=LocalAesGcm`, `Pdf__GotenbergUrl=http://gotenberg:3000`, `Cors__Origins__0` y `Panel__BaseUrl` con el origen del panel, el correo hacia `mailhog:1025` sin cifrado e `IMPIFACT_API_BASE_URL` con la URL de la API en el equipo. Los comandos del Migrator: `docker compose -f deploy/docker-compose.yml --profile app run --rm migrator create-platform-key <nombre>` y `... run --rm migrator seed-demo --force`.
 
 ## 15. Decisiones adicionales (ADR)
 
