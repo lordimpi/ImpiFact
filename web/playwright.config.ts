@@ -9,6 +9,8 @@ const isCi = !!process.env['CI'];
 
 export default defineConfig({
   testDir: './e2e',
+  // Las capturas del manual de uso tienen su propia configuración (`npm run manual:screenshots`).
+  testIgnore: '**/manual/**',
   fullyParallel: true,
   forbidOnly: isCi,
   retries: isCi ? 1 : 0,
