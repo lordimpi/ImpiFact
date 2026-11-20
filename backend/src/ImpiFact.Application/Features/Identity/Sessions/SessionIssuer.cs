@@ -23,8 +23,9 @@ internal sealed class SessionIssuer(
     internal static readonly Error AlreadyUsed = new("identity.refresh_already_used", "El token de renovación ya se usó.", ErrorType.Unauthorized);
 
     public async Task<Result<SessionTokens>> IssueAsync(
-        Guid userId, Guid? requestedCompany, string? clientIp, string? userAgent, Guid? replaces, DateTimeOffset now, CancellationToken ct)
+        UserAccount user, Guid? requestedCompany, string? clientIp, string? userAgent, Guid? replaces, DateTimeOffset now, CancellationToken ct)
     {
+        var userId = user.Id;
         var roles = await users.GetRolesAsync(userId, ct);
         Guid? companyId;
         if (requestedCompany is { } requested)
@@ -57,6 +58,7 @@ internal sealed class SessionIssuer(
         await refreshStore.AddAsync(
             new RefreshTokenRecord(refreshId, userId, refresh.Hash, refresh.ExpiresAt, null, null, clientIp, userAgent), ct);
 
-        return new SessionTokens(access.Value, access.ExpiresAt, refresh.Value, refresh.ExpiresAt, companyId, tokenRoles, roles.CompanyIds);
+        return new SessionTokens(
+            access.Value, access.ExpiresAt, refresh.Value, refresh.ExpiresAt, companyId, tokenRoles, roles.CompanyIds, user.Email);
     }
 }

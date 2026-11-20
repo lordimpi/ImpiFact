@@ -123,7 +123,7 @@
           "Identidad"
         ],
         "summary": "Iniciar sesi\u00F3n en el panel",
-        "description": "Recibe \u0060email\u0060 y \u0060password\u0060 (y, si quiere, \u0060company_id\u0060, la empresa con la que va a trabajar) y entrega un \u0060access_token\u0060 (JWT de vida corta) y un \u0060refresh_token\u0060. El \u0060access_token\u0060 se usa como credencial Bearer. Un correo desconocido, una contrase\u00F1a equivocada o un usuario inactivo o bloqueado responden el mismo 401 (\u0060identity.invalid_credentials\u0060); una empresa a la que el usuario no pertenece responde 403 (\u0060identity.company_not_allowed\u0060). Tiene un l\u00EDmite estricto de intentos por minuto y por IP (429).\n\n**Panel web:** con el encabezado \u0060X-Client: panel\u0060, el \u0060refresh_token\u0060 no va en el cuerpo sino en la cookie \u0060impifact_refresh\u0060 (\u0060HttpOnly\u0060, \u0060Secure\u0060, \u0060SameSite=Strict\u0060, solo para \u0060/api/v1/auth\u0060, con el vencimiento del token). Esa cookie solo se acepta con el mismo encabezado; sin \u00E9l responde 403 (\u0060identity.client_header_required\u0060), para que otra p\u00E1gina no pueda usarla.\n\n**Permiso:** no pide credencial.",
+        "description": "Recibe \u0060email\u0060 y \u0060password\u0060 (y, si quiere, \u0060company_id\u0060, la empresa con la que va a trabajar) y entrega un \u0060access_token\u0060 (JWT de vida corta), un \u0060refresh_token\u0060 y el \u0060email\u0060 del usuario tal como est\u00E1 guardado. El \u0060access_token\u0060 se usa como credencial Bearer. Un correo desconocido, una contrase\u00F1a equivocada o un usuario inactivo o bloqueado responden el mismo 401 (\u0060identity.invalid_credentials\u0060); una empresa a la que el usuario no pertenece responde 403 (\u0060identity.company_not_allowed\u0060). Tiene un l\u00EDmite estricto de intentos por minuto y por IP (429).\n\n**Panel web:** con el encabezado \u0060X-Client: panel\u0060, el \u0060refresh_token\u0060 no va en el cuerpo sino en la cookie \u0060impifact_refresh\u0060 (\u0060HttpOnly\u0060, \u0060Secure\u0060, \u0060SameSite=Strict\u0060, solo para \u0060/api/v1/auth\u0060, con el vencimiento del token). Esa cookie solo se acepta con el mismo encabezado; sin \u00E9l responde 403 (\u0060identity.client_header_required\u0060), para que otra p\u00E1gina no pueda usarla.\n\n**Permiso:** no pide credencial.",
         "operationId": "login",
         "parameters": [
           {
@@ -182,7 +182,7 @@
           "Identidad"
         ],
         "summary": "Renovar la sesi\u00F3n",
-        "description": "Cambia un \u0060refresh_token\u0060 vigente por un \u0060access_token\u0060 y un \u0060refresh_token\u0060 nuevos; el usado queda revocado. Con \u0060company_id\u0060 cambia la empresa activa del token. Un token vencido, revocado o desconocido responde 401 (\u0060identity.invalid_refresh_token\u0060); presentar uno ya revocado revoca todas las sesiones del usuario (respuesta a un token robado). Excepci\u00F3n: si la respuesta de una renovaci\u00F3n se perdi\u00F3 (el token se rot\u00F3 hace menos que el per\u00EDodo de gracia, 30 segundos por defecto, y su reemplazo nunca se us\u00F3), se entrega un par nuevo y el reemplazo sin usar queda revocado. Si la base no responde a tiempo al revocar, responde 503 (\u0060identity.store_unavailable\u0060) y se puede reintentar. Comparte el l\u00EDmite de intentos del inicio de sesi\u00F3n.\n\n**Panel web:** con el encabezado \u0060X-Client: panel\u0060, el \u0060refresh_token\u0060 no va en el cuerpo sino en la cookie \u0060impifact_refresh\u0060 (\u0060HttpOnly\u0060, \u0060Secure\u0060, \u0060SameSite=Strict\u0060, solo para \u0060/api/v1/auth\u0060, con el vencimiento del token). Esa cookie solo se acepta con el mismo encabezado; sin \u00E9l responde 403 (\u0060identity.client_header_required\u0060), para que otra p\u00E1gina no pueda usarla. Con \u0060X-Client: panel\u0060 y sin \u0060refresh_token\u0060 en el cuerpo, la renovaci\u00F3n usa la cookie (el cuerpo puede faltar o traer solo \u0060company_id\u0060) y la reemplaza por la nueva; si no hay cookie, o el token no sirve, responde 401 y borra la cookie.\n\n**Permiso:** no pide credencial.",
+        "description": "Cambia un \u0060refresh_token\u0060 vigente por un \u0060access_token\u0060 y un \u0060refresh_token\u0060 nuevos (con el \u0060email\u0060 del usuario, que el JWT no lleva); el usado queda revocado. Con \u0060company_id\u0060 cambia la empresa activa del token. Un token vencido, revocado o desconocido responde 401 (\u0060identity.invalid_refresh_token\u0060); presentar uno ya revocado revoca todas las sesiones del usuario (respuesta a un token robado). Excepci\u00F3n: si la respuesta de una renovaci\u00F3n se perdi\u00F3 (el token se rot\u00F3 hace menos que el per\u00EDodo de gracia, 30 segundos por defecto, y su reemplazo nunca se us\u00F3), se entrega un par nuevo y el reemplazo sin usar queda revocado. Si la base no responde a tiempo al revocar, responde 503 (\u0060identity.store_unavailable\u0060) y se puede reintentar. Comparte el l\u00EDmite de intentos del inicio de sesi\u00F3n.\n\n**Panel web:** con el encabezado \u0060X-Client: panel\u0060, el \u0060refresh_token\u0060 no va en el cuerpo sino en la cookie \u0060impifact_refresh\u0060 (\u0060HttpOnly\u0060, \u0060Secure\u0060, \u0060SameSite=Strict\u0060, solo para \u0060/api/v1/auth\u0060, con el vencimiento del token). Esa cookie solo se acepta con el mismo encabezado; sin \u00E9l responde 403 (\u0060identity.client_header_required\u0060), para que otra p\u00E1gina no pueda usarla. Con \u0060X-Client: panel\u0060 y sin \u0060refresh_token\u0060 en el cuerpo, la renovaci\u00F3n usa la cookie (el cuerpo puede faltar o traer solo \u0060company_id\u0060) y la reemplaza por la nueva; si no hay cookie, o el token no sirve, responde 401 y borra la cookie.\n\n**Permiso:** no pide credencial.",
         "operationId": "refreshSession",
         "parameters": [
           {
@@ -21655,7 +21655,8 @@
           "refresh_token_expires_at",
           "company_id",
           "roles",
-          "companies"
+          "companies",
+          "email"
         ],
         "type": "object",
         "properties": {
@@ -21689,6 +21690,9 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "email": {
+            "type": "string"
           },
           "token_type": {
             "type": [
@@ -22335,7 +22339,8 @@
           "refresh_token_expires_at",
           "company_id",
           "roles",
-          "companies"
+          "companies",
+          "email"
         ],
         "type": "object",
         "properties": {
@@ -22372,6 +22377,9 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "email": {
+            "type": "string"
           },
           "token_type": {
             "type": [

@@ -9,6 +9,7 @@ export interface SessionTokens {
   access_token: string;
   companies: Array<string>;
   company_id: (string | null);
+  email: string;
   expires_at: string;
   refresh_token: string;
   refresh_token_expires_at: string;

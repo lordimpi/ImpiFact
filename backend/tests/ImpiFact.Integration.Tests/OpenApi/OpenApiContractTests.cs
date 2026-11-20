@@ -173,8 +173,9 @@ public sealed class OpenApiContractTests
             Assert.That(panel.GetProperty("properties").TryGetProperty("refresh_token", out _), Is.False);
             Assert.That(Names(panel, "required"), Is.EquivalentTo(new[]
             {
-                "access_token", "expires_at", "refresh_token_expires_at", "company_id", "roles", "companies",
+                "access_token", "expires_at", "refresh_token_expires_at", "company_id", "roles", "companies", "email",
             }));
+            Assert.That(Names(integration, "required"), Does.Contain("email"));
             Assert.That(Text(panel, "description"), Does.Contain("X-Client: panel"));
             Assert.That(Names(integration, "required"), Does.Contain("refresh_token"));
             Assert.That(Text(integration, "description"), Does.Contain("X-Client: panel"));

@@ -58,6 +58,18 @@ test('shows the owner menu grouped by section and marks the current page', async
   await expect(home).not.toHaveAttribute('aria-current', 'page');
 });
 
+test('keeps showing who is signed in after a page reload', async ({ page }) => {
+  await mockApi(page);
+  await signInAt(page, '/');
+  const account = page.getByRole('banner').getByRole('button', { name: /Mi cuenta/ });
+  await expect(account).toContainText('ana@example.test');
+
+  // A reload restores the session from the refresh cookie; the JWT carries no email, the refresh answer does.
+  await page.reload();
+
+  await expect(account).toContainText('ana@example.test');
+});
+
 test('hides the issuing entries from a seller without the issuing scope', async ({ page }) => {
   await signInAt(page, '/', { roles: ['seller'], scopes: ['documents:read'] });
 

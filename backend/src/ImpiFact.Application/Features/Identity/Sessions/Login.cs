@@ -65,6 +65,6 @@ internal sealed class LoginHandler(
             await users.UpdatePasswordHashAsync(user.Id, hasher.Hash(request.Password), ct);
         }
 
-        return await _sessions.IssueAsync(user.Id, request.CompanyId, request.ClientIp, request.UserAgent, replaces: null, now, ct);
+        return await _sessions.IssueAsync(user, request.CompanyId, request.ClientIp, request.UserAgent, replaces: null, now, ct);
     }
 }

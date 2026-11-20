@@ -87,6 +87,7 @@ export function sessionTokens(
     company_id: companyId,
     roles,
     companies,
+    email: USER.email,
   };
 }
 

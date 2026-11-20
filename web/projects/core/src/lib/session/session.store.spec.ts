@@ -71,10 +71,12 @@ describe('SessionStore', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.headers.get('X-Client')).toBe('panel');
     expect(request.request.body).toBeNull();
-    request.flush(panelTokens());
+    request.flush(panelTokens({ email: 'ana@example.test' }));
     await Promise.all([first, second]);
 
     expect(store.status()).toBe('authenticated');
+    // A reloaded page only learns who is signed in from the refresh: the JWT carries no email.
+    expect(store.user()).toEqual({ id: 'user-1', email: 'ana@example.test' });
     await store.restore();
     http.expectNone('/api/v1/auth/refresh');
   });
@@ -135,7 +137,7 @@ describe('SessionStore', () => {
     http.expectOne('/api/v1/auth/refresh').flush(tokens);
     await refreshed;
 
-    expect(sync.posted).toEqual([{ type: 'session', tokens, email: null }]);
+    expect(sync.posted).toEqual([{ type: 'session', tokens, email: tokens.email }]);
   });
 
   it('logs out against the API, clears the session, tells the other tabs and goes to login', async () => {

@@ -135,7 +135,9 @@ describe('SessionStore.selectCompany regressions', () => {
     const request = http.expectOne('/api/v1/auth/refresh');
     const loggingOut = store.logout();
     const login = store.login({ email: 'b@example.test', password: 'x' });
-    http.expectOne('/api/v1/auth/login').flush(panelTokens({ company_id: 'company-1' }));
+    http
+      .expectOne('/api/v1/auth/login')
+      .flush(panelTokens({ company_id: 'company-1', email: 'b@example.test' }));
     await login;
     request.flush(panelTokens({ company_id: 'company-2' }));
     await switching;
