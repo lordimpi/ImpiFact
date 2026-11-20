@@ -21,6 +21,7 @@ import { loadAuthTexts, loadInactivityWarning } from '@impifact/feature-auth';
 import { ToastRegionComponent, UiToast } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { injectCurrentPath } from './shell/current-path';
+import { SIDEBAR_KEY, readPreference, writePreference } from './shell/preferences';
 import { SidebarComponent } from './shell/sidebar.component';
 import { TopbarComponent } from './shell/topbar.component';
 
@@ -40,7 +41,8 @@ const BARE_PATHS: readonly string[] = [
  * and user menu) around the content; access pages and the company selection show only the content. It also hosts
  * the core toasts and the inactivity dialog. The sidebar and the top bar load in deferred chunks the first time a
  * page needs them, so the access pages keep them out of the initial bundle. Below 1024px the open drawer is modal:
- * the skip link, the top bar and the content become inert until it closes.
+ * the skip link, the top bar and the content become inert until it closes. From 1024px the user can hide the fixed
+ * sidebar (the content takes the whole width); that choice is remembered and never makes anything inert.
  */
 @Component({
   selector: 'app-root',
@@ -76,6 +78,9 @@ export class App {
 
   /** Sidebar drawer on narrow screens; it closes after every navigation. */
   protected readonly drawerOpen = signal(false);
+
+  /** Fixed sidebar hidden from 1024px; below that the drawer ignores it. */
+  protected readonly sidebarHidden = signal(readPreference(SIDEBAR_KEY) === 'hidden');
 
   /**
    * Diálogo de inactividad de feature-auth. Se carga (con sus textos) la primera vez que el monitor avisa, así no
@@ -132,6 +137,12 @@ export class App {
       () => this.sidebar()?.nativeElement.querySelector<HTMLElement>('nav a')?.focus(),
       { injector: this.injector },
     );
+  }
+
+  protected toggleSidebar(): void {
+    const hidden = !this.sidebarHidden();
+    this.sidebarHidden.set(hidden);
+    writePreference(SIDEBAR_KEY, hidden ? 'hidden' : 'shown');
   }
 
   /** Closes the drawer; after Escape or the close button the focus goes back to the menu button. */

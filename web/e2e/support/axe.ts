@@ -17,21 +17,25 @@ export async function seriousViolations(page: Page) {
 }
 
 /**
- * Serious or critical violations of the page under a light and under a dark system preference
- * (`prefers-color-scheme`). The panel is light only (`data-theme="light"` on <html>), so both runs check the same
- * light theme: the dark run proves a dark system preference does not leak into the panel and break its contrast.
- * Al terminar quita la emulación del esquema de color. Uso: `toEqual({ light: [], dark: [] })`.
+ * Serious or critical violations of the page in the light and in the dark theme of the panel. Each run sets
+ * `data-theme` on <html> (what the top bar toggle does) and the original theme comes back at the end.
+ * Uso: `toEqual({ light: [], dark: [] })`.
  */
 export async function seriousViolationsInBothThemes(page: Page) {
+  const original = await page.evaluate(() => document.documentElement.dataset['theme'] ?? 'light');
   const light = await violationsIn(page, 'light');
   const dark = await violationsIn(page, 'dark');
-  await page.emulateMedia({ colorScheme: null });
+  await setTheme(page, original);
   return { light, dark };
 }
 
-async function violationsIn(page: Page, colorScheme: 'light' | 'dark') {
-  await page.emulateMedia({ colorScheme });
-  // Espera a que el navegador pinte con el esquema nuevo y terminen las transiciones de color (los botones de
+async function setTheme(page: Page, theme: string) {
+  await page.evaluate((value) => (document.documentElement.dataset['theme'] = value), theme);
+}
+
+async function violationsIn(page: Page, theme: 'light' | 'dark') {
+  await setTheme(page, theme);
+  // Espera a que el navegador pinte con el tema nuevo y terminen las transiciones de color (los botones de
   // Optimus UI animan el fondo y el texto): medido a mitad de la transición, el contraste sale falso.
   await page.evaluate(async () => {
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));

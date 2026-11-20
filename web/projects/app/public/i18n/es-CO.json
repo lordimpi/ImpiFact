@@ -5,7 +5,9 @@
     "skipToContent": "Saltar al contenido",
     "mainNav": "Navegación principal",
     "openMenu": "Menú de navegación",
-    "closeMenu": "Cerrar el menú"
+    "closeMenu": "Cerrar el menú",
+    "hideMenu": "Ocultar el menú",
+    "showMenu": "Mostrar el menú"
   },
   "nav": {
     "home": "Inicio",
@@ -33,7 +35,9 @@
     "switchCompany": "{{ name }}, elegir otra empresa activa",
     "platform": "Administración de la plataforma",
     "help": "Ayuda",
-    "helpLabel": "Ayuda: manual de uso (PDF, se abre en otra pestaña)"
+    "helpLabel": "Ayuda: manual de uso (PDF, se abre en otra pestaña)",
+    "darkMode": "Activar modo oscuro",
+    "lightMode": "Activar modo claro"
   },
   "userMenu": {
     "account": "Mi cuenta",

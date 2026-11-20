@@ -17,8 +17,8 @@ import type { UiThemeOptions } from './provide-ui-theme';
 const v = (name: string) => `var(--if-${name})`;
 
 /*
- * Escala neutra de Optimus UI («surface») apuntada a nuestros tokens. The panel is light only (tokens.css), so
- * Optimus stays on a single scheme and never applies its own dark mode.
+ * Escala neutra de Optimus UI («surface») apuntada a nuestros tokens. Optimus stays on a single scheme and never
+ * applies its own dark mode: every value is a token, and tokens.css swaps the tokens for the dark theme.
  */
 const surface = {
   0: v('color-bg'),
@@ -196,7 +196,7 @@ export const impifactPreset = definePreset(
           light: {
             root: {
               background: v('color-surface-raised'),
-              animationBackground: 'rgb(255 255 255 / 60%)',
+              animationBackground: v('color-shimmer'),
             },
           },
         },
@@ -207,7 +207,7 @@ export const impifactPreset = definePreset(
 
 /**
  * Aplica el preset de ImpiFact a Optimus UI. Corre en el contexto de inyección del arranque.
- * The panel is light only: `darkModeSelector: 'none'` keeps Optimus from emitting a dark scheme.
+ * `darkModeSelector: 'none'` keeps Optimus from emitting a dark scheme: the dark theme comes from the tokens.
  *
  * Nonce de la CSP: el de `options` o, si no hay, el de la página (`CSP_NONCE` de Angular, que lee el atributo
  * `ngCspNonce` de `<app-root>`; el servidor del panel lo cambia en cada respuesta). La CSP no permite estilos en línea

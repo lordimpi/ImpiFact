@@ -23,8 +23,20 @@ async function openShowcase(page: Page) {
   ).toBeVisible();
 }
 
-// The panel is light only: the page background is --if-color-page (tokens.css) whatever the system prefers.
+// Light by default: the page background is --if-color-page (tokens.css) whatever the system prefers.
 const PAGE_BACKGROUND = 'rgb(244, 246, 250)';
+const DARK_PAGE_BACKGROUND = 'rgb(34, 42, 55)';
+
+test('renders every component in the dark theme without serious accessibility violations', async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem('impifact.theme', 'dark'));
+  await openShowcase(page);
+
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  expect(await bodyBackground(page)).toBe(DARK_PAGE_BACKGROUND);
+  expect(await seriousViolations(page)).toEqual([]);
+});
 
 const bodyBackground = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);

@@ -351,7 +351,8 @@ for (const theme of ['light', 'dark'] as const) {
   test(`the product list and form have no serious accessibility violations (${theme})`, async ({
     page,
   }) => {
-    await page.emulateMedia({ colorScheme: theme });
+    // The stored theme of the top bar toggle (localStorage); the access pages follow it too.
+    await page.addInitScript((value) => localStorage.setItem('impifact.theme', value), theme);
     await signInAt(page, '/productos');
     await expect(
       page.getByRole('table', { name: 'Productos y servicios' }).getByText(PRODUCT.name),

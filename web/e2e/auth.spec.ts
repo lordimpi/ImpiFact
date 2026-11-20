@@ -103,7 +103,8 @@ for (const theme of ['light', 'dark'] as const) {
   test(`the login and company selection pages have no serious accessibility violations (${theme})`, async ({
     page,
   }) => {
-    await page.emulateMedia({ colorScheme: theme });
+    // The stored theme of the top bar toggle (localStorage); the access pages follow it too.
+    await page.addInitScript((value) => localStorage.setItem('impifact.theme', value), theme);
     await mockApi(page);
     await page.goto('/login');
     await expect(page.getByRole('heading', { level: 1, name: 'Iniciar sesión' })).toBeVisible();
