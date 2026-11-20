@@ -185,12 +185,13 @@
             (pressed)="preview()"
           />
         </div>
-        <feat-pdf-preview
-          [pdf]="previewPdf()"
-          (closed)="previewPdf.set(null)"
-          (download)="savePreview()"
-        />
       </div>
     </ui-card>
   </div>
+  <!-- Outside the sticky totals column: a sticky box is its own stacking context and would trap the dialog. -->
+  <feat-pdf-preview
+    [pdf]="previewPdf()"
+    (closed)="previewPdf.set(null)"
+    (download)="savePreview()"
+  />
 </form>

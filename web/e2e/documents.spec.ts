@@ -414,6 +414,14 @@ test('previews the invoice PDF in a dialog and explains when the PDF service is 
   await page.getByRole('button', { name: 'Vista previa' }).click();
   const dialog = page.getByRole('dialog', { name: 'Vista previa del PDF' });
   await expect(dialog.locator('iframe')).toHaveAttribute('src', /^blob:/);
+  // The dialog sits above the fixed sidebar and top bar: nothing covers its title.
+  const title = dialog.getByText('Vista previa del PDF').first();
+  const box = (await title.boundingBox())!;
+  const topmost = await page.evaluate(
+    ([x, y]) => document.elementFromPoint(x, y)?.closest('[role="dialog"]') !== null,
+    [box.x + 4, box.y + box.height / 2],
+  );
+  expect(topmost).toBe(true);
   expect(page.context().pages()).toHaveLength(1);
   const download = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Descargar PDF' }).click();

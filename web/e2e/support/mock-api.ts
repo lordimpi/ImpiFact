@@ -78,6 +78,7 @@ export function sessionTokens(
   companies: string[],
   roles: string[] = ['owner'],
   scopes: string[] = ['documents:read', 'documents:write'],
+  email: string = USER.email,
 ) {
   return {
     access_token: fakeJwt(companyId, roles, scopes),
@@ -87,7 +88,7 @@ export function sessionTokens(
     company_id: companyId,
     roles,
     companies,
-    email: USER.email,
+    email,
   };
 }
 

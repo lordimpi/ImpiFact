@@ -38,7 +38,6 @@
   "plans": {
     "title": "Planes de la plataforma",
     "description": "Planes que se asignan a las empresas, con la cantidad de documentos por familia y su periodo.",
-    "notPaginated": "El Api devuelve todos los planes en una sola respuesta (no pagina).",
     "new": "Nuevo plan",
     "caption": "Planes",
     "id": "Id",

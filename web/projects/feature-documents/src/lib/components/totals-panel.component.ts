@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { ButtonComponent, LoadingComponent } from '@impifact/ui';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { CopCurrencyPipe } from './cop-currency.pipe';
+import { CopCurrencyPipe, formatPercent } from './cop-currency.pipe';
 
 /** Totales del documento como los da el Api (`legal_monetary_totals` o `totals`). */
 export interface TotalsView {
@@ -71,7 +71,7 @@ export type TotalsState = 'ready' | 'loading' | 'error' | 'empty';
                       | transloco
                         : {
                             name: 'documents.taxes.' + taxKey(tax.tax_id) | transloco,
-                            percent: tax.percent ?? '',
+                            percent: percent(tax.percent),
                           }
                   }}
                 </dt>
@@ -143,6 +143,8 @@ export class TotalsPanelComponent {
   readonly retry = output<void>();
 
   /** Solo compara con cero para decidir si se muestra la fila; no opera con el valor. */
+  protected readonly percent = formatPercent;
+
   protected nonZero(value: number | string | undefined): boolean {
     return value !== undefined && Number(value) !== 0;
   }
