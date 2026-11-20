@@ -30,16 +30,19 @@ public static class SecretsServiceCollectionExtensions
         services.TryAddSingleton<LocalMasterKey>();
         services.TryAddSingleton<KeyVaultClients>();
         services.TryAddSingleton<AwsSecretsClients>();
+        services.TryAddSingleton<GcpSecretsClients>();
         services.TryAddSingleton<ICertificateStore>(provider => ProviderName(provider) switch
         {
             SecretsOptions.KeyVaultProvider => ActivatorUtilities.CreateInstance<KeyVaultCertificateStore>(provider),
             SecretsOptions.AwsSecretsProvider => ActivatorUtilities.CreateInstance<AwsSecretsManagerCertificateStore>(provider),
+            SecretsOptions.GcpSecretsProvider => ActivatorUtilities.CreateInstance<GcpSecretManagerCertificateStore>(provider),
             _ => ActivatorUtilities.CreateInstance<LocalAesGcmCertificateStore>(provider),
         });
         services.TryAddSingleton<IKeyEncryptionKey>(provider => ProviderName(provider) switch
         {
             SecretsOptions.KeyVaultProvider => ActivatorUtilities.CreateInstance<KeyVaultKeyEncryptionKey>(provider),
             SecretsOptions.AwsSecretsProvider => ActivatorUtilities.CreateInstance<AwsKmsKeyEncryptionKey>(provider),
+            SecretsOptions.GcpSecretsProvider => ActivatorUtilities.CreateInstance<GcpKmsKeyEncryptionKey>(provider),
             var name => throw new InvalidOperationException($"The {name} secrets provider does not use a cloud key."),
         });
         services.TryAddSingleton<ICertificateInspector, CertificateInspector>();

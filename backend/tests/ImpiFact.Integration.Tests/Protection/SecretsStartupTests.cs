@@ -105,12 +105,12 @@ public sealed class SecretsStartupTests
         Assert.That(failure, Does.Contain("CertificateDirectory"));
     }
 
-    [TestCase("GcpSecrets")]
-    public void Startup_fails_for_cloud_providers_that_are_not_available_yet(string provider)
+    [Test]
+    public void Startup_fails_with_an_unknown_provider()
     {
-        var failure = StartupFailure(new() { ["Secrets:Provider"] = provider });
+        var failure = StartupFailure(new() { ["Secrets:Provider"] = "HashiCorpVault" });
 
-        Assert.That(failure, Does.Contain(provider).And.Contain("not available"));
+        Assert.That(failure, Does.Contain("Provider"));
     }
 
     /// <summary>Corre la validación del arranque y devuelve el mensaje de la falla de <see cref="SecretsOptions"/>.</summary>

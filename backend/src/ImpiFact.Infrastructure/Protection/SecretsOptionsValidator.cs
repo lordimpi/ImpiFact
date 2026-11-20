@@ -28,10 +28,43 @@ internal sealed partial class SecretsOptionsValidator : IValidateOptions<Secrets
                 return ValidateKeyVault(options.KeyVault);
             case SecretsOptions.AwsSecretsProvider:
                 return ValidateAws(options.AwsSecrets);
+            case SecretsOptions.GcpSecretsProvider:
+                return ValidateGcp(options.GcpSecrets);
             default:
-                return ValidateOptionsResult.Fail(
-                    $"Secrets provider '{options.Provider}' is not available yet; use '{SecretsOptions.LocalAesGcmProvider}', '{SecretsOptions.KeyVaultProvider}' or '{SecretsOptions.AwsSecretsProvider}'.");
+                // Un proveedor desconocido ya lo rechaza el atributo [AllowedValues].
+                return ValidateOptionsResult.Skip;
         }
+    }
+
+    private static ValidateOptionsResult ValidateGcp(GcpSecretsOptions gcp)
+    {
+        var failures = new List<string>();
+        if (string.IsNullOrWhiteSpace(gcp.ProjectId))
+        {
+            failures.Add("Secrets:GcpSecrets:ProjectId is required when Secrets:Provider is GcpSecrets.");
+        }
+        else if (!GcpProjectId().IsMatch(gcp.ProjectId))
+        {
+            failures.Add($"Secrets:GcpSecrets:ProjectId '{gcp.ProjectId}' is not a valid Google Cloud project id: use 6 to 30 lower-case letters, digits or '-', starting with a letter.");
+        }
+
+        if (string.IsNullOrWhiteSpace(gcp.KmsKeyName))
+        {
+            failures.Add("Secrets:GcpSecrets:KmsKeyName is required when Secrets:Provider is GcpSecrets: the Cloud KMS key that wraps the Data Protection keys.");
+        }
+        else if (!GcpKmsKeyName().IsMatch(gcp.KmsKeyName))
+        {
+            failures.Add(
+                $"Secrets:GcpSecrets:KmsKeyName '{gcp.KmsKeyName}' is not a Cloud KMS key name: use projects/<project>/locations/<location>/keyRings/<ring>/cryptoKeys/<key>, without a version.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(gcp.Endpoint) && !ServiceEndpoint.IsValidUrl(gcp.Endpoint))
+        {
+            failures.Add(
+                $"Secrets:GcpSecrets:Endpoint {ServiceEndpoint.Describe(gcp.Endpoint)} must be an absolute http or https URL without user information, query or fragment.");
+        }
+
+        return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
     }
 
     private static ValidateOptionsResult ValidateAws(AwsSecretsOptions aws)
@@ -134,4 +167,12 @@ internal sealed partial class SecretsOptionsValidator : IValidateOptions<Secrets
     // Nombres de Key Vault: de 1 a 127 letras, dígitos o «-».
     [GeneratedRegex(@"^[0-9A-Za-z-]{1,127}\z", RegexOptions.CultureInvariant)]
     private static partial Regex KeyVaultName();
+
+    // Identificador de proyecto de Google Cloud: de 6 a 30 minúsculas, dígitos o «-»; empieza con letra y no termina en «-».
+    [GeneratedRegex(@"^[a-z][a-z0-9-]{4,28}[a-z0-9]\z", RegexOptions.CultureInvariant)]
+    private static partial Regex GcpProjectId();
+
+    // projects/<proyecto>/locations/<ubicación>/keyRings/<anillo>/cryptoKeys/<llave>, sin versión.
+    [GeneratedRegex(@"^projects/[^/]+/locations/[^/]+/keyRings/[^/]+/cryptoKeys/[^/]+\z", RegexOptions.CultureInvariant)]
+    private static partial Regex GcpKmsKeyName();
 }

@@ -318,6 +318,39 @@ services:
         sleep 2; done; exit 1
     restart: "no"
 
+  # floci-gcp: emulador de código abierto de Google Cloud, para Secrets:Provider = GcpSecrets (Secret Manager y Cloud
+  # KMS en el mismo puerto, por gRPC y REST). Perfil «gcp»:
+  #   docker compose -f deploy/docker-compose.yml --profile gcp up -d
+  # No pide credenciales. La aplicación llega por la dirección del emulador:
+  #   Secrets__Provider=GcpSecrets
+  #   Secrets__GcpSecrets__ProjectId=impifact-dev
+  #   Secrets__GcpSecrets__KmsKeyName=projects/impifact-dev/locations/global/keyRings/impifact/cryptoKeys/data-protection
+  #   Secrets__GcpSecrets__Endpoint=http://127.0.0.1:4588
+  floci-gcp:
+    image: floci/floci-gcp:0.13.0
+    profiles: ["gcp"]
+    ports:
+      - "127.0.0.1:${FLOCI_GCP_PORT:-4588}:4588"
+
+  # Crea el anillo «impifact» y la llave «data-protection» de Cloud KMS una vez que el emulador responde, como lo haría
+  # el despliegue.
+  floci-gcp-kms-key:
+    image: curlimages/curl:8.23.0
+    profiles: ["gcp"]
+    depends_on:
+      - floci-gcp
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        ring=http://floci-gcp:4588/v1/projects/impifact-dev/locations/global/keyRings;
+        for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        curl -fsS -o /dev/null -X POST -H "Content-Type: application/json" -d "{}" "$$ring?keyRingId=impifact" &&
+        curl -fsS -o /dev/null -X POST -H "Content-Type: application/json" -d "{\"purpose\":\"ENCRYPT_DECRYPT\"}"
+        "$$ring/impifact/cryptoKeys?cryptoKeyId=data-protection" && exit 0;
+        sleep 2; done; exit 1
+    restart: "no"
+
 volumes:
   postgres-data:
   mysql-data:

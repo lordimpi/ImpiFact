@@ -22,8 +22,10 @@ public sealed class SecretsOptions
 
     public const string AwsSecretsProvider = "AwsSecrets";
 
+    public const string GcpSecretsProvider = "GcpSecrets";
+
     [Required]
-    [AllowedValues(LocalAesGcmProvider, KeyVaultProvider, AwsSecretsProvider, "GcpSecrets")]
+    [AllowedValues(LocalAesGcmProvider, KeyVaultProvider, AwsSecretsProvider, GcpSecretsProvider)]
     public string Provider { get; set; } = "";
 
     /// <summary>Ajustes del proveedor <c>LocalAesGcm</c>; solo se exigen cuando ese es el proveedor.</summary>
@@ -34,6 +36,9 @@ public sealed class SecretsOptions
 
     /// <summary>Ajustes del proveedor <c>AwsSecrets</c>; solo se exigen cuando ese es el proveedor.</summary>
     public AwsSecretsOptions AwsSecrets { get; set; } = new();
+
+    /// <summary>Ajustes del proveedor <c>GcpSecrets</c>; solo se exigen cuando ese es el proveedor.</summary>
+    public GcpSecretsOptions GcpSecrets { get; set; } = new();
 }
 
 /// <summary>
@@ -107,4 +112,35 @@ public sealed class AwsSecretsOptions
     /// secretos de los certificados y envuelve las llaves de Data Protection; la crea el despliegue.
     /// </summary>
     public string KmsKeyId { get; set; } = "";
+}
+
+/// <summary>
+/// Proveedor <c>GcpSecrets</c> (Google Secret Manager con una llave de Cloud KMS; floci-gcp en desarrollo, perfil
+/// <c>gcp</c> de <c>deploy/docker-compose.yml</c>): cada certificado es un secreto del proyecto y las llaves de Data
+/// Protection se envuelven con la llave de Cloud KMS.
+/// </summary>
+/// <remarks>
+/// Aquí no hay llaves: los clientes usan las credenciales predeterminadas de la aplicación (ADC: la cuenta de servicio de
+/// Cloud Run o de GKE con identidad de la carga de trabajo; <c>gcloud auth application-default login</c> en un equipo de
+/// desarrollo). La cuenta necesita «Secret Manager Admin» sobre el proyecto (crear, leer y borrar secretos) y
+/// «Cloud KMS CryptoKey Encrypter/Decrypter» y «Cloud KMS Viewer» sobre la llave.
+/// </remarks>
+public sealed class GcpSecretsOptions
+{
+    /// <summary>Proyecto de Google Cloud donde se crean los secretos, por ejemplo <c>impifact-prod</c>.</summary>
+    public string ProjectId { get; set; } = "";
+
+    /// <summary>
+    /// Nombre completo de la llave simétrica de Cloud KMS que envuelve las llaves de Data Protection:
+    /// <c>projects/{proyecto}/locations/{ubicación}/keyRings/{anillo}/cryptoKeys/{llave}</c>, sin versión (Cloud KMS usa
+    /// la primaria al cifrar y la que corresponda al descifrar). La crea el despliegue.
+    /// </summary>
+    public string KmsKeyName { get; set; } = "";
+
+    /// <summary>
+    /// Solo para un emulador: dirección de floci-gcp (por ejemplo <c>http://127.0.0.1:4588</c>), que atiende Secret Manager
+    /// y Cloud KMS. Vacía para usar Google Cloud. Con <c>http</c> el canal va sin cifrar y sin credenciales. Absoluta, sin
+    /// usuario, contraseña, consulta ni fragmento.
+    /// </summary>
+    public string Endpoint { get; set; } = "";
 }
