@@ -1,5 +1,19 @@
-import { ChangeDetectionStrategy, Component, effect, input, output, signal } from '@angular/core';
-import { ButtonComponent, FieldComponent, InputDirective, SelectDirective } from '@impifact/ui';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  input,
+  output,
+  signal,
+} from '@angular/core';
+import {
+  BadgeComponent,
+  ButtonComponent,
+  FieldComponent,
+  InputDirective,
+  SelectDirective,
+} from '@impifact/ui';
 import { TranslocoPipe } from '@jsverse/transloco';
 import { DOCUMENT_KINDS, DOCUMENT_STATUSES, kindKey, statusKey } from '../models/document-status';
 import { DocumentFilters } from '../state/list-filters';
@@ -10,7 +24,14 @@ import { DocumentFilters } from '../state/list-filters';
  */
 @Component({
   selector: 'feat-document-filters',
-  imports: [TranslocoPipe, ButtonComponent, FieldComponent, InputDirective, SelectDirective],
+  imports: [
+    TranslocoPipe,
+    BadgeComponent,
+    ButtonComponent,
+    FieldComponent,
+    InputDirective,
+    SelectDirective,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <form class="filters" novalidate (submit)="submit($event)">
@@ -67,84 +88,56 @@ import { DocumentFilters } from '../state/list-filters';
           </ui-field>
         </div>
 
-        <fieldset class="filters__statuses">
-          <legend>{{ 'documents.filters.status' | transloco }}</legend>
-          <p class="filters__hint">{{ 'documents.filters.statusHint' | transloco }}</p>
-          <div class="filters__checks">
-            @for (option of statuses; track option) {
-              <label class="filters__check">
-                <input
-                  type="checkbox"
-                  [checked]="status().includes(option)"
-                  (change)="toggleStatus(option, $event)"
-                />
-                {{ 'documents.' + statusKey(option) | transloco }}
-              </label>
+        <!-- The long DIAN status list stays folded; it opens by itself when the URL filters by status. -->
+        <details class="filters__more" [open]="appliedStatuses() > 0">
+          <summary class="filters__summary">
+            <span>{{ 'documents.filters.more' | transloco }}</span>
+            @if (status().length > 0) {
+              <ui-badge tone="info">{{
+                'documents.filters.statusCount' | transloco: { count: status().length }
+              }}</ui-badge>
             }
-          </div>
-        </fieldset>
-
-        <label class="filters__check">
-          <input
-            type="checkbox"
-            [checked]="withTotal()"
-            (change)="withTotal.set(checked($event))"
-          />
-          {{ 'documents.filters.withTotal' | transloco }}
-        </label>
+          </summary>
+          <fieldset class="filters__statuses">
+            <legend>{{ 'documents.filters.status' | transloco }}</legend>
+            <p class="filters__hint">{{ 'documents.filters.statusHint' | transloco }}</p>
+            <div class="filters__checks">
+              @for (option of statuses; track option) {
+                <label class="filters__chip">
+                  <input
+                    type="checkbox"
+                    [checked]="status().includes(option)"
+                    (change)="toggleStatus(option, $event)"
+                  />
+                  {{ 'documents.' + statusKey(option) | transloco }}
+                </label>
+              }
+            </div>
+          </fieldset>
+        </details>
 
         <div class="filters__actions">
-          <ui-button type="submit" [label]="'documents.filters.apply' | transloco" />
-          <ui-button
-            variant="text"
-            [label]="'documents.filters.clear' | transloco"
-            (pressed)="clear()"
-          />
+          <label class="filters__check">
+            <input
+              type="checkbox"
+              [checked]="withTotal()"
+              (change)="withTotal.set(checked($event))"
+            />
+            {{ 'documents.filters.withTotal' | transloco }}
+          </label>
+          <div class="filters__buttons">
+            <ui-button
+              variant="ghost"
+              [label]="'documents.filters.clear' | transloco"
+              (pressed)="clear()"
+            />
+            <ui-button type="submit" [label]="'documents.filters.apply' | transloco" />
+          </div>
         </div>
       </fieldset>
     </form>
   `,
-  styles: `
-    .filters__group,
-    .filters__statuses {
-      margin: 0;
-      padding: 0;
-      border: 0;
-      min-inline-size: 0;
-    }
-    .filters__legend {
-      font-weight: var(--if-font-weight-bold);
-      margin-block-end: var(--if-space-2);
-    }
-    .filters__grid {
-      display: grid;
-      gap: var(--if-space-3);
-      grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-    }
-    .filters__statuses {
-      margin-block: var(--if-space-3);
-    }
-    .filters__hint {
-      margin: 0 0 var(--if-space-2);
-      color: var(--if-color-text-muted);
-      font-size: var(--if-font-size-sm);
-    }
-    .filters__checks {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--if-space-2) var(--if-space-3);
-    }
-    .filters__check {
-      display: inline-flex;
-      gap: var(--if-space-1);
-      align-items: center;
-    }
-    .filters__actions {
-      display: flex;
-      gap: var(--if-space-2);
-      margin-block-start: var(--if-space-3);
-    }
-  `,
+  styleUrl: './document-filters.component.css',
 })
 export class DocumentFiltersComponent {
   /** Filtros vigentes (los de la URL). */
@@ -163,6 +156,8 @@ export class DocumentFiltersComponent {
   protected readonly customer = signal('');
   protected readonly number = signal('');
   protected readonly withTotal = signal(false);
+  /** DIAN statuses of the applied filters (the URL): with any, «Más filtros» starts open. */
+  protected readonly appliedStatuses = computed(() => this.filters().status?.length ?? 0);
 
   constructor() {
     // Cuando la URL cambia (atrás, enlace compartido), el formulario muestra lo que se está consultando.

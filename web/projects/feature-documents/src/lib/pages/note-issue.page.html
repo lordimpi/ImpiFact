@@ -1,49 +1,51 @@
 <form class="doc-page" novalidate (submit)="issue($event)" [attr.aria-busy]="submitting() || null">
-  <header class="doc-header">
-    <div>
-      <ui-page-title>{{ 'documents.' + titleKey() | transloco }}</ui-page-title>
-      <p class="doc-lead">
-        {{
-          (kind() === 'credit'
-            ? 'documents.note.creditDescription'
-            : 'documents.note.debitDescription'
-          ) | transloco
-        }}
-      </p>
-    </div>
-    <a routerLink="/documentos">{{ 'documents.issue.cancel' | transloco }}</a>
-  </header>
+  <ui-page-title
+    [subtitle]="
+      (kind() === 'credit' ? 'documents.note.creditDescription' : 'documents.note.debitDescription')
+        | transloco
+    "
+  >
+    {{ 'documents.' + titleKey() | transloco }}
+    <a
+      uiPageTitleActions
+      class="doc-link-button doc-link-button--secondary"
+      routerLink="/documentos"
+      >{{ 'documents.issue.cancel' | transloco }}</a
+    >
+  </ui-page-title>
 
   <div class="issue-layout">
     <div class="issue-main">
-      <section class="doc-section" aria-labelledby="note-invoice">
-        <h2 id="note-invoice">{{ 'documents.note.invoice' | transloco }}</h2>
+      <ui-card [title]="'documents.note.invoice' | transloco">
         @switch (original().status) {
           @case ('loading') {
             <p class="doc-muted" role="status">{{ 'documents.note.invoiceLoading' | transloco }}</p>
           }
           @case ('ready') {
             @if (originalDocument(); as invoice) {
-              <dl class="doc-data">
-                <dt>{{ 'documents.note.invoiceNumber' | transloco }}</dt>
-                <dd>{{ invoice.full_number }}</dd>
-                <dt>{{ 'documents.note.invoiceDate' | transloco }}</dt>
-                <dd>{{ invoice.issue_date }}</dd>
-                <dt>{{ 'documents.detail.customer' | transloco }}</dt>
-                <dd>{{ invoice.customer?.name }}</dd>
-                <dt>{{ 'documents.note.invoiceTotal' | transloco }}</dt>
-                <dd class="doc-amount">{{ invoice.totals?.payable_amount | cop }}</dd>
-              </dl>
-              @if (notAccepted()) {
-                <p class="doc-error" role="status">
-                  {{ 'documents.note.notAccepted' | transloco }}
-                </p>
-              }
-              <ui-button
-                variant="text"
-                [label]="'documents.note.invoiceChange' | transloco"
-                (pressed)="clearInvoice()"
-              />
+              <div class="issue-chosen">
+                <dl class="doc-data">
+                  <dt>{{ 'documents.note.invoiceNumber' | transloco }}</dt>
+                  <dd>{{ invoice.full_number }}</dd>
+                  <dt>{{ 'documents.note.invoiceDate' | transloco }}</dt>
+                  <dd>{{ invoice.issue_date }}</dd>
+                  <dt>{{ 'documents.detail.customer' | transloco }}</dt>
+                  <dd>{{ invoice.customer?.name }}</dd>
+                  <dt>{{ 'documents.note.invoiceTotal' | transloco }}</dt>
+                  <dd class="note-total">{{ invoice.totals?.payable_amount | cop }}</dd>
+                </dl>
+                @if (notAccepted()) {
+                  <p class="doc-error" role="status">
+                    {{ 'documents.note.notAccepted' | transloco }}
+                  </p>
+                }
+                <ui-button
+                  variant="ghost"
+                  size="small"
+                  [label]="'documents.note.invoiceChange' | transloco"
+                  (pressed)="clearInvoice()"
+                />
+              </div>
             }
           }
         }
@@ -63,10 +65,9 @@
             (picked)="chooseInvoice($event)"
           />
         }
-      </section>
+      </ui-card>
 
-      <section class="doc-section" aria-labelledby="note-concept">
-        <h2 id="note-concept">{{ 'documents.note.concept' | transloco }}</h2>
+      <ui-card [title]="'documents.note.concept' | transloco">
         <ui-field
           [label]="'documents.note.conceptLabel' | transloco"
           [hint]="'documents.note.conceptHint' | transloco"
@@ -80,39 +81,41 @@
             }
           </select>
         </ui-field>
-      </section>
+      </ui-card>
 
-      <section class="doc-section" aria-labelledby="note-lines">
-        <h2 id="note-lines">{{ 'documents.issue.lines' | transloco }}</h2>
-        <div class="doc-actions">
-          <ui-button
-            variant="secondary"
-            [label]="'documents.issue.addFreeLine' | transloco"
-            (pressed)="addFreeLine()"
-          />
+      <ui-card [title]="'documents.issue.lines' | transloco">
+        <div uiCardActions class="doc-actions">
           @if (originalDocument()) {
             <ui-button
-              variant="text"
+              variant="ghost"
+              size="small"
               [label]="'documents.note.copyLines' | transloco"
               (pressed)="copyOriginalLines()"
             />
           }
+          <ui-button
+            variant="secondary"
+            size="small"
+            [label]="'documents.issue.addFreeLine' | transloco"
+            (pressed)="addFreeLine()"
+          />
         </div>
 
-        @for (line of noteForm.lines().value(); track $index; let index = $index) {
-          <feat-line-fields
-            [line]="lineFields(index)"
-            [index]="index"
-            [amount]="lineAmount(index)"
-            (remove)="removeLine(index)"
-          />
-        } @empty {
-          <p class="doc-muted">{{ 'documents.note.noLines' | transloco }}</p>
-        }
-      </section>
+        <div class="issue-lines">
+          @for (line of noteForm.lines().value(); track $index; let index = $index) {
+            <feat-line-fields
+              [line]="lineFields(index)"
+              [index]="index"
+              [amount]="lineAmount(index)"
+              (remove)="removeLine(index)"
+            />
+          } @empty {
+            <p class="issue-empty">{{ 'documents.note.noLines' | transloco }}</p>
+          }
+        </div>
+      </ui-card>
 
-      <section class="doc-section" aria-labelledby="note-notes">
-        <h2 id="note-notes">{{ 'documents.issue.notes' | transloco }}</h2>
+      <ui-card [title]="'documents.issue.notes' | transloco">
         <ui-field
           [label]="'documents.issue.notes' | transloco"
           [hint]="'documents.note.notesHint' | transloco"
@@ -123,65 +126,71 @@
           <input type="checkbox" [formField]="noteForm.sendEmail" />
           <span>{{ 'documents.note.sendEmail' | transloco }}</span>
         </label>
-        <p class="doc-muted">
+        <p class="doc-muted doc-small issue-check__hint">
           @if (customerEmail(); as email) {
             {{ 'documents.issue.sendEmailHint' | transloco: { email } }}
           } @else if (originalDocument()) {
             {{ 'documents.issue.sendEmailNoAddress' | transloco }}
           }
         </p>
-      </section>
+      </ui-card>
     </div>
 
-    <aside class="issue-side doc-section" aria-labelledby="note-totals">
-      <h2 id="note-totals">{{ 'documents.totals.title' | transloco }}</h2>
-      <feat-totals-panel
-        [totals]="calculated()?.legal_monetary_totals"
-        [taxes]="totals.taxes()"
-        [state]="totals.state()"
-        (retry)="totals.retry()"
-      />
+    <ui-card class="issue-side" [title]="'documents.totals.title' | transloco">
+      <div class="issue-side__body">
+        <feat-totals-panel
+          [totals]="calculated()?.legal_monetary_totals"
+          [taxes]="totals.taxes()"
+          [state]="totals.state()"
+          (retry)="totals.retry()"
+        />
 
-      @if (issueError(); as failure) {
-        <div class="doc-error" role="alert">
-          <p>{{ failure.message }}</p>
-          @if (failure.details.length > 0) {
-            <ul>
-              @for (detail of failure.details; track $index) {
-                <li>{{ detail }}</li>
-              }
-            </ul>
-          }
+        @if (issueError(); as failure) {
+          <div class="doc-error" role="alert">
+            <p>{{ failure.message }}</p>
+            @if (failure.details.length > 0) {
+              <ul>
+                @for (detail of failure.details; track $index) {
+                  <li>{{ detail }}</li>
+                }
+              </ul>
+            }
+          </div>
+        }
+
+        @if (!canIssue() && !submitting()) {
+          <p class="doc-muted doc-small">{{ 'documents.note.notReady' | transloco }}</p>
+        }
+        @if (previewError(); as message) {
+          <p class="doc-error" role="alert">{{ message }}</p>
+        }
+        <div class="issue-side__actions">
+          <ui-button
+            type="submit"
+            size="large"
+            block
+            [label]="
+              (kind() === 'credit' ? 'documents.note.creditSubmit' : 'documents.note.debitSubmit')
+                | transloco
+            "
+            [loading]="submitting()"
+            [disabled]="!canIssue()"
+          />
+          <ui-button
+            variant="secondary"
+            block
+            [label]="'documents.issue.preview' | transloco"
+            [loading]="previewing()"
+            [disabled]="!canIssue() || previewing()"
+            (pressed)="preview()"
+          />
         </div>
-      }
-
-      @if (!canIssue() && !submitting()) {
-        <p class="doc-muted">{{ 'documents.note.notReady' | transloco }}</p>
-      }
-      @if (previewError(); as message) {
-        <p class="doc-error" role="alert">{{ message }}</p>
-      }
-      <ui-button
-        variant="secondary"
-        [label]="'documents.issue.preview' | transloco"
-        [loading]="previewing()"
-        [disabled]="!canIssue() || previewing()"
-        (pressed)="preview()"
-      />
-      <feat-pdf-preview
-        [pdf]="previewPdf()"
-        (closed)="previewPdf.set(null)"
-        (download)="savePreview()"
-      />
-      <ui-button
-        type="submit"
-        [label]="
-          (kind() === 'credit' ? 'documents.note.creditSubmit' : 'documents.note.debitSubmit')
-            | transloco
-        "
-        [loading]="submitting()"
-        [disabled]="!canIssue()"
-      />
-    </aside>
+        <feat-pdf-preview
+          [pdf]="previewPdf()"
+          (closed)="previewPdf.set(null)"
+          (download)="savePreview()"
+        />
+      </div>
+    </ui-card>
   </div>
 </form>

@@ -261,6 +261,9 @@ test('keeps the list filters in the URL and sends them to the API', async ({ pag
 
   await page.getByLabel('Desde').fill('2026-11-01');
   await page.getByLabel('Tipo de documento').selectOption('invoice');
+  // The DIAN statuses are folded under «Más filtros» until someone opens it.
+  await expect(page.getByLabel('En cola')).toBeHidden();
+  await page.getByText('Más filtros').click();
   await page.getByLabel('En cola').check();
   await page.getByLabel('Enviado a la DIAN').check();
   await page.getByLabel('Cliente', { exact: true }).fill('golden');
@@ -281,6 +284,9 @@ test('keeps the list filters in the URL and sends them to the API', async ({ pag
   // La misma URL, recargada, consulta lo mismo y muestra los filtros.
   await page.reload();
   await expect(page.getByLabel('Cliente', { exact: true })).toHaveValue('golden');
+  // With statuses in the URL the section opens by itself, so the active filter is in sight.
+  await expect(page.getByLabel('Enviado a la DIAN')).toBeVisible();
+  await expect(page.getByLabel('Enviado a la DIAN')).toBeChecked();
   expect(api.listRequests.at(-1)!.searchParams.getAll('status')).toEqual(['Queued', 'Sent']);
 
   expect(await seriousViolations(page)).toEqual([]);

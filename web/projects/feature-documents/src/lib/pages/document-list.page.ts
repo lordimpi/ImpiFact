@@ -5,6 +5,8 @@ import { DocumentSummaryResponse } from '@impifact/api';
 import { SessionStore } from '@impifact/core';
 import {
   ButtonComponent,
+  CardActionsDirective,
+  CardComponent,
   PageTitleComponent,
   TableCellDirective,
   TableComponent,
@@ -33,6 +35,8 @@ import { DocumentFilters, filtersFromParams, filtersToQueryParams } from '../sta
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardActionsDirective,
     PageTitleComponent,
     TableComponent,
     TableCellDirective,
@@ -43,7 +47,7 @@ import { DocumentFilters, filtersFromParams, filtersToQueryParams } from '../sta
   providers: [provideDocumentsI18n(), DocumentsListStore, DocumentActions],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './document-list.page.html',
-  styleUrl: './documents-page.css',
+  styleUrls: ['./documents-page.css', './document-list.page.css'],
 })
 export class DocumentListPage {
   protected readonly store = inject(DocumentsListStore);

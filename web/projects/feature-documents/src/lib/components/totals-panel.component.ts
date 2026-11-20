@@ -97,17 +97,34 @@ export type TotalsState = 'ready' | 'loading' | 'error' | 'empty';
     .totals {
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: var(--if-space-1) var(--if-space-3);
+      gap: var(--if-space-2) 0;
       margin: 0;
+      font-size: var(--if-font-size-sm);
+    }
+    .totals dt {
+      color: var(--if-color-text-muted);
     }
     .totals dd {
       margin: 0;
+      padding-inline-start: var(--if-space-3);
       text-align: end;
       font-variant-numeric: tabular-nums;
+      white-space: nowrap;
     }
     .totals__payable {
+      padding-block-start: var(--if-space-3);
+      border-block-start: 1px solid var(--if-color-border);
       font-weight: var(--if-font-weight-bold);
-      font-size: var(--if-font-size-md);
+    }
+    dt.totals__payable {
+      display: flex;
+      align-items: flex-end;
+      color: var(--if-color-text);
+      font-size: var(--if-font-size-base);
+    }
+    dd.totals__payable {
+      font-size: var(--if-font-size-lg);
+      color: var(--if-color-text);
     }
     .totals__muted {
       margin: 0;
