@@ -1,5 +1,15 @@
-<div class="ui-table__scroll" role="region" tabindex="0" [attr.aria-labelledby]="captionId">
-  <table class="ui-table" [attr.aria-busy]="loading() || null">
+<div
+  class="ui-table__scroll"
+  role="region"
+  tabindex="0"
+  [class.ui-table__scroll--flush]="flush()"
+  [attr.aria-labelledby]="captionId"
+>
+  <table
+    class="ui-table"
+    [class.ui-table--striped]="striped()"
+    [attr.aria-busy]="loading() || null"
+  >
     <caption [id]="captionId" [class.ui-visually-hidden]="!showCaption()">
       {{
         caption()
@@ -55,7 +65,7 @@
           </tr>
         }
       } @else if (error()) {
-        <tr>
+        <tr class="ui-table__state">
           <td [attr.colspan]="columns().length">
             <ui-error-state
               [title]="labels().errorTitle"
@@ -82,7 +92,7 @@
             }
           </tr>
         } @empty {
-          <tr>
+          <tr class="ui-table__state">
             <td [attr.colspan]="columns().length">
               <ui-empty-state
                 [title]="labels().emptyTitle"

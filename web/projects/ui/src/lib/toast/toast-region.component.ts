@@ -78,12 +78,13 @@ import { UiToast, UiToastLabels } from './toast.models';
     }
     .ui-toast {
       pointer-events: auto;
-      padding: var(--if-space-2) var(--if-space-3);
+      padding: var(--if-space-3);
       border: 1px solid var(--if-color-border);
       border-inline-start: 4px solid var(--if-color-primary);
       border-radius: var(--if-radius-md);
-      background: var(--if-color-surface-raised);
+      background: var(--if-color-bg);
       color: var(--if-color-text);
+      font-size: var(--if-font-size-sm);
       box-shadow: var(--if-shadow-overlay);
     }
     .ui-toast--success {
@@ -98,6 +99,9 @@ import { UiToast, UiToastLabels } from './toast.models';
     .ui-toast__text,
     .ui-toast__reference {
       margin: 0 0 var(--if-space-1);
+    }
+    .ui-toast__text {
+      font-weight: var(--if-font-weight-medium);
     }
     .ui-toast__reference {
       font-size: var(--if-font-size-sm);

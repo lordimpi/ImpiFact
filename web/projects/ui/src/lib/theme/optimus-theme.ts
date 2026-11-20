@@ -17,8 +17,8 @@ import type { UiThemeOptions } from './provide-ui-theme';
 const v = (name: string) => `var(--if-${name})`;
 
 /*
- * Escala neutra de Optimus UI («surface») apuntada a nuestros tokens. Como cada token ya cambia con el
- * tema (light-dark() en tokens.css), Optimus queda en un solo esquema y no aplica su propio modo oscuro.
+ * Escala neutra de Optimus UI («surface») apuntada a nuestros tokens. The panel is light only (tokens.css), so
+ * Optimus stays on a single scheme and never applies its own dark mode.
  */
 const surface = {
   0: v('color-bg'),
@@ -65,10 +65,28 @@ export const impifactPreset = definePreset(
         color: v('color-focus'),
         offset: v('focus-ring-offset'),
       },
+      content: { borderRadius: v('radius-md') },
+      overlay: {
+        modal: {
+          borderRadius: v('radius-lg'),
+          padding: v('space-4'),
+          shadow: v('shadow-overlay'),
+        },
+      },
       formField: {
         paddingX: v('control-padding-x'),
         paddingY: v('control-padding-y'),
         borderRadius: v('radius-sm'),
+        sm: {
+          fontSize: v('font-size-sm'),
+          paddingX: v('space-2'),
+          paddingY: v('space-1'),
+        },
+        lg: {
+          fontSize: v('font-size-md'),
+          paddingX: v('space-3'),
+          paddingY: v('control-padding-y'),
+        },
         focusRing: {
           width: v('focus-ring-width'),
           style: 'solid',
@@ -96,6 +114,7 @@ export const impifactPreset = definePreset(
             disabledColor: v('color-text-muted'),
             placeholderColor: v('color-text-muted'),
             invalidPlaceholderColor: v('color-danger'),
+            shadow: '0 1px 2px rgb(16 24 40 / 5%)',
           },
           text: {
             color: v('color-text'),
@@ -123,9 +142,23 @@ export const impifactPreset = definePreset(
     },
     components: {
       button: {
+        root: { label: { fontWeight: v('font-weight-bold') } },
         colorScheme: {
           light: {
             root: {
+              // Secondary: white button with a soft border, the usual neutral action in accounting software.
+              secondary: {
+                background: v('color-bg'),
+                hoverBackground: v('color-surface'),
+                activeBackground: v('color-surface-raised'),
+                borderColor: v('color-border-emphasis'),
+                hoverBorderColor: v('color-border-strong'),
+                activeBorderColor: v('color-border-strong'),
+                color: v('color-text'),
+                hoverColor: v('color-text'),
+                activeColor: v('color-text'),
+                focusRing: { color: v('color-focus'), shadow: 'none' },
+              },
               danger: {
                 background: v('color-danger'),
                 hoverBackground: v('color-danger-hover'),
@@ -139,6 +172,32 @@ export const impifactPreset = definePreset(
                 focusRing: { color: v('color-focus'), shadow: 'none' },
               },
             },
+            text: {
+              primary: {
+                hoverBackground: v('color-primary-subtle'),
+                activeBackground: v('color-primary-subtle-strong'),
+                color: v('color-primary'),
+              },
+              secondary: {
+                hoverBackground: v('color-surface-raised'),
+                activeBackground: v('color-border'),
+                color: v('color-text'),
+              },
+            },
+          },
+        },
+      },
+      dialog: {
+        title: { fontSize: v('font-size-md'), fontWeight: v('font-weight-bold') },
+      },
+      skeleton: {
+        root: { borderRadius: v('radius-sm') },
+        colorScheme: {
+          light: {
+            root: {
+              background: v('color-surface-raised'),
+              animationBackground: 'rgb(255 255 255 / 60%)',
+            },
           },
         },
       },
@@ -148,7 +207,7 @@ export const impifactPreset = definePreset(
 
 /**
  * Aplica el preset de ImpiFact a Optimus UI. Corre en el contexto de inyección del arranque.
- * El modo oscuro lo deciden los tokens (prefers-color-scheme y `data-theme`), no Optimus.
+ * The panel is light only: `darkModeSelector: 'none'` keeps Optimus from emitting a dark scheme.
  *
  * Nonce de la CSP: el de `options` o, si no hay, el de la página (`CSP_NONCE` de Angular, que lee el atributo
  * `ngCspNonce` de `<app-root>`; el servidor del panel lo cambia en cada respuesta). La CSP no permite estilos en línea

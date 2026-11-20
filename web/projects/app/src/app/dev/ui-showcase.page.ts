@@ -1,35 +1,50 @@
-import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardActionsDirective,
+  CardComponent,
+  CardFooterDirective,
+  ComboboxComponent,
+  ComboboxLabels,
   DialogComponent,
   EmptyStateComponent,
   ErrorStateComponent,
   FieldComponent,
   InputDirective,
   LoadingComponent,
+  MeterComponent,
   PageTitleComponent,
   PaginatorComponent,
+  SelectDirective,
+  StatComponent,
   TableCellDirective,
   TableComponent,
+  TabsComponent,
+  ToastRegionComponent,
+  UiBadgeTone,
   UiFilters,
   UiPageChange,
   UiPagination,
   UiPaginatorLabels,
   UiSort,
+  UiTab,
   UiTableColumn,
   UiTableLabels,
+  UiToast,
+  UiToastLabels,
 } from '@impifact/ui';
-
-type Theme = 'system' | 'light' | 'dark';
+import { SAMPLE_MUNICIPALITIES, SHOWCASE_TEXTS } from './ui-showcase.texts';
 
 interface DocumentRow {
   id: number;
   number: string;
   customer: string;
   status: string;
+  tone: UiBadgeTone;
   total: string;
 }
 
@@ -40,6 +55,7 @@ const SAMPLE_ROWS: DocumentRow[] = [
     number: 'SETP990000003',
     customer: 'Zapatos del Valle SAS',
     status: 'Rechazado',
+    tone: 'danger',
     total: '$ 1.190.000',
   },
   {
@@ -47,6 +63,7 @@ const SAMPLE_ROWS: DocumentRow[] = [
     number: 'SETP990000001',
     customer: 'Alfa Ingeniería Ltda',
     status: 'Aceptado',
+    tone: 'success',
     total: '$ 238.000',
   },
   {
@@ -54,6 +71,7 @@ const SAMPLE_ROWS: DocumentRow[] = [
     number: 'SETP990000002',
     customer: 'Mercados Andinos SA',
     status: 'En cola',
+    tone: 'info',
     total: '$ 59.500',
   },
 ];
@@ -67,10 +85,20 @@ const SAMPLE_ROWS: DocumentRow[] = [
   selector: 'app-ui-showcase-page',
   imports: [
     TranslocoPipe,
+    RouterLink,
     PageTitleComponent,
     ButtonComponent,
+    BadgeComponent,
+    StatComponent,
+    CardComponent,
+    CardActionsDirective,
+    CardFooterDirective,
+    TabsComponent,
     FieldComponent,
     InputDirective,
+    SelectDirective,
+    ComboboxComponent,
+    MeterComponent,
     EmptyStateComponent,
     LoadingComponent,
     ErrorStateComponent,
@@ -78,20 +106,18 @@ const SAMPLE_ROWS: DocumentRow[] = [
     TableCellDirective,
     PaginatorComponent,
     DialogComponent,
+    ToastRegionComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './ui-showcase.page.html',
   styleUrl: './ui-showcase.page.scss',
 })
 export class UiShowcasePage {
-  private readonly document = inject(DOCUMENT);
   private readonly transloco = inject(TranslocoService);
   // Cambia cuando terminan de cargar los textos, para recalcular las etiquetas traducidas.
   private readonly translation = toSignal(this.transloco.selectTranslation());
 
   protected readonly rows = SAMPLE_ROWS;
-  protected readonly themes: readonly Theme[] = ['system', 'light', 'dark'];
-  protected readonly theme = signal<Theme>(this.currentTheme());
   protected readonly lastEvent = signal<string | null>(null);
   protected readonly sort = signal<UiSort | null>(null);
   protected readonly filters = signal<UiFilters>({});
@@ -107,6 +133,43 @@ export class UiShowcasePage {
     nextCursor: 'eyJpZCI6M30',
   };
   protected readonly dialogOpen = signal(false);
+  protected readonly municipality = signal('');
+  protected readonly term = signal('');
+  protected readonly toasts = signal<readonly UiToast[]>([]);
+  private nextToastId = 1;
+
+  constructor() {
+    // The texts of the newer sections live next to the page (see ui-showcase.texts.ts).
+    this.transloco.setTranslation(SHOWCASE_TEXTS, this.transloco.getActiveLang(), { merge: true });
+  }
+
+  protected readonly tabs = computed<UiTab[]>(() => {
+    const t = this.translator();
+    return (['data', 'resolutions', 'certificate', 'users'] as const).map((tab) => ({
+      label: t(`devUi.tabs.${tab}`),
+      link: '/dev/ui',
+      queryParams: { tab },
+    }));
+  });
+
+  /** The showcase plays the server: it filters the sample municipalities with the typed term. */
+  protected readonly municipalities = computed(() => {
+    const term = this.term().trim().toLocaleLowerCase('es-CO');
+    return SAMPLE_MUNICIPALITIES.filter((option) =>
+      option.name.toLocaleLowerCase('es-CO').includes(term),
+    );
+  });
+
+  protected readonly comboboxLabels = computed<ComboboxLabels>(() => {
+    const t = this.translator();
+    return {
+      placeholder: t('devUi.fields.municipalityPlaceholder'),
+      loading: t('devUi.fields.municipalityLoading'),
+      error: t('devUi.fields.municipalityError'),
+      empty: t('devUi.fields.municipalityEmpty'),
+      retry: t('ui.retry'),
+    };
+  });
 
   protected readonly columns = computed<UiTableColumn[]>(() => {
     const t = this.translator();
@@ -157,12 +220,15 @@ export class UiShowcasePage {
     };
   });
 
-  protected setTheme(theme: Theme): void {
-    this.theme.set(theme);
-    const root = this.document.documentElement;
-    if (theme === 'system') root.removeAttribute('data-theme');
-    else root.setAttribute('data-theme', theme);
-  }
+  protected readonly toastLabels = computed<UiToastLabels>(() => {
+    const t = this.translator();
+    return {
+      region: t('ui.toasts.region'),
+      close: t('ui.toasts.close'),
+      copy: t('ui.toasts.copy'),
+      reference: t('ui.toasts.reference'),
+    };
+  });
 
   protected onSort(sort: UiSort): void {
     this.sort.set(sort);
@@ -181,6 +247,24 @@ export class UiShowcasePage {
     this.log('pageChange', change);
   }
 
+  protected showToasts(): void {
+    const t = this.translator();
+    this.toasts.update((current) => [
+      ...current,
+      { id: this.nextToastId++, kind: 'success', text: t('devUi.toasts.success') },
+      {
+        id: this.nextToastId++,
+        kind: 'error',
+        text: t('devUi.toasts.error'),
+        reference: '7f3c9a2e-41b0',
+      },
+    ]);
+  }
+
+  protected dismissToast(id: number): void {
+    this.toasts.update((current) => current.filter((toast) => toast.id !== id));
+  }
+
   protected log(name: string, payload?: unknown): void {
     this.lastEvent.set(payload === undefined ? name : `${name} ${JSON.stringify(payload)}`);
   }
@@ -188,10 +272,5 @@ export class UiShowcasePage {
   private translator(): (key: string) => string {
     this.translation();
     return (key) => this.transloco.translate(key);
-  }
-
-  private currentTheme(): Theme {
-    const value = this.document.documentElement.getAttribute('data-theme');
-    return value === 'light' || value === 'dark' ? value : 'system';
   }
 }

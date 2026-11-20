@@ -59,6 +59,10 @@ export class TableComponent<T extends object> {
   readonly pagination = input<UiPagination | null>(null);
   /** Filas de esqueleto mientras carga. */
   readonly skeletonRows = input(5, { transform: numberAttribute });
+  /** Without its own border and radius, to sit flush inside a `ui-card padding="none"`. */
+  readonly flush = input(false, { transform: booleanAttribute });
+  /** Alternate row background (zebra) for long, dense lists. */
+  readonly striped = input(false, { transform: booleanAttribute });
   /** Identidad de cada fila para el `@for`; por defecto, la propia fila. */
   readonly trackBy = input<(index: number, row: T) => unknown>((_, row) => row);
 

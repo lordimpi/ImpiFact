@@ -38,13 +38,13 @@ const HIGH_RATIO = 0.9;
     .ui-meter__track {
       block-size: 0.5rem;
       overflow: hidden;
-      background: var(--if-color-primary-subtle);
-      border-radius: 999px;
+      background: var(--if-color-surface-raised);
+      border-radius: var(--if-radius-pill);
     }
     .ui-meter__fill {
       block-size: 100%;
       background: var(--if-color-primary);
-      border-radius: 999px;
+      border-radius: var(--if-radius-pill);
     }
     .ui-meter--high .ui-meter__fill {
       background: var(--if-color-danger);

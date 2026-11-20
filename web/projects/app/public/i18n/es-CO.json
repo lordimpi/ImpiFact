@@ -79,12 +79,6 @@
     "description": "Página solo para desarrollo: cada componente de ui en cada estado.",
     "lastEvent": "Último evento",
     "noEvent": "ninguno",
-    "theme": {
-      "label": "Tema",
-      "system": "Sistema",
-      "light": "Claro",
-      "dark": "Oscuro"
-    },
     "buttons": {
       "title": "Botones",
       "primary": "Guardar",
