@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Amazon;
 using Amazon.S3;
 using ImpiFact.Application.Abstractions.Storage;
 using ImpiFact.Domain.Documents;
@@ -127,6 +128,25 @@ public sealed class S3BlobStorageTests
             Assert.That(response.Content.Headers.ContentType?.MediaType, Is.EqualTo("application/pdf"), detail);
             Assert.That(body, Is.EqualTo("%PDF-1.7"), detail);
         });
+    }
+
+    [Test]
+    [NonParallelizable]
+    public void A_signed_url_lasts_exactly_the_requested_lifetime_when_the_sdk_corrects_its_clock()
+    {
+        // The SDK subtracts its own clock-skew-corrected time, not DateTime.UtcNow. In CI a corrected clock produced
+        // X-Amz-Expires=301 for a five-minute link.
+        AWSConfigs.ManualClockCorrection = TimeSpan.FromSeconds(-2);
+        try
+        {
+            var url = Storage.CreateSignedUrl(NewKey(".pdf"), TimeSpan.FromMinutes(5));
+
+            Assert.That(ExpiresSeconds(url), Is.EqualTo(300), url.Query);
+        }
+        finally
+        {
+            AWSConfigs.ManualClockCorrection = null;
+        }
     }
 
     [Test]
