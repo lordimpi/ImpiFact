@@ -58,6 +58,10 @@ Hay plantillas de despliegue para Azure ([`deploy/azure`](deploy/azure/README.md
 
 Los casos golden (XML y CUFE de referencia) están en `backend/tests/golden`; cómo se generan se explica en [`backend/tools/golden-capture`](backend/tools/golden-capture/README.md).
 
+### Pruebas de carga
+
+Los escenarios de k6 (emisión de facturas y consultas) están en `load-tests/` y corren contra un stack propio en contenedores (proyecto `impifact-t10`, red sin salida y una DIAN falsa: nunca llegan a la DIAN). `LOAD_DIR=<carpeta fuera del repositorio> load-tests/run.sh secrets`, luego `up`, `seed` y `k6 scenarios/issue-invoices.js`. Los pasos, los umbrales y los resultados medidos están en [`docs/Pruebas de carga.md`](docs/Pruebas%20de%20carga.md).
+
 ## Documentación
 
 Los documentos de `docs/` son la especificación: si el código los contradice, gana el documento. Para leerlos todos juntos, abre `docs/ImpiFact-docs.html` o regenéralo con `python docs/build_docs_html.py`.
