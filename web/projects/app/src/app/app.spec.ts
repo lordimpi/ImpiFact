@@ -57,9 +57,10 @@ function fakes(
     minutesLeft: signal(5),
     stayConnected: vi.fn(() => monitor.warning.set(false)),
   };
-  // Empresas con nombre (`GET /api/v1/me/companies`); el menú de usuario muestra la activa.
+  // Empresas con nombre (`GET /api/v1/me/companies`); la barra superior muestra la activa.
   const directory = {
     active: signal<{ id: string; name: string } | null>(null),
+    byId: () => null,
   };
   // Campana de avisos de core: el shell solo lee el número sin leer.
   const notifications = {
@@ -95,14 +96,117 @@ describe('App shell', () => {
     return { ...result, session, monitor, directory, notifications };
   }
 
-  it('renders the layout with texts from the es-CO translations', async () => {
+  it('shows only the content, without sidebar or top bar, to an anonymous visitor', async () => {
     await renderShell();
+
+    expect(await screen.findByRole('link', { name: 'Saltar al contenido' })).toBeTruthy();
+    expect(screen.getByRole('main')).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Navegación principal' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Menú de navegación' })).toBeNull();
+  });
+
+  it('renders the sidebar with the brand and the menu from the es-CO translations', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['customer'] });
 
     expect(await screen.findByText('ImpiFact')).toBeTruthy();
     const nav = screen.getByRole('navigation', { name: 'Navegación principal' });
     expect(within(nav).getByRole('link', { name: 'Inicio' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Saltar al contenido' })).toBeTruthy();
     expect(screen.getByRole('main')).toBeTruthy();
+  });
+
+  it('groups the menu by section and hides the empty sections', async () => {
+    const view = await renderShell({
+      authenticated: true,
+      companies: ['company-1'],
+      roles: ['owner'],
+      scopes: ['documents:read', 'documents:write'],
+    });
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+
+    const issue = within(nav).getByRole('list', { name: 'Emisión' });
+    expect(within(issue).getByRole('link', { name: 'Nueva factura' }).getAttribute('href')).toBe(
+      '/documentos/nuevo',
+    );
+    expect(within(issue).getByRole('link', { name: 'Nota crédito' }).getAttribute('href')).toBe(
+      '/documentos/nota-credito',
+    );
+    expect(within(issue).getByRole('link', { name: 'Nota débito' }).getAttribute('href')).toBe(
+      '/documentos/nota-debito',
+    );
+    const query = within(nav).getByRole('list', { name: 'Consulta' });
+    expect(within(query).getByRole('link', { name: 'Documentos' })).toBeTruthy();
+    expect(within(nav).getByRole('list', { name: 'Ajustes' })).toBeTruthy();
+    expect(within(nav).queryByRole('list', { name: 'Plataforma' })).toBeNull();
+
+    // Issuing needs the `documents:write` scope, as its routes do.
+    view.session.scopes.set(['documents:read']);
+    await waitFor(() => expect(within(nav).queryByRole('list', { name: 'Emisión' })).toBeNull());
+    expect(within(nav).queryByRole('link', { name: 'Nueva factura' })).toBeNull();
+  });
+
+  it('marks the entry of the current page', async () => {
+    const { navigate } = await renderShell({
+      authenticated: true,
+      companies: ['company-1'],
+      roles: ['customer'],
+    });
+    await navigate('/');
+
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    await waitFor(() =>
+      expect(within(nav).getByRole('link', { name: 'Inicio' }).getAttribute('aria-current')).toBe(
+        'page',
+      ),
+    );
+    expect(
+      within(nav).getByRole('link', { name: 'Avisos' }).getAttribute('aria-current'),
+    ).toBeNull();
+  });
+
+  it('opens the menu drawer from the top bar and closes it with Escape', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['customer'] });
+    const toggle = await screen.findByRole('button', { name: 'Menú de navegación' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.getAttribute('aria-controls')).toBe('app-sidebar');
+    const sidebar = document.getElementById('app-sidebar') as HTMLElement;
+    expect(sidebar.classList).not.toContain('is-open');
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(sidebar.classList).toContain('is-open');
+
+    const home = within(sidebar).getByRole('link', { name: 'Inicio' });
+    fireEvent.keyDown(home, { key: 'Escape' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(sidebar.classList).not.toContain('is-open');
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it('closes the menu drawer with its close button', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['customer'] });
+    const toggle = await screen.findByRole('button', { name: 'Menú de navegación' });
+    fireEvent.click(toggle);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar el menú' }));
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it('shows the company selection without the sidebar', async () => {
+    const { navigate } = await renderShell({
+      authenticated: true,
+      companies: ['company-1', 'company-2'],
+    });
+    expect(await screen.findByRole('navigation', { name: 'Navegación principal' })).toBeTruthy();
+
+    await navigate('/empresas/seleccionar');
+
+    await waitFor(() =>
+      expect(screen.queryByRole('navigation', { name: 'Navegación principal' })).toBeNull(),
+    );
+    expect(screen.queryByRole('button', { name: /Mi cuenta/ })).toBeNull();
   });
 
   it('shows customers and products in the menu to an owner or a seller', async () => {
@@ -132,14 +236,23 @@ describe('App shell', () => {
     expect(within(nav).queryByRole('link', { name: 'Paso a producción' })).toBeNull();
   });
 
-  it('shows the name of the active company in the user menu', async () => {
+  it('shows the name of the active company in the top bar', async () => {
     const view = await renderShell({ authenticated: true, companies: ['company-1'] });
-    const toggle = await screen.findByRole('button', { name: /Mi cuenta/ });
-    expect(toggle.textContent).not.toContain('Acme SAS');
+    await screen.findByRole('button', { name: /Mi cuenta/ });
+    expect(screen.queryByText('Acme SAS')).toBeNull();
 
     view.directory.active.set({ id: 'company-1', name: 'Acme SAS' });
 
-    await waitFor(() => expect(toggle.textContent).toContain('Acme SAS'));
+    expect(await screen.findByText('Acme SAS')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /elegir otra empresa/ })).toBeNull();
+  });
+
+  it('links the active company to the company selection when the user has several', async () => {
+    const view = await renderShell({ authenticated: true, companies: ['company-1', 'company-2'] });
+    view.directory.active.set({ id: 'company-1', name: 'Acme SAS' });
+
+    const link = await screen.findByRole('link', { name: 'Acme SAS, elegir otra empresa activa' });
+    expect(link.getAttribute('href')).toBe('/empresas/seleccionar');
   });
 
   it('hides customers and products from other roles', async () => {
@@ -212,14 +325,14 @@ describe('App shell', () => {
 
   it('sets the document title from the translations', async () => {
     await renderShell();
-    await screen.findByText('ImpiFact');
+    await screen.findByRole('main');
 
     expect(TestBed.inject(Title).getTitle()).toBe('ImpiFact · Panel');
   });
 
   it('renders the core toasts with the support code and lets the user close them', async () => {
     await renderShell();
-    await screen.findByText('ImpiFact');
+    await screen.findByRole('main');
     const toasts = TestBed.inject(ToastStore);
 
     toasts.show({ kind: 'error', text: 'No se pudo guardar', correlationId: 'abc-123' });
@@ -234,7 +347,7 @@ describe('App shell', () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     await renderShell();
-    await screen.findByText('ImpiFact');
+    await screen.findByRole('main');
 
     TestBed.inject(ToastStore).show({ kind: 'error', text: 'Falló', correlationId: 'abc-123' });
     fireEvent.click(await screen.findByRole('button', { name: 'Copiar código' }));
@@ -280,7 +393,7 @@ describe('App shell', () => {
 
   it('hides the user menu without a session', async () => {
     await renderShell();
-    await screen.findByText('ImpiFact');
+    await screen.findByRole('main');
 
     expect(screen.queryByRole('button', { name: /Mi cuenta/ })).toBeNull();
   });

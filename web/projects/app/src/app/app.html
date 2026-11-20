@@ -1,25 +1,22 @@
 <a class="skip-link" href="#main-content">{{ 'app.skipToContent' | transloco }}</a>
 
-<header class="shell-header">
-  <span class="shell-brand">{{ 'app.name' | transloco }}</span>
-  <nav class="shell-nav" [attr.aria-label]="'app.mainNav' | transloco">
-    @for (item of navItems(); track item.path) {
-      <a
-        [routerLink]="item.path"
-        routerLinkActive="is-active"
-        ariaCurrentWhenActive="page"
-        [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
-        >{{ item.label | transloco }}</a
-      >
-    }
-  </nav>
-  <app-user-menu />
-  <app-notification-bell />
-</header>
+@if (layout()) {
+  <app-sidebar [open]="drawerOpen()" (closed)="closeDrawer($event)" />
+  @if (drawerOpen()) {
+    <div class="shell-backdrop" aria-hidden="true" (click)="closeDrawer(true)"></div>
+  }
+}
 
-<main id="main-content" class="shell-main" tabindex="-1">
-  <router-outlet />
-</main>
+<div class="shell-body" [class.has-layout]="layout()">
+  @if (layout()) {
+    <app-topbar [menuOpen]="drawerOpen()" (toggleMenu)="toggleDrawer()" />
+  }
+  <main id="main-content" class="shell-main" tabindex="-1">
+    <div class="shell-content">
+      <router-outlet />
+    </div>
+  </main>
+</div>
 
 @if (inactivityWarning(); as warning) {
   <ng-container *ngComponentOutlet="warning" />

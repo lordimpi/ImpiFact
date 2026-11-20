@@ -1,0 +1,154 @@
+// Fixed column from 1024px (the shell reserves its width); off-canvas drawer below that, hidden with `visibility`
+// while closed so its links leave the tab order.
+:host {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  inline-size: var(--if-sidebar-width);
+  overflow-y: auto;
+  color: var(--if-sidebar-fg);
+  background: var(--if-sidebar-bg);
+  border-inline-end: 1px solid var(--if-color-border);
+}
+
+@media (max-width: 63.98rem) {
+  :host {
+    inline-size: min(var(--if-sidebar-width), 85vw);
+    transform: translateX(-100%);
+    visibility: hidden;
+    // Closing hides it once the slide ends; opening shows it at once so it can take the focus.
+    transition:
+      transform 0.2s ease,
+      visibility 0s linear 0.2s;
+  }
+
+  :host(.is-open) {
+    transform: none;
+    visibility: visible;
+    transition:
+      transform 0.2s ease,
+      visibility 0s;
+    box-shadow: var(--if-shadow-overlay);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :host,
+  :host(.is-open) {
+    transition: none;
+  }
+}
+
+.sidebar__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--if-space-2);
+  min-block-size: var(--if-topbar-height);
+  padding-inline: var(--if-space-4);
+  border-block-end: 1px solid var(--if-color-border);
+}
+
+.sidebar__mark {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  font-size: var(--if-font-size-sm);
+  font-weight: var(--if-font-weight-bold);
+  color: var(--if-color-on-primary);
+  background: var(--if-color-primary);
+  border-radius: var(--if-radius-sm);
+}
+
+.sidebar__name {
+  font-size: var(--if-font-size-md);
+  font-weight: var(--if-font-weight-bold);
+}
+
+.sidebar__close {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  margin-inline-start: auto;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: var(--if-radius-sm);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--if-sidebar-hover-bg);
+  }
+
+  @media (min-width: 64rem) {
+    display: none;
+  }
+}
+
+.sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-4);
+  padding: var(--if-space-3);
+}
+
+.sidebar__label {
+  display: block;
+  padding: 0 var(--if-space-3) var(--if-space-1);
+  font-size: var(--if-font-size-xs);
+  font-weight: var(--if-font-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--if-sidebar-fg-muted);
+}
+
+.sidebar__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: var(--if-space-3);
+  min-block-size: 2.5rem;
+  padding-inline: var(--if-space-3);
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--if-radius-sm);
+
+  &:hover {
+    background: var(--if-sidebar-hover-bg);
+  }
+
+  &:focus-visible {
+    outline: var(--if-focus-ring-width) solid var(--if-color-focus);
+    outline-offset: -2px;
+  }
+
+  &.is-active {
+    font-weight: var(--if-font-weight-bold);
+    color: var(--if-sidebar-active-fg);
+    background: var(--if-sidebar-active-bg);
+  }
+}
+
+.sidebar__icon,
+.sidebar__close svg {
+  flex: none;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

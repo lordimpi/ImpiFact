@@ -473,7 +473,7 @@ test('a debit note found from the list shows why the API rejects it', async ({ p
   const api = await mockDocuments(page);
   await logIn(page);
   await page.goto('/documentos');
-  await page.getByRole('link', { name: 'Nota débito' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Nota débito' }).click();
 
   await expect(page.getByRole('heading', { level: 1, name: 'Emitir nota débito' })).toBeVisible();
   await page.getByLabel('Buscar factura').fill('990000001');

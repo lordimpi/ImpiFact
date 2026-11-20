@@ -86,11 +86,16 @@ const BADGE_MAX = 99;
       justify-content: center;
       min-inline-size: 2.5rem;
       min-block-size: 2.5rem;
-      color: var(--if-color-text);
+      color: var(--if-color-text-muted);
       background: transparent;
-      border: 1px solid var(--if-color-border);
-      border-radius: var(--if-radius-sm);
+      border: 0;
+      border-radius: 50%;
       cursor: pointer;
+    }
+    .bell__toggle:hover,
+    .bell__toggle[aria-expanded='true'] {
+      color: var(--if-color-text);
+      background: var(--if-sidebar-hover-bg);
     }
     .bell__icon {
       inline-size: 1.25rem;
@@ -99,8 +104,8 @@ const BADGE_MAX = 99;
     }
     .bell__badge {
       position: absolute;
-      inset-block-start: -0.4rem;
-      inset-inline-end: -0.4rem;
+      inset-block-start: -0.15rem;
+      inset-inline-end: -0.25rem;
       min-inline-size: 1.25rem;
       padding-inline: 0.25rem;
       font-size: var(--if-font-size-sm);

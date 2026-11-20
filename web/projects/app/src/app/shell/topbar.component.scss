@@ -1,0 +1,73 @@
+:host {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--if-space-3);
+  min-block-size: var(--if-topbar-height);
+  padding-inline: var(--if-space-4);
+  background: var(--if-topbar-bg);
+  border-block-end: 1px solid var(--if-color-border);
+}
+
+svg {
+  flex: none;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.topbar__menu {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  color: var(--if-color-text);
+  background: transparent;
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-sm);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--if-sidebar-hover-bg);
+  }
+
+  @media (min-width: 64rem) {
+    display: none;
+  }
+}
+
+.topbar__company {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--if-space-1);
+  min-inline-size: 0;
+  min-block-size: 2.5rem;
+  padding-inline: var(--if-space-2);
+  font-weight: var(--if-font-weight-bold);
+  color: var(--if-color-text);
+  text-decoration: none;
+  border-radius: var(--if-radius-sm);
+}
+
+a.topbar__company:hover {
+  background: var(--if-sidebar-hover-bg);
+}
+
+.topbar__company-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--if-space-2);
+  margin-inline-start: auto;
+}
