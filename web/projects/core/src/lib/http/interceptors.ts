@@ -1,6 +1,6 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { Injector, inject } from '@angular/core';
-import { ApiConfiguration } from '@impifact/api';
+import { ApiConfiguration } from '../api-shell';
 import { TranslocoService } from '@jsverse/transloco';
 import { Observable, catchError, from, switchMap, throwError } from 'rxjs';
 import { AppError, NETWORK_ERROR_CODE, toAppError } from '../errors/app-error';

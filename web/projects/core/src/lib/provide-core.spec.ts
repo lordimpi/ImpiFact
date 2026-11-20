@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { APP_BOOTSTRAP_LISTENER, ApplicationInitStatus, ComponentRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { ApiConfiguration } from '@impifact/api';
+import { ApiConfiguration } from './api-shell';
 import { Translation, TranslocoLoader, provideTransloco } from '@jsverse/transloco';
 import { of } from 'rxjs';
 import { CORRELATION_HEADER } from './http/api-request';

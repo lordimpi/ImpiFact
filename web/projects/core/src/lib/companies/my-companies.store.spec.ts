@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { MyCompany } from '@impifact/api';
+import { MyCompany } from '../api-shell';
 import { SKIP_ERROR_TOAST } from '../http/api-request';
 import { SessionStore } from '../session/session.store';
 import { MyCompaniesStore } from './my-companies.store';

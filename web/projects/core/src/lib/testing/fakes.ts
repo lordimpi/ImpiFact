@@ -1,5 +1,5 @@
 import { Provider } from '@angular/core';
-import { PanelSessionTokens } from '@impifact/api';
+import { PanelSessionTokens } from '../api-shell';
 import { SessionMessage, SessionSync } from '../session/session-sync';
 
 /*

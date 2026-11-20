@@ -1,5 +1,5 @@
 import { Injectable, OnDestroy } from '@angular/core';
-import { PanelSessionTokens } from '@impifact/api';
+import { PanelSessionTokens } from '../api-shell';
 
 /** Motivo de un cierre de sesión que no pidió la persona; el login lo explica (`/login?reason=…`). */
 export type LogoutReason = 'inactivity';

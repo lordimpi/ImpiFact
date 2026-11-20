@@ -2,7 +2,7 @@ import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
-import { ApiConfiguration } from '@impifact/api';
+import { ApiConfiguration } from '../api-shell';
 import { Translation, TranslocoLoader, provideTransloco } from '@jsverse/transloco';
 import { firstValueFrom, of } from 'rxjs';
 import { AppError } from '../errors/app-error';
