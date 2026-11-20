@@ -19,6 +19,18 @@ public sealed class HousekeepingTests
     /// <summary>Cómo escribe EF Core el tope de filas de un DELETE por tandas: LIMIT en PostgreSQL y MySQL, TOP en SQL Server.</summary>
     private static readonly string BatchLimit = TestDatabase.IsSqlServer ? "TOP(" : "LIMIT";
 
+    /// <summary>
+    /// Las sentencias DELETE que ejecutó el Worker, con los espacios y saltos de línea reducidos a uno: el proveedor de MySQL
+    /// escribe <c>DELETE</c> y <c>FROM</c> en líneas distintas.
+    /// </summary>
+    private static List<string> Deletes(SchedulingHost host) =>
+    [
+        .. host.Worker.Logs.Entries
+            .Where(entry => entry.Contains("Executed DbCommand", StringComparison.Ordinal))
+            .Select(entry => System.Text.RegularExpressions.Regex.Replace(entry, @"\s+", " "))
+            .Where(entry => entry.Contains("DELETE FROM", StringComparison.Ordinal)),
+    ];
+
     [Test]
     public async Task Done_outbox_messages_older_than_30_days_are_deleted_and_the_rest_kept()
     {
@@ -113,11 +125,7 @@ public sealed class HousekeepingTests
 
         await host.RunJobAsync("Housekeeping");
 
-        var deletes = host.Worker.Logs.Entries
-            .Where(entry => entry.Contains("Executed DbCommand", StringComparison.Ordinal)
-                && entry.Contains("DELETE FROM", StringComparison.Ordinal)
-                && entry.Contains("password_reset_tokens", StringComparison.Ordinal))
-            .ToList();
+        var deletes = Deletes(host).Where(entry => entry.Contains("password_reset_tokens", StringComparison.Ordinal)).ToList();
         await using var scope = host.Worker.OpenScope();
         Assert.Multiple(async () =>
         {
@@ -150,9 +158,7 @@ public sealed class HousekeepingTests
         await host.RunJobAsync("Housekeeping");
 
         // Cada tanda es su propia sentencia DELETE con su límite de filas.
-        var deletes = host.Worker.Logs.Entries
-            .Where(entry => entry.Contains("Executed DbCommand", StringComparison.Ordinal) && entry.Contains("DELETE FROM", StringComparison.Ordinal))
-            .ToList();
+        var deletes = Deletes(host);
         await using var scope = host.Worker.OpenScope();
         Assert.Multiple(async () =>
         {

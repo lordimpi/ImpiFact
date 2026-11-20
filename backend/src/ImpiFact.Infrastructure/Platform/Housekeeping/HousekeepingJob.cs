@@ -60,13 +60,28 @@ internal sealed class HousekeepingJob(
                 .Take(batch)
                 .ExecuteDeleteAsync(ct),
             batch);
+        // MySQL no acepta un DELETE cuya subconsulta lee la misma tabla (error 1093): la tanda se elige primero y se borra
+        // por id. Un token vencido nunca gana un antecesor vivo, así que la elección no se vuelve vieja entre las dos
+        // sentencias. El DELETE conserva el orden del más antiguo al más nuevo porque MySQL revisa la llave foránea fila
+        // por fila (PostgreSQL y SQL Server, al final de la sentencia): el que apunta tiene que caer antes que el apuntado.
         var tokens = await DeleteInBatchesAsync(
-            () => db.Set<RefreshToken>()
-                .Where(token => token.ExpiresAt < now
-                    && !db.Set<RefreshToken>().Any(newer => newer.ReplacedBy == token.Id && newer.ExpiresAt >= now))
-                .OrderBy(token => token.ExpiresAt)
-                .Take(batch)
-                .ExecuteDeleteAsync(ct),
+            async () =>
+            {
+                var ids = await db.Set<RefreshToken>()
+                    .Where(token => token.ExpiresAt < now
+                        && !db.Set<RefreshToken>().Any(newer => newer.ReplacedBy == token.Id && newer.ExpiresAt >= now))
+                    .OrderBy(token => token.ExpiresAt)
+                    .Take(batch)
+                    .Select(token => token.Id)
+                    .ToListAsync(ct);
+                return ids.Count == 0
+                    ? 0
+                    : await db.Set<RefreshToken>()
+                        .Where(token => ids.Contains(token.Id))
+                        .OrderBy(token => token.ExpiresAt)
+                        .Take(batch)
+                        .ExecuteDeleteAsync(ct);
+            },
             batch);
         var resetTokens = await DeleteInBatchesAsync(
             () => db.Set<PasswordResetToken>()
