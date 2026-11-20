@@ -2,9 +2,38 @@
 # esta plantilla con las variables IMPIFACT_* (las prepara 15-impifact-config.envsh) y la deja en
 # /etc/nginx/conf.d/default.conf.
 
-# Registro de accesos sin la consulta ni el Referer: el enlace para restablecer la contraseña lleva el token en la
-# consulta (/restablecer?token=...) y no debe quedar escrito en ningún registro.
-log_format impifact '$remote_addr [$time_local] "$request_method $uri $server_protocol" $status $body_bytes_sent $request_time';
+# Registro de accesos con la ruta que pidió el navegador (no la de index.html después de la redirección interna), sin
+# la consulta ni el Referer: el enlace para restablecer la contraseña lleva el token en la consulta
+# (/restablecer?token=...) y no debe quedar escrito en ningún registro.
+map $request_uri $impifact_log_path {
+    "~^(?<impifact_path>[^?]*)" $impifact_path;
+    default "-";
+}
+log_format impifact '$remote_addr [$time_local] "$request_method $impifact_log_path $server_protocol" $status $body_bytes_sent $request_time';
+
+# index.html con el nonce de la CSP. Lo arma este servidor interno, que solo escucha en el loopback del contenedor: el
+# servidor público le pasa el nonce de su respuesta ($request_id) en X-Impifact-Csp-Nonce y sub_filter cambia por él el
+# marcador IMPIFACT_CSP_NONCE (ngCspNonce de <app-root> y los nonce que Angular puso en los scripts y estilos en línea).
+# Pasar por un proxy es lo que permite responder siempre 200: nginx contesta 304 a «If-None-Match: *» en cualquier
+# archivo propio aunque no tenga ETag, y la respuesta de un proxy sin caché nunca se convierte en 304.
+server {
+    listen 127.0.0.1:8081;
+    server_name _;
+    root /usr/share/nginx/html;
+    server_tokens off;
+    access_log off;
+
+    location = /index.html {
+        etag off;
+        if_modified_since off;
+        sub_filter_once off;
+        sub_filter 'IMPIFACT_CSP_NONCE' '$http_x_impifact_csp_nonce';
+    }
+
+    location / {
+        return 404;
+    }
+}
 
 server {
     listen 8080;
@@ -36,17 +65,25 @@ server {
         return 200 'Healthy';
     }
 
-    # index.html lleva el nonce de la CSP de esta respuesta: el marcador IMPIFACT_CSP_NONCE (ngCspNonce de <app-root> y
-    # los nonce que Angular puso en los scripts y estilos en línea) se cambia por $request_id, el mismo valor del
-    # encabezado. Un nonce no se reutiliza nunca: index.html no se guarda en ninguna caché (no-store) ni se revalida
-    # (sin ETag ni Last-Modified), porque un 304 juntaría el cuerpo viejo con el nonce nuevo del encabezado.
+    # index.html (también por las rutas del panel, que llegan aquí por la redirección interna de «location /») lleva el
+    # nonce de la CSP de esta respuesta, $request_id, el mismo valor del encabezado; lo pone el servidor interno de
+    # arriba. Un nonce no se reutiliza nunca: index.html no se guarda en ninguna caché (no-store) ni se revalida (sin
+    # ETag, Last-Modified ni encabezados condicionales hacia el servidor interno), porque un 304 juntaría el cuerpo viejo
+    # con el nonce nuevo del encabezado.
     location = /index.html {
         include /etc/nginx/conf.d/security-headers.inc;
         add_header Cache-Control "no-store" always;
-        etag off;
-        if_modified_since off;
-        sub_filter_once off;
-        sub_filter 'IMPIFACT_CSP_NONCE' '$request_id';
+        proxy_pass http://127.0.0.1:8081/index.html;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Impifact-Csp-Nonce $request_id;
+        proxy_set_header If-None-Match "";
+        proxy_set_header If-Match "";
+        proxy_set_header If-Modified-Since "";
+        proxy_set_header If-Unmodified-Since "";
+        proxy_set_header Range "";
+        proxy_hide_header ETag;
+        proxy_hide_header Last-Modified;
     }
 
     # Archivos con el hash del contenido en el nombre (main-4EHFUUSO.js, chunk-D-0VbNMD.js, styles-RRKL3FZL.css y

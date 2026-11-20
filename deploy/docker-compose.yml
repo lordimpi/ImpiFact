@@ -290,6 +290,10 @@ services:
       context: ../web
       dockerfile: ../Dockerfile.web
     profiles: ["app"]
+    # El panel arranca cuando la API responde: lo primero que hace al abrirse es renovar la sesión contra ella.
+    depends_on:
+      api:
+        condition: service_healthy
     environment:
       # URL de la API que usa el navegador (config.json y connect-src de la política de seguridad de contenido).
       IMPIFACT_API_BASE_URL: http://127.0.0.1:${API_PORT:-5180}
