@@ -282,6 +282,42 @@ services:
       - "127.0.0.1:${LOWKEY_VAULT_PORT:-8443}:8443"
       - "127.0.0.1:${LOWKEY_VAULT_METADATA_PORT:-8080}:8080"
 
+  # Moto: emulador de código abierto de AWS (modo servidor), para Secrets:Provider = AwsSecrets (Secrets Manager y KMS).
+  # Perfil «aws»:
+  #   docker compose -f deploy/docker-compose.yml --profile aws up -d
+  # Acepta cualquier credencial: la aplicación usa la cadena estándar de AWS con dos valores cualesquiera, por ejemplo
+  #   AWS_ACCESS_KEY_ID=moto  AWS_SECRET_ACCESS_KEY=moto
+  #   Secrets__Provider=AwsSecrets
+  #   Secrets__AwsSecrets__ServiceUrl=http://127.0.0.1:5000
+  #   Secrets__AwsSecrets__KmsKeyId=alias/impifact-data-protection
+  # Se usa Moto y no LocalStack porque LocalStack pide una cuenta y un token desde marzo de 2026.
+  moto:
+    image: motoserver/moto:5.2.5
+    profiles: ["aws"]
+    ports:
+      - "127.0.0.1:${MOTO_PORT:-5000}:5000"
+
+  # Crea la llave de KMS y su alias (alias/impifact-data-protection) una vez que Moto responde, como lo haría el
+  # despliegue. Moto no revisa la firma de las solicitudes, así que basta una cabecera con la región.
+  moto-kms-key:
+    image: curlimages/curl:8.23.0
+    profiles: ["aws"]
+    depends_on:
+      - moto
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        kms() { curl -fsS -X POST http://moto:5000/ -H "Content-Type: application/x-amz-json-1.1"
+        -H "X-Amz-Target: TrentService.$$1"
+        -H "Authorization: AWS4-HMAC-SHA256 Credential=moto/20260101/us-east-1/kms/aws4_request, SignedHeaders=host, Signature=moto"
+        -d "$$2"; };
+        for attempt in 1 2 3 4 5 6 7 8 9 10; do
+        key=$$(kms CreateKey '{"Description":"ImpiFact Data Protection"}' | sed -E 's/.*"KeyId": *"([^"]+)".*/\1/') &&
+        kms CreateAlias "{\"AliasName\":\"alias/impifact-data-protection\",\"TargetKeyId\":\"$$key\"}" && exit 0;
+        sleep 2; done; exit 1
+    restart: "no"
+
 volumes:
   postgres-data:
   mysql-data:

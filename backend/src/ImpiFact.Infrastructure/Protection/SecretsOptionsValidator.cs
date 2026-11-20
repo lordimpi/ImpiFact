@@ -26,10 +26,42 @@ internal sealed partial class SecretsOptionsValidator : IValidateOptions<Secrets
                 return ValidateLocal(options.LocalAesGcm);
             case SecretsOptions.KeyVaultProvider:
                 return ValidateKeyVault(options.KeyVault);
+            case SecretsOptions.AwsSecretsProvider:
+                return ValidateAws(options.AwsSecrets);
             default:
                 return ValidateOptionsResult.Fail(
-                    $"Secrets provider '{options.Provider}' is not available yet; use '{SecretsOptions.LocalAesGcmProvider}' or '{SecretsOptions.KeyVaultProvider}'.");
+                    $"Secrets provider '{options.Provider}' is not available yet; use '{SecretsOptions.LocalAesGcmProvider}', '{SecretsOptions.KeyVaultProvider}' or '{SecretsOptions.AwsSecretsProvider}'.");
         }
+    }
+
+    private static ValidateOptionsResult ValidateAws(AwsSecretsOptions aws)
+    {
+        var failures = new List<string>();
+        var hasServiceUrl = !string.IsNullOrWhiteSpace(aws.ServiceUrl);
+        if (hasServiceUrl && !ServiceEndpoint.IsValidUrl(aws.ServiceUrl))
+        {
+            failures.Add(
+                $"Secrets:AwsSecrets:ServiceUrl {ServiceEndpoint.Describe(aws.ServiceUrl)} must be an absolute http or https URL without user information, query or fragment.");
+        }
+
+        if (string.IsNullOrWhiteSpace(aws.Region))
+        {
+            if (!hasServiceUrl)
+            {
+                failures.Add("Secrets:AwsSecrets:Region is required when Secrets:AwsSecrets:ServiceUrl is not set.");
+            }
+        }
+        else if (!ServiceEndpoint.IsAwsRegion(aws.Region))
+        {
+            failures.Add($"Secrets:AwsSecrets:Region '{aws.Region}' is not a valid AWS region, for example 'us-east-1'.");
+        }
+
+        if (string.IsNullOrWhiteSpace(aws.KmsKeyId))
+        {
+            failures.Add("Secrets:AwsSecrets:KmsKeyId is required when Secrets:Provider is AwsSecrets: the KMS key that encrypts the certificates and wraps the Data Protection keys.");
+        }
+
+        return failures.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(failures);
     }
 
     private static ValidateOptionsResult ValidateKeyVault(KeyVaultSecretsOptions keyVault)

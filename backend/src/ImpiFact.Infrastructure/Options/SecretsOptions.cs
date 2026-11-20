@@ -20,8 +20,10 @@ public sealed class SecretsOptions
 
     public const string KeyVaultProvider = "KeyVault";
 
+    public const string AwsSecretsProvider = "AwsSecrets";
+
     [Required]
-    [AllowedValues(LocalAesGcmProvider, KeyVaultProvider, "AwsSecrets", "GcpSecrets")]
+    [AllowedValues(LocalAesGcmProvider, KeyVaultProvider, AwsSecretsProvider, "GcpSecrets")]
     public string Provider { get; set; } = "";
 
     /// <summary>Ajustes del proveedor <c>LocalAesGcm</c>; solo se exigen cuando ese es el proveedor.</summary>
@@ -29,6 +31,9 @@ public sealed class SecretsOptions
 
     /// <summary>Ajustes del proveedor <c>KeyVault</c>; solo se exigen cuando ese es el proveedor.</summary>
     public KeyVaultSecretsOptions KeyVault { get; set; } = new();
+
+    /// <summary>Ajustes del proveedor <c>AwsSecrets</c>; solo se exigen cuando ese es el proveedor.</summary>
+    public AwsSecretsOptions AwsSecrets { get; set; } = new();
 }
 
 /// <summary>
@@ -70,4 +75,36 @@ public sealed class KeyVaultSecretsOptions
     /// anotada al desenvolver, así rotarla no deja ilegible nada.
     /// </summary>
     public string KeyName { get; set; } = "";
+}
+
+/// <summary>
+/// Proveedor <c>AwsSecrets</c> (AWS Secrets Manager con una llave de AWS KMS; Moto en desarrollo, perfil <c>aws</c> de
+/// <c>deploy/docker-compose.yml</c>): cada certificado es un secreto cifrado con la llave de KMS y las llaves de Data
+/// Protection se envuelven con la misma llave.
+/// </summary>
+/// <remarks>
+/// Aquí no hay llaves de acceso: los clientes usan la cadena estándar de credenciales de AWS (el rol de la tarea de ECS o
+/// de la cuenta de servicio de EKS en la nube; variables <c>AWS_ACCESS_KEY_ID</c> y <c>AWS_SECRET_ACCESS_KEY</c> o un
+/// perfil de <c>~/.aws</c> en un equipo de desarrollo).
+/// </remarks>
+public sealed class AwsSecretsOptions
+{
+    /// <summary>
+    /// Región de AWS, por ejemplo <c>us-east-1</c>. Se exige salvo que haya <see cref="ServiceUrl"/>; en ese caso, si
+    /// falta, se firma con <c>us-east-1</c>.
+    /// </summary>
+    public string Region { get; set; } = "";
+
+    /// <summary>
+    /// Solo para un emulador: URL de un servicio compatible con Secrets Manager y KMS (por ejemplo
+    /// <c>http://127.0.0.1:5000</c> para Moto). Vacía para usar AWS. Absoluta, <c>http</c> o <c>https</c>, sin usuario,
+    /// contraseña, consulta ni fragmento.
+    /// </summary>
+    public string ServiceUrl { get; set; } = "";
+
+    /// <summary>
+    /// La llave simétrica de KMS (su id, su ARN o un alias como <c>alias/impifact-data-protection</c>) que cifra los
+    /// secretos de los certificados y envuelve las llaves de Data Protection; la crea el despliegue.
+    /// </summary>
+    public string KmsKeyId { get; set; } = "";
 }
