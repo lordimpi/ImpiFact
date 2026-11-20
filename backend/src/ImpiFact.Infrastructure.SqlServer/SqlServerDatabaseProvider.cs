@@ -6,6 +6,7 @@ using ImpiFact.Infrastructure.Persistence;
 using ImpiFact.Infrastructure.Platform.Outbox;
 using ImpiFact.Infrastructure.Platform.Scheduling;
 using System.Data.Common;
+using System.Net.Sockets;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -65,7 +66,12 @@ public sealed class SqlServerDatabaseProvider : IDatabaseProvider
     /// SqlClient no marca <c>IsTransient</c>: se decide por el número de error (ver <see cref="TransientNumbers"/>). Una
     /// contraseña equivocada (<c>18456</c>) o una restricción violada no son pasajeras.
     /// </summary>
-    public bool IsTransient(DbException exception) => exception is SqlException sql && TransientNumbers.Contains(sql.Number);
+    /// <remarks>
+    /// On Linux the managed network layer reports a refused or failed connection as number 0 wrapping a
+    /// <see cref="SocketException"/> (Windows reports 258 or 10061), so a socket failure counts as transient by itself.
+    /// </remarks>
+    public bool IsTransient(DbException exception) =>
+        exception is SqlException sql && (TransientNumbers.Contains(sql.Number) || sql.InnerException is SocketException);
 
     /// <summary>
     /// SqlClient no tiene una fuente de trazas propia (como la de Npgsql): la instrumentación de OpenTelemetry (paquete
