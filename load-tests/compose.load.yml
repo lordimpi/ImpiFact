@@ -1,0 +1,103 @@
+# Load-test stack: an override of deploy/docker-compose.yml (profile «app») for the k6 scenarios of load-tests/.
+# Use it always together with the base file, its own project name and an env file outside the repository:
+#   docker compose -p impifact-t10 --env-file <scratch>/load.env \
+#     -f deploy/docker-compose.yml -f load-tests/compose.load.yml --profile app --profile load ...
+# load-tests/run.sh wraps these commands; docs/Pruebas de carga.md explains each step.
+#
+# Safety rules of this file:
+# - The real DIAN is never reached. The API and the Worker point Dian:HabilitacionUrl and Dian:ProduccionUrl to the
+#   fake DIAN of this file (fake-dian); the real DIAN host names resolve to 127.0.0.1 inside both containers; and the
+#   whole project network is «internal»: no container of this project can open a connection outside it.
+# - Nothing collides with another ImpiFact stack on the same machine: its own project name, no published ports (k6
+#   runs inside the same network and calls http://api:8080) and its own image names (impifact-t10-*), so the images
+#   of the main stack (impifact-*:local) are never overwritten.
+# Relative paths are resolved from deploy/, the folder of the first compose file.
+name: impifact-t10
+
+x-load-test-dian: &load-test-dian
+  Dian__HabilitacionUrl: http://fake-dian:8080/WcfDianCustomerServices.svc
+  Dian__ProduccionUrl: http://fake-dian:8080/WcfDianCustomerServices.svc
+  # Only printed inside the QR code of each document; nothing calls these addresses.
+  Dian__HabilitacionQrUrl: http://fake-dian:8080/document/searchqr?documentkey=
+  Dian__ProduccionQrUrl: http://fake-dian:8080/document/searchqr?documentkey=
+
+# Defensive second barrier: if some configuration still named the real DIAN, its host names point to the container
+# itself, where nothing listens.
+x-no-real-dian: &no-real-dian
+  - "vpfe-hab.dian.gov.co:127.0.0.1"
+  - "vpfe.dian.gov.co:127.0.0.1"
+  - "catalogo-vpfe-hab.dian.gov.co:127.0.0.1"
+  - "catalogo-vpfe.dian.gov.co:127.0.0.1"
+
+networks:
+  default:
+    internal: true
+
+services:
+  postgres:
+    ports: !reset []
+
+  gotenberg:
+    ports: !reset []
+
+  mailhog:
+    ports: !reset []
+
+  fake-dian:
+    image: python:3.13.13-alpine3.23
+    profiles: ["app"]
+    user: "65534:65534"
+    command: ["python", "-u", "/fake-dian/fake_dian.py"]
+    environment:
+      # Artificial latency of each DIAN answer, in milliseconds (the real service takes about a second).
+      FAKE_DIAN_LATENCY_MS: ${FAKE_DIAN_LATENCY_MS:-0}
+    volumes:
+      - ../load-tests/fake-dian:/fake-dian:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrator:
+    image: impifact-t10-migrator:local
+
+  api:
+    image: impifact-t10-api:local
+    ports: !reset []
+    extra_hosts: *no-real-dian
+    environment:
+      <<: *load-test-dian
+      # The default limits (120 requests per minute per API key) would turn the test into a test of the rate limiter;
+      # 100 000 is the highest value the options accept.
+      RateLimit__PermitPerMinutePerKey: "100000"
+      RateLimit__PermitPerMinutePerIp: "100000"
+
+  worker:
+    image: impifact-t10-worker:local
+    ports: !reset []
+    extra_hosts: *no-real-dian
+    depends_on:
+      fake-dian:
+        condition: service_healthy
+    environment:
+      <<: *load-test-dian
+
+  web:
+    image: impifact-t10-web:local
+    ports: !reset []
+
+  # k6 (Grafana) runs the scenarios from inside the project network. Profile «load»:
+  #   docker compose ... --profile load run --rm -e IMPIFACT_API_KEY k6 run scenarios/issue-invoices.js
+  # The API key travels only as an environment variable of the run. Summaries go to K6_RESULTS_DIR.
+  k6:
+    image: grafana/k6:2.3.0
+    profiles: ["load"]
+    working_dir: /load-tests
+    environment:
+      BASE_URL: http://api:8080
+      RESULTS_DIR: /results
+    volumes:
+      - ../load-tests:/load-tests:ro
+      # Outside the repository, so results never end up in a commit (load-tests/run.sh secrets sets it).
+      - ${K6_RESULTS_DIR:?Set K6_RESULTS_DIR in the env file to a folder outside the repository}:/results

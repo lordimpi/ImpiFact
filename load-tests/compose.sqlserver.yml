@@ -1,0 +1,50 @@
+# Second override for the load-test stack: the Migrator, the API and the Worker on SQL Server instead of PostgreSQL.
+# Goes after compose.load.yml, with the «sqlserver» profile (load-tests/run.sh does both with DB=sqlserver):
+#   docker compose -p impifact-t10 --env-file <scratch>/load.env -f deploy/docker-compose.yml \
+#     -f load-tests/compose.load.yml -f load-tests/compose.sqlserver.yml --profile app --profile load --profile sqlserver ...
+# PostgreSQL does not start: depends_on is replaced, so only one database engine runs at a time.
+# MSSQL_SA_PASSWORD comes from the env file (load-tests/run.sh secrets creates a throwaway one).
+
+x-sqlserver-database: &sqlserver-database
+  Database__Provider: SqlServer
+  Database__ConnectionString: Server=sqlserver,1433;Database=impifact;User Id=sa;Password=${MSSQL_SA_PASSWORD:-};TrustServerCertificate=True
+
+services:
+  sqlserver:
+    ports: !reset []
+    environment:
+      # Caps the buffer pool so the engine fits next to the rest of the stack on a laptop.
+      MSSQL_MEMORY_LIMIT_MB: "1536"
+
+  migrator:
+    environment:
+      <<: *sqlserver-database
+    depends_on: !override
+      sqlserver:
+        condition: service_healthy
+
+  api:
+    environment:
+      <<: *sqlserver-database
+    depends_on: !override
+      sqlserver:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+      gotenberg:
+        condition: service_started
+
+  worker:
+    environment:
+      <<: *sqlserver-database
+    depends_on: !override
+      sqlserver:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+      gotenberg:
+        condition: service_started
+      mailhog:
+        condition: service_started
+      fake-dian:
+        condition: service_healthy
