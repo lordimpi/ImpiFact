@@ -10,8 +10,7 @@
 #   IMPIFACT_INACTIVITY_LOGOUT_MINUTES  minutos sin actividad para cerrar la sesión (30 si falta).
 #
 # Exporta además IMPIFACT_API_ORIGIN (esquema, host y puerto del Api), que la política de seguridad de contenido
-# (connect-src) necesita para dejar que el panel llame al Api, e IMPIFACT_CSP_SCRIPT_HASHES, los hashes de los scripts
-# en línea de index.html que calculó el build de la imagen (script-src).
+# (connect-src) necesita para dejar que el panel llame al Api.
 
 impifact_config_fail() {
     echo "15-impifact-config.envsh: $1" >&2
@@ -47,15 +46,8 @@ if [ "$impifact_warn" -ge "$impifact_logout" ]; then
     impifact_config_fail "IMPIFACT_INACTIVITY_WARN_MINUTES must be lower than IMPIFACT_INACTIVITY_LOGOUT_MINUTES."
 fi
 
-impifact_hashes_file=/etc/nginx/impifact/csp-script-hashes
-impifact_hashes=$(cat "$impifact_hashes_file" 2>/dev/null) || impifact_config_fail "$impifact_hashes_file is missing: rebuild the image."
-if ! printf '%s' "$impifact_hashes" | grep -Eq "^('sha256-[A-Za-z0-9+/]+=*')?( 'sha256-[A-Za-z0-9+/]+=*')*\$"; then
-    impifact_config_fail "$impifact_hashes_file does not hold CSP script hashes: rebuild the image."
-fi
-
 export IMPIFACT_API_BASE_URL="$impifact_url"
 export IMPIFACT_API_ORIGIN="$impifact_origin"
 export IMPIFACT_INACTIVITY_WARN_MINUTES="$impifact_warn"
 export IMPIFACT_INACTIVITY_LOGOUT_MINUTES="$impifact_logout"
-export IMPIFACT_CSP_SCRIPT_HASHES="$impifact_hashes"
 echo "15-impifact-config.envsh: panel API base URL: ${impifact_url:-(same origin)}"

@@ -1,4 +1,4 @@
-import { ApplicationInitStatus } from '@angular/core';
+import { ApplicationInitStatus, CSP_NONCE } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Optimus } from '@openng/optimus-ui/config';
 import { render } from '@testing-library/angular';
@@ -48,5 +48,38 @@ describe('provideUiTheme', () => {
     expect(TestBed.inject(Optimus).theme()).toMatchObject({
       options: { darkModeSelector: 'none', cssLayer: false },
     });
+  });
+
+  // El servidor del panel pone un nonce por respuesta en ngCspNonce (CSP_NONCE de Angular) y la CSP no permite
+  // estilos en línea sin él: Optimus UI tiene que marcar sus etiquetas <style> con ese mismo nonce.
+  it('hands the page CSP nonce to Optimus UI for the style tags it injects', async () => {
+    TestBed.configureTestingModule({
+      providers: [provideUiTheme(), { provide: CSP_NONCE, useValue: 'r4nd0m-n0nce' }],
+    });
+
+    await TestBed.inject(ApplicationInitStatus).donePromise;
+
+    expect(TestBed.inject(Optimus).csp()).toEqual({ nonce: 'r4nd0m-n0nce' });
+  });
+
+  it('prefers an explicit nonce over the page nonce', async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideUiTheme({ nonce: 'explicit' }),
+        { provide: CSP_NONCE, useValue: 'from-page' },
+      ],
+    });
+
+    await TestBed.inject(ApplicationInitStatus).donePromise;
+
+    expect(TestBed.inject(Optimus).csp()).toEqual({ nonce: 'explicit' });
+  });
+
+  it('leaves Optimus UI without a nonce when the page has none', async () => {
+    TestBed.configureTestingModule({ providers: [provideUiTheme()] });
+
+    await TestBed.inject(ApplicationInitStatus).donePromise;
+
+    expect(TestBed.inject(Optimus).csp()?.nonce).toBeUndefined();
   });
 });

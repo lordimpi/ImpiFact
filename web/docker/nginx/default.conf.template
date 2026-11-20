@@ -36,10 +36,17 @@ server {
         return 200 'Healthy';
     }
 
-    # index.html nombra los archivos de la versión vigente: el navegador lo revalida siempre.
+    # index.html lleva el nonce de la CSP de esta respuesta: el marcador IMPIFACT_CSP_NONCE (ngCspNonce de <app-root> y
+    # los nonce que Angular puso en los scripts y estilos en línea) se cambia por $request_id, el mismo valor del
+    # encabezado. Un nonce no se reutiliza nunca: index.html no se guarda en ninguna caché (no-store) ni se revalida
+    # (sin ETag ni Last-Modified), porque un 304 juntaría el cuerpo viejo con el nonce nuevo del encabezado.
     location = /index.html {
         include /etc/nginx/conf.d/security-headers.inc;
-        add_header Cache-Control "no-cache" always;
+        add_header Cache-Control "no-store" always;
+        etag off;
+        if_modified_since off;
+        sub_filter_once off;
+        sub_filter 'IMPIFACT_CSP_NONCE' '$request_id';
     }
 
     # Archivos con el hash del contenido en el nombre (main-4EHFUUSO.js, chunk-D-0VbNMD.js, styles-RRKL3FZL.css y

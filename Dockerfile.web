@@ -11,10 +11,11 @@ COPY package.json package-lock.json ./
 RUN --mount=type=cache,id=impifact-npm,target=/root/.npm \
     npm ci --no-audit --no-fund
 COPY . .
-# Además del build: los hashes de los scripts en línea de index.html para script-src, y sin el config.json del
-# repositorio (el de desarrollo), porque nginx lo responde con las variables del contenedor.
+# Además del build: la revisión de que cada script y estilo en línea de index.html lleve el marcador del nonce de la
+# CSP (nginx lo cambia por uno nuevo en cada respuesta), y sin el config.json del repositorio (el de desarrollo),
+# porque nginx lo responde con las variables del contenedor.
 RUN npx ng build app --configuration production \
-    && node docker/csp-script-hashes.mjs dist/app/browser/index.html > dist/csp-script-hashes \
+    && node docker/check-csp-nonce.mjs dist/app/browser/index.html \
     && rm dist/app/browser/config.json
 
 FROM nginxinc/nginx-unprivileged:1.30-alpine AS final
@@ -25,7 +26,6 @@ ENV NGINX_ENVSUBST_FILTER=^IMPIFACT_ \
     IMPIFACT_INACTIVITY_LOGOUT_MINUTES=30
 COPY docker/nginx/default.conf.template docker/nginx/security-headers.inc.template /etc/nginx/templates/
 COPY --chmod=0755 docker/15-impifact-config.envsh /docker-entrypoint.d/
-COPY --from=build /src/dist/csp-script-hashes /etc/nginx/impifact/csp-script-hashes
 COPY --from=build /src/dist/app/browser /usr/share/nginx/html
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \

@@ -23,21 +23,37 @@ test.beforeEach(async ({ request }) => {
 test('sends the security headers and caches only the files with a hash in their name', async ({
   request,
 }) => {
-  // Una ruta del panel sirve index.html, que se revalida siempre.
+  // Una ruta del panel sirve index.html, que no se guarda en ninguna caché: lleva el nonce de esta respuesta.
   const route = await request.get('/documentos/nuevo');
   expect(route.status()).toBe(200);
   const html = await route.text();
-  expect(html).toContain('<app-root>');
+  expect(html).toContain('<app-root');
   expect(route.headers()).toMatchObject({
-    'cache-control': 'no-cache',
+    'cache-control': 'no-store',
     'referrer-policy': 'no-referrer',
     'x-content-type-options': 'nosniff',
     'x-frame-options': 'DENY',
   });
+  expect(route.headers()['etag']).toBeUndefined();
+  expect(route.headers()['last-modified']).toBeUndefined();
   const csp = route.headers()['content-security-policy'] ?? '';
   expect(csp).toContain("default-src 'self'");
   expect(csp).toContain("frame-ancestors 'none'");
   expect(csp).toContain("object-src 'none'");
+  expect(csp).not.toContain('unsafe-inline');
+
+  // El nonce del encabezado es el del HTML (script-src y style-src), sin el marcador del build, y cambia en cada
+  // respuesta.
+  const nonce = /script-src 'self' 'nonce-([A-Za-z0-9+/=]+)'/.exec(csp)?.[1];
+  expect(nonce).toMatch(/^[A-Za-z0-9+/=]{22,}$/);
+  expect(csp).toContain(`style-src 'self' 'nonce-${nonce}'`);
+  expect(html).not.toContain('IMPIFACT_CSP_NONCE');
+  expect(html).toMatch(new RegExp(`<app-root[^>]*ngcspnonce="${nonce}"`, 'i'));
+  for (const [tag] of html.matchAll(/<(?:script|style)\b[^>]*>/gi)) {
+    expect(tag).toContain(`nonce="${nonce}"`);
+  }
+  const again = await request.get('/');
+  expect(again.headers()['content-security-policy']).not.toContain(nonce);
 
   const main = /<script src="(main-[A-Za-z0-9_-]{8}\.js)"/.exec(html)?.[1];
   expect(main).toBeDefined();
@@ -72,7 +88,7 @@ test('runs under the CSP: styles, sign-in and the PDF preview frame', async ({ p
 
   await signInAt(page, '/');
 
-  // El script en línea de index.html (permitido por su hash) activa la hoja de estilos que Angular carga sin bloquear.
+  // El script en línea de index.html (permitido por el nonce) activa la hoja de estilos que Angular carga sin bloquear.
   await expect(page.locator('link[rel="stylesheet"][href^="styles-"]')).toHaveAttribute(
     'media',
     'all',
