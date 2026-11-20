@@ -1,6 +1,7 @@
 using System.Net;
 using Amazon;
 using Amazon.Runtime;
+using Amazon.Runtime.Endpoints;
 using Amazon.S3;
 using Amazon.S3.Model;
 using ImpiFact.Application.Abstractions.Storage;
@@ -131,19 +132,20 @@ internal sealed class S3BlobStorage : IBlobStorage, IDisposable
             throw new ArgumentOutOfRangeException(nameof(lifetime), lifetime, $"A signed URL must last more than zero and at most {limit}.");
         }
 
-        // La firma fecha la URL en segundos enteros (hacia abajo) y redondea la vigencia hacia arriba: si el vencimiento
-        // se calculara desde la hora con fracción, el enlace duraría un segundo más de lo pedido y, en el límite de
-        // 7 días, AWS lo rechazaría. Por eso se parte del segundo entero actual.
-        var now = DateTime.UtcNow;
-        var url = client.GetPreSignedURL(new GetPreSignedUrlRequest
+        var request = new GetPreSignedUrlRequest
         {
             BucketName = options.Bucket,
             Key = key,
             Verb = HttpVerb.GET,
             Protocol = signedUrlProtocol,
-            Expires = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerSecond)).Add(lifetime),
-        });
-        return new Uri(url);
+        };
+        // The SDK writes X-Amz-Expires as Expires minus its own clock-skew-corrected time for this endpoint, rounded
+        // to the nearest second. Building Expires from DateTime.UtcNow lets a corrected clock add seconds to the link
+        // (CI saw 301 for 300), and at the 7-day limit AWS would reject it. Starting from the same clock the SDK uses
+        // makes the link last exactly the requested lifetime.
+        var endpoint = client.Config.DetermineServiceOperationEndpoint(new ServiceOperationEndpointParameters(request)).URL;
+        request.Expires = CorrectClockSkew.GetCorrectedUtcNowForEndpoint(endpoint).Add(lifetime);
+        return new Uri(client.GetPreSignedURL(request));
     }
 
     public void Dispose() => client.Dispose();
