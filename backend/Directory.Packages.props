@@ -3,9 +3,10 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="AWSSDK.KeyManagementService" Version="4.0.101.5" />
+    <!-- Secrets Manager y KMS fijados a versiones que piden el mismo AWSSDK.Core que S3 (4.0.102.14): AWSSDK.Core 4.0.103 firma las URL de S3 un segundo más largas de lo pedido. -->
+    <PackageVersion Include="AWSSDK.KeyManagementService" Version="4.0.101" />
     <PackageVersion Include="AWSSDK.S3" Version="4.0.104.8" />
-    <PackageVersion Include="AWSSDK.SecretsManager" Version="4.0.100.26" />
+    <PackageVersion Include="AWSSDK.SecretsManager" Version="4.0.100.22" />
     <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <PackageVersion Include="Azure.Security.KeyVault.Keys" Version="4.10.2" />
     <PackageVersion Include="Azure.Security.KeyVault.Secrets" Version="4.12.0" />
