@@ -4,11 +4,19 @@
     "title": "Iniciar sesión",
     "description": "Ingrese con el correo y la contraseña de su cuenta de ImpiFact.",
     "email": "Correo electrónico",
+    "emailPlaceholder": "nombre@empresa.com",
     "password": "Contraseña",
     "submit": "Ingresar",
     "forgotPassword": "¿Olvidó su contraseña?",
     "inactivity": "Su sesión se cerró por inactividad. Inicie sesión de nuevo para continuar.",
     "passwordReset": "Su contraseña quedó cambiada. Inicie sesión con la contraseña nueva.",
+    "intro": {
+      "title": "Facturación electrónica ante la DIAN, sin complicaciones",
+      "text": "ImpiFact emite sus facturas y notas electrónicas, las valida con la DIAN y le entrega el PDF y el XML listos para su cliente.",
+      "invoices": "Facturas, notas crédito y notas débito",
+      "status": "Estado de cada documento ante la DIAN y avisos",
+      "companies": "Clientes, productos y varias empresas en una sola cuenta"
+    },
     "errors": {
       "emailRequired": "Escriba su correo electrónico.",
       "emailInvalid": "Escriba un correo electrónico válido, por ejemplo nombre@empresa.com.",

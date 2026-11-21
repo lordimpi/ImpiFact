@@ -1,8 +1,15 @@
 <section class="masters-page">
-  <ui-page-title [subtitle]="'masters.products.form.description' | transloco">
-    <a uiPageTitleBreadcrumb class="masters-back" routerLink="/productos"
-      ><span aria-hidden="true">← </span>{{ 'masters.common.back' | transloco }}</a
-    >
+  <ui-page-title
+    [subtitle]="'masters.products.form.description' | transloco"
+    [breadcrumb]="[
+      { label: 'masters.products.list.title' | transloco, link: '/productos' },
+      {
+        label:
+          (isEdit() ? 'masters.products.form.editTitle' : 'masters.products.form.newTitle')
+          | transloco,
+      },
+    ]"
+  >
     {{
       (isEdit() ? 'masters.products.form.editTitle' : 'masters.products.form.newTitle') | transloco
     }}
@@ -38,7 +45,13 @@
               [error]="errors().code"
               required
             >
-              <input uiInput type="text" autocomplete="off" [formField]="productForm.code" />
+              <input
+                uiInput
+                type="text"
+                autocomplete="off"
+                [placeholder]="'masters.products.form.placeholders.code' | transloco"
+                [formField]="productForm.code"
+              />
             </ui-field>
 
             <ui-field
@@ -46,7 +59,13 @@
               [error]="errors().name"
               required
             >
-              <input uiInput type="text" autocomplete="off" [formField]="productForm.name" />
+              <input
+                uiInput
+                type="text"
+                autocomplete="off"
+                [placeholder]="'masters.products.form.placeholders.name' | transloco"
+                [formField]="productForm.name"
+              />
             </ui-field>
 
             <ui-field
@@ -54,7 +73,12 @@
               [label]="'masters.products.form.descriptionField' | transloco"
               [error]="errors().description"
             >
-              <textarea uiInput rows="3" [formField]="productForm.description"></textarea>
+              <textarea
+                uiInput
+                rows="3"
+                [placeholder]="'masters.products.form.placeholders.description' | transloco"
+                [formField]="productForm.description"
+              ></textarea>
             </ui-field>
           </div>
         </ui-card>
@@ -90,17 +114,18 @@
                 type="text"
                 inputmode="decimal"
                 autocomplete="off"
+                [placeholder]="'masters.products.form.placeholders.unitPrice' | transloco"
                 [formField]="productForm.unit_price"
               />
             </ui-field>
 
             <ui-field [label]="'masters.products.form.tax' | transloco" [error]="errors().tax_id">
-              <select uiSelect [formField]="productForm.tax_id">
-                <option value="">{{ 'masters.products.form.noTax' | transloco }}</option>
-                @for (option of taxes(); track option.id) {
-                  <option [value]="'' + option.id">{{ option.name }}</option>
-                }
-              </select>
+              <ui-select
+                [options]="taxes()"
+                [placeholder]="'masters.products.form.noTax' | transloco"
+                filter
+                [formField]="productForm.tax_id"
+              />
             </ui-field>
 
             @if (showPercent()) {
@@ -114,6 +139,7 @@
                   type="text"
                   inputmode="decimal"
                   autocomplete="off"
+                  [placeholder]="'masters.products.form.placeholders.taxPercent' | transloco"
                   [formField]="productForm.tax_percent"
                 />
               </ui-field>
@@ -130,6 +156,7 @@
                   type="text"
                   inputmode="decimal"
                   autocomplete="off"
+                  [placeholder]="'masters.products.form.placeholders.taxPerUnit' | transloco"
                   [formField]="productForm.tax_per_unit_amount"
                 />
               </ui-field>

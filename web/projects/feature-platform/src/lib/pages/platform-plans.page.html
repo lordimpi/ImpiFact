@@ -100,11 +100,7 @@
           [error]="errors().period"
           required
         >
-          <select uiSelect [formField]="planForm.period">
-            @for (period of periods; track period) {
-              <option [value]="'' + period">{{ periodLabel(period) }}</option>
-            }
-          </select>
+          <ui-select [options]="periodOptions()" [formField]="planForm.period" />
         </ui-field>
       </div>
 

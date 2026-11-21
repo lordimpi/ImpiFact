@@ -23,6 +23,8 @@ export interface NextNumberLabels {
   help: string;
   field: string;
   range: string;
+  /** Example inside the empty field: a number of the range. */
+  placeholder: string;
   save: string;
   cancel: string;
   close: string;
@@ -47,6 +49,7 @@ export interface NextNumberLabels {
             uiDigitsOnly
             type="text"
             autocomplete="off"
+            [placeholder]="labels().placeholder"
             [value]="value()"
             (input)="value.set($any($event.target).value)"
           />

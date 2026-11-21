@@ -2,6 +2,7 @@ import { Locator, Page, expect, test } from '@playwright/test';
 import path from 'node:path';
 import { USER } from '../support/mock-api';
 import { COMPANY_ID, OTHER_COMPANY_ID, mockManualApi } from './manual-api';
+import { pickOption } from '../support/select';
 
 /*
  * Capturas del manual de uso (docs/manual/Manual de uso.md). Cada prueba recorre una parte del panel contra la Api
@@ -173,13 +174,17 @@ test.describe('administración de la plataforma', () => {
     await page.getByRole('textbox', { name: /^NIT/ }).pressSequentially('900345678');
     await expect(page.getByLabel('Dígito de verificación')).toHaveValue('9');
     await page.getByLabel('Razón social').fill('Tienda Naturista Vida Sana SAS');
-    await page.getByLabel('Tipo de organización').selectOption('1');
-    await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
+    await pickOption(
+      page,
+      page.getByRole('combobox', { name: 'Tipo de organización' }),
+      'Persona Jurídica y asimiladas',
+    );
+    await pickOption(page, page.getByRole('combobox', { name: 'Régimen' }), 'Responsable de IVA');
     await page.getByRole('checkbox', { name: 'R-99-PN No aplica – Otros' }).check();
-    await page.getByRole('combobox', { name: 'Departamento', exact: true }).fill('antio');
-    await page.getByRole('option', { name: 'Antioquia', exact: true }).click();
-    await page.getByRole('combobox', { name: 'Municipio', exact: true }).fill('mede');
-    await page.getByRole('option', { name: 'Medellín' }).click();
+    const department = page.getByRole('combobox', { name: 'Departamento', exact: true });
+    await pickOption(page, department, 'Antioquia', 'antio');
+    const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
+    await pickOption(page, municipality, 'Medellín', 'mede');
     await page.getByLabel('Dirección').fill('Carrera 70 # 44-12');
     await page.getByLabel('Teléfono').fill('6044123456');
     await page.getByLabel('Correo electrónico').fill('contabilidad@vidasana.example');
@@ -217,8 +222,7 @@ test.describe('administración de la plataforma', () => {
     await mainNav(page).getByRole('link', { name: 'Empresas', exact: true }).click();
     await page.getByRole('button', { name: 'Asignar plan a Ferretería El Tornillo SAS' }).click();
     const assign = page.getByRole('dialog', { name: 'Asignar plan a Ferretería El Tornillo SAS' });
-    await expect(assign.getByRole('option', { name: 'Pyme 300' })).toBeAttached();
-    await assign.getByRole('combobox', { name: 'Plan' }).selectOption('1');
+    await pickOption(page, assign.getByRole('combobox', { name: 'Plan' }), 'Pyme 300');
     await shot(page, '16-plataforma-asignar-plan');
   });
 });
@@ -237,7 +241,7 @@ test.describe('configuración de la empresa', () => {
     test.slow();
     await signIn(page, '/empresa', {}, `/empresas/${COMPANY_ID}/datos`);
     await expect(page.getByLabel('Razón social')).toHaveValue('Café La Montaña SAS');
-    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveText(
       'Medellín',
     );
     await shot(page, '20-empresa-datos');
@@ -305,7 +309,7 @@ test.describe('clientes y productos', () => {
 
     await page.getByRole('link', { name: 'Nuevo cliente' }).click();
     await expect(page).toHaveURL('/clientes/nuevo');
-    await page.getByRole('combobox', { name: 'Tipo de identificación' }).selectOption('6');
+    await pickOption(page, page.getByRole('combobox', { name: 'Tipo de identificación' }), 'NIT');
     await page.getByRole('textbox', { name: 'Número de identificación' }).fill('900345678');
     await page.getByRole('button', { name: 'Buscar en la DIAN' }).click();
     await expect(page.getByRole('status')).toContainText('La DIAN tiene registrado a');
@@ -365,9 +369,11 @@ test.describe('emisión', () => {
     await expect(page.getByRole('group', { name: 'Línea 1' }).getByLabel('Código')).toHaveValue(
       'CAF-G1K',
     );
-    await page.getByLabel('Concepto de la corrección').selectOption({
-      label: 'Devolución parcial de los bienes y/o no aceptación parcial del servicio',
-    });
+    await pickOption(
+      page,
+      page.getByRole('combobox', { name: /^Concepto de la corrección/ }),
+      'Devolución parcial de los bienes y/o no aceptación parcial del servicio',
+    );
     await expect(page.getByTestId('payable')).toContainText('4.165.000,00');
     await shot(page, '44-nota-credito');
   });
@@ -381,7 +387,11 @@ test.describe('emisión', () => {
     await line.getByLabel('Código').fill('INT-MORA');
     await line.getByLabel('Descripción').fill('Intereses de mora de noviembre');
     await line.getByLabel('Precio unitario').fill('45000');
-    await page.getByLabel('Concepto de la corrección').selectOption({ label: 'Intereses' });
+    await pickOption(
+      page,
+      page.getByRole('combobox', { name: /^Concepto de la corrección/ }),
+      'Intereses',
+    );
     await expect(page.getByTestId('payable')).toContainText('53.550,00');
     await shot(page, '45-nota-debito');
   });
@@ -396,7 +406,7 @@ test.describe('consulta de documentos', () => {
     await page.getByText('Más filtros').click();
     await expect(page.getByLabel('Enviado a la DIAN')).toBeVisible();
     await shot(page, '51-documentos-filtros');
-    await page.getByText('Más filtros').click();
+    await page.getByText('Menos filtros').click();
 
     await page.getByLabel('Más acciones de CLM1024').click();
     await expect(page.getByRole('button', { name: 'Reenviar correo', exact: true })).toBeVisible();

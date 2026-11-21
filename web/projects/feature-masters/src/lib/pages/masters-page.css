@@ -31,7 +31,6 @@
 }
 
 .masters-row-actions a,
-.masters-back,
 .masters-cancel {
   font-weight: var(--if-font-weight-medium);
   color: var(--if-color-primary);
@@ -39,13 +38,8 @@
 }
 
 .masters-row-actions a:hover,
-.masters-back:hover,
 .masters-cancel:hover {
   text-decoration: underline;
-}
-
-.masters-back {
-  font-size: var(--if-font-size-sm);
 }
 
 .masters-form {

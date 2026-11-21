@@ -2,10 +2,17 @@ import { CSP_NONCE, inject } from '@angular/core';
 import { Optimus } from '@openng/optimus-ui/config';
 import { definePreset } from '@openng/optimus-ui-themes';
 import base from '@openng/optimus-ui-themes/aura/base';
+import breadcrumb from '@openng/optimus-ui-themes/aura/breadcrumb';
 import button from '@openng/optimus-ui-themes/aura/button';
+import confirmdialog from '@openng/optimus-ui-themes/aura/confirmdialog';
+import datepicker from '@openng/optimus-ui-themes/aura/datepicker';
 import dialog from '@openng/optimus-ui-themes/aura/dialog';
+import fileupload from '@openng/optimus-ui-themes/aura/fileupload';
 import inputtext from '@openng/optimus-ui-themes/aura/inputtext';
+import paginator from '@openng/optimus-ui-themes/aura/paginator';
+import select from '@openng/optimus-ui-themes/aura/select';
 import skeleton from '@openng/optimus-ui-themes/aura/skeleton';
+import tooltip from '@openng/optimus-ui-themes/aura/tooltip';
 import type { UiThemeOptions } from './provide-ui-theme';
 
 /*
@@ -17,8 +24,8 @@ import type { UiThemeOptions } from './provide-ui-theme';
 const v = (name: string) => `var(--if-${name})`;
 
 /*
- * Escala neutra de Optimus UI («surface») apuntada a nuestros tokens. The panel is light only (tokens.css), so
- * Optimus stays on a single scheme and never applies its own dark mode.
+ * Escala neutra de Optimus UI («surface») apuntada a nuestros tokens. Optimus stays on a single scheme and never
+ * applies its own dark mode: every value is a token, and tokens.css swaps the tokens for the dark theme.
  */
 const surface = {
   0: v('color-bg'),
@@ -50,12 +57,28 @@ const primary = {
 };
 
 /**
- * Preset reducido: la base de Aura y solo los componentes de Optimus UI que envuelve ui (botón, diálogo,
- * campo de texto y esqueleto). El preset completo trae los 80 componentes y pesa unos 145 kB
+ * Preset reducido: la base de Aura y solo los componentes de Optimus UI que envuelve ui (botón, diálogo, campo de
+ * texto, esqueleto, select, selector de fechas, carga de archivos, paginador, diálogo de confirmación, tooltip y
+ * migas de pan). El preset completo trae los 80 componentes y pesa unos 145 kB
  * (docs/spikes/optimus-ui.md).
  */
 export const impifactPreset = definePreset(
-  { ...base, components: { button, dialog, inputtext, skeleton } },
+  {
+    ...base,
+    components: {
+      breadcrumb,
+      button,
+      confirmdialog,
+      datepicker,
+      dialog,
+      fileupload,
+      inputtext,
+      paginator,
+      select,
+      skeleton,
+      tooltip,
+    },
+  },
   {
     semantic: {
       primary,
@@ -141,6 +164,11 @@ export const impifactPreset = definePreset(
       },
     },
     components: {
+      // The page breadcrumb sits on the page background, flush with the title; ui-page-title styles its links.
+      breadcrumb: {
+        root: { padding: '0', background: 'transparent', gap: v('space-2') },
+        separator: { color: v('color-text-muted') },
+      },
       button: {
         root: { label: { fontWeight: v('font-weight-bold') } },
         colorScheme: {
@@ -196,7 +224,7 @@ export const impifactPreset = definePreset(
           light: {
             root: {
               background: v('color-surface-raised'),
-              animationBackground: 'rgb(255 255 255 / 60%)',
+              animationBackground: v('color-shimmer'),
             },
           },
         },
@@ -207,7 +235,7 @@ export const impifactPreset = definePreset(
 
 /**
  * Aplica el preset de ImpiFact a Optimus UI. Corre en el contexto de inyección del arranque.
- * The panel is light only: `darkModeSelector: 'none'` keeps Optimus from emitting a dark scheme.
+ * `darkModeSelector: 'none'` keeps Optimus from emitting a dark scheme: the dark theme comes from the tokens.
  *
  * Nonce de la CSP: el de `options` o, si no hay, el de la página (`CSP_NONCE` de Angular, que lee el atributo
  * `ngCspNonce` de `<app-root>`; el servidor del panel lo cambia en cada respuesta). La CSP no permite estilos en línea
@@ -217,6 +245,8 @@ export function applyUiTheme(options: UiThemeOptions): void {
   const nonce = options.nonce ?? inject(CSP_NONCE, { optional: true }) ?? undefined;
   inject(Optimus).setConfig({
     ripple: false,
+    // Lists and calendars open over the page, so a card (overflow hidden) never cuts them.
+    overlayAppendTo: 'body',
     theme: { preset: impifactPreset, options: { darkModeSelector: 'none', cssLayer: false } },
     ...(nonce ? { csp: { nonce } } : {}),
   });

@@ -4,10 +4,11 @@
       [subtitle]="
         'documents.detail.issuedOn' | transloco: { date: doc.issue_date, time: doc.issue_time }
       "
+      [breadcrumb]="[
+        { label: 'documents.list.title' | transloco, link: '/documentos' },
+        { label: doc.full_number ?? '' },
+      ]"
     >
-      <a uiPageTitleBreadcrumb class="detail-back" routerLink="/documentos">{{
-        'documents.detail.back' | transloco
-      }}</a>
       {{ 'documents.' + kindKey(doc.kind) | transloco }} {{ doc.full_number }}
       <!-- Una nota corrige una factura aceptada: los enlaces la llevan elegida. -->
       @if (accepted() && canWrite() && doc.kind === 'invoice') {

@@ -2,6 +2,7 @@ import { HttpTestingController, TestRequest } from '@angular/common/http/testing
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
+import { pickOption, stubOptimusDom } from '../testing/optimus-testing';
 import { expectRequest, problem, renderPlatformRoute } from '../testing/platform-testing';
 
 const PLANS = [
@@ -62,12 +63,14 @@ const rowsOf = () =>
         .map((cell) => cell.textContent?.trim()),
     );
 
-function choosePlan(dialog: HTMLElement, plan: string) {
-  // Signal Forms lee el evento `input` del <select>; el navegador manda también `change`.
-  const select = within(dialog).getByLabelText(/^Plan/);
-  fireEvent.change(select, { target: { value: plan } });
-  fireEvent.input(select, { target: { value: plan } });
+/** Chooses the plan in the ui-select of the dialog (its list opens over the page). */
+async function choosePlan(dialog: HTMLElement, plan: string) {
+  const select = within(dialog).getByRole('combobox', { name: /^Plan/ });
+  expect(select.textContent?.trim()).toBe('Elija un plan');
+  await pickOption(select, plan);
 }
+
+beforeAll(stubOptimusDom);
 
 describe('PlatformCompaniesPage', () => {
   it('lists the companies of the platform with their current plan', async () => {
@@ -90,6 +93,9 @@ describe('PlatformCompaniesPage', () => {
   it('searches on the server after a pause in typing', async () => {
     const { http } = await open();
 
+    expect(
+      (screen.getByRole('searchbox', { name: 'Buscar empresa' }) as HTMLInputElement).placeholder,
+    ).toBe('Buscar por razón social o NIT');
     fireEvent.input(screen.getByRole('searchbox', { name: 'Buscar empresa' }), {
       target: { value: 'bet' },
     });
@@ -137,7 +143,7 @@ describe('PlatformCompaniesPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Asignar plan a Beta Ltda' }));
     const dialog = await screen.findByRole('dialog', { name: 'Asignar plan a Beta Ltda' });
-    choosePlan(dialog, '2');
+    await choosePlan(dialog, 'Anual 5000');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Asignar plan' }));
 
     const request = await expectRequest(http, '/api/v1/companies/800111222/plan');
@@ -171,7 +177,7 @@ describe('PlatformCompaniesPage', () => {
     const { http } = await open();
     fireEvent.click(screen.getByRole('button', { name: 'Asignar plan a Acme SAS' }));
     const dialog = await screen.findByRole('dialog', { name: 'Asignar plan a Acme SAS' });
-    choosePlan(dialog, '2');
+    await choosePlan(dialog, 'Anual 5000');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Asignar plan' }));
 
     const { body, options } = problem(404, 'company.not_found', 'Not found');
@@ -213,11 +219,13 @@ describe('PlatformCompaniesPage', () => {
     it('creates a seller of the company picked from the list and forgets the password', async () => {
       const { http, dialog } = await openUserDialog();
       expect(input(dialog, /^Contraseña/).type).toBe('password');
+      expect(input(dialog, /^Correo electrónico/).placeholder).toBe('nombre@empresa.com');
+      expect(input(dialog, /^Nombre/).placeholder).toBe('Ana Gómez');
+      expect(input(dialog, /^Teléfono/).placeholder).toBe('3001234567');
       fill(dialog);
-      const role = within(dialog).getByLabelText(/^Rol/) as HTMLSelectElement;
-      expect(role.value).toBe('owner');
-      fireEvent.change(role, { target: { value: 'seller' } });
-      fireEvent.input(role, { target: { value: 'seller' } });
+      const role = within(dialog).getByRole('combobox', { name: /^Rol/ });
+      expect(role.textContent?.trim()).toBe('Dueño');
+      await pickOption(role, 'Vendedor');
 
       submitUser(dialog);
       const request = await expectRequest(http, '/api/v1/users');

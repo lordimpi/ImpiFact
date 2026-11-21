@@ -1,10 +1,12 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { FieldComponent, InputDirective, SelectDirective } from '@impifact/ui';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { FieldComponent, InputDirective, SelectComponent } from '@impifact/ui';
 import { MASTER_STATUSES, MasterStatus } from '../state/master-list';
 
 /** Textos de la barra, ya traducidos. */
 export interface MasterListToolbarLabels {
   search: string;
+  /** Example inside the empty search box («Buscar por …»). */
+  searchPlaceholder: string;
   status: string;
   statuses: Record<MasterStatus, string>;
 }
@@ -16,7 +18,7 @@ export interface MasterListToolbarLabels {
  */
 @Component({
   selector: 'feat-master-list-toolbar',
-  imports: [FieldComponent, InputDirective, SelectDirective],
+  imports: [FieldComponent, InputDirective, SelectComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="toolbar" role="search">
@@ -25,18 +27,17 @@ export interface MasterListToolbarLabels {
           uiInput
           type="search"
           autocomplete="off"
+          [placeholder]="labels().searchPlaceholder"
           [value]="search()"
           (input)="changeSearch($event)"
         />
       </ui-field>
       <ui-field class="toolbar__status" [label]="labels().status">
-        <select uiSelect [value]="status()" (change)="changeStatus($event)">
-          @for (option of statuses; track option) {
-            <option [value]="option" [selected]="option === status()">
-              {{ labels().statuses[option] }}
-            </option>
-          }
-        </select>
+        <ui-select
+          [options]="statusOptions()"
+          [value]="status()"
+          (valueChange)="changeStatus($event)"
+        />
       </ui-field>
     </div>
   `,
@@ -77,14 +78,15 @@ export class MasterListToolbarComponent {
   readonly searchInput = output<string>();
   readonly statusChange = output<MasterStatus>();
 
-  protected readonly statuses = MASTER_STATUSES;
+  protected readonly statusOptions = computed(() =>
+    MASTER_STATUSES.map((id) => ({ id, name: this.labels().statuses[id] })),
+  );
 
   protected changeSearch(event: Event): void {
     this.searchInput.emit((event.target as HTMLInputElement).value);
   }
 
-  protected changeStatus(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
+  protected changeStatus(value: string): void {
     const status = MASTER_STATUSES.find((option) => option === value);
     if (status) {
       this.statusChange.emit(status);

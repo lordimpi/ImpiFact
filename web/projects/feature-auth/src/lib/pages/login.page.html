@@ -1,44 +1,72 @@
-<section class="auth-page">
-  <feat-auth-brand />
-  <div class="auth-card">
-    <ui-page-title [subtitle]="'auth.login.description' | transloco">{{
-      'auth.login.title' | transloco
-    }}</ui-page-title>
+<div class="login">
+  <section class="login__access">
+    <feat-auth-brand class="login__brand" />
+    <div class="login__form">
+      <ui-page-title [subtitle]="'auth.login.description' | transloco">{{
+        'auth.login.title' | transloco
+      }}</ui-page-title>
 
-    @if (reason() === 'inactivity') {
-      <p class="auth-notice" role="status">{{ 'auth.login.inactivity' | transloco }}</p>
-    } @else if (reason() === 'password-reset') {
-      <p class="auth-notice" role="status">{{ 'auth.login.passwordReset' | transloco }}</p>
-    }
-
-    <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="submitting() || null">
-      @if (generalError(); as message) {
-        <p class="auth-error" role="alert">{{ message }}</p>
+      @if (reason() === 'inactivity') {
+        <p class="auth-notice" role="status">{{ 'auth.login.inactivity' | transloco }}</p>
+      } @else if (reason() === 'password-reset') {
+        <p class="auth-notice" role="status">{{ 'auth.login.passwordReset' | transloco }}</p>
       }
 
-      <ui-field [label]="'auth.login.email' | transloco" [error]="emailError()" required>
-        <input uiInput type="email" autocomplete="username" [formField]="loginForm.email" />
-      </ui-field>
+      <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="submitting() || null">
+        @if (generalError(); as message) {
+          <p class="auth-error" role="alert">{{ message }}</p>
+        }
 
-      <ui-field [label]="'auth.login.password' | transloco" [error]="passwordError()" required>
-        <input
-          uiInput
-          uiPasswordToggle
-          type="password"
-          autocomplete="current-password"
-          [formField]="loginForm.password"
-        />
-      </ui-field>
+        <ui-field [label]="'auth.login.email' | transloco" [error]="emailError()" required>
+          <input
+            uiInput
+            type="email"
+            autocomplete="username"
+            [placeholder]="'auth.login.emailPlaceholder' | transloco"
+            [formField]="loginForm.email"
+          />
+        </ui-field>
 
-      <div class="auth-actions">
-        <ui-button
-          type="submit"
-          block
-          [label]="'auth.login.submit' | transloco"
-          [loading]="submitting()"
-        />
-        <a routerLink="/recuperar">{{ 'auth.login.forgotPassword' | transloco }}</a>
-      </div>
-    </form>
-  </div>
-</section>
+        <ui-field [label]="'auth.login.password' | transloco" [error]="passwordError()" required>
+          <input
+            uiInput
+            uiPasswordToggle
+            type="password"
+            autocomplete="current-password"
+            [formField]="loginForm.password"
+          />
+        </ui-field>
+
+        <div class="auth-actions">
+          <ui-button
+            type="submit"
+            block
+            [label]="'auth.login.submit' | transloco"
+            [loading]="submitting()"
+          />
+          <a routerLink="/recuperar">{{ 'auth.login.forgotPassword' | transloco }}</a>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- What ImpiFact does, next to the form from 1024px and below it on narrower screens. -->
+  <aside class="login__intro" aria-labelledby="login-intro-title">
+    <div class="login__intro-content">
+      <h2 id="login-intro-title" class="login__intro-title">
+        {{ 'auth.login.intro.title' | transloco }}
+      </h2>
+      <p class="login__intro-text">{{ 'auth.login.intro.text' | transloco }}</p>
+      <ul class="login__points">
+        @for (point of introPoints; track point) {
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+            {{ point | transloco }}
+          </li>
+        }
+      </ul>
+    </div>
+  </aside>
+</div>

@@ -22,7 +22,7 @@ import {
   HelpComponent,
   InputDirective,
   LoadingComponent,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { companiesText, provideCompaniesI18n } from '../companies-i18n';
@@ -58,7 +58,7 @@ import { CompanySetupStore } from '../state/company-setup.store';
     HelpComponent,
     InputDirective,
     LoadingComponent,
-    SelectDirective,
+    SelectComponent,
   ],
   providers: [provideCompaniesI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,

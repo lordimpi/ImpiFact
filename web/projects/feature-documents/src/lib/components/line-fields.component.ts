@@ -5,7 +5,7 @@ import {
   FieldComponent,
   InputDirective,
   NonNegativeDirective,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { DOCUMENTS_I18N_SCOPE } from '../documents-i18n';
@@ -34,7 +34,7 @@ const ERROR_KEYS: Record<LineField, string> = {
     FieldComponent,
     InputDirective,
     NonNegativeDirective,
-    SelectDirective,
+    SelectComponent,
     CopCurrencyPipe,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -63,40 +63,55 @@ const ERROR_KEYS: Record<LineField, string> = {
           [error]="errors().description"
           required
         >
-          <input uiInput type="text" [formField]="field.description" />
+          <input
+            uiInput
+            type="text"
+            [placeholder]="'documents.issue.line.descriptionPlaceholder' | transloco"
+            [formField]="field.description"
+          />
         </ui-field>
         <ui-field
           [label]="'documents.issue.line.code' | transloco"
           [error]="errors().code"
           required
         >
-          <input uiInput type="text" [formField]="field.code" />
+          <input
+            uiInput
+            type="text"
+            [placeholder]="'documents.issue.line.codePlaceholder' | transloco"
+            [formField]="field.code"
+          />
         </ui-field>
         <ui-field
           [label]="'documents.issue.line.quantity' | transloco"
           [error]="errors().quantity"
           required
         >
-          <input uiInput uiNonNegative type="number" step="any" [formField]="field.quantity" />
+          <input
+            uiInput
+            uiNonNegative
+            type="number"
+            step="any"
+            [placeholder]="'documents.issue.line.quantityPlaceholder' | transloco"
+            [formField]="field.quantity"
+          />
         </ui-field>
         <ui-field
           [label]="'documents.issue.line.unitPrice' | transloco"
           [error]="errors().unitPrice"
           required
         >
-          <input uiInput uiNonNegative type="number" step="any" [formField]="field.unitPrice" />
+          <input
+            uiInput
+            uiNonNegative
+            type="number"
+            step="any"
+            [placeholder]="'documents.issue.line.unitPricePlaceholder' | transloco"
+            [formField]="field.unitPrice"
+          />
         </ui-field>
         <ui-field [label]="'documents.issue.line.taxPercent' | transloco">
-          <select uiSelect [formField]="field.taxPercent">
-            @for (option of ivaPercents; track option) {
-              <option [value]="option">
-                {{ 'documents.issue.line.taxOptions.' + option | transloco }}
-              </option>
-            }
-            @if (!ivaPercents.includes($any(taxPercent()))) {
-              <option [value]="taxPercent()">{{ taxPercent() }} %</option>
-            }
-          </select>
+          <ui-select [options]="taxOptions()" [formField]="field.taxPercent" />
         </ui-field>
       </div>
     </fieldset>
@@ -181,8 +196,18 @@ export class LineFieldsComponent {
   readonly amount = input<number | string | undefined>();
   readonly remove = output<void>();
 
-  protected readonly ivaPercents = IVA_PERCENTS;
-  protected readonly taxPercent = computed(() => this.line()().value().taxPercent);
+  private readonly taxPercent = computed(() => this.line()().value().taxPercent);
+  /** IVA rates of the select; a rate that came from a product or an invoice and is not one of them is kept. */
+  protected readonly taxOptions = computed(() => {
+    const options = IVA_PERCENTS.map((percent) => ({
+      id: percent,
+      name: this.transloco.translate(`${DOCUMENTS_I18N_SCOPE}.issue.line.taxOptions.${percent}`),
+    }));
+    const current = this.taxPercent();
+    return current === '' || (IVA_PERCENTS as readonly string[]).includes(current)
+      ? options
+      : [...options, { id: current, name: `${current} %` }];
+  });
 
   /** Mensaje bajo cada campo, solo después de que la persona lo tocó. */
   protected readonly errors = computed(() => {

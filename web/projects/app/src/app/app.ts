@@ -18,7 +18,7 @@ import { Title } from '@angular/platform-browser';
 import { RouterOutlet } from '@angular/router';
 import { InactivityMonitor, SessionStore, ToastStore } from '@impifact/core';
 import { loadAuthTexts, loadInactivityWarning } from '@impifact/feature-auth';
-import { ToastRegionComponent, UiToast } from '@impifact/ui';
+import { ToastRegionComponent, UiToast, keepFieldFocusOnPress } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { injectCurrentPath } from './shell/current-path';
 import { SidebarComponent } from './shell/sidebar.component';
@@ -34,6 +34,9 @@ const BARE_PATHS: readonly string[] = [
   '/restablecer',
   '/empresas/seleccionar',
 ];
+
+/** Pages that draw their own full-screen layout: the content area loses its padding and width limit. */
+const FULL_BLEED_PATHS: readonly string[] = ['/login'];
 
 /**
  * Panel shell: with a session, sidebar (menu grouped by section and filtered by role) and top bar (company, notices
@@ -53,10 +56,14 @@ const BARE_PATHS: readonly string[] = [
     TopbarComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Pressing a button must not blur (and validate) the field being edited: see keepFieldFocusOnPress.
+  host: { '(document:mousedown)': 'keepFieldFocus($event)' },
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App {
+  protected readonly keepFieldFocus = keepFieldFocusOnPress;
+
   private readonly transloco = inject(TranslocoService);
   protected readonly toastStore = inject(ToastStore);
   private readonly inactivity = inject(InactivityMonitor);
@@ -73,6 +80,8 @@ export class App {
   protected readonly layout = computed(
     () => this.session.isAuthenticated() && !BARE_PATHS.includes(this.path()),
   );
+
+  protected readonly fullBleed = computed(() => FULL_BLEED_PATHS.includes(this.path()));
 
   /** Sidebar drawer on narrow screens; it closes after every navigation. */
   protected readonly drawerOpen = signal(false);

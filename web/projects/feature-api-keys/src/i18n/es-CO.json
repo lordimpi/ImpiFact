@@ -5,6 +5,7 @@
     "title": "Nueva llave",
     "name": "Nombre de la llave",
     "nameHint": "Para reconocerla después, por ejemplo «Tienda en línea».",
+    "namePlaceholder": "Tienda en línea",
     "nameRequired": "Escriba un nombre para la llave.",
     "nameTooLong": "Use como máximo {{ max }} caracteres.",
     "scopes": "Permisos",
@@ -12,6 +13,7 @@
     "scopesRequired": "Elija al menos un permiso.",
     "expiresAt": "Vence el (opcional)",
     "expiresAtHint": "Sin fecha, la llave no vence. Deja de servir al final de ese día, hora de Colombia.",
+    "datePlaceholder": "dd/mm/aaaa",
     "submit": "Crear llave",
     "unexpected": "No se pudo crear la llave. Intente de nuevo."
   },

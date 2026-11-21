@@ -2,6 +2,7 @@ import { Route, expect, test } from '@playwright/test';
 import { seriousViolations } from './support/axe';
 import { sessionTokens } from './support/mock-api';
 import { signInAt } from './support/sign-in';
+import { pickOption } from './support/select';
 
 /*
  * Alta de una empresa desde la plataforma (feature-platform) contra la Api simulada, sin el panel PHP: el
@@ -108,23 +109,27 @@ test('creates a company, shows its key once, creates its owner and the owner sig
   await expect(page.getByRole('textbox', { name: /^NIT/ })).toHaveValue('901234567');
   await expect(page.getByLabel('Dígito de verificación')).toHaveValue('7');
   await page.getByLabel('Razón social').fill('Nueva Empresa SAS');
-  await page.getByLabel('Tipo de organización').selectOption('1');
-  await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
+  await pickOption(
+    page,
+    page.getByRole('combobox', { name: 'Tipo de organización' }),
+    'Persona Jurídica y asimiladas',
+  );
+  await pickOption(page, page.getByRole('combobox', { name: 'Régimen' }), 'Responsable de IVA');
   await page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }).check();
   // Primero el departamento; el municipio se busca entre los suyos y se elige en la lista.
   // El departamento también se busca escribiendo, sin importar tildes ni mayúsculas.
   const department = page.getByRole('combobox', { name: 'Departamento', exact: true });
-  await department.fill('cauca');
+  const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
+  await expect(municipality).toHaveAttribute('aria-disabled', 'true');
+  await department.click();
+  await page.getByRole('searchbox').fill('cauca');
   await expect(page.getByRole('listbox').getByRole('option')).toHaveText([
     'Cauca',
     'Valle del Cauca',
   ]);
   await page.getByRole('option', { name: 'Cauca', exact: true }).click();
-  await expect(department).toHaveValue('Cauca');
-  const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
-  await municipality.fill('popa');
-  await page.getByRole('option', { name: 'Popayán' }).click();
-  await expect(municipality).toHaveValue('Popayán');
+  await expect(department).toHaveText('Cauca');
+  await pickOption(page, municipality, 'Popayán', 'popa');
   await page.getByLabel('Dirección').fill('Calle 10 # 20-30');
   await page.getByLabel('Teléfono').fill('6017654321');
   await page.getByLabel('Correo electrónico').fill('facturas@nueva.test');
@@ -160,7 +165,7 @@ test('creates a company, shows its key once, creates its owner and the owner sig
   await userDialog.getByLabel('Correo electrónico').fill(OWNER.email);
   await userDialog.getByLabel('Nombre').fill('Ana Dueña');
   await userDialog.getByLabel('Contraseña').fill(OWNER.password);
-  await expect(userDialog.getByRole('combobox', { name: 'Rol' })).toHaveValue('owner');
+  await expect(userDialog.getByRole('combobox', { name: 'Rol' })).toHaveText('Dueño');
   await userDialog.getByRole('button', { name: 'Crear usuario' }).click();
   await expect(userDialog).toHaveCount(0);
   await expect(
@@ -180,7 +185,10 @@ test('creates a company, shows its key once, creates its owner and the owner sig
   ]);
 
   // 4. La lista de empresas ya trae la nueva.
-  await page.getByRole('link', { name: 'Volver a las empresas' }).click();
+  await page
+    .getByRole('navigation', { name: 'Ruta de navegación' })
+    .getByRole('link', { name: 'Empresas de la plataforma' })
+    .click();
   const table = page.getByRole('table', { name: 'Empresas de la plataforma' });
   await expect(table.getByText('Nueva Empresa SAS')).toBeVisible();
   await expect(table.getByText('901234567-7')).toBeVisible();

@@ -33,7 +33,9 @@
     "switchCompany": "{{ name }}, elegir otra empresa activa",
     "platform": "Administración de la plataforma",
     "help": "Ayuda",
-    "helpLabel": "Ayuda: manual de uso (PDF, se abre en otra pestaña)"
+    "helpLabel": "Ayuda: manual de uso (PDF, se abre en otra pestaña)",
+    "darkMode": "Activar modo oscuro",
+    "lightMode": "Activar modo claro"
   },
   "userMenu": {
     "account": "Mi cuenta",
@@ -59,14 +61,75 @@
       "navigation": "Paginación",
       "previous": "Anterior",
       "next": "Siguiente",
-      "page": "Página {page}"
+      "page": "Página {page}",
+      "first": "Primera página",
+      "last": "Última página"
     },
+    "breadcrumb": "Ruta de navegación",
     "toasts": {
       "region": "Avisos",
       "close": "Cerrar",
       "copy": "Copiar código",
       "reference": "Código de soporte",
       "copied": "Código copiado."
+    },
+    "optimus": {
+      "dayNames": ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"],
+      "dayNamesShort": ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"],
+      "dayNamesMin": ["do", "lu", "ma", "mi", "ju", "vi", "sá"],
+      "monthNames": [
+        "enero",
+        "febrero",
+        "marzo",
+        "abril",
+        "mayo",
+        "junio",
+        "julio",
+        "agosto",
+        "septiembre",
+        "octubre",
+        "noviembre",
+        "diciembre"
+      ],
+      "monthNamesShort": [
+        "ene",
+        "feb",
+        "mar",
+        "abr",
+        "may",
+        "jun",
+        "jul",
+        "ago",
+        "sep",
+        "oct",
+        "nov",
+        "dic"
+      ],
+      "firstDayOfWeek": 0,
+      "dateFormat": "dd/mm/yy",
+      "today": "Hoy",
+      "clear": "Borrar",
+      "weekHeader": "Sem",
+      "chooseYear": "Elegir el año",
+      "chooseMonth": "Elegir el mes",
+      "chooseDate": "Elegir la fecha",
+      "prevDecade": "Década anterior",
+      "nextDecade": "Década siguiente",
+      "prevYear": "Año anterior",
+      "nextYear": "Año siguiente",
+      "prevMonth": "Mes anterior",
+      "nextMonth": "Mes siguiente",
+      "emptyMessage": "No hay opciones",
+      "emptyFilterMessage": "Ninguna opción coincide",
+      "choose": "Seleccionar archivo",
+      "noFileChosenMessage": "Ningún archivo seleccionado",
+      "fileChosenMessage": "{0} archivos",
+      "fileSizeTypes": ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"],
+      "aria": { "listLabel": "Opciones", "browseFiles": "Buscar archivos", "close": "Cerrar" }
+    },
+    "fileUpload": {
+      "tooLarge": "«{{ name }}» pesa {{ size }} y el máximo es {{ max }}.",
+      "wrongType": "«{{ name }}» no es de un tipo permitido. Use un archivo {{ accept }}."
     }
   },
   "errors": {
@@ -74,7 +137,10 @@
     "unexpected": "Ocurrió un error inesperado. Intente de nuevo."
   },
   "core": {
-    "unsavedChanges": "Hay cambios sin guardar. ¿Desea salir de todos modos?"
+    "unsavedChanges": "Hay cambios sin guardar. ¿Desea salir de todos modos?",
+    "unsavedChangesTitle": "Cambios sin guardar",
+    "unsavedChangesLeave": "Salir sin guardar",
+    "unsavedChangesStay": "Seguir editando"
   },
   "devUi": {
     "title": "Vitrina de componentes",

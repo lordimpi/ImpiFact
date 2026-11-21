@@ -1,13 +1,10 @@
-<ui-page-title [subtitle]="'devUi.description' | transloco">
-  <nav
-    uiPageTitleBreadcrumb
-    class="showcase-breadcrumb"
-    [attr.aria-label]="'devUi.breadcrumb.label' | transloco"
-  >
-    <a routerLink="/">{{ 'devUi.breadcrumb.home' | transloco }}</a>
-    <span aria-hidden="true">/</span>
-    <span aria-current="page">{{ 'devUi.breadcrumb.current' | transloco }}</span>
-  </nav>
+<ui-page-title
+  [subtitle]="'devUi.description' | transloco"
+  [breadcrumb]="[
+    { label: 'devUi.breadcrumb.home' | transloco, link: '/' },
+    { label: 'devUi.breadcrumb.current' | transloco },
+  ]"
+>
   {{ 'devUi.title' | transloco }}
   <ui-button
     uiPageTitleActions
@@ -167,18 +164,58 @@
       <input uiInput type="email" autocomplete="email" />
     </ui-field>
     <ui-field [label]="'devUi.fields.documentType' | transloco">
-      <select uiSelect>
-        <option value="13">{{ 'devUi.fields.documentTypes.cc' | transloco }}</option>
-        <option value="31">{{ 'devUi.fields.documentTypes.nit' | transloco }}</option>
-        <option value="22">{{ 'devUi.fields.documentTypes.ce' | transloco }}</option>
-      </select>
+      <ui-select [options]="documentTypes()" [value]="'13'" />
+    </ui-field>
+    <ui-field
+      [label]="'devUi.fields.regime' | transloco"
+      [required]="true"
+      [error]="regime() === '' ? ('devUi.fields.regimeError' | transloco) : null"
+    >
+      <ui-select
+        [options]="regimes"
+        [placeholder]="'devUi.fields.regimePlaceholder' | transloco"
+        [(value)]="regime"
+        (valueChange)="log('regime', $event)"
+      />
+    </ui-field>
+    <ui-field [label]="'devUi.fields.department' | transloco">
+      <ui-select
+        [options]="departments"
+        [placeholder]="'devUi.fields.departmentPlaceholder' | transloco"
+        [value]="department()"
+        (valueChange)="chooseDepartment($event)"
+      />
     </ui-field>
     <ui-field [label]="'devUi.fields.municipality' | transloco">
       <ui-combobox
         [(value)]="municipality"
         [options]="municipalities()"
+        [status]="department() === '' ? 'idle' : 'ready'"
+        [locked]="department() === ''"
         [labels]="comboboxLabels()"
         (termChange)="term.set($event)"
+        (valueChange)="log('municipality', $event)"
+      />
+    </ui-field>
+    <ui-field
+      [label]="'devUi.fields.expiresAt' | transloco"
+      [hint]="'devUi.fields.expiresAtHint' | transloco"
+    >
+      <ui-date-picker
+        [(value)]="expiresAt"
+        minDate="2026-11-20"
+        maxDate="2027-12-31"
+        (valueChange)="log('expiresAt', $event)"
+      />
+    </ui-field>
+    <ui-field
+      [label]="'devUi.fields.certificate' | transloco"
+      [hint]="'devUi.fields.certificateHint' | transloco"
+    >
+      <ui-file-upload
+        accept=".p12,.pfx"
+        [maxFileSize]="maxCertificateSize"
+        (fileChange)="log('file', $event?.name ?? null)"
       />
     </ui-field>
   </div>

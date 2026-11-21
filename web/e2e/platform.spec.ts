@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { seriousViolations } from './support/axe';
+import { pressLikeAPerson } from './support/press';
 import { signInAt } from './support/sign-in';
 
 // Plataforma (feature-platform) contra la Api simulada: un administrador sin empresa activa trae `platform:*`.
@@ -74,9 +75,16 @@ test('assigns a plan to a company picked from the searchable list', async ({ pag
 
   await page.getByRole('button', { name: 'Asignar plan a Beta Ltda' }).click();
   const dialog = page.getByRole('dialog', { name: 'Asignar plan a Beta Ltda' });
-  await expect(dialog.getByRole('option', { name: 'Anual 5000' })).toBeAttached();
+  const plan = dialog.getByRole('combobox', { name: 'Plan' });
+  await expect(plan).toHaveText('Elija un plan');
   expect(await seriousViolations(page)).toEqual([]);
-  await dialog.getByRole('combobox', { name: 'Plan' }).selectOption('2');
+  // The ui-select list opens over the page, outside the dialog; axe checks it open too.
+  await plan.click();
+  const option = page.getByRole('option', { name: 'Anual 5000', exact: true });
+  await expect(option).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  await option.click();
+  await expect(plan).toHaveText('Anual 5000');
   await dialog.getByRole('button', { name: 'Asignar plan' }).click();
 
   await expect(
@@ -86,6 +94,24 @@ test('assigns a plan to a company picked from the searchable list', async ({ pag
   expect(assigned).toHaveLength(1);
   expect(assigned[0]!.url).toContain('/api/v1/companies/800111222/plan');
   expect(assigned[0]!.body).toEqual({ plan_id: 2 });
+});
+
+test('cancels a new plan without showing required errors', async ({ page }) => {
+  await signInAt(page, '/plataforma/planes', asPlatformAdmin);
+  await page.route('**/api/v1/plans', (route) =>
+    route.fulfill({ json: { success: true, data: PLANS } }),
+  );
+  await page.reload();
+
+  await page.getByRole('button', { name: 'Nuevo plan' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nuevo plan' });
+  await expect(dialog.getByLabel('Nombre')).toBeFocused();
+
+  // Leaving the focused empty field to press Cancelar must not validate it: the dialog just closes.
+  await pressLikeAPerson(page, dialog.getByRole('button', { name: 'Cancelar' }));
+
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText('Este campo es obligatorio.')).toHaveCount(0);
 });
 
 test('lists the plans with the platform menu', async ({ page }) => {
@@ -110,6 +136,9 @@ test('lists the plans with the platform menu', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Nuevo plan' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nuevo plan' });
+  // On open the focus goes to the first field, not to its help button: no tooltip opens by itself.
+  await expect(dialog.getByLabel('Nombre')).toBeFocused();
+  await expect(dialog.locator('.ui-help__tooltip--open')).toHaveCount(0);
   // El id lo asigna el Api: no se pide al crear. Cada campo trae un ejemplo y su explicación.
   await expect(dialog.getByLabel(/Id del plan/)).toHaveCount(0);
   await expect(dialog.getByLabel('Nombre')).toHaveAttribute(

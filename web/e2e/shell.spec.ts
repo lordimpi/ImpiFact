@@ -111,6 +111,68 @@ test('shows only the platform entries to a platform administrator', async ({ pag
   await expect(page.getByRole('banner')).toContainText('Administración de la plataforma');
 });
 
+// --if-color-page of each theme (tokens.css).
+const LIGHT_PAGE = 'rgb(244, 246, 250)';
+const DARK_PAGE = 'rgb(34, 42, 55)';
+const bodyBackground = (page: Page) =>
+  page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+
+test.describe('theme', () => {
+  test('is light by default even when the system prefers dark', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await signInAt(page, '/');
+
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    expect(await bodyBackground(page)).toBe(LIGHT_PAGE);
+    await expect(
+      page.getByRole('banner').getByRole('button', { name: 'Activar modo oscuro' }),
+    ).toBeVisible();
+  });
+
+  test('switches to dark from the top bar and keeps it after a reload and on the login', async ({
+    page,
+  }) => {
+    await signInAt(page, '/');
+    const banner = page.getByRole('banner');
+
+    await banner.getByRole('button', { name: 'Activar modo oscuro' }).click();
+
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect.poll(() => bodyBackground(page)).toBe(DARK_PAGE);
+    const toLight = banner.getByRole('button', { name: 'Activar modo claro' });
+    await expect(toLight).toBeVisible();
+    expect(await seriousViolations(page)).toEqual([]);
+
+    await page.reload();
+    await expect(toLight).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+    // The access pages have no top bar but follow the stored theme too.
+    await page.getByRole('button', { name: /Mi cuenta/ }).click();
+    await page.getByRole('button', { name: 'Cerrar sesión' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Iniciar sesión' })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    expect(await bodyBackground(page)).toBe(DARK_PAGE);
+  });
+
+  test('goes back to light and keeps it after a reload', async ({ page }) => {
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem('seeded')) {
+        sessionStorage.setItem('seeded', '1');
+        localStorage.setItem('impifact.theme', 'dark');
+      }
+    });
+    await signInAt(page, '/');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+    await page.getByRole('banner').getByRole('button', { name: 'Activar modo claro' }).click();
+    await page.reload();
+
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    expect(await bodyBackground(page)).toBe(LIGHT_PAGE);
+  });
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

@@ -12,6 +12,8 @@ export interface PickerOption {
 export interface PickerLabels {
   search: string;
   hint: string;
+  /** Example inside the empty search box («Buscar por …»). */
+  placeholder?: string;
   results: string;
   none: string;
   searching: string;
@@ -34,6 +36,7 @@ export interface PickerLabels {
         uiInput
         type="search"
         autocomplete="off"
+        [placeholder]="labels().placeholder ?? ''"
         [value]="term()"
         (input)="termChange.emit(read($event))"
       />

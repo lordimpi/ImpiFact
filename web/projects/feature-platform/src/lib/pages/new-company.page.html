@@ -1,9 +1,12 @@
 <section class="platform-page">
   <header>
-    <ui-page-title [subtitle]="'platform.newCompany.description' | transloco">
-      <a uiPageTitleBreadcrumb class="platform-back" routerLink="/plataforma/empresas">{{
-        'platform.newCompany.back' | transloco
-      }}</a>
+    <ui-page-title
+      [subtitle]="'platform.newCompany.description' | transloco"
+      [breadcrumb]="[
+        { label: 'platform.companies.title' | transloco, link: '/plataforma/empresas' },
+        { label: 'platform.newCompany.title' | transloco },
+      ]"
+    >
       {{ 'platform.newCompany.title' | transloco }}
     </ui-page-title>
     <feat-platform-nav />
@@ -61,6 +64,7 @@
               uiDigitsOnly
               type="text"
               autocomplete="off"
+              [placeholder]="'platform.newCompany.placeholders.nit' | transloco"
               [formField]="companyForm.nit"
             />
           </ui-field>
@@ -91,6 +95,7 @@
               uiInput
               type="text"
               autocomplete="organization"
+              [placeholder]="'platform.newCompany.placeholders.businessName' | transloco"
               [formField]="companyForm.business_name"
             />
           </ui-field>
@@ -101,11 +106,13 @@
             [error]="errors().type_document_identification_id"
             required
           >
-            <select uiSelect [formField]="companyForm.type_document_identification_id">
-              @for (option of identificationTypes(); track option.id) {
-                <option [value]="'' + option.id">{{ option.name }}</option>
-              }
-            </select>
+            <ui-select
+              filter
+              [options]="identificationTypes()"
+              [placeholder]="'platform.common.noneOption' | transloco"
+              [filterPlaceholder]="'platform.common.filterPlaceholder' | transloco"
+              [formField]="companyForm.type_document_identification_id"
+            />
           </ui-field>
 
           <ui-field
@@ -114,12 +121,11 @@
             [error]="errors().type_organization_id"
             required
           >
-            <select uiSelect [formField]="companyForm.type_organization_id">
-              <option value="">{{ 'platform.common.noneOption' | transloco }}</option>
-              @for (option of organizationTypes(); track option.id) {
-                <option [value]="'' + option.id">{{ option.name }}</option>
-              }
-            </select>
+            <ui-select
+              [options]="organizationTypes()"
+              [placeholder]="'platform.common.noneOption' | transloco"
+              [formField]="companyForm.type_organization_id"
+            />
           </ui-field>
 
           <ui-field
@@ -128,12 +134,11 @@
             [error]="errors().type_regime_id"
             required
           >
-            <select uiSelect [formField]="companyForm.type_regime_id">
-              <option value="">{{ 'platform.common.noneOption' | transloco }}</option>
-              @for (option of regimes(); track option.id) {
-                <option [value]="'' + option.id">{{ option.name }}</option>
-              }
-            </select>
+            <ui-select
+              [options]="regimes()"
+              [placeholder]="'platform.common.noneOption' | transloco"
+              [formField]="companyForm.type_regime_id"
+            />
           </ui-field>
 
           <fieldset
@@ -197,6 +202,7 @@
               (termChange)="municipalities.search($event)"
               (loadMore)="municipalities.loadMore()"
               (retry)="municipalities.retry()"
+              [locked]="location.municipalityLocked()"
             />
           </ui-field>
 
@@ -210,6 +216,7 @@
               uiInput
               type="text"
               autocomplete="street-address"
+              [placeholder]="'platform.newCompany.placeholders.address' | transloco"
               [formField]="companyForm.address"
             />
           </ui-field>
@@ -226,6 +233,7 @@
               uiDigitsOnly
               type="tel"
               autocomplete="tel"
+              [placeholder]="'platform.newCompany.placeholders.phone' | transloco"
               [formField]="companyForm.phone"
             />
           </ui-field>
@@ -236,7 +244,13 @@
             [error]="errors().email"
             required
           >
-            <input uiInput type="email" autocomplete="email" [formField]="companyForm.email" />
+            <input
+              uiInput
+              type="email"
+              autocomplete="email"
+              [placeholder]="'platform.newCompany.placeholders.email' | transloco"
+              [formField]="companyForm.email"
+            />
           </ui-field>
 
           <ui-field
@@ -250,6 +264,7 @@
               uiInput
               type="text"
               autocomplete="off"
+              [placeholder]="'platform.newCompany.placeholders.merchantRegistration' | transloco"
               [formField]="companyForm.merchant_registration"
             />
           </ui-field>

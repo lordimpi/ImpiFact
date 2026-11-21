@@ -9,12 +9,17 @@ import {
   renderCompaniesRoute,
   respond,
 } from '../testing/companies-testing';
+import { pickOption, stubOptimusDom, typeDate } from '../testing/optimus-testing';
 
 const URL = `${COMPANY_PATH}/resolution`;
 const LIST_URL = `${COMPANY_PATH}/resolutions`;
 const RANGES_URL = `${COMPANY_PATH}/numbering-ranges`;
 const field = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement;
 const type = (label: RegExp, value: string) => fireEvent.input(field(label), { target: { value } });
+/** The input of a ui-date-picker or the ui-select, by the label of its field. */
+const combobox = (label: RegExp) => screen.getByRole('combobox', { name: label });
+
+beforeAll(stubOptimusDom);
 
 async function open(resolutions: object[] = []) {
   const rendered = await renderCompaniesRoute('/empresas/company-1/resoluciones');
@@ -66,49 +71,55 @@ const rowCells = (table: HTMLElement) =>
     );
 
 describe('ResolutionsPage', () => {
-  it('lists the saved resolutions with the next number, what remains and the days left', async () => {
-    await open([
-      SETP_STATUS,
-      {
-        ...SETP_STATUS,
-        id: 'res-2',
-        kind: 'credit_note',
-        type_document_id: 4,
-        prefix: 'NC',
-        is_active: false,
-        days_left: null,
-      },
-    ]);
+  // The first test of the file pays the cold render of the route and of the Optimus controls (about 3 s alone,
+  // more while the other files of the project run in parallel).
+  it(
+    'lists the saved resolutions with the next number, what remains and the days left',
+    { timeout: 10_000 },
+    async () => {
+      await open([
+        SETP_STATUS,
+        {
+          ...SETP_STATUS,
+          id: 'res-2',
+          kind: 'credit_note',
+          type_document_id: 4,
+          prefix: 'NC',
+          is_active: false,
+          days_left: null,
+        },
+      ]);
 
-    const table = await screen.findByRole('table', { name: 'Resoluciones guardadas' });
-    expect(rowCells(table)).toEqual([
-      [
-        'Factura de venta',
-        'SETP',
-        '18760000001',
-        '990000000 – 995000000',
-        '2019-01-19 – 2030-01-19',
-        '990000012',
-        '4999989',
-        '1158',
-        'Activa',
-        'Cambiar próximo número',
-      ],
-      [
-        'Nota crédito',
-        'NC',
-        '18760000001',
-        '990000000 – 995000000',
-        '2019-01-19 – 2030-01-19',
-        '990000012',
-        '4999989',
-        'Sin vencimiento',
-        'Inactiva',
-        'Cambiar próximo número',
-      ],
-    ]);
-    expect(screen.queryByText(/no permite listar/)).toBeNull();
-  });
+      const table = await screen.findByRole('table', { name: 'Resoluciones guardadas' });
+      expect(rowCells(table)).toEqual([
+        [
+          'Factura de venta',
+          'SETP',
+          '18760000001',
+          '990000000 – 995000000',
+          '2019-01-19 – 2030-01-19',
+          '990000012',
+          '4999989',
+          '1158',
+          'Activa',
+          'Cambiar próximo número',
+        ],
+        [
+          'Nota crédito',
+          'NC',
+          '18760000001',
+          '990000000 – 995000000',
+          '2019-01-19 – 2030-01-19',
+          '990000012',
+          '4999989',
+          'Sin vencimiento',
+          'Inactiva',
+          'Cambiar próximo número',
+        ],
+      ]);
+      expect(screen.queryByText(/no permite listar/)).toBeNull();
+    },
+  );
 
   it('changes the next number of a saved resolution from a dialog and reads the list again', async () => {
     const { http } = await open([SETP_STATUS]);
@@ -123,6 +134,7 @@ describe('ResolutionsPage', () => {
     ).toBeTruthy();
     const input = within(dialog).getByLabelText(/^Próximo número/) as HTMLInputElement;
     expect(input.value).toBe('990000012');
+    expect(input.placeholder).toBe('990000012');
     fireEvent.input(input, { target: { value: '990000101' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar próximo número' }));
 
@@ -204,6 +216,12 @@ describe('ResolutionsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Usar el ejemplo de habilitación (SETP)' }));
     expect(field(/^Prefijo/).value).toBe('SETP');
+    // The date pickers show the dates of the example as dd/mm/aaaa.
+    await waitFor(() =>
+      expect((combobox(/^Fecha de la resolución/) as HTMLInputElement).value).toBe('19/01/2019'),
+    );
+    expect((combobox(/^Vigente desde/) as HTMLInputElement).value).toBe('19/01/2019');
+    expect((combobox(/^Vigente hasta/) as HTMLInputElement).value).toBe('19/01/2030');
     fireEvent.click(screen.getByRole('button', { name: 'Guardar resolución' }));
 
     const request = await expectRequest(http, URL);
@@ -216,6 +234,48 @@ describe('ResolutionsPage', () => {
     const list = await screen.findByRole('table', { name: 'Resoluciones guardadas' });
     expect(within(list).getByText('SETP')).toBeTruthy();
     expect(within(list).getByText('990000012')).toBeTruthy();
+  });
+
+  it('takes the document type from its list and the dates typed in the date pickers', async () => {
+    const { http } = await open();
+    const documentType = combobox(/^Tipo de documento/);
+    expect(documentType.textContent?.trim()).toBe('Factura de venta');
+    expect((combobox(/^Vigente desde/) as HTMLInputElement).placeholder).toBe('dd/mm/aaaa');
+
+    await pickOption(documentType, 'Nota crédito');
+    type(/^Prefijo/, 'NC');
+    type(/^Número de resolución/, '18760000002');
+    type(/^Desde el número/, '1');
+    type(/^Hasta el número/, '1000');
+    typeDate(combobox(/^Fecha de la resolución/), '19/01/2019');
+    typeDate(combobox(/^Vigente desde/), '20/01/2019');
+    typeDate(combobox(/^Vigente hasta/), '20/01/2030');
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar resolución' }));
+
+    const request = await expectRequest(http, URL);
+    expect(request.request.body).toMatchObject({
+      type_document_id: 4,
+      prefix: 'NC',
+      resolution: '18760000002',
+      resolution_date: '2019-01-19',
+      from: 1,
+      to: 1000,
+      date_from: '2019-01-20',
+      date_to: '2030-01-20',
+    });
+  });
+
+  it('shows an example in every text field', async () => {
+    await open();
+
+    expect(field(/^Prefijo/).placeholder).toBe('SETP');
+    expect(field(/^Número de resolución/).placeholder).toBe('18760000001');
+    expect(field(/^Clave técnica/).placeholder).toBe('fc8eac422eba16e22ffd8c6f94b3f40a6e38162c');
+    expect(field(/^Desde el número/).placeholder).toBe('990000000');
+    expect(field(/^Hasta el número/).placeholder).toBe('995000000');
+    expect(field(/^Identificador del software \(opcional\)/).placeholder).toBe(
+      'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    );
   });
 
   it('checks the form before calling the API', async () => {

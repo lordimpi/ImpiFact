@@ -15,10 +15,25 @@ const ROW = {
 
 const isList = (request: { url: string }) => request.url === '/api/v1/documents';
 
-/** The collapsible section that holds the DIAN status checkboxes. */
-const moreFilters = () => screen.getByText('Más filtros').closest('details')!;
+/** The collapsible section that holds the DIAN status checkboxes; its summary reads «Más/Menos filtros». */
+const moreFilters = () => screen.getByText(/^(Más|Menos) filtros$/).closest('details')!;
 
 describe('DocumentListPage', () => {
+  // jsdom has no matchMedia nor scrollIntoView; the Optimus select and date picker overlays use them.
+  beforeAll(() => {
+    window.matchMedia ??= ((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+    Element.prototype.scrollIntoView ??= () => undefined;
+  });
+
   beforeEach(() => {
     URL.createObjectURL = vi.fn(() => 'blob:documents');
     URL.revokeObjectURL = vi.fn();
@@ -44,10 +59,34 @@ describe('DocumentListPage', () => {
       '/documentos/doc-1',
     );
     expect((screen.getByLabelText('Cliente') as HTMLInputElement).value).toBe('golden');
+    expect((screen.getByLabelText('Cliente') as HTMLInputElement).placeholder).toBe(
+      'NIT o nombre',
+    );
     expect((screen.getByLabelText('Rechazado') as HTMLInputElement).checked).toBe(true);
     // With DIAN statuses in the URL the collapsible section opens, so the active filter is visible.
     expect(moreFilters().open).toBe(true);
     expect(moreFilters().textContent).toContain('Estado DIAN: 2');
+    await waitFor(() => expect(screen.getByText('Menos filtros')).toBeTruthy());
+    // The date filter shows the date of the URL as dd/mm/aaaa.
+    expect((screen.getByRole('combobox', { name: 'Desde' }) as HTMLInputElement).value).toBe(
+      '01/11/2026',
+    );
+  });
+
+  it('reads «Más filtros» while the status section is folded and «Menos filtros» while it is open', async () => {
+    const { http } = await renderDocumentsRoute('/documentos');
+    (await waitFor(() => http.expectOne(isList))).flush({ items: [], next_cursor: null });
+
+    const summary = await screen.findByText('Más filtros');
+    expect(moreFilters().open).toBe(false);
+    fireEvent.click(summary);
+    await waitFor(() => expect(screen.getByText('Menos filtros')).toBeTruthy());
+    expect(moreFilters().open).toBe(true);
+    expect(screen.queryByText('Más filtros')).toBeNull();
+
+    fireEvent.click(screen.getByText('Menos filtros'));
+    await waitFor(() => expect(screen.getByText('Más filtros')).toBeTruthy());
+    expect(moreFilters().open).toBe(false);
   });
 
   it('puts the applied filters in the URL and asks the API again', async () => {
@@ -56,9 +95,13 @@ describe('DocumentListPage', () => {
 
     // Without DIAN statuses the long status list stays folded under «Más filtros».
     expect(moreFilters().open).toBe(false);
-    fireEvent.change(await screen.findByLabelText('Tipo de documento'), {
-      target: { value: 'credit_note' },
-    });
+    const kind = await screen.findByRole('combobox', { name: 'Tipo de documento' });
+    expect(kind.textContent?.trim()).toBe('Todos los tipos');
+    fireEvent.click(kind);
+    fireEvent.click(await screen.findByRole('option', { name: 'Nota crédito' }));
+    const from = screen.getByRole('combobox', { name: 'Desde' });
+    fireEvent.keyDown(from, { key: '0' });
+    fireEvent.input(from, { target: { value: '01/11/2026' } });
     fireEvent.click(screen.getByLabelText('En cola'));
     fireEvent.click(screen.getByLabelText('Enviado a la DIAN'));
     fireEvent.input(screen.getByLabelText('Número'), { target: { value: 'NC10' } });
@@ -67,10 +110,11 @@ describe('DocumentListPage', () => {
 
     await waitFor(() =>
       expect(router.url).toBe(
-        '/documentos?tipo=credit_note&estado=Queued,Sent&numero=NC10&total=1',
+        '/documentos?desde=2026-11-01&tipo=credit_note&estado=Queued,Sent&numero=NC10&total=1',
       ),
     );
     const request = await waitFor(() => http.expectOne(isList));
+    expect(request.request.params.get('from')).toBe('2026-11-01');
     expect(request.request.params.get('kind')).toBe('credit_note');
     expect(request.request.params.getAll('status')).toEqual(['Queued', 'Sent']);
     expect(request.request.params.get('number')).toBe('NC10');

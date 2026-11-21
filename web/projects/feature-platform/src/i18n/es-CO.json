@@ -22,7 +22,8 @@
     "catalog": {
       "loading": "Cargando opciones",
       "error": "No se pudieron cargar las opciones."
-    }
+    },
+    "filterPlaceholder": "Buscar por nombre"
   },
   "nav": {
     "label": "Secciones de la plataforma",
@@ -96,7 +97,6 @@
     "title": "Empresas del plan {{ name }}",
     "titleLoading": "Empresas del plan",
     "description": "Empresas que tienen este plan activo.",
-    "back": "Volver a los planes",
     "caption": "Empresas con el plan",
     "name": "Razón social",
     "nit": "NIT",
@@ -141,12 +141,12 @@
     "empty": "La plataforma aún no tiene empresas",
     "noMatch": "Ninguna empresa coincide con la búsqueda",
     "loadError": "No se pudieron consultar las empresas",
-    "new": "Nueva empresa"
+    "new": "Nueva empresa",
+    "searchPlaceholder": "Buscar por razón social o NIT"
   },
   "newCompany": {
     "title": "Nueva empresa",
     "description": "Registre una empresa en la plataforma. Queda en habilitación (pruebas) para todos sus documentos y recibe una llave de API inicial para su integración.",
-    "back": "Volver a las empresas",
     "nit": "NIT",
     "nitHint": "Solo dígitos, sin puntos ni dígito de verificación.",
     "nitFormat": "Escriba solo dígitos, máximo 15.",
@@ -200,6 +200,14 @@
     "groups": {
       "identity": "Identificación tributaria",
       "location": "Ubicación y contacto"
+    },
+    "placeholders": {
+      "nit": "900123456",
+      "businessName": "Mi Empresa S.A.S.",
+      "address": "Calle 10 # 20-30",
+      "phone": "3001234567",
+      "email": "nombre@empresa.com",
+      "merchantRegistration": "123456"
     }
   },
   "companyKey": {
@@ -233,6 +241,11 @@
     "submit": "Crear usuario",
     "done": "Se creó el usuario {{ email }} como {{ role }} de {{ name }}; ya puede iniciar sesión.",
     "companyNotFound": "La empresa ya no existe.",
-    "roleNotAllowed": "Su sesión no puede crear usuarios con ese rol."
+    "roleNotAllowed": "Su sesión no puede crear usuarios con ese rol.",
+    "placeholders": {
+      "email": "nombre@empresa.com",
+      "name": "Ana Gómez",
+      "phone": "3001234567"
+    }
   }
 }

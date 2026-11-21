@@ -72,7 +72,13 @@ import { CompanySetupStore } from '../state/company-setup.store';
               [error]="errors().id"
               required
             >
-              <input uiInput type="text" autocomplete="off" [formField]="softwareForm.id" />
+              <input
+                uiInput
+                type="text"
+                autocomplete="off"
+                [placeholder]="'companies.software.placeholders.id' | transloco"
+                [formField]="softwareForm.id"
+              />
             </ui-field>
             <ui-field
               [label]="'companies.software.pin' | transloco"
@@ -86,6 +92,7 @@ import { CompanySetupStore } from '../state/company-setup.store';
                 type="password"
                 inputmode="numeric"
                 autocomplete="new-password"
+                [placeholder]="'companies.software.placeholders.pin' | transloco"
                 [formField]="softwareForm.pin"
               />
             </ui-field>
@@ -99,6 +106,7 @@ import { CompanySetupStore } from '../state/company-setup.store';
                 uiInput
                 type="text"
                 autocomplete="off"
+                [placeholder]="'companies.software.placeholders.testSetId' | transloco"
                 [formField]="softwareForm.test_set_id"
               />
             </ui-field>

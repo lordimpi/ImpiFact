@@ -19,7 +19,10 @@ async function open(certificates: unknown[] = [CERTIFICATE]) {
   return rendered;
 }
 
-const fileInput = () => screen.getByLabelText(/^Archivo del certificado/) as HTMLInputElement;
+// The ui-file-upload button is the control; its hidden file input only receives the chosen file.
+const chooseButton = () =>
+  screen.getByRole('button', { name: /^Archivo del certificado.*Seleccionar archivo$/ });
+const fileInput = () => document.querySelector('ui-file-upload input') as HTMLInputElement;
 const passwordInput = () =>
   screen.getByLabelText(/^Contraseña del certificado/) as HTMLInputElement;
 
@@ -29,15 +32,21 @@ function chooseFile(name = 'acme.p12', content = 'PFX-BYTES') {
 }
 
 describe('CertificatePage', () => {
-  it('lists the certificates with their holder, expiry and days left', async () => {
-    await open();
+  // The first test of the file pays the cold render of the route and of the Optimus controls (about 3 s alone,
+  // more while the other files of the project run in parallel).
+  it(
+    'lists the certificates with their holder, expiry and days left',
+    { timeout: 10_000 },
+    async () => {
+      await open();
 
-    const list = await screen.findByRole('list', { name: 'Certificados de la empresa' });
-    const item = within(list).getByRole('listitem');
-    expect(within(item).getByText('CN=ACME SAS, SERIALNUMBER=900123456')).toBeTruthy();
-    expect(within(item).getByText('225 días restantes')).toBeTruthy();
-    expect(within(item).getByText('Activo')).toBeTruthy();
-  });
+      const list = await screen.findByRole('list', { name: 'Certificados de la empresa' });
+      const item = within(list).getByRole('listitem');
+      expect(within(item).getByText('CN=ACME SAS, SERIALNUMBER=900123456')).toBeTruthy();
+      expect(within(item).getByText('225 días restantes')).toBeTruthy();
+      expect(within(item).getByText('Activo')).toBeTruthy();
+    },
+  );
 
   it('explains when there is no certificate yet', async () => {
     await open([]);
@@ -50,7 +59,18 @@ describe('CertificatePage', () => {
 
     expect(passwordInput().type).toBe('password');
     expect(passwordInput().getAttribute('autocomplete')).toBe('new-password');
+    expect(passwordInput().placeholder).toBe('Contraseña del archivo .p12');
+  });
+
+  it('chooses the file with the ui file upload, limited to .p12 and .pfx', async () => {
+    await open();
+
+    expect(chooseButton().id).toBe(
+      screen.getByText('Archivo del certificado', { selector: 'label' }).getAttribute('for'),
+    );
     expect(fileInput().getAttribute('accept')).toBe('.p12,.pfx');
+    chooseFile();
+    expect(await screen.findByText('acme.p12')).toBeTruthy();
   });
 
   it('requires the file and the password before calling the API', async () => {
@@ -68,9 +88,24 @@ describe('CertificatePage', () => {
     chooseFile('acme.pem');
     fireEvent.input(passwordInput(), { target: { value: SECRET } });
 
+    expect(
+      await screen.findByText('«acme.pem» no es de un tipo permitido. Use un archivo .p12, .pfx.'),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Cargar certificado' }));
 
-    expect(await screen.findByText('El archivo debe ser .p12 o .pfx.')).toBeTruthy();
+    expect(await screen.findByText('Elija el archivo del certificado.')).toBeTruthy();
+    http.expectNone({ method: 'PUT' });
+  });
+
+  it('rejects a file larger than 1 MB', async () => {
+    const { http } = await open();
+    chooseFile('grande.p12', 'x'.repeat(1024 * 1024 + 1));
+    fireEvent.input(passwordInput(), { target: { value: SECRET } });
+
+    expect(await screen.findByText(/^«grande\.p12» pesa .* y el máximo es 1 MB\.$/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar certificado' }));
+
+    expect(await screen.findByText('Elija el archivo del certificado.')).toBeTruthy();
     http.expectNone({ method: 'PUT' });
   });
 
@@ -91,7 +126,8 @@ describe('CertificatePage', () => {
 
     expect(await screen.findByText('El certificado se cargó. Vence en 365 días.')).toBeTruthy();
     expect(passwordInput().value).toBe('');
-    expect(fileInput().value).toBe('');
+    expect(screen.queryByText('acme.p12')).toBeNull();
+    expect(screen.getByText('Ningún archivo seleccionado')).toBeTruthy();
     const state = JSON.stringify(getState(TestBed.inject(CompanySetupStore)));
     expect(state).not.toContain(SECRET);
     const items = within(screen.getByRole('list', { name: 'Certificados de la empresa' }))

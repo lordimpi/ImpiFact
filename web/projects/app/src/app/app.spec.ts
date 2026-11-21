@@ -10,13 +10,20 @@ import {
   NotificationsStore,
   SessionStore,
   ToastStore,
+  UNSAVED_CHANGES_CONFIRM,
 } from '@impifact/core';
-import { Translation, TranslocoLoader, provideTransloco } from '@jsverse/transloco';
+import {
+  Translation,
+  TranslocoLoader,
+  TranslocoService,
+  provideTransloco,
+} from '@jsverse/transloco';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
-import { of } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
 import authEsCO from '../../../feature-auth/src/i18n/es-CO.json';
 import esCO from '../../public/i18n/es-CO.json';
 import { App } from './app';
+import { unsavedChangesDialog } from './app.config';
 import { routes } from './app.routes';
 
 // Cargador en memoria con los archivos reales de textos es-CO (raíz y scope de feature-auth), sin HTTP.
@@ -201,6 +208,30 @@ describe('App shell', () => {
 
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     await waitFor(() => expect(document.activeElement).toBe(toggle));
+  });
+
+  describe('preferences', () => {
+    afterEach(() => {
+      localStorage.clear();
+      document.documentElement.dataset['theme'] = 'light';
+    });
+
+    it('switches to the dark theme and back from the top bar and remembers it', async () => {
+      await renderShell({ authenticated: true, companies: ['company-1'], roles: ['customer'] });
+      const toDark = await screen.findByRole('button', { name: 'Activar modo oscuro' });
+
+      fireEvent.click(toDark);
+
+      expect(document.documentElement.dataset['theme']).toBe('dark');
+      expect(localStorage.getItem('impifact.theme')).toBe('dark');
+      const toLight = screen.getByRole('button', { name: 'Activar modo claro' });
+
+      fireEvent.click(toLight);
+
+      expect(document.documentElement.dataset['theme']).toBe('light');
+      expect(localStorage.getItem('impifact.theme')).toBe('light');
+      expect(screen.getByRole('button', { name: 'Activar modo oscuro' })).toBeTruthy();
+    });
   });
 
   it('shows the company selection without the sidebar', async () => {
@@ -455,5 +486,55 @@ describe('App shell', () => {
     ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Seguir conectado' }));
     expect(monitor.stayConnected).toHaveBeenCalledOnce();
+  });
+});
+
+describe('unsavedChangesDialog', () => {
+  async function ask() {
+    TestBed.configureTestingModule({
+      providers: [
+        provideTransloco({
+          config: { availableLangs: ['es-CO'], defaultLang: 'es-CO' },
+          loader: InMemoryLoader,
+        }),
+        unsavedChangesDialog,
+      ],
+    });
+    await firstValueFrom(TestBed.inject(TranslocoService).load('es-CO'));
+    const answer = TestBed.inject(UNSAVED_CHANGES_CONFIRM)(
+      'Hay cambios sin guardar. ¿Desea salir de todos modos?',
+    );
+    const dialog = await screen.findByRole(
+      'alertdialog',
+      { name: 'Cambios sin guardar' },
+      { timeout: 4000 },
+    );
+    return { answer, dialog };
+  }
+
+  afterEach(() =>
+    document.body.querySelectorAll('ui-confirm-dialog').forEach((host) => host.remove()),
+  );
+
+  it('asks with the Optimus confirm dialog instead of the browser one, and stays on «Seguir editando»', async () => {
+    const nativeConfirm = vi.spyOn(window, 'confirm');
+    const { answer, dialog } = await ask();
+
+    expect(
+      within(dialog).getByText('Hay cambios sin guardar. ¿Desea salir de todos modos?'),
+    ).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Seguir editando' }));
+
+    await expect(answer).resolves.toBe(false);
+    expect(nativeConfirm).not.toHaveBeenCalled();
+    nativeConfirm.mockRestore();
+  });
+
+  it('leaves with «Salir sin guardar»', async () => {
+    const { answer, dialog } = await ask();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Salir sin guardar' }));
+
+    await expect(answer).resolves.toBe(true);
   });
 });

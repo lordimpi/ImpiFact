@@ -12,7 +12,7 @@ import {
   HelpComponent,
   InputDirective,
   PageTitleComponent,
-  SelectDirective,
+  SelectComponent,
   TableCellDirective,
   TableComponent,
   UiTableColumn,
@@ -59,7 +59,7 @@ const NUMBER = new Intl.NumberFormat('es-CO');
     HelpComponent,
     InputDirective,
     PageTitleComponent,
-    SelectDirective,
+    SelectComponent,
     TableComponent,
     TableCellDirective,
     PlatformNavComponent,
@@ -74,7 +74,9 @@ export class PlatformPlansPage {
   private readonly transloco = inject(TranslocoService);
   private readonly toasts = inject(ToastStore);
 
-  protected readonly periods = PLAN_PERIODS;
+  protected readonly periodOptions = computed(() =>
+    PLAN_PERIODS.map((id) => ({ id, name: this.periodLabel(id) })),
+  );
   protected readonly quantityFields = QUANTITY_FIELDS;
 
   /** Plan que se edita; `null` al crear uno nuevo. */

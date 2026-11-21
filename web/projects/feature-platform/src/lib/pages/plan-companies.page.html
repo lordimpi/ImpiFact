@@ -1,9 +1,12 @@
 <section class="platform-page">
   <header>
-    <ui-page-title [subtitle]="'platform.planCompanies.description' | transloco">
-      <a uiPageTitleBreadcrumb class="platform-back" routerLink="/plataforma/planes">{{
-        'platform.planCompanies.back' | transloco
-      }}</a>
+    <ui-page-title
+      [subtitle]="'platform.planCompanies.description' | transloco"
+      [breadcrumb]="[
+        { label: 'platform.plans.title' | transloco, link: '/plataforma/planes' },
+        { label: title() },
+      ]"
+    >
       {{ title() }}
     </ui-page-title>
     <feat-platform-nav />

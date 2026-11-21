@@ -59,6 +59,11 @@ describe('DocumentDetailPage', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Factura SETP990000002' }),
     ).toBeTruthy();
+    const breadcrumb = screen.getByRole('navigation', { name: 'Ruta de navegación' });
+    expect(within(breadcrumb).getByRole('link', { name: 'Documentos' }).getAttribute('href')).toBe(
+      '/documentos',
+    );
+    expect(within(breadcrumb).getByText('SETP990000002').getAttribute('aria-current')).toBe('page');
     expect(screen.getByText('Rechazado')).toBeTruthy();
     expect(screen.getByText('CLIENTE DE PRUEBA GOLDEN SAS')).toBeTruthy();
     const line = screen.getByText('Servicio de consultoría').closest('tr')!;

@@ -70,16 +70,20 @@
           [error]="errors().type_document_id"
           required
         >
-          <select uiSelect [formField]="resolutionForm.type_document_id">
-            @for (type of documentTypes; track type) {
-              <option [value]="'' + type">
-                {{ 'companies.resolutions.documentTypes.' + type | transloco }}
-              </option>
-            }
-          </select>
+          <ui-select
+            [options]="documentTypes()"
+            [placeholder]="'companies.common.noneOption' | transloco"
+            [formField]="resolutionForm.type_document_id"
+          />
         </ui-field>
         <ui-field [label]="'companies.resolutions.prefix' | transloco" [error]="errors().prefix">
-          <input uiInput type="text" autocomplete="off" [formField]="resolutionForm.prefix" />
+          <input
+            uiInput
+            type="text"
+            autocomplete="off"
+            [placeholder]="'companies.resolutions.placeholders.prefix' | transloco"
+            [formField]="resolutionForm.prefix"
+          />
         </ui-field>
         <ui-field
           [label]="'companies.resolutions.resolution' | transloco"
@@ -91,6 +95,7 @@
             type="text"
             inputmode="numeric"
             autocomplete="off"
+            [placeholder]="'companies.resolutions.placeholders.resolution' | transloco"
             [formField]="resolutionForm.resolution"
           />
         </ui-field>
@@ -98,7 +103,10 @@
           [label]="'companies.resolutions.resolutionDate' | transloco"
           [error]="errors().resolution_date"
         >
-          <input uiInput type="date" [formField]="resolutionForm.resolution_date" />
+          <ui-date-picker
+            [placeholder]="'companies.common.datePlaceholder' | transloco"
+            [formField]="resolutionForm.resolution_date"
+          />
         </ui-field>
         <ui-field
           class="companies-wide"
@@ -110,6 +118,7 @@
             uiInput
             type="text"
             autocomplete="off"
+            [placeholder]="'companies.resolutions.placeholders.technicalKey' | transloco"
             [formField]="resolutionForm.technical_key"
           />
         </ui-field>
@@ -123,6 +132,7 @@
             type="text"
             inputmode="numeric"
             autocomplete="off"
+            [placeholder]="'companies.resolutions.placeholders.from' | transloco"
             [formField]="resolutionForm.from"
           />
         </ui-field>
@@ -132,6 +142,7 @@
             type="text"
             inputmode="numeric"
             autocomplete="off"
+            [placeholder]="'companies.resolutions.placeholders.to' | transloco"
             [formField]="resolutionForm.to"
           />
         </ui-field>
@@ -140,14 +151,20 @@
           [error]="errors().date_from"
           required
         >
-          <input uiInput type="date" [formField]="resolutionForm.date_from" />
+          <ui-date-picker
+            [placeholder]="'companies.common.datePlaceholder' | transloco"
+            [formField]="resolutionForm.date_from"
+          />
         </ui-field>
         <ui-field
           [label]="'companies.resolutions.dateTo' | transloco"
           [error]="errors().date_to"
           required
         >
-          <input uiInput type="date" [formField]="resolutionForm.date_to" />
+          <ui-date-picker
+            [placeholder]="'companies.common.datePlaceholder' | transloco"
+            [formField]="resolutionForm.date_to"
+          />
         </ui-field>
       </div>
       <div uiCardFooter class="companies-actions">
@@ -171,6 +188,7 @@
           uiInput
           type="text"
           autocomplete="off"
+          [placeholder]="'companies.resolutions.placeholders.softwareId' | transloco"
           [value]="softwareId()"
           (input)="softwareId.set($any($event.target).value)"
         />

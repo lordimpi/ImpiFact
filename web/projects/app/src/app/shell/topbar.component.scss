@@ -22,7 +22,8 @@ svg {
   stroke-linejoin: round;
 }
 
-.topbar__menu {
+.topbar__menu,
+.topbar__icon-button {
   display: inline-grid;
   place-items: center;
   inline-size: 2.5rem;
@@ -36,9 +37,21 @@ svg {
   &:hover {
     background: var(--if-sidebar-hover-bg);
   }
+}
 
+// The menu button opens the drawer, which only exists below 1024px.
+.topbar__menu {
   @media (min-width: 64rem) {
     display: none;
+  }
+}
+
+.topbar__icon-button {
+  color: var(--if-color-text-muted);
+  border-color: transparent;
+
+  &:hover {
+    color: var(--if-color-text);
   }
 }
 

@@ -16,6 +16,7 @@ import {
   ErrorStateComponent,
   UiBadgeTone,
   FieldComponent,
+  FileUploadComponent,
   InputDirective,
   PasswordToggleDirective,
   LoadingComponent,
@@ -26,6 +27,8 @@ import { CompanySetupStore } from '../state/company-setup.store';
 
 /** Tamaño máximo del archivo; un .p12 normal pesa unos pocos kilobytes. */
 const MAX_BYTES = 1024 * 1024;
+/** Tipos que acepta el selector de archivo (`accept`). */
+const ACCEPT = '.p12,.pfx';
 const EXTENSIONS = /\.(p12|pfx)$/i;
 
 /** Contenido del archivo en base64, sin el prefijo `data:` que agrega `FileReader`. */
@@ -42,8 +45,10 @@ function readAsBase64(file: File): Promise<string> {
  * Certificado digital (`/empresas/:id/certificado`): los certificados de la empresa (titular, emisor, vencimiento y
  * días restantes) y la carga de uno nuevo en base64, que es lo que recibe el Api.
  *
- * La contraseña se lee del campo `type=password` solo al enviar y nunca pasa por un signal, el store ni la consola;
- * el campo y el archivo se vacían después de cada envío, haya salido bien o no.
+ * El archivo se elige con `ui-file-upload`, que solo deja elegir .p12 o .pfx de máximo 1 MB y explica por qué rechaza
+ * otro; la página vuelve a revisar el archivo al enviar. La contraseña se lee del campo `type=password` solo al enviar
+ * y nunca pasa por un signal, el store ni la consola; el campo y el archivo se vacían después de cada envío, haya salido
+ * bien o no.
  */
 @Component({
   selector: 'feat-certificate-page',
@@ -55,6 +60,7 @@ function readAsBase64(file: File): Promise<string> {
     CardFooterDirective,
     ErrorStateComponent,
     FieldComponent,
+    FileUploadComponent,
     InputDirective,
     PasswordToggleDirective,
     LoadingComponent,
@@ -151,7 +157,11 @@ function readAsBase64(file: File): Promise<string> {
               [error]="fileError()"
               required
             >
-              <input #file uiInput type="file" accept=".p12,.pfx" (change)="fileError.set(null)" />
+              <ui-file-upload
+                [accept]="accept"
+                [maxFileSize]="maxBytes"
+                (fileChange)="onFile($event)"
+              />
             </ui-field>
             <ui-field
               [label]="'companies.certificate.password' | transloco"
@@ -165,6 +175,7 @@ function readAsBase64(file: File): Promise<string> {
                 uiPasswordToggle
                 type="password"
                 autocomplete="new-password"
+                [placeholder]="'companies.certificate.passwordPlaceholder' | transloco"
                 (input)="passwordError.set(null)"
               />
             </ui-field>
@@ -186,7 +197,10 @@ export class CertificatePage {
   protected readonly setup = inject(CompanySetupStore);
   private readonly transloco = inject(TranslocoService);
 
-  private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('file');
+  protected readonly accept = ACCEPT;
+  protected readonly maxBytes = MAX_BYTES;
+  private readonly fileUpload = viewChild.required(FileUploadComponent);
+  private readonly file = signal<File | null>(null);
   private readonly passwordInput = viewChild.required<ElementRef<HTMLInputElement>>('password');
 
   protected readonly uploading = signal(false);
@@ -219,7 +233,7 @@ export class CertificatePage {
     event.preventDefault();
     this.generalError.set(null);
     this.result.set(null);
-    const file = this.fileInput().nativeElement.files?.[0] ?? null;
+    const file = this.file();
     const password = this.passwordInput().nativeElement.value;
     this.fileError.set(this.validateFile(file));
     this.passwordError.set(password ? null : this.text('certificate.errors.passwordRequired'));
@@ -241,6 +255,11 @@ export class CertificatePage {
       this.uploading.set(false);
       this.clearInputs();
     }
+  }
+
+  protected onFile(file: File | null): void {
+    this.file.set(file);
+    this.fileError.set(null);
   }
 
   private validateFile(file: File | null): string | null {
@@ -269,7 +288,8 @@ export class CertificatePage {
 
   private clearInputs(): void {
     this.passwordInput().nativeElement.value = '';
-    this.fileInput().nativeElement.value = '';
+    this.fileUpload().clear();
+    this.file.set(null);
   }
 
   protected text(key: string, params?: Record<string, unknown>): string {

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { seriousViolations } from './support/axe';
 import { signInAt } from './support/sign-in';
+import { pickOption } from './support/select';
 
 // Campana de avisos y página `/notificaciones` (feature-notifications) contra la Api simulada.
 
@@ -76,7 +77,7 @@ test('the notifications page pages on the server and filters the unread ones', a
   await expect(table.getByText('Aviso n-21')).toBeVisible();
   expect(queries).toContain('?cursor=cursor-2&limit=20');
 
-  await page.getByLabel('Mostrar').selectOption('unread');
+  await pickOption(page, page.getByRole('combobox', { name: 'Mostrar' }), 'Sin leer');
   await expect(page).toHaveURL('/notificaciones?estado=sin-leer');
   await expect.poll(() => queries.at(-1)).toBe('?unread=true&limit=20');
 });

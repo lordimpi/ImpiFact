@@ -8,11 +8,12 @@ import {
   CardActionsDirective,
   CardComponent,
   CardFooterDirective,
+  DatePickerComponent,
   ErrorStateComponent,
   FieldComponent,
   InputDirective,
   LoadingComponent,
-  SelectDirective,
+  SelectComponent,
   TableCellDirective,
   TableComponent,
   UiBadgeTone,
@@ -70,11 +71,12 @@ const DIGITS = /^\d+$/;
     CardActionsDirective,
     CardComponent,
     CardFooterDirective,
+    DatePickerComponent,
     ErrorStateComponent,
     FieldComponent,
     InputDirective,
     LoadingComponent,
-    SelectDirective,
+    SelectComponent,
     NextNumberDialogComponent,
     TableComponent,
     TableCellDirective,
@@ -93,7 +95,12 @@ export class ResolutionsPage implements HasUnsavedChanges {
   protected readonly resolutionForm = createResolutionForm(this.model);
   protected readonly generalError = signal<string | null>(null);
   protected readonly submitting = computed(() => this.resolutionForm().submitting());
-  protected readonly documentTypes = RESOLUTION_DOCUMENT_TYPES;
+  protected readonly documentTypes = computed(() =>
+    RESOLUTION_DOCUMENT_TYPES.map((id) => ({
+      id,
+      name: this.text(`resolutions.documentTypes.${id}`),
+    })),
+  );
 
   protected readonly softwareId = signal(this.setup.invoiceSoftware()?.identifier ?? '');
   protected readonly lookup = signal<LookupState>({ kind: 'idle' });
@@ -165,6 +172,8 @@ export class ResolutionsPage implements HasUnsavedChanges {
       range: target
         ? this.text('resolutions.nextNumber.range', { from: target.from, to: target.to })
         : '',
+      // The example is the current next number (or the start of the range): a valid number for that resolution.
+      placeholder: target ? target.next || String(target.from) : '',
       save: this.text('resolutions.nextNumber.save'),
       cancel: this.text('common.cancel'),
       close: this.text('common.close'),
