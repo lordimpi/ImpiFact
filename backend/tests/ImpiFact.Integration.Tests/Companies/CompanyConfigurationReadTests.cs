@@ -221,16 +221,20 @@ public sealed class CompanyConfigurationReadTests
     }
 
     [TestCase("Set de prueba con identificador 00000000-0000-0000-0000-000000000000 se encuentra Aceptado", true)]
-    [TestCase("Set de prueba con identificador 00000000-0000-0000-0000-000000000000 se encuentra en proceso", false)]
-    public async Task Setup_status_reads_a_test_set_the_dian_already_accepted_from_the_description(string description, bool expected)
+    [TestCase("Set de prueba con identificador 00000000-0000-0000-0000-000000000000 se encuentra en proceso", null)]
+    [TestCase("Batch en proceso de validación.", null)]
+    public async Task Setup_status_reads_the_test_set_answer_from_the_description(string description, bool? expected)
     {
-        // Con el set aprobado, la DIAN contesta GetStatusZip con IsValid falso y esa descripción (código 2).
+        // Con el set aprobado, la DIAN contesta GetStatusZip con IsValid falso y «se encuentra Aceptado» (código 2).
+        // Mientras procesa, también con IsValid falso: «Batch en proceso de validación.» o «se encuentra en proceso»;
+        // eso no es un rechazo, el set todavía no tiene resultado (null).
         var (company, nit) = await CreateCompanyAsync();
         await AddTestSetAnswersAsync(nit, (false, "Batch en proceso de validación."), (false, description));
 
         using var status = await Json(await company.GetAsync($"/api/v1/companies/{nit}/setup-status"));
 
-        Assert.That(status.RootElement.GetProperty("test_set_accepted").GetBoolean(), Is.EqualTo(expected));
+        var accepted = status.RootElement.GetProperty("test_set_accepted");
+        Assert.That(accepted.ValueKind == JsonValueKind.Null ? (bool?)null : accepted.GetBoolean(), Is.EqualTo(expected));
     }
 
     [Test]
