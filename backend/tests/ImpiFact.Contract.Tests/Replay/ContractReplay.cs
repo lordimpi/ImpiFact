@@ -280,7 +280,7 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
     /// <summary>Tipo de documento que emite la solicitud (1 factura, 4 nota crédito, 5 nota débito); nulo si no emite.</summary>
     private static int? IssuedType(PostmanRequest request) => request.Method != "POST" ? null : request.ApiPath switch
     {
-        "/api/ubl2.1/invoice" => 1,
+        "/api/ubl2.1/invoice" or "/api/ubl2.1/invoice-aiu" or "/api/ubl2.1/invoice-mandate" or "/api/ubl2.1/invoice-transport" => 1,
         "/api/ubl2.1/credit-note" => 4,
         "/api/ubl2.1/debit-note" => 5,
         _ => null,

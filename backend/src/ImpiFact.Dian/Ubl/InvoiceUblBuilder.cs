@@ -27,6 +27,15 @@ public static class InvoiceUblBuilder
 {
     private const string CufeAlgorithm = "CUFE-SHA384";
 
+    /// <summary>Exact line description that gets the AIU note (php-rules 10.1, item 3: with the accent, case-sensitive).</summary>
+    public const string AiuAdministrationLine = "Administración";
+
+    /// <summary>Text before the AIU contract object in the note of the administration line.</summary>
+    public const string AiuNotePrefix = "Contrato de servicios AIU por concepto de: ";
+
+    /// <summary>Identification type of the mandator (31 = NIT), the schemeName of its cbc:ID.</summary>
+    private const string NitIdentificationType = "31";
+
     // La plantilla de las líneas de ApiDian deja saltos de línea y espacios de su propia indentación dentro
     // del precio (cbc:PriceAmount, cbc:BaseQuantity). Las fixtures golden los conservan, así que se
     // reproducen literalmente para igualar byte a byte. Las notas no tienen este relleno.
@@ -90,7 +99,7 @@ public static class InvoiceUblBuilder
         root.Add(MonetaryTotal("cac:LegalMonetaryTotal", invoice.Totals, invoice.LocalCurrencyCode));
         for (var i = 0; i < invoice.Lines.Count; i++)
         {
-            root.Add(Line(i + 1, invoice.Lines[i], invoice.LocalCurrencyCode));
+            root.Add(Line(i + 1, invoice.Lines[i], invoice.LocalCurrencyCode, invoice));
         }
 
         return new InvoiceUblResult(UblXmlSerializer.Serialize(root), cufe);
@@ -149,10 +158,30 @@ public static class InvoiceUblBuilder
         return element;
     }
 
-    private static UblElement Line(int number, InvoiceLine line, string currency)
+    /// <summary>cac:AdditionalItemProperty of a freight transport line (RNDC data).</summary>
+    private static UblElement ItemProperty(string name, string value) =>
+        new UblElement("cac:AdditionalItemProperty").Add("cbc:Name", name).Add("cbc:Value", value);
+
+    private static UblElement Line(int number, InvoiceLine line, string currency, SalesInvoice invoice)
     {
-        var element = new UblElement("cac:InvoiceLine")
-            .Add("cbc:ID", number.ToString(CultureInfo.InvariantCulture))
+        var id = new UblElement("cbc:ID", number.ToString(CultureInfo.InvariantCulture));
+        switch (invoice.LineIdScheme)
+        {
+            case InvoiceLineIdScheme.Mandate:
+                id.Attr("schemeID", "1");
+                break;
+            case InvoiceLineIdScheme.Transport:
+                id.Attr("schemeID", line.Consignment is null ? "0" : "1");
+                break;
+        }
+
+        var element = new UblElement("cac:InvoiceLine").Add(id);
+        if (invoice.AiuContractObject is { } aiuObject && line.Description == AiuAdministrationLine)
+        {
+            element.Add("cbc:Note", AiuNotePrefix + aiuObject);
+        }
+
+        element
             .Add(new UblElement("cbc:InvoicedQuantity", DianRounding.FormatQuantity(line.Quantity)).Attr("unitCode", line.UnitCode))
             .Add(Amount("cbc:LineExtensionAmount", line.LineExtensionAmount, currency))
             .Add("cbc:FreeOfChargeIndicator", Bool(line.IsFreeOfCharge));
@@ -165,9 +194,31 @@ public static class InvoiceUblBuilder
 
         AddAllowanceCharges(element, line.AllowanceCharges, currency);
         AddTaxTotals(element, line.TaxSubtotals, currency);
-        element.Add(new UblElement("cac:Item")
+        var item = new UblElement("cac:Item")
             .Add("cbc:Description", line.Description)
-            .Add(StandardItemIdentification(line.ItemCode, line.ItemScheme.Code, line.ItemScheme.Name, line.ItemScheme.AgencyId)));
+            .Add(StandardItemIdentification(line.ItemCode, line.ItemScheme.Code, line.ItemScheme.Name, line.ItemScheme.AgencyId));
+        if (line.Mandator is { } mandator)
+        {
+            item.Add(new UblElement("cac:InformationContentProviderParty")
+                .Add(new UblElement("cac:PowerOfAttorney")
+                    .Add(new UblElement("cac:AgentParty")
+                        .Add(new UblElement("cac:PartyIdentification")
+                            .Add(new UblElement("cbc:ID", mandator.IdentificationNumber)
+                                .Attr("schemeAgencyID", DianAgencyId)
+                                .Attr("schemeAgencyName", DianAgencyName)
+                                .Attr("schemeID", mandator.CheckDigit)
+                                .Attr("schemeName", NitIdentificationType))))));
+        }
+
+        if (line.Consignment is { } consignment)
+        {
+            item.Add(ItemProperty("01", consignment.RndcConsignmentNumber))
+                .Add(ItemProperty("02", consignment.InternalConsignmentNumber))
+                .Add(ItemProperty("03", consignment.Value)
+                    .Add(new UblElement("cbc:ValueQuantity", consignment.Quantity).Attr("unitCode", consignment.UnitCode)));
+        }
+
+        element.Add(item);
         return element.Add(new UblElement("cac:Price")
             .Add(new UblElement("cbc:PriceAmount", PriceValuePrefix + DianRounding.FormatAmount(line.PriceAmount) + PriceValueSuffix)
                 .Attr("currencyID", currency))

@@ -17,6 +17,17 @@ public static class ContractScope
         "01", "02", "03", "04", "05", "06", "09", "10",
     };
 
+    /// <summary>
+    /// Requests outside those folders that phase 7a already covers, by their name in the collection: folder 07 variants
+    /// implemented in T2 (odd/tasks/fase-7a-community.md).
+    /// </summary>
+    public static readonly IReadOnlySet<string> PhaseSevenRequests = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "Factura AIU (administracion, imprevistos y utilidad)",
+        "Factura de mandato",
+        "Factura de transporte de carga",
+    };
+
     /// <summary>Palabra buscada (sin tildes y en minúsculas) y motivo de la exclusión.</summary>
     private static readonly (string Term, string Reason)[] Exclusions =
     [
@@ -38,7 +49,7 @@ public static class ContractScope
     /// <summary>Nulo si la solicitud se ejecuta en la fase 4; si no, el motivo por el que queda fuera.</summary>
     public static string? OutOfScopeReason(PostmanRequest request)
     {
-        if (!PhaseFourFolders.Contains(request.TopFolder))
+        if (!PhaseFourFolders.Contains(request.TopFolder) && !PhaseSevenRequests.Contains(request.Name))
         {
             return $"carpeta {request.TopFolder} fuera de la fase 4";
         }

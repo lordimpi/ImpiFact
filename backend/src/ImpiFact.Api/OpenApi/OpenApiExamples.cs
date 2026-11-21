@@ -45,6 +45,42 @@ internal static class OpenApiExamples
         Golden("invoice/final-consumer", "Factura a consumidor final (222222222222)"),
     ];
 
+    /// <summary>
+    /// The invoice variants start from the simple invoice example with the fields of each variant added, and without
+    /// <c>number</c>, so that they take the next number after the standard invoice examples.
+    /// </summary>
+    public static IReadOnlyList<RequestExample> AiuInvoices { get; } =
+    [
+        Variant("aiu-administration", "Factura AIU: la línea «Administración» con el objeto del contrato (`noteAIU`)", body =>
+        {
+            body["noteAIU"] = "OBRA CIVIL DE EJEMPLO";
+            body["invoice_lines"]![0]!["description"] = "Administración";
+        }),
+    ];
+
+    public static IReadOnlyList<RequestExample> MandateInvoices { get; } =
+    [
+        Variant("mandate-third-party-line", "Factura de mandato: una línea vendida por cuenta de un tercero (`agentparty`)", body =>
+        {
+            body["invoice_lines"]![0]!["agentparty"] = "800000005";
+            body["invoice_lines"]![0]!["agentparty_dv"] = "9";
+        }),
+    ];
+
+    public static IReadOnlyList<RequestExample> TransportInvoices { get; } =
+    [
+        Variant("transport-rndc-consignment", "Factura de transporte de carga: una remesa del RNDC (`is_RNDC`)", body =>
+        {
+            var line = body["invoice_lines"]![0]!;
+            line["is_RNDC"] = true;
+            line["RNDC_consignment_number"] = "95000912001";
+            line["internal_consignment_number"] = "REM000001";
+            line["value_consignment"] = "1500000";
+            line["unit_measure_consignment_id"] = 767;
+            line["quantity_consignment"] = "200.00";
+        }),
+    ];
+
     public static IReadOnlyList<RequestExample> CreditNotes { get; } =
     [
         Golden("credit-note/partial-return-with-reference", "Devolución parcial de la factura SETP990000001",
@@ -122,6 +158,16 @@ internal static class OpenApiExamples
         "X-Client" => "panel",
         _ => null,
     };
+
+    /// <summary>The simple invoice golden example without <c>number</c> and with the changes of a variant.</summary>
+    private static RequestExample Variant(string name, string summary, Action<JsonNode> change)
+    {
+        var value = Golden("invoice/single-line-iva19", summary).Value.DeepClone();
+        value.AsObject().Remove("number");
+        change(value);
+        return new RequestExample(name, summary, value,
+            "Parte de la factura simple (`single-line-iva19`) sin `number`, así toma el siguiente número de la resolución.");
+    }
 
     /// <summary>Lee el <c>input.json</c> de un caso golden incrustado por el proyecto (ver el <c>.csproj</c>).</summary>
     private static RequestExample Golden(string goldenCase, string summary, string? description = null)

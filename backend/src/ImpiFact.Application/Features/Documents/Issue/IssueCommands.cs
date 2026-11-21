@@ -30,6 +30,27 @@ public sealed record IssueCreditNoteCommand(IssueDocumentBody Body, byte[] RawBo
 public sealed record IssueDebitNoteCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
     : IIssueDocumentCommand;
 
+/// <summary>
+/// <c>POST /api/v1/documents/invoices/aiu</c> (<c>/api/ubl2.1/invoice-aiu[/{testSetId}]</c>): AIU invoice (type 1,
+/// operation 9; php-rules 10.1).
+/// </summary>
+public sealed record IssueAiuInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
+    : IIssueDocumentCommand;
+
+/// <summary>
+/// <c>POST /api/v1/documents/invoices/mandate</c> (<c>/api/ubl2.1/invoice-mandate[/{testSetId}]</c>): mandate invoice
+/// (type 1, operation 11; php-rules 10.2).
+/// </summary>
+public sealed record IssueMandateInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
+    : IIssueDocumentCommand;
+
+/// <summary>
+/// <c>POST /api/v1/documents/invoices/transport</c> (<c>/api/ubl2.1/invoice-transport[/{testSetId}]</c>): freight
+/// transport invoice (type 1, operation 21, code 12; php-rules 10.3).
+/// </summary>
+public sealed record IssueTransportInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
+    : IIssueDocumentCommand;
+
 /// <summary>Tipo de documento que se emite.</summary>
 public enum IssueKind
 {
@@ -38,7 +59,25 @@ public enum IssueKind
     DebitNote,
 }
 
-/// <summary>Lo que cambia entre la factura y las notas (php-rules, secciones 3 y 4).</summary>
+/// <summary>
+/// Invoice variants that reuse template 01 with per-variant options (php-rules, sections 9 and 10). They are type 1
+/// invoices: same resolution, numbering, CUFE and plan quota as the standard invoice.
+/// </summary>
+public enum InvoiceVariant
+{
+    Standard,
+
+    /// <summary>Administration, contingencies and profit (operation 9, code 09).</summary>
+    Aiu,
+
+    /// <summary>Sale on behalf of third parties (operation 11, code 11).</summary>
+    Mandate,
+
+    /// <summary>Freight transport with RNDC data (operation 21, code 12).</summary>
+    Transport,
+}
+
+/// <summary>Lo que cambia entre la factura, sus variantes y las notas (php-rules, secciones 3, 4, 9 y 10).</summary>
 internal sealed record IssueSpec(
     IssueKind Kind,
     int DocumentTypeId,
@@ -49,10 +88,30 @@ internal sealed record IssueSpec(
     int? OperationWithoutReferenceId,
     int? MaxDiscrepancyCode,
     string UuidAlgorithm,
-    TotalsDocumentKind TotalsKind)
+    TotalsDocumentKind TotalsKind,
+    InvoiceVariant Variant = InvoiceVariant.Standard)
 {
     public static readonly IssueSpec Invoice = new(
         IssueKind.Invoice, 1, "invoice_lines", "legal_monetary_totals", 10, null, null, null, "CUFE-SHA384", TotalsDocumentKind.Invoice);
+
+    /// <summary>
+    /// The operation of each variant is fixed: <c>type_operation_id</c> may be omitted or carry that same operation;
+    /// another one is a 422 (php-rules 9.2, item 7: the PHP answered 500 to any value).
+    /// </summary>
+    public static readonly IssueSpec AiuInvoice = Invoice with
+    {
+        Variant = InvoiceVariant.Aiu, DefaultOperationTypeId = 9, AllowedOperationTypeIds = [9],
+    };
+
+    public static readonly IssueSpec MandateInvoice = Invoice with
+    {
+        Variant = InvoiceVariant.Mandate, DefaultOperationTypeId = 11, AllowedOperationTypeIds = [11],
+    };
+
+    public static readonly IssueSpec TransportInvoice = Invoice with
+    {
+        Variant = InvoiceVariant.Transport, DefaultOperationTypeId = 21, AllowedOperationTypeIds = [21],
+    };
 
     /// <summary>Operaciones 7, 8, 12, 30, 31, 32; por defecto 12 (código 20); sin referencia, la 8 (código 22).</summary>
     public static readonly IssueSpec CreditNote = new(

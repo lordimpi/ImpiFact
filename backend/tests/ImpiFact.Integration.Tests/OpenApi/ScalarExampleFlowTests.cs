@@ -69,6 +69,16 @@ public sealed class ScalarExampleFlowTests
             Assert.That(document.GetProperty("status").GetString(), Is.EqualTo("Queued"));
             Assert.That(document.GetProperty("full_number").GetString(), Is.EqualTo("SETP990000002"));
         });
+
+        // The invoice variant examples (phase 7a, T2) are issued as they are too, after the standard invoice.
+        foreach (var path in new[] { "/api/v1/documents/invoices/aiu", "/api/v1/documents/invoices/mandate", "/api/v1/documents/invoices/transport" })
+        {
+            using var variant = await SendAsync(company, HttpMethod.Post, path, Example(path, "post"));
+            var text = await variant.Content.ReadAsStringAsync();
+            Assert.That(variant.StatusCode, Is.EqualTo(HttpStatusCode.OK), $"{path}: {text}");
+            using var json = JsonDocument.Parse(text);
+            Assert.That(json.RootElement.GetProperty("document").GetProperty("status").GetString(), Is.EqualTo("Queued"), path);
+        }
     }
 
     private string PathExample(string path, string method, string name) =>

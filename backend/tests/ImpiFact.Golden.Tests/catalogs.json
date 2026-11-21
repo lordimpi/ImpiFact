@@ -67,8 +67,11 @@
   "operationTypes": {
     "6": { "name": "Nota Débito que referencia una factura electrónica", "code": "30" },
     "8": { "name": "Nota Crédito sin referencia a facturas", "code": "22" },
+    "9": { "name": "AIU", "code": "09" },
     "10": { "name": "Estandar", "code": "10" },
-    "12": { "name": "Nota Crédito que referencia una factura electrónica", "code": "20" }
+    "11": { "name": "Mandatos bienes", "code": "11" },
+    "12": { "name": "Nota Crédito que referencia una factura electrónica", "code": "20" },
+    "21": { "name": "Mandatos Servicios", "code": "12" }
   },
   "documentTypes": {
     "1": { "name": "Factura de Venta Nacional", "code": "01" },

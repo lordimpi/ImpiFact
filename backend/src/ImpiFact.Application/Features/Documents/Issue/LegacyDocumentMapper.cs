@@ -84,9 +84,35 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             TaxSubtotals = MapAll(body.TaxTotals, MapTaxSubtotal),
             WithholdingSubtotals = MapAll(body.WithHoldingTaxTotal, MapTaxSubtotal),
             Totals = MapTotals(frame.Spec.TotalsOf(body)!),
-            Lines = MapAll(frame.Spec.LinesOf(body), MapLine),
+            Lines = MapAll(frame.Spec.LinesOf(body), line => MapInvoiceLine(frame.Spec.Variant, line)),
+            AiuContractObject = frame.Spec.Variant == InvoiceVariant.Aiu ? PhpText.Clean(body.NoteAiu!.Value.Text) : null,
+            LineIdScheme = frame.Spec.Variant switch
+            {
+                InvoiceVariant.Mandate => InvoiceLineIdScheme.Mandate,
+                InvoiceVariant.Transport => InvoiceLineIdScheme.Transport,
+                _ => InvoiceLineIdScheme.Plain,
+            },
         };
     }
+
+    /// <summary>
+    /// The mandator only in the mandate invoice and the RNDC consignment only in the transport one (php-rules 10.2 and
+    /// 10.3); their values go to the XML as they arrive, without line breaks or «|».
+    /// </summary>
+    private InvoiceLine MapInvoiceLine(InvoiceVariant variant, LineBody line) => MapLine(line) with
+    {
+        Mandator = variant == InvoiceVariant.Mandate && !LegacyScalar.IsMissing(line.AgentParty)
+            ? new LineMandator(PhpText.Clean(line.AgentParty!.Value.Text.Trim()), PhpText.Clean(line.AgentPartyDv!.Value.Text.Trim()))
+            : null,
+        Consignment = variant == InvoiceVariant.Transport && line.IsRndc!.Value.Boolean
+            ? new RndcConsignment(
+                PhpText.Clean(line.RndcConsignmentNumber!.Value.Text.Trim()),
+                PhpText.Clean(line.InternalConsignmentNumber!.Value.Text),
+                PhpText.Clean(line.ValueConsignment!.Value.Text.Trim()),
+                Get(DianCatalog.UnitMeasure, (int)line.UnitMeasureConsignmentId!.Value.Integer).Code,
+                PhpText.Clean(line.QuantityConsignment!.Value.Text.Trim()))
+            : null,
+    };
 
     public SalesNote MapNote(IssueFrame frame, IssueDocumentBody body)
     {
@@ -463,6 +489,11 @@ internal static class CatalogNeeds
             if (LegacyDocumentMapper.IdOrNull(line.ReferencePriceId) is { } referencePrice)
             {
                 Need(DianCatalog.ReferencePrice, referencePrice, $"{at}.reference_price_id");
+            }
+
+            if (spec.Variant == InvoiceVariant.Transport && line.IsRndc is { } rndc && rndc.TryBoolean(out var isRndc) && isRndc)
+            {
+                Need(DianCatalog.UnitMeasure, (int)line.UnitMeasureConsignmentId!.Value.Integer, $"{at}.unit_measure_consignment_id");
             }
 
             Charges(needs, $"{at}.allowance_charges", line.AllowanceCharges);

@@ -10,14 +10,15 @@ namespace ImpiFact.Golden.Tests;
 public sealed class VariantGoldenTests
 {
     /// <summary>Tipos de documento con prueba propia (los builders ya existen).</summary>
-    private static readonly string[] Covered = ["attached-document", "credit-note", "debit-note", "invoice"];
+    private static readonly string[] Covered =
+    [
+        "attached-document", "credit-note", "debit-note", "invoice",
+        .. InvoiceVariantGoldenTests.Types.Select(type => type.Type),
+    ];
 
     /// <summary>Carpeta de tests/golden -> tarea de odd/tasks/fase-7a-community.md que escribe su builder.</summary>
     private static readonly (string Type, string Task, string Builder)[] Pending =
     [
-        ("invoice-aiu", "T2", "AIU invoice builder"),
-        ("invoice-mandate", "T2", "mandate invoice builder"),
-        ("invoice-transport", "T2", "freight transport invoice builder"),
         ("invoice-export", "T3", "export invoice builder"),
         ("support-document", "T4", "support document builder"),
         ("sd-credit-note", "T4", "support-document adjustment note builder"),

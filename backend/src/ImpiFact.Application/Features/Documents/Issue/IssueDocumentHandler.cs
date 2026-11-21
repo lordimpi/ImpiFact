@@ -437,6 +437,30 @@ internal sealed class IssueInvoiceHandler(
         new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
         IssueSpec.Invoice);
 
+internal sealed class IssueAiuInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    : IssueDocumentHandler<IssueAiuInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        IssueSpec.AiuInvoice);
+
+internal sealed class IssueMandateInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    : IssueDocumentHandler<IssueMandateInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        IssueSpec.MandateInvoice);
+
+internal sealed class IssueTransportInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    : IssueDocumentHandler<IssueTransportInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        IssueSpec.TransportInvoice);
+
 internal sealed class IssueCreditNoteHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,

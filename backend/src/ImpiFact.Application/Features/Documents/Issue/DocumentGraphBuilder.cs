@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Dian.Rounding;
@@ -74,6 +75,7 @@ internal static class DocumentGraphBuilder
             Notes = body.Notes?.Text,
             HeadNote = body.HeadNote?.Text,
             FootNote = body.FootNote?.Text,
+            Extensions = VariantExtensions(spec.Variant, body),
             CreatedByType = (ActorKind)tenant.Actor,
             CreatedById = tenant.UserId,
         };
@@ -101,6 +103,7 @@ internal static class DocumentGraphBuilder
                 LineExtensionAmount = Amount(line.LineExtensionAmount),
                 FreeOfCharge = line.FreeOfChargeIndicator!.Value.Boolean,
                 ReferencePriceId = LegacyDocumentMapper.IdOrNull(line.ReferencePriceId),
+                Extensions = LineExtensions(spec.Variant, line),
             });
             lineTaxes.AddRange((line.TaxTotals ?? []).Select(tax => new DocumentLineTax
             {
@@ -154,6 +157,44 @@ internal static class DocumentGraphBuilder
         }
 
         return new DocumentGraph(document, lines, taxes, lineTaxes, charges, payments, references);
+    }
+
+    /// <summary>
+    /// Variant of a type 1 invoice and its document-level data (<c>documents.extensions</c>); null for a standard
+    /// invoice and for the notes, which keep their previous rows.
+    /// </summary>
+    private static JsonObject? VariantExtensions(InvoiceVariant variant, IssueDocumentBody body) => variant switch
+    {
+        InvoiceVariant.Standard => null,
+        InvoiceVariant.Aiu => new JsonObject { ["variant"] = "aiu", ["note_aiu"] = body.NoteAiu?.Text },
+        InvoiceVariant.Mandate => new JsonObject { ["variant"] = "mandate" },
+        _ => new JsonObject { ["variant"] = "transport" },
+    };
+
+    /// <summary>The mandator (mandate) or the RNDC consignment (transport) of a line, as the client sent them.</summary>
+    private static JsonObject? LineExtensions(InvoiceVariant variant, LineBody line)
+    {
+        if (variant == InvoiceVariant.Mandate && !LegacyScalar.IsMissing(line.AgentParty))
+        {
+            return new JsonObject { ["agentparty"] = line.AgentParty!.Value.Text.Trim(), ["agentparty_dv"] = line.AgentPartyDv?.Text.Trim() };
+        }
+
+        if (variant == InvoiceVariant.Transport && line.IsRndc is { } rndc && rndc.TryBoolean(out var isRndc))
+        {
+            var extensions = new JsonObject { ["is_RNDC"] = isRndc };
+            if (isRndc)
+            {
+                extensions["RNDC_consignment_number"] = line.RndcConsignmentNumber?.Text;
+                extensions["internal_consignment_number"] = line.InternalConsignmentNumber?.Text;
+                extensions["value_consignment"] = line.ValueConsignment?.Text;
+                extensions["unit_measure_consignment_id"] = LegacyDocumentMapper.IdOrNull(line.UnitMeasureConsignmentId);
+                extensions["quantity_consignment"] = line.QuantityConsignment?.Text;
+            }
+
+            return extensions;
+        }
+
+        return null;
     }
 
     private static List<DocumentAllowanceCharge> Charges(Guid companyId, Guid documentId, Guid? lineId, List<AllowanceChargeBody>? items) =>

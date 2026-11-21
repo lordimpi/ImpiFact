@@ -18,6 +18,11 @@ public sealed partial class ExpectedContract
     {
         // Sección 4.4: la nota débito responde como la nota crédito (sin success, con cude).
         ["POST /api/ubl2.1/debit-note"] = "POST /api/ubl2.1/credit-note",
+        // Sections 9.2 (item 3) and 10: the AIU, mandate and transport invoices answer like the invoice in /api/v1 (Mejora:
+        // the PHP drops success and whatsapp_response, which the invoice example has and ImpiFact keeps).
+        ["POST /api/ubl2.1/invoice-aiu"] = "POST /api/ubl2.1/invoice",
+        ["POST /api/ubl2.1/invoice-mandate"] = "POST /api/ubl2.1/invoice",
+        ["POST /api/ubl2.1/invoice-transport"] = "POST /api/ubl2.1/invoice",
         // Sección 5.4.1: StateController arma la misma respuesta para status/document y status/zip.
         ["POST /api/ubl2.1/status/document/{}"] = "POST /api/ubl2.1/status/zip/{}",
         // ConfigurationController responde igual al guardar el software de cada tipo de documento.

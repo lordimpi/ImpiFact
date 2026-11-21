@@ -43,6 +43,14 @@ public sealed record IssueDocumentBody
     [JsonPropertyName("type_operation_id")]
     public LegacyScalar? TypeOperationId { get; init; }
 
+    /// <summary>
+    /// AIU invoice only (required there): object of the contract. It goes as «Contrato de servicios AIU por concepto de:
+    /// {noteAIU}» in the note of every line whose <c>description</c> is exactly «Administración». The other documents
+    /// ignore it.
+    /// </summary>
+    [JsonPropertyName("noteAIU")]
+    public LegacyScalar? NoteAiu { get; init; }
+
     /// <summary>Moneda de negociación cuando no es la de la empresa.</summary>
     [JsonPropertyName("idcurrency")]
     public LegacyScalar? IdCurrency { get; init; }
@@ -339,6 +347,41 @@ public sealed record LineBody
 
     [JsonPropertyName("tax_totals")]
     public List<TaxTotalBody>? TaxTotals { get; init; }
+
+    /// <summary>Mandate invoice only: NIT (1 to 15 digits) of the third party on whose behalf the line is sold.</summary>
+    [JsonPropertyName("agentparty")]
+    public LegacyScalar? AgentParty { get; init; }
+
+    /// <summary>Mandate invoice only: check digit of <c>agentparty</c>; required with it.</summary>
+    [JsonPropertyName("agentparty_dv")]
+    public LegacyScalar? AgentPartyDv { get; init; }
+
+    /// <summary>
+    /// Freight transport invoice only (required there): true when the line is a consignment registered in the RNDC
+    /// (Registro Nacional de Despachos de Carga); then the five consignment fields are required.
+    /// </summary>
+    [JsonPropertyName("is_RNDC")]
+    public LegacyScalar? IsRndc { get; init; }
+
+    /// <summary>Consignment number in the RNDC (numeric).</summary>
+    [JsonPropertyName("RNDC_consignment_number")]
+    public LegacyScalar? RndcConsignmentNumber { get; init; }
+
+    /// <summary>Internal consignment number of the carrier.</summary>
+    [JsonPropertyName("internal_consignment_number")]
+    public LegacyScalar? InternalConsignmentNumber { get; init; }
+
+    /// <summary>Consignment value (integer).</summary>
+    [JsonPropertyName("value_consignment")]
+    public LegacyScalar? ValueConsignment { get; init; }
+
+    /// <summary>Unit (<c>unit_measures</c> catalog) of the transported quantity.</summary>
+    [JsonPropertyName("unit_measure_consignment_id")]
+    public LegacyScalar? UnitMeasureConsignmentId { get; init; }
+
+    /// <summary>Transported quantity (numeric); it goes in the XML as it arrives.</summary>
+    [JsonPropertyName("quantity_consignment")]
+    public LegacyScalar? QuantityConsignment { get; init; }
 }
 
 /// <summary>Factura a la que se refiere una nota.</summary>

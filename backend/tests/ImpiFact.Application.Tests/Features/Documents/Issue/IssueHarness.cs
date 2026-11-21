@@ -97,6 +97,12 @@ public sealed class IssueHarness : IDisposable
         {
             "invoice" => await Run(new IssueInvoiceCommandValidator(), new IssueInvoiceCommand(body!, json, idempotencyKey, testSetId),
                 new IssueInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+            "invoice-aiu" => await Run(new IssueAiuInvoiceCommandValidator(), new IssueAiuInvoiceCommand(body!, json, idempotencyKey, testSetId),
+                new IssueAiuInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+            "invoice-mandate" => await Run(new IssueMandateInvoiceCommandValidator(), new IssueMandateInvoiceCommand(body!, json, idempotencyKey, testSetId),
+                new IssueMandateInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+            "invoice-transport" => await Run(new IssueTransportInvoiceCommandValidator(), new IssueTransportInvoiceCommand(body!, json, idempotencyKey, testSetId),
+                new IssueTransportInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
             "credit-note" => await Run(new IssueCreditNoteCommandValidator(), new IssueCreditNoteCommand(body!, json, idempotencyKey, testSetId),
                 new IssueCreditNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
             _ => await Run(new IssueDebitNoteCommandValidator(), new IssueDebitNoteCommand(body!, json, idempotencyKey, testSetId),

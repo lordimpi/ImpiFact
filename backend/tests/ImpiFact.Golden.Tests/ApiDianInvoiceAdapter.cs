@@ -7,6 +7,19 @@ using static ImpiFact.Golden.Tests.ApiDianJson;
 
 namespace ImpiFact.Golden.Tests;
 
+/// <summary>Invoice variants on template 01, with the ApiDian <c>type_operation_id</c> each controller uses by default.</summary>
+public enum ApiDianInvoiceVariant
+{
+    /// <summary>InvoiceAIUController: operation 9 (code 09).</summary>
+    Aiu = 9,
+
+    /// <summary>InvoiceMandateController: operation 11 (code 11).</summary>
+    Mandate = 11,
+
+    /// <summary>InvoiceTransportController: operation 21 (code 12).</summary>
+    Transport = 21,
+}
+
 /// <summary>
 /// Convierte una solicitud de factura de ApiDian (el input.json de un caso de referencia, cuyo XML y CUFE
 /// generó el PHP original) más la configuración fija de captura al modelo <see cref="SalesInvoice"/> de
@@ -53,10 +66,51 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             AllowanceCharges = MapList(request, "allowance_charges", MapAllowanceCharge),
             TaxSubtotals = MapList(request, "tax_totals", MapTaxSubtotal),
             WithholdingSubtotals = MapList(request, "with_holding_tax_total", MapTaxSubtotal),
+            Note = OptionalText(request, "notes"),
             Totals = MapTotals(request.GetProperty("legal_monetary_totals")),
             Lines = MapList(request, "invoice_lines", MapLine),
         };
     }
+
+    /// <summary>
+    /// An AIU, mandate or freight transport invoice: the same template 01 as <see cref="Map"/>, with the default operation
+    /// and the flags that ApiDian's InvoiceAIUController, InvoiceMandateController and InvoiceTransportController set
+    /// (php-rules, section 10). The golden inputs never send <c>type_operation_id</c>.
+    /// </summary>
+    public SalesInvoice MapVariant(JsonElement request, ApiDianInvoiceVariant variant)
+    {
+        var invoice = Map(request);
+        var lines = request.GetProperty("invoice_lines").EnumerateArray().ToList();
+        return invoice with
+        {
+            OperationTypeCode = catalog.Get("operationTypes", (int)variant).Code,
+            AiuContractObject = variant == ApiDianInvoiceVariant.Aiu ? RequiredText(request, "noteAIU") : null,
+            LineIdScheme = variant switch
+            {
+                ApiDianInvoiceVariant.Mandate => InvoiceLineIdScheme.Mandate,
+                ApiDianInvoiceVariant.Transport => InvoiceLineIdScheme.Transport,
+                _ => InvoiceLineIdScheme.Plain,
+            },
+            Lines = invoice.Lines.Select((line, index) => line with
+            {
+                Mandator = variant == ApiDianInvoiceVariant.Mandate ? MapMandator(lines[index]) : null,
+                Consignment = variant == ApiDianInvoiceVariant.Transport ? MapConsignment(lines[index]) : null,
+            }).ToList(),
+        };
+    }
+
+    private static LineMandator? MapMandator(JsonElement line) =>
+        OptionalText(line, "agentparty") is { } nit ? new LineMandator(nit, OptionalText(line, "agentparty_dv") ?? "") : null;
+
+    private RndcConsignment? MapConsignment(JsonElement line) =>
+        line.GetProperty("is_RNDC").GetBoolean()
+            ? new RndcConsignment(
+                RequiredText(line, "RNDC_consignment_number"),
+                RequiredText(line, "internal_consignment_number"),
+                RequiredText(line, "value_consignment"),
+                catalog.Get("unitMeasures", RequiredInt(line, "unit_measure_consignment_id")).Code,
+                RequiredText(line, "quantity_consignment"))
+            : null;
 
     internal ForeignCurrency? MapForeignCurrency(JsonElement request)
     {

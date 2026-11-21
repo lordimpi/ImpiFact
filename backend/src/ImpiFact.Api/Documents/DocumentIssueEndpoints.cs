@@ -57,6 +57,12 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         // invoice/preeliminar-view) no se toma por un envío al set de pruebas.
         legacy.MapPost("/invoice", Invoice);
         legacy.MapPost("/invoice/{testSetId:guid}", Invoice);
+        legacy.MapPost("/invoice-aiu", AiuInvoice);
+        legacy.MapPost("/invoice-aiu/{testSetId:guid}", AiuInvoice);
+        legacy.MapPost("/invoice-mandate", MandateInvoice);
+        legacy.MapPost("/invoice-mandate/{testSetId:guid}", MandateInvoice);
+        legacy.MapPost("/invoice-transport", TransportInvoice);
+        legacy.MapPost("/invoice-transport/{testSetId:guid}", TransportInvoice);
         legacy.MapPost("/credit-note", CreditNote);
         legacy.MapPost("/credit-note/{testSetId:guid}", CreditNote);
         legacy.MapPost("/debit-note", DebitNote);
@@ -71,6 +77,32 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
             .WithOperationId("issueTestSetInvoice")
             .WithSummary("Emitir una factura del set de pruebas")
             .WithDescription(InvoiceText + TestSetRules + IssueRules);
+        // Variants of the invoice (php-rules, section 10): one route per variant under /invoices, like the test set and the
+        // preview, because each has its own required fields and fixed operation.
+        Issue(canonical.MapPost("/invoices/aiu", AiuInvoice), OpenApiExamples.AiuInvoices)
+            .WithOperationId("issueAiuInvoice")
+            .WithSummary("Emitir una factura AIU")
+            .WithDescription(AiuInvoiceText + VariantRules + IssueRules);
+        Issue(canonical.MapPost("/invoices/aiu/test-set/{testSetId}", AiuInvoice), OpenApiExamples.AiuInvoices)
+            .WithOperationId("issueTestSetAiuInvoice")
+            .WithSummary("Emitir una factura AIU del set de pruebas")
+            .WithDescription(AiuInvoiceText + VariantRules + TestSetRules + IssueRules);
+        Issue(canonical.MapPost("/invoices/mandate", MandateInvoice), OpenApiExamples.MandateInvoices)
+            .WithOperationId("issueMandateInvoice")
+            .WithSummary("Emitir una factura de mandato")
+            .WithDescription(MandateInvoiceText + VariantRules + IssueRules);
+        Issue(canonical.MapPost("/invoices/mandate/test-set/{testSetId}", MandateInvoice), OpenApiExamples.MandateInvoices)
+            .WithOperationId("issueTestSetMandateInvoice")
+            .WithSummary("Emitir una factura de mandato del set de pruebas")
+            .WithDescription(MandateInvoiceText + VariantRules + TestSetRules + IssueRules);
+        Issue(canonical.MapPost("/invoices/transport", TransportInvoice), OpenApiExamples.TransportInvoices)
+            .WithOperationId("issueTransportInvoice")
+            .WithSummary("Emitir una factura de transporte de carga")
+            .WithDescription(TransportInvoiceText + VariantRules + IssueRules);
+        Issue(canonical.MapPost("/invoices/transport/test-set/{testSetId}", TransportInvoice), OpenApiExamples.TransportInvoices)
+            .WithOperationId("issueTestSetTransportInvoice")
+            .WithSummary("Emitir una factura de transporte de carga del set de pruebas")
+            .WithDescription(TransportInvoiceText + VariantRules + TestSetRules + IssueRules);
         Issue(canonical.MapPost("/credit-notes", CreditNote), OpenApiExamples.CreditNotes)
             .WithOperationId("issueCreditNote")
             .WithSummary("Emitir una nota crédito")
@@ -166,6 +198,30 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         "`legal_monetary_totals.pre_paid_amount` (obligatorio con `prepaid_payment`) y no se resta de `payable_amount`, " +
         "como lo pide la regla FAU14 de la DIAN.";
 
+    /// <summary>What the three invoice variants share: they are type 1 invoices with a fixed operation.</summary>
+    private const string VariantRules =
+        " Es una factura de venta (`type_document_id` 1): usa la misma resolución, el mismo consecutivo y el mismo CUFE que " +
+        "`issueInvoice`, y cuenta en el plan como una factura. La operación es fija: puede omitir `type_operation_id` o " +
+        "enviar la de la variante; otra responde 422 (`validation.failed`).";
+
+    private const string AiuInvoiceText =
+        "Emite una factura AIU (administración, imprevistos y utilidad; operación 9, código `09`), como un contrato de obra. " +
+        "El cuerpo es el de `issueInvoice` más `noteAIU` (obligatorio), el objeto del contrato: la línea cuya `description` " +
+        "es exactamente «Administración» lleva la nota «Contrato de servicios AIU por concepto de: {noteAIU}». La " +
+        "administración, los imprevistos y la utilidad son líneas normales que usted arma.";
+
+    private const string MandateInvoiceText =
+        "Emite una factura de mandato (venta por cuenta de terceros; operación 11, código `11`). El cuerpo es el de " +
+        "`issueInvoice`; cada línea vendida por cuenta de un tercero lleva su NIT en `agentparty` (de 1 a 15 dígitos) y " +
+        "su dígito de verificación en `agentparty_dv` (obligatorio con `agentparty` y revisado contra el NIT).";
+
+    private const string TransportInvoiceText =
+        "Emite una factura de transporte de carga (operación 21, código `12`). El cuerpo es el de `issueInvoice`; cada " +
+        "línea lleva `is_RNDC` (obligatorio). Con `is_RNDC` en `true` la línea es una remesa del RNDC (Registro Nacional " +
+        "de Despachos de Carga) y son obligatorios `RNDC_consignment_number` (solo dígitos), " +
+        "`internal_consignment_number`, `value_consignment` (entero), `unit_measure_consignment_id` (unidad del catálogo) " +
+        "y `quantity_consignment` (numérico); van al XML tal como llegan.";
+
     private const string CreditNoteText =
         "Emite una nota crédito, que corrige o anula total o parcialmente una factura. El cuerpo sigue el contrato de " +
         "ApiDian: `billing_reference` (número, CUFE y fecha de la factura), `discrepancyresponsecode`, `customer`, " +
@@ -243,6 +299,18 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
     private static Task<IResult> Invoice(
         HttpRequest request, string? testSetId, IHandler<IssueInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
         IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueInvoiceCommand(body, raw, key, testSetId), ct), ct);
+
+    private static Task<IResult> AiuInvoice(
+        HttpRequest request, string? testSetId, IHandler<IssueAiuInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
+        IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueAiuInvoiceCommand(body, raw, key, testSetId), ct), ct);
+
+    private static Task<IResult> MandateInvoice(
+        HttpRequest request, string? testSetId, IHandler<IssueMandateInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
+        IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueMandateInvoiceCommand(body, raw, key, testSetId), ct), ct);
+
+    private static Task<IResult> TransportInvoice(
+        HttpRequest request, string? testSetId, IHandler<IssueTransportInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
+        IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueTransportInvoiceCommand(body, raw, key, testSetId), ct), ct);
 
     private static Task<IResult> CreditNote(
         HttpRequest request, string? testSetId, IHandler<IssueCreditNoteCommand, IssueDocumentResponse> handler, CancellationToken ct) =>

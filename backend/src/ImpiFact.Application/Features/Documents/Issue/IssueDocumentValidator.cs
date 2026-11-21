@@ -61,6 +61,7 @@ internal static class IssueDocumentRules
         ValidateWithholdings(check, body.WithHoldingTaxTotal);
         ValidateTotals(spec, check, spec.TotalsOf(body));
         ValidateLines(spec, check, spec.LinesOf(body));
+        ValidateVariant(spec, check, body);
 
         if (spec.IsNote)
         {
@@ -332,6 +333,108 @@ internal static class IssueDocumentRules
         }
     }
 
+    /// <summary>
+    /// Fields of the AIU, mandate and freight transport invoices (php-rules, section 10). The other rules are those of
+    /// the standard invoice, also for the customer (php-rules 9.2, item 5). Differences with the PHP, on purpose: the
+    /// mandator's check digit is required with its NIT and must be the DIAN one for that NIT, and the RNDC numbers must
+    /// be digits.
+    /// </summary>
+    private static void ValidateVariant(IssueSpec spec, Checker check, IssueDocumentBody body)
+    {
+        if (spec.Variant == InvoiceVariant.Aiu)
+        {
+            check.RequiredText("noteAIU", body.NoteAiu, 2000);
+            return;
+        }
+
+        foreach (var (line, index) in (spec.LinesOf(body) ?? []).Select((line, index) => (line, index)))
+        {
+            var at = $"{spec.LinesField}.{index}";
+            if (spec.Variant == InvoiceVariant.Mandate)
+            {
+                ValidateMandator(check, at, line);
+            }
+            else if (spec.Variant == InvoiceVariant.Transport && check.RequiredBoolean($"{at}.is_RNDC", line.IsRndc) == true)
+            {
+                ValidateConsignment(check, at, line);
+            }
+        }
+    }
+
+    /// <summary>
+    /// <c>agentparty</c> (<c>digits_between:1,15</c>) and <c>agentparty_dv</c> (<c>digits:1</c>), both optional as in
+    /// the PHP, but the check digit goes with the NIT.
+    /// </summary>
+    private static void ValidateMandator(Checker check, string at, LineBody line)
+    {
+        string? nit = null;
+        if (!LegacyScalar.IsMissing(line.AgentParty))
+        {
+            var text = line.AgentParty!.Value.Text.Trim();
+            if (text.Length is 0 or > 15 || !text.All(char.IsAsciiDigit) || line.AgentParty.Value.Kind is LegacyScalarKind.True or LegacyScalarKind.False)
+            {
+                check.Fail($"{at}.agentparty", IssueMessages.DigitsBetween($"{at}.agentparty", 1, 15));
+            }
+            else
+            {
+                nit = text;
+            }
+        }
+
+        if (LegacyScalar.IsMissing(line.AgentPartyDv))
+        {
+            if (!LegacyScalar.IsMissing(line.AgentParty))
+            {
+                check.Fail($"{at}.agentparty_dv", IssueMessages.RequiredWith($"{at}.agentparty_dv", $"{at}.agentparty"));
+            }
+
+            return;
+        }
+
+        var dv = line.AgentPartyDv!.Value;
+        if (!dv.TryInteger(out var digit) || dv.Text.Trim().Length != 1)
+        {
+            check.Fail($"{at}.agentparty_dv", IssueMessages.Digits($"{at}.agentparty_dv", 1));
+        }
+        else if (nit is not null && DianCheckDigit.Of(nit) != digit)
+        {
+            check.Fail($"{at}.agentparty_dv", IssueMessages.InvalidDv);
+        }
+    }
+
+    /// <summary>The five consignment fields that <c>is_RNDC = true</c> requires (<c>required_if:...is_RNDC,true</c>).</summary>
+    private static void ValidateConsignment(Checker check, string at, LineBody line)
+    {
+        string Field(string name) => $"{at}.{name}";
+        void Required(string name, LegacyScalar? value, Func<LegacyScalar, string?> invalid)
+        {
+            if (LegacyScalar.IsMissing(value) || value!.Value.Kind is LegacyScalarKind.True or LegacyScalarKind.False)
+            {
+                check.Fail(Field(name), LegacyScalar.IsMissing(value)
+                    ? IssueMessages.RequiredIf(Field(name), Field("is_RNDC"), "true")
+                    : IssueMessages.Invalid(Field(name)));
+            }
+            else if (invalid(value.Value) is { } message)
+            {
+                check.Fail(Field(name), message);
+            }
+        }
+
+        Required("RNDC_consignment_number", line.RndcConsignmentNumber, value =>
+            value.Text.Trim() is not { Length: > 0 } digits || !digits.All(char.IsAsciiDigit) ? IssueMessages.Numeric(Field("RNDC_consignment_number"))
+            : value.Text.Trim().Length > 30 ? IssueMessages.MaxLength(Field("RNDC_consignment_number"), 30) : null);
+        Required("internal_consignment_number", line.InternalConsignmentNumber, value =>
+            value.Text.Length > 100 ? IssueMessages.MaxLength(Field("internal_consignment_number"), 100) : null);
+        Required("value_consignment", line.ValueConsignment, value =>
+            !value.TryInteger(out var amount) ? IssueMessages.Integer(Field("value_consignment"))
+            : Math.Abs(amount) > LegacyScalar.MaxMagnitude ? IssueMessages.MaxNumber(Field("value_consignment"), LegacyScalar.MaxMagnitude) : null);
+        Required("unit_measure_consignment_id", line.UnitMeasureConsignmentId, value =>
+            value.TryInteger(out var id) && id is > 0 and <= int.MaxValue ? null : IssueMessages.Integer(Field("unit_measure_consignment_id")));
+        Required("quantity_consignment", line.QuantityConsignment, value =>
+            !value.TryDecimal(out var quantity) ? IssueMessages.Numeric(Field("quantity_consignment"))
+            : Math.Abs(quantity) > LegacyScalar.MaxMagnitude ? IssueMessages.MaxNumber(Field("quantity_consignment"), LegacyScalar.MaxMagnitude) : null);
+    }
+
     private static void ValidateNote(IssueSpec spec, Checker check, IssueDocumentBody body, long? operation)
     {
         if (check.Integer("discrepancyresponsecode", body.DiscrepancyResponseCode) is { } code && (code < 1 || code > spec.MaxDiscrepancyCode))
@@ -561,6 +664,27 @@ internal sealed class IssueInvoiceCommandValidator : AbstractValidator<IssueInvo
     public IssueInvoiceCommandValidator() =>
         RuleFor(command => command).Custom((command, context) =>
             IssueDocumentRules.Validate(IssueSpec.Invoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueAiuInvoiceCommandValidator : AbstractValidator<IssueAiuInvoiceCommand>
+{
+    public IssueAiuInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.AiuInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueMandateInvoiceCommandValidator : AbstractValidator<IssueMandateInvoiceCommand>
+{
+    public IssueMandateInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.MandateInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueTransportInvoiceCommandValidator : AbstractValidator<IssueTransportInvoiceCommand>
+{
+    public IssueTransportInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.TransportInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
 }
 
 internal sealed class IssueCreditNoteCommandValidator : AbstractValidator<IssueCreditNoteCommand>

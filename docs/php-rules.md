@@ -330,6 +330,8 @@ AIU, mandato y transporte son copias idénticas entre sí salvo la operación po
 
 ## 10. AIU, mandato y transporte
 
+**ImpiFact (fase 7a, T2, 21-nov): implementado.** `POST /api/v1/documents/invoices/aiu`, `/mandate` y `/transport` (y los alias `/api/ubl2.1/invoice-aiu`, `/invoice-mandate` e `/invoice-transport`) reproducen el XML y el CUFE de los golden de las tres variantes. Las reglas **Conservar** de esta sección se replican; las **Mejora** de la sección 9.2 (cliente con las reglas de la factura, operación fija con 422 si llega otra, formas de pago validadas) también. Además, el DV del mandante es obligatorio con `agentparty` y se revisa contra el NIT, y `RNDC_consignment_number` debe ser solo dígitos. El mandante sigue siendo opcional por línea (pregunta 4 de la sección 18, abierta).
+
 ### 10.1 AIU (`POST invoice-aiu`)
 
 1. `type_document_id` `in:1` y `noteAIU` obligatorio (texto) (REQ/InvoiceAIURequest.php:106, 139). Los errores de resolución son los de la factura (sección 3.1, ítem 1). **Conservar.**

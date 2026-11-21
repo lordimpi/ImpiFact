@@ -85,6 +85,16 @@ public sealed record SalesInvoice
 
     public required IReadOnlyList<InvoiceLine> Lines { get; init; }
 
+    /// <summary>
+    /// Object of the AIU contract (<c>noteAIU</c>) of an AIU invoice (administration, contingencies and profit); null
+    /// otherwise. Like ApiDian (<c>_invoice_lines.blade.php</c>), the builder writes «Contrato de servicios AIU por
+    /// concepto de: {object}» as the first cbc:Note of every line whose description is exactly «Administración».
+    /// </summary>
+    public string? AiuContractObject { get; init; }
+
+    /// <summary>How the cbc:ID of each line carries a schemeID: none, mandate or freight transport.</summary>
+    public InvoiceLineIdScheme LineIdScheme { get; init; } = InvoiceLineIdScheme.Plain;
+
     /// <summary>Número del documento tal como se escribe en cbc:ID.</summary>
     public string DocumentNumber => Resolution.Prefix + Number.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
@@ -283,7 +293,46 @@ public sealed record InvoiceLine
     public IReadOnlyList<AllowanceCharge> AllowanceCharges { get; init; } = [];
 
     public IReadOnlyList<TaxSubtotal> TaxSubtotals { get; init; } = [];
+
+    /// <summary>
+    /// Third party on whose behalf the line is sold (mandate invoice); written in cac:Item as
+    /// cac:InformationContentProviderParty/cac:PowerOfAttorney/cac:AgentParty. Only <see cref="InvoiceUblBuilder"/> uses it.
+    /// </summary>
+    public LineMandator? Mandator { get; init; }
+
+    /// <summary>
+    /// RNDC consignment of a freight transport line; written in cac:Item as the cac:AdditionalItemProperty 01, 02 and 03.
+    /// Only <see cref="InvoiceUblBuilder"/> uses it.
+    /// </summary>
+    public RndcConsignment? Consignment { get; init; }
 }
+
+/// <summary>The schemeID that ApiDian writes on the cbc:ID of each invoice line (<c>_invoice_lines.blade.php</c>).</summary>
+public enum InvoiceLineIdScheme
+{
+    /// <summary>No schemeID (standard and AIU invoices).</summary>
+    Plain,
+
+    /// <summary>Mandate invoice: every line carries schemeID="1".</summary>
+    Mandate,
+
+    /// <summary>Freight transport invoice: schemeID="1" on lines with an RNDC consignment, "0" on the others.</summary>
+    Transport,
+}
+
+/// <summary>Mandator of a line: NIT (cbc:ID, schemeName 31) and its check digit (schemeID).</summary>
+public sealed record LineMandator(string IdentificationNumber, string CheckDigit);
+
+/// <summary>
+/// RNDC (Registro Nacional de Despachos de Carga) data of a freight transport line. The values are written as they
+/// arrive, without number formatting, like ApiDian.
+/// </summary>
+/// <param name="RndcConsignmentNumber">Consignment number in the RNDC (property 01).</param>
+/// <param name="InternalConsignmentNumber">Internal consignment number of the carrier (property 02).</param>
+/// <param name="Value">Consignment value (property 03, cbc:Value).</param>
+/// <param name="UnitCode">Unit of the transported quantity (property 03, unitCode of cbc:ValueQuantity).</param>
+/// <param name="Quantity">Transported quantity (property 03, cbc:ValueQuantity).</param>
+public sealed record RndcConsignment(string RndcConsignmentNumber, string InternalConsignmentNumber, string Value, string UnitCode, string Quantity);
 
 /// <summary>Esquema de identificación estándar del artículo (999 = estándar propio del contribuyente).</summary>
 public sealed record ItemIdentificationScheme(string Code, string Name, string AgencyId);
