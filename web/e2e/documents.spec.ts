@@ -85,6 +85,8 @@ const DETAIL = {
 
 interface DocumentsApi {
   listRequests: URL[];
+  /** URLs of the Excel and PDF exports, to check their filters. */
+  exportRequests: URL[];
   calculateBodies: unknown[];
   issueRequests: Request[];
   noteRequests: Request[];
@@ -109,6 +111,7 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
   let detailCalls = 0;
   const api: DocumentsApi = {
     listRequests: [],
+    exportRequests: [],
     calculateBodies: [],
     issueRequests: [],
     noteRequests: [],
@@ -136,6 +139,30 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
           next_cursor: null,
           total_count: url.searchParams.has('include_total') ? 1 : null,
         },
+      });
+    }
+    if (url.pathname === '/api/v1/documents/export.xlsx') {
+      api.exportRequests.push(url);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers: {
+          'Content-Disposition': 'attachment; filename="documentos.xlsx"',
+          'Access-Control-Expose-Headers': 'Content-Disposition',
+        },
+        body: 'PK',
+      });
+    }
+    if (url.pathname === '/api/v1/documents/export.pdf') {
+      api.exportRequests.push(url);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        headers: {
+          'Content-Disposition': 'attachment; filename="documentos.pdf"',
+          'Access-Control-Expose-Headers': 'Content-Disposition',
+        },
+        body: '%PDF-1.7\n%%EOF\n',
       });
     }
     if (url.pathname === '/api/v1/documents/export.csv') {
@@ -305,12 +332,86 @@ test('downloads the CSV export with the token, not with a plain link', async ({ 
 
   const exportRequest = page.waitForRequest('**/api/v1/documents/export.csv**');
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Exportar CSV' }).click();
+  await page.getByRole('button', { name: 'Exportar' }).click();
+  await page.getByRole('menuitem', { name: 'CSV' }).click();
 
   const request = await exportRequest;
   expect(request.headers()['authorization']).toMatch(/^Bearer /);
   expect(new URL(request.url()).searchParams.get('kind')).toBe('invoice');
   expect((await download).suggestedFilename()).toBe('documentos-2026-11.csv');
+});
+
+test('exports to Excel from the accessible Exportar menu with the current filters', async ({
+  page,
+}) => {
+  // Two axe runs in both themes with the menu open.
+  test.slow();
+  const api = await mockDocuments(page);
+  await logIn(page);
+  await page.goto('/documentos?tipo=credit_note&estado=Accepted,Rejected&desde=2026-11-01');
+  await expect(page.getByRole('link', { name: 'SETP990000001', exact: true })).toBeVisible();
+
+  const button = page.getByRole('button', { name: 'Exportar' });
+  await expect(button).toHaveAttribute('aria-haspopup', 'menu');
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+  await button.click();
+  const menu = page.getByRole('menu', { name: 'Exportar' });
+  await expect(menu).toBeVisible();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu.getByRole('menuitem')).toHaveText(['Excel (.xlsx)', 'CSV', 'PDF']);
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+
+  // Escape closes the menu and focus goes back to the button.
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(button).toBeFocused();
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+
+  // Keyboard: open, first option with the down arrow, Enter picks it.
+  const download = page.waitForEvent('download');
+  await page.keyboard.press('Enter');
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+
+  expect((await download).suggestedFilename()).toBe('documentos.xlsx');
+  const request = api.exportRequests.at(-1)!;
+  expect(request.pathname).toBe('/api/v1/documents/export.xlsx');
+  expect(request.searchParams.get('kind')).toBe('credit_note');
+  expect(request.searchParams.getAll('status')).toEqual(['Accepted', 'Rejected']);
+  expect(request.searchParams.get('from')).toBe('2026-11-01');
+  expect(request.searchParams.has('limit')).toBe(false);
+  await expect(menu).toBeHidden();
+  await expect(button).toBeFocused();
+  await expect(page.getByText('Se descargó el archivo de Excel.')).toBeVisible();
+});
+
+test('exports the PDF report from the Exportar menu with the current filters', async ({ page }) => {
+  const api = await mockDocuments(page);
+  await logIn(page);
+  await page.goto(
+    '/documentos?tipo=invoice&estado=Accepted&desde=2026-11-01&hasta=2026-11-30&cliente=golden',
+  );
+  await expect(page.getByRole('link', { name: 'SETP990000001', exact: true })).toBeVisible();
+
+  const exportRequest = page.waitForRequest('**/api/v1/documents/export.pdf**');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Exportar' }).click();
+  await page.getByRole('menuitem', { name: 'PDF' }).click();
+
+  const request = await exportRequest;
+  expect(request.method()).toBe('GET');
+  expect(request.headers()['authorization']).toMatch(/^Bearer /);
+  expect((await download).suggestedFilename()).toBe('documentos.pdf');
+  const url = api.exportRequests.at(-1)!;
+  expect(url.pathname).toBe('/api/v1/documents/export.pdf');
+  expect(url.searchParams.get('kind')).toBe('invoice');
+  expect(url.searchParams.getAll('status')).toEqual(['Accepted']);
+  expect(url.searchParams.get('from')).toBe('2026-11-01');
+  expect(url.searchParams.get('to')).toBe('2026-11-30');
+  expect(url.searchParams.get('customer')).toBe('golden');
+  expect(url.searchParams.has('limit')).toBe(false);
+  await expect(page.getByText('Se descargó el archivo PDF.')).toBeVisible();
 });
 
 // Flujo crítico 3 de 5: emisión con totales del servidor, seguimiento del estado hasta Aceptado y descarga del PDF.

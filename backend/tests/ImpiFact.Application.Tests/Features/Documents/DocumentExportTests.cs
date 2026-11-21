@@ -10,6 +10,7 @@ namespace ImpiFact.Application.Tests.Features.Documents;
 public sealed class DocumentExportTests
 {
     private FakeDocumentReads _reads = null!;
+    private RecordingSpreadsheetWriter _spreadsheets = null!;
     private Guid _companyId;
 
     [SetUp]
@@ -17,6 +18,7 @@ public sealed class DocumentExportTests
     {
         _companyId = Guid.CreateVersion7();
         _reads = new FakeDocumentReads();
+        _spreadsheets = new RecordingSpreadsheetWriter();
     }
 
     [Test]
@@ -98,6 +100,40 @@ public sealed class DocumentExportTests
     }
 
     [Test]
+    public async Task The_workbook_gets_one_documentos_sheet_with_the_csv_headers_and_typed_values_of_the_filtered_rows()
+    {
+        _reads.Total = 1;
+        _reads.Listed.Add(DocumentSamples.Summary(typeId: 5, number: 12, status: DocumentStatus.AcceptedWithWarnings) with
+        {
+            Totals = new DocumentTotals(1234567.5m, 1234567.5m, 1469135.33m, 0m, 0m, 0m, 1469135.33m),
+            EmailStatus = EmailStatus.Failed,
+        });
+
+        var result = await Handler().HandleAsync(Query(kind: "debit_note"), CancellationToken.None);
+        await result.Value.WriteXlsxAsync(Stream.Null, CancellationToken.None);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value.XlsxFileName, Is.EqualTo("documentos.xlsx"));
+            Assert.That(_spreadsheets.SheetName, Is.EqualTo("Documentos"));
+            Assert.That(_spreadsheets.Columns.Select(column => column.Header), Is.EqualTo(DocumentCsv.Headers));
+            Assert.That(_spreadsheets.Columns.Select(column => column.Kind), Is.EqualTo(new[]
+            {
+                SpreadsheetCellKind.Text, SpreadsheetCellKind.Text, SpreadsheetCellKind.Date, SpreadsheetCellKind.Time,
+                SpreadsheetCellKind.Text, SpreadsheetCellKind.Text, SpreadsheetCellKind.Amount, SpreadsheetCellKind.Amount,
+                SpreadsheetCellKind.Amount, SpreadsheetCellKind.Text, SpreadsheetCellKind.Text, SpreadsheetCellKind.Text,
+            }));
+            Assert.That(_spreadsheets.Columns, Has.All.Matches<SpreadsheetColumn>(column => column.Width >= 10));
+            Assert.That(_spreadsheets.Rows.Single(), Is.EqualTo(new object?[]
+            {
+                "Nota débito", "SETP12", new DateOnly(2026, 1, 15), new TimeOnly(10, 30, 45), "222222222222", "Consumidor final",
+                1234567.5m, 234567.83m, 1469135.33m, "Aceptado con advertencias", "Falló", "cufe12",
+            }));
+            Assert.That(_reads.StreamCalls.Single().DocumentTypeId, Is.EqualTo(5));
+        });
+    }
+
+    [Test]
     public void Every_status_has_a_spanish_label()
     {
         Assert.That(Enum.GetValues<DocumentStatus>().Select(DocumentCsv.StatusLabel), Has.None.Matches<string>(label => Enum.TryParse<DocumentStatus>(label, out _)));
@@ -114,5 +150,25 @@ public sealed class DocumentExportTests
 
     private static ExportDocumentsQuery Query(string? kind = null, string? status = null) => new(null, kind, status, null, null, null, null);
 
-    private ExportDocumentsHandler Handler() => new(_reads, new FakeDocumentTenant(_companyId));
+    private ExportDocumentsHandler Handler() => new(_reads, new FakeDocumentTenant(_companyId), _spreadsheets);
+
+    /// <summary>Records what the export hands to the spreadsheet port, reading the rows as a real writer would.</summary>
+    private sealed class RecordingSpreadsheetWriter : ISpreadsheetWriter
+    {
+        public string? SheetName { get; private set; }
+
+        public IReadOnlyList<SpreadsheetColumn> Columns { get; private set; } = [];
+
+        public List<object?[]> Rows { get; } = [];
+
+        public async Task WriteAsync(Stream output, string sheetName, IReadOnlyList<SpreadsheetColumn> columns, IAsyncEnumerable<object?[]> rows, CancellationToken ct)
+        {
+            SheetName = sheetName;
+            Columns = columns;
+            await foreach (var row in rows.WithCancellation(ct))
+            {
+                Rows.Add(row);
+            }
+        }
+    }
 }

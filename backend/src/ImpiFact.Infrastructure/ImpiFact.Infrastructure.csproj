@@ -13,6 +13,8 @@
     <PackageReference Include="Google.Cloud.SecretManager.V1" />
     <PackageReference Include="Google.Cloud.Storage.V1" />
     <PackageReference Include="Dapper" />
+    <!-- Excel (.xlsx) document export (Documents/OpenXmlSpreadsheetWriter). -->
+    <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="Handlebars.Net" />
     <PackageReference Include="MailKit" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />

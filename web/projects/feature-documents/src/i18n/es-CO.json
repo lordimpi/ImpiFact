@@ -28,9 +28,18 @@
     "title": "Documentos",
     "description": "Facturas y notas emitidas por la empresa activa, de la más reciente a la más antigua.",
     "issue": "Emitir factura",
-    "export": "Exportar CSV",
+    "export": "Exportar",
     "exporting": "Exportando",
-    "exported": "Se descargó el archivo CSV.",
+    "exportFormats": {
+      "xlsx": "Excel (.xlsx)",
+      "csv": "CSV",
+      "pdf": "PDF"
+    },
+    "exported": {
+      "xlsx": "Se descargó el archivo de Excel.",
+      "csv": "Se descargó el archivo CSV.",
+      "pdf": "Se descargó el archivo PDF."
+    },
     "exportTooLarge": "La exportación tiene demasiadas filas. Acote el rango de fechas e intente de nuevo.",
     "caption": "Documentos emitidos",
     "count": "{{ count }} documentos con estos filtros",
