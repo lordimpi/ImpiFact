@@ -244,6 +244,10 @@ export type { IssueTransportInvoice$Params as IssueTransportInvoice$Params } fro
 export { issueTransportInvoice as issueTransportInvoice } from './fn/documentos/issue-transport-invoice';
 export type { IssueTestSetTransportInvoice$Params as IssueTestSetTransportInvoice$Params } from './fn/documentos/issue-test-set-transport-invoice';
 export { issueTestSetTransportInvoice as issueTestSetTransportInvoice } from './fn/documentos/issue-test-set-transport-invoice';
+export type { IssueExportInvoice$Params as IssueExportInvoice$Params } from './fn/documentos/issue-export-invoice';
+export { issueExportInvoice as issueExportInvoice } from './fn/documentos/issue-export-invoice';
+export type { IssueTestSetExportInvoice$Params as IssueTestSetExportInvoice$Params } from './fn/documentos/issue-test-set-export-invoice';
+export { issueTestSetExportInvoice as issueTestSetExportInvoice } from './fn/documentos/issue-test-set-export-invoice';
 export type { IssueCreditNote$Params as IssueCreditNote$Params } from './fn/documentos/issue-credit-note';
 export { issueCreditNote as issueCreditNote } from './fn/documentos/issue-credit-note';
 export type { IssueTestSetCreditNote$Params as IssueTestSetCreditNote$Params } from './fn/documentos/issue-test-set-credit-note';

@@ -65,6 +65,25 @@ export interface PreviewCreditNote$Params {
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
  */
 'noteAIU'?: (boolean | number | string | null);
+'deliveryterms'?: {
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'special_terms'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'loss_risk_responsibility_code'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'loss_risk'?: (boolean | number | string | null);
+};
+'k_supplement'?: ({
+} | null);
 
 /**
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
@@ -131,6 +150,16 @@ export interface PreviewCreditNote$Params {
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
  */
 'municipality_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'municipality_name'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'state_name'?: (boolean | number | string | null);
 
 /**
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
@@ -542,6 +571,16 @@ export interface PreviewCreditNote$Params {
 /**
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
  */
+'brandname'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'modelname'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
 'agentparty'?: (boolean | number | string | null);
 
 /**
@@ -641,6 +680,16 @@ export interface PreviewCreditNote$Params {
 /**
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
  */
+'brandname'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'modelname'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
 'agentparty'?: (boolean | number | string | null);
 
 /**
@@ -736,6 +785,16 @@ export interface PreviewCreditNote$Params {
 'base_quantity'?: (boolean | number | string | null);
 'allowance_charges'?: (Array<any> | null);
 'tax_totals'?: (Array<any> | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'brandname'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'modelname'?: (boolean | number | string | null);
 
 /**
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
