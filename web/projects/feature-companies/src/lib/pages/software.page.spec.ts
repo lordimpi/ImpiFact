@@ -32,7 +32,7 @@ async function open(software: object[] = []) {
 describe('SoftwarePage', () => {
   // The first test of the file pays the cold render of the route and of the Optimus controls (about 3 s alone,
   // more while the other files of the project run in parallel).
-  it('writes the PIN in a password field', { timeout: 10_000 }, async () => {
+  it('writes the PIN in a password field', async () => {
     await open();
 
     expect(field(/^PIN del software/).type).toBe('password');

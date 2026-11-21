@@ -73,53 +73,49 @@ const rowCells = (table: HTMLElement) =>
 describe('ResolutionsPage', () => {
   // The first test of the file pays the cold render of the route and of the Optimus controls (about 3 s alone,
   // more while the other files of the project run in parallel).
-  it(
-    'lists the saved resolutions with the next number, what remains and the days left',
-    { timeout: 10_000 },
-    async () => {
-      await open([
-        SETP_STATUS,
-        {
-          ...SETP_STATUS,
-          id: 'res-2',
-          kind: 'credit_note',
-          type_document_id: 4,
-          prefix: 'NC',
-          is_active: false,
-          days_left: null,
-        },
-      ]);
+  it('lists the saved resolutions with the next number, what remains and the days left', async () => {
+    await open([
+      SETP_STATUS,
+      {
+        ...SETP_STATUS,
+        id: 'res-2',
+        kind: 'credit_note',
+        type_document_id: 4,
+        prefix: 'NC',
+        is_active: false,
+        days_left: null,
+      },
+    ]);
 
-      const table = await screen.findByRole('table', { name: 'Resoluciones guardadas' });
-      expect(rowCells(table)).toEqual([
-        [
-          'Factura de venta',
-          'SETP',
-          '18760000001',
-          '990000000 – 995000000',
-          '2019-01-19 – 2030-01-19',
-          '990000012',
-          '4999989',
-          '1158',
-          'Activa',
-          'Cambiar próximo número',
-        ],
-        [
-          'Nota crédito',
-          'NC',
-          '18760000001',
-          '990000000 – 995000000',
-          '2019-01-19 – 2030-01-19',
-          '990000012',
-          '4999989',
-          'Sin vencimiento',
-          'Inactiva',
-          'Cambiar próximo número',
-        ],
-      ]);
-      expect(screen.queryByText(/no permite listar/)).toBeNull();
-    },
-  );
+    const table = await screen.findByRole('table', { name: 'Resoluciones guardadas' });
+    expect(rowCells(table)).toEqual([
+      [
+        'Factura de venta',
+        'SETP',
+        '18760000001',
+        '990000000 – 995000000',
+        '2019-01-19 – 2030-01-19',
+        '990000012',
+        '4999989',
+        '1158',
+        'Activa',
+        'Cambiar próximo número',
+      ],
+      [
+        'Nota crédito',
+        'NC',
+        '18760000001',
+        '990000000 – 995000000',
+        '2019-01-19 – 2030-01-19',
+        '990000012',
+        '4999989',
+        'Sin vencimiento',
+        'Inactiva',
+        'Cambiar próximo número',
+      ],
+    ]);
+    expect(screen.queryByText(/no permite listar/)).toBeNull();
+  });
 
   it('changes the next number of a saved resolution from a dialog and reads the list again', async () => {
     const { http } = await open([SETP_STATUS]);

@@ -27,31 +27,27 @@ async function open(environments: object[] = ENVIRONMENTS) {
 
 describe('EnvironmentsPage', () => {
   // The first test of the file pays the cold render of the route before opening an Optimus list.
-  it(
-    'shows the current environment the API reports, with no change by default',
-    { timeout: 10_000 },
-    async () => {
-      await open([...ENVIRONMENTS.slice(1), { document_kind: 1, type_environment_id: 1 }]);
+  it('shows the current environment the API reports, with no change by default', async () => {
+    await open([...ENVIRONMENTS.slice(1), { document_kind: 1, type_environment_id: 1 }]);
 
-      for (const label of [
-        'Factura electrónica y notas',
-        'Nómina electrónica',
-        'Documento equivalente (POS)',
-        'Documento soporte',
-        'Eventos RADIAN',
-      ]) {
-        expect(select(label).textContent?.trim()).toBe('Sin cambios');
-      }
-      expect(await optionNames(select('Nómina electrónica'))).toEqual([
-        'Sin cambios',
-        'Habilitación (pruebas)',
-        'Producción',
-      ]);
-      expect(await screen.findAllByText('Ambiente actual: Habilitación (pruebas)')).toHaveLength(4);
-      expect(screen.getAllByText('Ambiente actual: Producción')).toHaveLength(1);
-      expect(screen.queryByText(/no informa el ambiente actual/)).toBeNull();
-    },
-  );
+    for (const label of [
+      'Factura electrónica y notas',
+      'Nómina electrónica',
+      'Documento equivalente (POS)',
+      'Documento soporte',
+      'Eventos RADIAN',
+    ]) {
+      expect(select(label).textContent?.trim()).toBe('Sin cambios');
+    }
+    expect(await optionNames(select('Nómina electrónica'))).toEqual([
+      'Sin cambios',
+      'Habilitación (pruebas)',
+      'Producción',
+    ]);
+    expect(await screen.findAllByText('Ambiente actual: Habilitación (pruebas)')).toHaveLength(4);
+    expect(screen.getAllByText('Ambiente actual: Producción')).toHaveLength(1);
+    expect(screen.queryByText(/no informa el ambiente actual/)).toBeNull();
+  });
 
   it('says when the current environment could not be read', async () => {
     const { http } = await renderCompaniesRoute('/empresas/company-1/ambientes');

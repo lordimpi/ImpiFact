@@ -34,19 +34,15 @@ function chooseFile(name = 'acme.p12', content = 'PFX-BYTES') {
 describe('CertificatePage', () => {
   // The first test of the file pays the cold render of the route and of the Optimus controls (about 3 s alone,
   // more while the other files of the project run in parallel).
-  it(
-    'lists the certificates with their holder, expiry and days left',
-    { timeout: 10_000 },
-    async () => {
-      await open();
+  it('lists the certificates with their holder, expiry and days left', async () => {
+    await open();
 
-      const list = await screen.findByRole('list', { name: 'Certificados de la empresa' });
-      const item = within(list).getByRole('listitem');
-      expect(within(item).getByText('CN=ACME SAS, SERIALNUMBER=900123456')).toBeTruthy();
-      expect(within(item).getByText('225 días restantes')).toBeTruthy();
-      expect(within(item).getByText('Activo')).toBeTruthy();
-    },
-  );
+    const list = await screen.findByRole('list', { name: 'Certificados de la empresa' });
+    const item = within(list).getByRole('listitem');
+    expect(within(item).getByText('CN=ACME SAS, SERIALNUMBER=900123456')).toBeTruthy();
+    expect(within(item).getByText('225 días restantes')).toBeTruthy();
+    expect(within(item).getByText('Activo')).toBeTruthy();
+  });
 
   it('explains when there is no certificate yet', async () => {
     await open([]);
