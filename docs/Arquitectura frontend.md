@@ -27,7 +27,7 @@ web/
 │  ├─ ui/                        lib: componentes de presentación sin lógica de negocio
 │  ├─ api/                       lib: cliente generado desde OpenAPI (no se edita a mano)
 │  ├─ feature-auth/
-│  ├─ feature-companies/         configuración de la empresa y asistente de paso a producción (dos chunks)
+│  ├─ feature-companies/         configuración de la empresa, asistente de paso a producción y usuarios de la empresa (tres chunks)
 │  ├─ feature-documents/
 │  ├─ feature-masters/           clientes y productos
 │  ├─ feature-api-keys/
@@ -111,6 +111,7 @@ Cambio en el backend, hecho el 17-nov (fase 5, B1): el refresh acepta y emite la
 | `/` (tablero) | `feature-dashboard` (los demás roles ven la página de inicio de `app`) | owner, seller |
 | `/empresas/:id/{datos,ambientes,software,certificado,resoluciones}` (`/empresa` lleva a la activa); `correo`, `logo` y `plantilla` esperan su endpoint | `feature-companies` | owner |
 | `/empresas/:id/produccion` (`/empresa/produccion`) | `feature-companies`, chunk `feature-production-wizard` | owner |
+| `/empresa/usuarios` (entrada «Usuarios» de Ajustes, no es una pestaña de la configuración) | `feature-companies`, chunk `feature-company-users` | owner |
 | `/documentos`, `/documentos/nuevo`, `/documentos/:id` | `feature-documents` | owner, seller (`nuevo`: con alcance de emisión) |
 | `/clientes`, `/productos` | `feature-masters` | owner, seller |
 | `/llaves-api` | `feature-api-keys` | owner |

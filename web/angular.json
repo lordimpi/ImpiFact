@@ -99,6 +99,12 @@
                 },
                 {
                   "type": "bundle",
+                  "name": "feature-company-users",
+                  "maximumWarning": "200kB",
+                  "maximumError": "250kB"
+                },
+                {
+                  "type": "bundle",
                   "name": "feature-masters",
                   "maximumWarning": "200kB",
                   "maximumError": "250kB"

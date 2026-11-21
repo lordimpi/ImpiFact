@@ -3809,6 +3809,11 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("customer_id");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
                     b.Property<Guid>("RoleId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("role_id");

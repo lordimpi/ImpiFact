@@ -40,6 +40,7 @@ test('shows the owner menu grouped by section and marks the current page', async
   await expect(nav.getByRole('list', { name: 'Ajustes' }).getByRole('link')).toHaveText([
     'Empresa',
     'Paso a producción',
+    'Usuarios',
     'Llaves de API',
     'Mi plan',
     'Avisos',

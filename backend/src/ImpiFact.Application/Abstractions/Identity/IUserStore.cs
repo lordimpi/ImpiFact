@@ -20,7 +20,8 @@ public interface IUserStore
     /// <summary>
     /// Roles de plataforma del usuario (<c>user_roles</c>), por ejemplo <c>platform_admin</c>, y sus empresas con
     /// el rol en cada una (<c>user_companies</c>). Las empresas se leen sin el filtro de empresa a propósito: se
-    /// necesitan antes de saber en qué empresa va a trabajar el usuario.
+    /// necesitan antes de saber en qué empresa va a trabajar el usuario. Solo cuentan las pertenencias activas: una
+    /// desactivada (<c>user_companies.is_active</c>) no da ningún rol.
     /// </summary>
     Task<UserRoles> GetRolesAsync(Guid userId, CancellationToken ct);
 

@@ -101,7 +101,15 @@ public sealed class UserCompany : TenantEntity
 {
     public Guid UserId { get; init; }
 
-    public Guid RoleId { get; init; }
+    /// <summary>Role in the company; the owner changes it between <c>owner</c> and <c>seller</c>.</summary>
+    public Guid RoleId { get; set; }
+
+    /// <summary>
+    /// Whether the membership grants access to the company. A deactivated membership is kept (the user keeps the
+    /// authorship of what they issued) but login, company selection and refresh ignore it. It belongs to this company
+    /// only: the user's other memberships and the account itself (<see cref="User.IsActive"/>) do not change.
+    /// </summary>
+    public bool IsActive { get; set; } = true;
 
     /// <summary>Cliente de la empresa; solo para el rol <c>customer</c> (portal del cliente).</summary>
     public Guid? CustomerId { get; set; }

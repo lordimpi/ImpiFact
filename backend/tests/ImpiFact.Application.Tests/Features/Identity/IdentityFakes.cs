@@ -143,6 +143,16 @@ public sealed class FakeRefreshTokenStore : IRefreshTokenStore
         ct.ThrowIfCancellationRequested();
         RevokedAllFor.Add((userId, revokedAt));
     }
+
+    /// <summary>Revocaciones hechas dentro de la unidad de trabajo del caso de uso (no se guardan aparte).</summary>
+    public List<(Guid UserId, DateTimeOffset RevokedAt)> RevokedWithChangesFor { get; } = [];
+
+    public Task RevokeAllActiveForUserWithChangesAsync(Guid userId, DateTimeOffset revokedAt, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        RevokedWithChangesFor.Add((userId, revokedAt));
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Plazos de la sesión; la revocación tiene un plazo corto para que las pruebas no esperen 10 segundos.</summary>

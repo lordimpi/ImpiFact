@@ -1,0 +1,58 @@
+/* Company users page: the title with its actions and the users table in a card, usable on phones and desktops. */
+:host {
+  display: block;
+}
+
+.users-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-4);
+}
+
+/* The page title keeps its own bottom margin: cancel the flex gap after it. */
+.users-page > ui-page-title {
+  margin-block-end: calc(-1 * var(--if-space-4));
+}
+
+.users-title-actions,
+.users-row-actions,
+.users-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+}
+
+.users-dialog-actions {
+  justify-content: flex-end;
+}
+
+.users-name {
+  font-weight: var(--if-font-weight-medium);
+}
+
+.users-you {
+  margin-inline-start: var(--if-space-1);
+  color: var(--if-color-text-muted);
+}
+
+.users-email {
+  overflow-wrap: anywhere;
+}
+
+.users-nowrap {
+  white-space: nowrap;
+}
+
+.users-muted {
+  color: var(--if-color-text-muted);
+}
+
+.users-hint {
+  display: inline-block;
+  max-inline-size: 18rem;
+  font-size: var(--if-font-size-sm);
+}
+
+.users-confirm {
+  margin: 0;
+}

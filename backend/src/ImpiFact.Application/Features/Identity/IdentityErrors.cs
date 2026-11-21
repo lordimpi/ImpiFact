@@ -45,4 +45,25 @@ public static class IdentityErrors
 
     public static readonly Error RoleNotAllowed =
         new("user.role_not_allowed", "La credencial no puede crear usuarios con ese rol.", ErrorType.Forbidden);
+
+    /// <summary>
+    /// Another company's NIT, a NIT that does not exist, or a credential that is not the owner of the company: the
+    /// same code and message as the company routes (<c>company.forbidden</c>), so the answer never reveals whether the
+    /// company exists.
+    /// </summary>
+    public static readonly Error ForeignCompany =
+        new("company.forbidden", "No tiene permiso sobre la empresa indicada.", ErrorType.Forbidden);
+
+    /// <summary>The same error for a user that does not exist and for one that is not staff of the company.</summary>
+    public static readonly Error UserNotFound =
+        new("user.not_found", "El usuario no existe en la empresa.", ErrorType.NotFound);
+
+    public static readonly Error CannotDeactivateSelf =
+        new("user.cannot_deactivate_self", "No puede desactivar su propio usuario en la empresa.", ErrorType.Validation);
+
+    public static readonly Error CannotRemoveOwnOwnerRole =
+        new("user.cannot_remove_own_owner_role", "No puede quitarse a sí mismo el rol de dueño.", ErrorType.Validation);
+
+    public static readonly Error LastOwner =
+        new("user.last_owner", "La empresa debe conservar al menos un dueño activo.", ErrorType.Validation);
 }

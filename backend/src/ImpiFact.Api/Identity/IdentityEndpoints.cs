@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using ImpiFact.Api.Endpoints;
 using ImpiFact.Api.Http;
@@ -14,6 +15,7 @@ using ImpiFact.Application.Features.Identity.Users;
 using ImpiFact.Infrastructure.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
+using Microsoft.OpenApi;
 
 namespace ImpiFact.Api.Identity;
 
@@ -50,7 +52,8 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "`access_token` (JWT de vida corta), un `refresh_token` y el `email` del usuario tal como está guardado. El " +
                 "`access_token` se usa como credencial Bearer. " +
                 "Un correo desconocido, una contraseña equivocada o un usuario inactivo o bloqueado responden el mismo 401 " +
-                "(`identity.invalid_credentials`); una empresa a la que el usuario no pertenece responde 403 " +
+                "(`identity.invalid_credentials`); una empresa a la que el usuario no pertenece, o donde su pertenencia está " +
+                "desactivada, responde 403 " +
                 "(`identity.company_not_allowed`). Tiene un límite estricto de intentos por minuto y por IP (429).\n\n" +
                 PanelCookieNote);
         auth.MapPost("/refresh", RefreshAsync)
@@ -151,8 +154,8 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "(razón social), `nit`, `dv`, `roles` (los roles de quien llama en esa empresa, por ejemplo `owner` o `seller`) e " +
                 "`is_active`. Es lo que muestra el selector de empresa del panel antes de renovar la sesión con `company_id`; no " +
                 "necesita empresa activa y la empresa activa no reduce la lista. Un usuario del panel ve las empresas donde tiene " +
-                "un rol (un `platform_admin` sin empresas recibe la lista vacía); una API key de empresa ve solo su empresa, sin " +
-                "roles; una de plataforma, la lista vacía. No se pagina: un usuario pertenece a pocas empresas.");
+                "un rol con la pertenencia activa (un `platform_admin` sin empresas recibe la lista vacía); una API key de " +
+                "empresa ve solo su empresa, sin roles; una de plataforma, la lista vacía. No se pagina: un usuario pertenece a pocas empresas.");
 
         endpoints.MapGroup("/api/v1/users").WithTags(ApiTags.Identity).RequireAuthorization(IdentityPolicies.ManageCredentials)
             .MapPost("/", CreateUserAsync)
@@ -167,7 +170,69 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "(`seller`) de una empresa. Las API keys de empresa no crean usuarios. Correo repetido: 409 " +
                 "(`user.email_taken`); rol no permitido: 403 (`user.role_not_allowed`); empresa inexistente: 404 " +
                 "(`user.company_not_found`); `company_id` de otra empresa con una credencial de empresa: 403.");
+
+        // Users of one company, for its owner or the platform. They are company routes (/api/v1/companies/{nit}/...),
+        // so they carry the Companies tag and answer another company's NIT like the configuration routes do.
+        var companyUsers = endpoints.MapGroup("/api/v1/companies/{nit}/users").WithTags(ApiTags.Companies)
+            .RequireAuthorization(IdentityPolicies.ManageCredentials);
+        companyUsers.MapGet("/", ListCompanyUsersAsync)
+            .Produces<CompanyUserList>()
+            .WithOperationId("listCompanyUsers")
+            .WithSummary("Listar los usuarios de la empresa")
+            .WithDescription(
+                "Devuelve en `items` los usuarios del panel de la empresa, dueños y vendedores, con su pertenencia activa o " +
+                "no, ordenados por nombre y luego por correo: `id`, `email`, `name`, `phone`, `role` (`owner` o `seller`) e " +
+                "`is_active` (si la pertenencia a esta empresa está activa). Nunca trae contraseñas ni tokens. Los clientes " +
+                "del portal no aparecen. No se pagina: una empresa tiene pocos usuarios. Lo usa el dueño (`owner`) de la " +
+                "empresa con su sesión del panel; la plataforma puede consultar cualquier empresa (NIT inexistente: 404, " +
+                "`user.company_not_found`)." + CompanyUsersNit);
+        companyUsers.MapPatch("/{userId:guid}", UpdateCompanyUserAsync)
+            .Produces<CompanyUser>()
+            .WithRequestExamples(CompanyUserExamples)
+            .WithOperationId("updateCompanyUser")
+            .WithSummary("Cambiar el rol o el estado de un usuario de la empresa")
+            .WithDescription(
+                "Cambia el rol (`role`: `owner` o `seller`) del usuario `{userId}` en la empresa, o activa o desactiva su " +
+                "pertenencia a ella (`is_active`); el campo que no llega queda como estaba. Responde el usuario como lo " +
+                "lista `GET /api/v1/companies/{nit}/users`. Desactivar no borra la cuenta ni lo que el usuario emitió: solo " +
+                "le cierra esta empresa. Ya no puede entrar a ella al iniciar sesión, elegirla ni renovar la sesión hacia " +
+                "ella, y sus sesiones se cierran (se revocan todos sus `refresh_token`; el `access_token` ya entregado vale " +
+                "hasta vencer, 15 minutos como máximo). Sus demás empresas no cambian. Reactivar le devuelve el acceso. " +
+                "Errores: usuario que no existe o no es de la empresa, 404 (`user.not_found`); desactivarse a sí mismo, 422 " +
+                "(`user.cannot_deactivate_self`); quitarse a sí mismo el rol de dueño, 422 " +
+                "(`user.cannot_remove_own_owner_role`); dejar la empresa sin ningún dueño activo, 422 (`user.last_owner`); " +
+                "rol desconocido o cuerpo sin `role` ni `is_active`, 422 con el detalle en `errors.role`; otro cambio " +
+                "simultáneo sobre los dueños, 409 (`persistence.conflict`)." + CompanyUsersNit)
+            .AddOpenApiOperationTransformer((operation, _, _) =>
+            {
+                foreach (var parameter in operation.Parameters?.OfType<OpenApiParameter>() ?? [])
+                {
+                    if (parameter.Name == "userId")
+                    {
+                        parameter.Example ??= ExampleUserId;
+                    }
+                }
+
+                return Task.CompletedTask;
+            });
     }
+
+    /// <summary>Reminder of the company user routes: another company's NIT answers like one that does not exist.</summary>
+    private const string CompanyUsersNit =
+        " Con una credencial de empresa, el `{nit}` debe ser el de esa empresa y quien llama debe ser uno de sus dueños " +
+        "activos con su sesión del panel; si no, responde 403 (`company.forbidden`), exista o no el NIT. Las API keys de " +
+        "empresa no administran usuarios: responden ese mismo 403, tengan los alcances que tengan. Sin `config:write` " +
+        "(por ejemplo, un vendedor) también responde 403, para cualquier NIT.";
+
+    private const string ExampleUserId = "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8c";
+
+    private static readonly RequestExample[] CompanyUserExamples =
+    [
+        new("desactivar", "Desactivar la pertenencia del usuario a la empresa", JsonNode.Parse("""{ "is_active": false }""")!),
+        new("reactivar", "Reactivar la pertenencia del usuario a la empresa", JsonNode.Parse("""{ "is_active": true }""")!),
+        new("hacer-dueno", "Dar el rol de dueño", JsonNode.Parse("""{ "role": "owner" }""")!),
+        new("hacer-vendedor", "Dar el rol de vendedor", JsonNode.Parse("""{ "role": "seller" }""")!),
+    ];
 
     /// <summary>Texto común de las rutas de sesión sobre la cookie del panel (<see cref="PanelSession"/>).</summary>
     private const string PanelCookieNote =
@@ -294,6 +359,18 @@ internal sealed class IdentityEndpoints : IEndpointModule
             new CreateUserCommand(body.Email ?? "", body.Password ?? "", body.Name ?? "", body.Phone, body.Role ?? "", body.CompanyId), ct))
         .ToHttpResult(created => TypedResults.Created($"/api/v1/users/{created.Id}", created));
 
+    private static async Task<IResult> ListCompanyUsersAsync(
+        string nit, [FromServices] IHandler<ListCompanyUsersQuery, CompanyUserList> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(new ListCompanyUsersQuery(nit), ct)).ToHttpResult();
+
+    private static async Task<IResult> UpdateCompanyUserAsync(
+        string nit,
+        Guid userId,
+        UpdateCompanyUserBody body,
+        [FromServices] IHandler<UpdateCompanyUserCommand, CompanyUser> handler,
+        CancellationToken ct) =>
+        (await handler.HandleAsync(new UpdateCompanyUserCommand(nit, userId, body.Role, body.IsActive), ct)).ToHttpResult();
+
     // Un choque al guardar (otra solicitud simultánea del mismo usuario) solo puede pasar con un correo registrado: si
     // saliera como 409 revelaría que la cuenta existe. Por eso responde el mismo 202 que en los demás casos. El registro
     // no lleva el correo ni el token.
@@ -389,4 +466,9 @@ internal sealed class IdentityEndpoints : IEndpointModule
     {
         public override string ToString() => "CreateUserBody";
     }
+
+    /// <summary>Both fields are optional; the validator asks for at least one.</summary>
+    internal sealed record UpdateCompanyUserBody(
+        [property: JsonPropertyName("role")] string? Role = null,
+        [property: JsonPropertyName("is_active")] bool? IsActive = null);
 }

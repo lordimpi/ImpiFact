@@ -261,7 +261,7 @@ describe('App shell', () => {
     );
   });
 
-  it('shows the company configuration and the production wizard only to an owner', async () => {
+  it('shows the company configuration, the production wizard and the users only to an owner', async () => {
     const view = await renderShell({ authenticated: true, companies: ['company-1'] });
     const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
     expect(within(nav).getByRole('link', { name: 'Empresa' }).getAttribute('href')).toBe(
@@ -270,10 +270,14 @@ describe('App shell', () => {
     expect(within(nav).getByRole('link', { name: 'Paso a producción' }).getAttribute('href')).toBe(
       '/empresa/produccion',
     );
+    expect(within(nav).getByRole('link', { name: 'Usuarios' }).getAttribute('href')).toBe(
+      '/empresa/usuarios',
+    );
 
     view.session.roles.set(['seller']);
     await waitFor(() => expect(within(nav).queryByRole('link', { name: 'Empresa' })).toBeNull());
     expect(within(nav).queryByRole('link', { name: 'Paso a producción' })).toBeNull();
+    expect(within(nav).queryByRole('link', { name: 'Usuarios' })).toBeNull();
   });
 
   it('shows the name of the active company in the top bar', async () => {

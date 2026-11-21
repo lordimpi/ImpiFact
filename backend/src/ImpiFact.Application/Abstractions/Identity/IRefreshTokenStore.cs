@@ -34,6 +34,13 @@ public interface IRefreshTokenStore
     /// el caso de uso responde con un error, su transacción se revierte, y esta revocación debe quedar igual.
     /// </summary>
     Task RevokeAllActiveForUserAsync(Guid userId, DateTimeOffset revokedAt, CancellationToken ct);
+
+    /// <summary>
+    /// Marca revocados todos los tokens vigentes del usuario dentro de la unidad de trabajo del caso de uso: se guarda
+    /// al confirmar su transacción y se revierte con ella. Sirve cuando la revocación acompaña a otro cambio (desactivar
+    /// una pertenencia) y no debe quedar si ese cambio falla (409, regla de negocio).
+    /// </summary>
+    Task RevokeAllActiveForUserWithChangesAsync(Guid userId, DateTimeOffset revokedAt, CancellationToken ct);
 }
 
 /// <summary>Un token de renovación tal como está guardado: nunca el valor, solo su resumen.</summary>

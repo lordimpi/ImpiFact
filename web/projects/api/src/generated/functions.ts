@@ -3,6 +3,10 @@
 
 export type { ListPlatformCompanies$Params as ListPlatformCompanies$Params } from './fn/empresas/list-platform-companies';
 export { listPlatformCompanies as listPlatformCompanies } from './fn/empresas/list-platform-companies';
+export type { ListCompanyUsers$Params as ListCompanyUsers$Params } from './fn/empresas/list-company-users';
+export { listCompanyUsers as listCompanyUsers } from './fn/empresas/list-company-users';
+export type { UpdateCompanyUser$Params as UpdateCompanyUser$Params } from './fn/empresas/update-company-user';
+export { updateCompanyUser as updateCompanyUser } from './fn/empresas/update-company-user';
 export type { UpdateCompany$Params as UpdateCompany$Params } from './fn/empresas/update-company';
 export { updateCompany as updateCompany } from './fn/empresas/update-company';
 export type { CreateCompany$Params as CreateCompany$Params } from './fn/empresas/create-company';

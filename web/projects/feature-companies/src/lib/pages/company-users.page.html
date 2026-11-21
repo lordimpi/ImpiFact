@@ -1,0 +1,141 @@
+<section class="users-page">
+  <ui-page-title [subtitle]="'companies.users.subtitle' | transloco">
+    {{ 'companies.users.title' | transloco }}
+    @if (company()) {
+      <div uiPageTitleActions class="users-title-actions">
+        <ui-button
+          variant="secondary"
+          [label]="'companies.users.reload' | transloco"
+          [disabled]="store.status() === 'loading'"
+          (pressed)="reload()"
+        />
+        <ui-button [label]="'companies.users.new' | transloco" (pressed)="createOpen.set(true)" />
+      </div>
+    }
+  </ui-page-title>
+
+  @if (company(); as company) {
+    <ui-card padding="none">
+      <ui-table
+        flush
+        [caption]="'companies.users.list.caption' | transloco"
+        [columns]="columns()"
+        [rows]="store.items()"
+        [labels]="tableLabels()"
+        [loading]="store.status() === 'loading' || store.status() === 'idle'"
+        [error]="store.status() === 'error'"
+        [trackBy]="trackById"
+        (retry)="reload()"
+      >
+        <ng-template uiTableCell="name" let-row>
+          <span class="users-name">{{ row.name }}</span>
+          @if (isMe(row)) {
+            <span class="users-you">{{ 'companies.users.list.you' | transloco }}</span>
+          }
+        </ng-template>
+        <ng-template uiTableCell="email" let-row
+          ><span class="users-email">{{ row.email }}</span></ng-template
+        >
+        <ng-template uiTableCell="phone" let-row>
+          @if (row.phone) {
+            <span class="users-nowrap">{{ row.phone }}</span>
+          } @else {
+            <span class="users-muted">{{ 'companies.users.list.noPhone' | transloco }}</span>
+          }
+        </ng-template>
+        <ng-template uiTableCell="role" let-row>{{ roleLabel(row) }}</ng-template>
+        <ng-template uiTableCell="is_active" let-row>
+          <ui-badge [tone]="row.is_active ? 'success' : 'neutral'">{{
+            (row.is_active ? 'companies.users.list.active' : 'companies.users.list.inactive')
+              | transloco
+          }}</ui-badge>
+        </ng-template>
+        <ng-template uiTableCell="actions" let-row>
+          @if (isMe(row)) {
+            <span class="users-muted users-hint">{{
+              'companies.users.list.selfHint' | transloco
+            }}</span>
+          } @else {
+            <div class="users-row-actions">
+              <ui-button
+                variant="ghost"
+                size="small"
+                [label]="
+                  (row.role === 'owner'
+                    ? 'companies.users.actions.makeSeller'
+                    : 'companies.users.actions.makeOwner'
+                  ) | transloco
+                "
+                [ariaLabel]="
+                  rowText(
+                    row.role === 'owner'
+                      ? 'users.actions.makeSellerRow'
+                      : 'users.actions.makeOwnerRow',
+                    row
+                  )
+                "
+                [disabled]="store.busyId() !== null"
+                (pressed)="toggleRole(row)"
+              />
+              @if (row.is_active) {
+                <ui-button
+                  variant="ghost"
+                  size="small"
+                  [label]="'companies.users.actions.deactivate' | transloco"
+                  [ariaLabel]="rowText('users.actions.deactivateRow', row)"
+                  [disabled]="store.busyId() !== null"
+                  (pressed)="askDeactivate(row)"
+                />
+              } @else {
+                <ui-button
+                  variant="ghost"
+                  size="small"
+                  [label]="'companies.users.actions.reactivate' | transloco"
+                  [ariaLabel]="rowText('users.actions.reactivateRow', row)"
+                  [disabled]="store.busyId() !== null"
+                  (pressed)="reactivate(row)"
+                />
+              }
+            </div>
+          }
+        </ng-template>
+      </ui-table>
+    </ui-card>
+
+    <feat-company-user-dialog
+      [companyId]="company.id"
+      [(visible)]="createOpen"
+      (created)="onCreated($event)"
+    />
+  } @else if (directory.status() === 'loading' || directory.status() === 'idle') {
+    <ui-loading [label]="'companies.common.loading' | transloco" />
+  } @else {
+    <ui-error-state
+      [title]="'companies.layout.notFoundTitle' | transloco"
+      [description]="'companies.layout.notFoundDescription' | transloco"
+      [retryLabel]="'companies.common.retry' | transloco"
+      (retry)="directory.reload()"
+    />
+  }
+
+  <ui-dialog
+    [header]="deactivateLabels().header"
+    [closeLabel]="'companies.common.close' | transloco"
+    [(visible)]="deactivateOpen"
+  >
+    <p class="users-confirm">{{ deactivateLabels().body }}</p>
+    <div uiDialogFooter class="users-dialog-actions">
+      <ui-button
+        variant="secondary"
+        [label]="'companies.common.cancel' | transloco"
+        (pressed)="deactivateOpen.set(false)"
+      />
+      <ui-button
+        variant="danger"
+        [label]="'companies.users.deactivate.confirm' | transloco"
+        [loading]="store.busyId() !== null"
+        (pressed)="deactivate()"
+      />
+    </div>
+  </ui-dialog>
+</section>

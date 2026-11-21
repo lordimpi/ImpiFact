@@ -12,6 +12,7 @@ type Translate = (key: string, params?: Record<string, unknown>) => string;
 const CLIENT_ERROR_KEYS: Partial<Record<string, string>> = {
   required: 'common.errors.required',
   maxLength: 'common.errors.maxLength',
+  minLength: 'common.errors.minLength',
   email: 'common.errors.email',
   pattern: 'common.errors.pattern',
 };
@@ -36,7 +37,10 @@ export function fieldMessage(
   if (!key) {
     return error.message ?? null;
   }
-  const max = (error as { maxLength?: number }).maxLength;
+  const { maxLength: max, minLength: min } = error as { maxLength?: number; minLength?: number };
+  if (min !== undefined) {
+    return translate(key, { min });
+  }
   return translate(key, max === undefined ? undefined : { max });
 }
 
