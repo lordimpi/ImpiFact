@@ -18,6 +18,8 @@ public sealed record DocumentExportColumn(SpreadsheetColumn Layout, Func<Documen
 /// </summary>
 public static class DocumentExportColumns
 {
+    private const string CufeHeader = "CUFE/CUDE";
+
     public static IReadOnlyList<DocumentExportColumn> All { get; } =
     [
         Column("Tipo", SpreadsheetCellKind.Text, 14, row => KindLabel(row.DocumentTypeId)),
@@ -31,8 +33,14 @@ public static class DocumentExportColumns
         Column("Total", SpreadsheetCellKind.Amount, 16, row => row.Totals.PayableAmount),
         Column("Estado", SpreadsheetCellKind.Text, 26, row => StatusLabel(row.Status)),
         Column("Estado del correo", SpreadsheetCellKind.Text, 18, row => EmailLabel(row.EmailStatus)),
-        Column("CUFE/CUDE", SpreadsheetCellKind.Text, 40, row => row.Cufe ?? ""),
+        Column(CufeHeader, SpreadsheetCellKind.Text, 40, row => row.Cufe ?? ""),
     ];
+
+    /// <summary>
+    /// The columns of the PDF report: every column except CUFE/CUDE, whose 96 characters do not fit a landscape A4 page
+    /// next to the others. The CSV and the Excel workbook keep every column.
+    /// </summary>
+    public static IReadOnlyList<DocumentExportColumn> Report { get; } = [.. All.Where(column => column.Header != CufeHeader)];
 
     /// <summary>Header and layout of every column, for the spreadsheet writer.</summary>
     public static IReadOnlyList<SpreadsheetColumn> Layouts { get; } = [.. All.Select(column => column.Layout)];
@@ -74,7 +82,8 @@ public static class DocumentExportColumns
         _ => "No enviado",
     };
 
-    private static string KindLabel(int documentTypeId) => DocumentKinds.NameOf(documentTypeId) switch
+    /// <summary>Spanish name of a document type, as the «Tipo» column shows it.</summary>
+    public static string KindLabel(int documentTypeId) => DocumentKinds.NameOf(documentTypeId) switch
     {
         DocumentKinds.Invoice => "Factura",
         DocumentKinds.CreditNote => "Nota crédito",

@@ -136,6 +136,24 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
                 "como texto, nunca como fórmula. El archivo se escribe mientras se lee de la base. Máximo " + ExportMax +
                 " filas: si los filtros dan más, responde 422 (`documents.export_too_large`) antes de escribir nada; acote " +
                 "por fechas u otros filtros. Un filtro no válido responde 422.");
+        documents.MapGet("/export.pdf", ExportPdf)
+            .Produces(StatusCodes.Status200OK, contentType: ExportDocumentsPdfQuery.ContentType)
+            .WithOperationId("exportDocumentsPdf")
+            .WithSummary("Exportar los documentos de la empresa a PDF")
+            .WithDescription(
+                "Los mismos documentos, filtros y orden de `GET /api/v1/documents/export.csv`, en un reporte PDF " +
+                "`documentos.pdf` para imprimir o compartir." + ListFilters + " Hoja A4 horizontal. El encabezado lleva la " +
+                "razón social y el NIT de la empresa, el título «Documentos», los filtros aplicados en español (fechas " +
+                "dd/mm/aaaa; «Todos» si un filtro no llega) y la fecha y hora de generación en hora de Colombia. La tabla " +
+                "lleva las columnas del CSV salvo CUFE/CUDE, que no cabe en la hoja (el CSV y el Excel sí lo traen): Tipo, " +
+                "Número, Fecha de emisión, Hora de emisión, Identificación del cliente, Cliente, Subtotal, Impuestos, Total, " +
+                "Estado y Estado del correo. Los importes van con separador de miles y coma decimal (`1.234.567,89`), " +
+                "alineados a la derecha; la fila de encabezados se repite en cada página, el pie dice «Página X de Y» y la " +
+                "última línea da la cantidad de documentos. Máximo " + ExportPdfMax + " filas, menos que el CSV y el Excel " +
+                "porque el reporte se arma completo antes de convertirlo: si los filtros dan más, responde 422 " +
+                "(`documents.export_too_large`) sin generar nada; descargue en Excel o acote por fechas u otros filtros. Si " +
+                "el conversor de PDF no responde: 503 (`pdf.unavailable`, reintente después de `Retry-After`). Un filtro no " +
+                "válido responde 422.");
         documents.MapGet("/{id:guid}", Detail)
             .Produces<DocumentDetailResponse>()
             .WithOperationId("getDocument")
@@ -170,6 +188,8 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
         "dígitos, que coinciden con ese número en cualquier prefijo. Un `customer` o `number` vacío no filtra.";
 
     private static readonly string ExportMax = ExportDocumentsQuery.MaxRows.ToString("N0", DocumentCsv.Numbers);
+
+    private static readonly string ExportPdfMax = ExportDocumentsPdfQuery.MaxRows.ToString("N0", DocumentCsv.Numbers);
 
     private static async Task<IResult> CurrentNumber(
         int type, string? prefix, IHandler<GetCurrentNumberQuery, CurrentNumberResponse> handler, CancellationToken ct) =>
@@ -242,6 +262,23 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
         (await handler.HandleAsync(new ExportDocumentsQuery(documentTypeId, kind, Statuses(status), from, to, customer, number), ct))
         .ToHttpResult(export => TypedResults.Stream(
             stream => export.WriteXlsxAsync(stream, ct), DocumentExport.XlsxContentType, export.XlsxFileName));
+
+    /// <summary>
+    /// The PDF twin of <see cref="Export"/>: the same filters and errors, a lower row cap, and the whole report converted
+    /// before answering, so it goes out as one downloaded file.
+    /// </summary>
+    private static async Task<IResult> ExportPdf(
+        [FromQuery(Name = "document_type_id")] int? documentTypeId,
+        [FromQuery(Name = "kind")] string? kind,
+        [FromQuery(Name = "status")] string[]? status,
+        [FromQuery(Name = "from")] string? from,
+        [FromQuery(Name = "to")] string? to,
+        [FromQuery(Name = "customer")] string? customer,
+        [FromQuery(Name = "number")] string? number,
+        IHandler<ExportDocumentsPdfQuery, byte[]> handler,
+        CancellationToken ct) =>
+        (await handler.HandleAsync(new ExportDocumentsPdfQuery(documentTypeId, kind, Statuses(status), from, to, customer, number), ct))
+        .ToHttpResult(pdf => TypedResults.File(pdf, ExportDocumentsPdfQuery.ContentType, ExportDocumentsPdfQuery.FileName));
 
     /// <summary>Junta <c>status=A&amp;status=B</c> y <c>status=A,B</c> en una sola lista separada por coma.</summary>
     private static string? Statuses(string[]? status) => status is null || status.Length == 0 ? null : string.Join(',', status);

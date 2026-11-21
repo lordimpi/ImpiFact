@@ -1,4 +1,5 @@
 using ImpiFact.Application.Abstractions.Documents;
+using ImpiFact.Application.Abstractions.Pdf;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -27,6 +28,8 @@ public static class DocumentServiceCollectionExtensions
         services.TryAddScoped<IDocumentLookups, EfDocumentLookups>();
         // Excel workbook of the document export.
         services.TryAddSingleton<ISpreadsheetWriter, OpenXmlSpreadsheetWriter>();
+        // PDF report of the document export; its Gotenberg client is registered with the PDF rendering (AddPdfRendering).
+        services.TryAddScoped<IHtmlPdfConverter, GotenbergHtmlPdfConverter>();
         return services;
     }
 }

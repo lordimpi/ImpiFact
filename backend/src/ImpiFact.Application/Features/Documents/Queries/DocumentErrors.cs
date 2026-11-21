@@ -36,6 +36,26 @@ public static class DocumentErrors
             $"La exportación tiene {count:N0} documentos y el máximo es {max:N0}. Acote los filtros, por ejemplo con un rango de fechas más corto."),
         ErrorType.Validation);
 
+    /// <summary>
+    /// The PDF report asked for has more rows than its cap (<see cref="ExportDocumentsPdfQuery.MaxRows"/>). Same code
+    /// as the CSV and Excel cap, so a client handles every format alike; the text points to Excel, whose cap is higher.
+    /// </summary>
+    public static Error PdfExportTooLarge(long count, int max) => new(
+        "documents.export_too_large",
+        string.Create(
+            DocumentCsv.Numbers,
+            $"El PDF tendría {count:N0} documentos y el máximo es {max:N0}. Descárguelos en Excel o acote los filtros, por ejemplo con un rango de fechas más corto."),
+        ErrorType.Validation);
+
+    /// <summary>
+    /// Gotenberg (the HTML-to-PDF converter) did not answer, answered an error or did not answer a PDF. The same code and
+    /// status (503 with <c>Retry-After</c>) as the PDF preview of a document.
+    /// </summary>
+    public static readonly Error PdfUnavailable = new(
+        "pdf.unavailable",
+        "No se pudo generar el PDF en este momento. Intente de nuevo en unos segundos.",
+        ErrorType.Unavailable);
+
     /// <summary>Texto del PHP (<c>download</c>) cuando el archivo pedido por nombre no existe.</summary>
     public static Error FileNotFoundNamed(string file) => new(
         "document.file_not_found",

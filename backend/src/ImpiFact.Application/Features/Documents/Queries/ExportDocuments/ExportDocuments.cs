@@ -10,7 +10,8 @@ namespace ImpiFact.Application.Features.Documents.Queries.ExportDocuments;
 /// <summary>
 /// <c>GET /api/v1/documents/export.csv</c>: los documentos del listado con los mismos filtros, en un archivo CSV
 /// (valores separados por punto y coma) para abrir en una hoja de cálculo. Sin cursor ni límite: trae todas las filas
-/// hasta <see cref="MaxRows"/>. <c>GET /api/v1/documents/export.xlsx</c> runs the same query and writes an Excel workbook.
+/// hasta <see cref="MaxRows"/>. <c>GET /api/v1/documents/export.xlsx</c> runs the same query and writes an Excel workbook;
+/// <c>GET /api/v1/documents/export.pdf</c> (<see cref="ExportDocumentsPdfQuery"/>) reads the same rows with a lower cap.
 /// </summary>
 public sealed record ExportDocumentsQuery(
     int? DocumentTypeId,
@@ -78,14 +79,32 @@ internal sealed class ExportDocumentsHandler(IDocumentReads reads, ITenantContex
             return DocumentErrors.ForeignNit;
         }
 
-        var filter = DocumentFilters.ToFilter(request, companyId, after: null, take: MaxRows);
-        var count = await reads.CountAsync(filter, ct);
+        var (filter, count) = await DocumentExportRows.CountAsync(reads, request, companyId, MaxRows, ct);
         if (count > MaxRows)
         {
             return DocumentErrors.ExportTooLarge(count, MaxRows);
         }
 
         return new DocumentExport(count, reads.StreamAsync(filter, ct), spreadsheets);
+    }
+}
+
+/// <summary>
+/// The row source every export format shares (CSV, Excel and the PDF report): the list filters of the company, in the
+/// list order, without cursor, and at most <c>maxRows</c> rows. Each format only sets its own cap and its own error.
+/// </summary>
+internal static class DocumentExportRows
+{
+    /// <summary>
+    /// The query filter and how many rows match it. The caller compares the count with its cap before reading the rows
+    /// with <see cref="IDocumentReads.StreamAsync"/> and this filter, which also stops at the cap in case documents arrive
+    /// between the count and the read.
+    /// </summary>
+    public static async Task<(DocumentListFilter Filter, long Count)> CountAsync(
+        IDocumentReads reads, IDocumentFilters request, Guid companyId, int maxRows, CancellationToken ct)
+    {
+        var filter = DocumentFilters.ToFilter(request, companyId, after: null, take: maxRows);
+        return (filter, await reads.CountAsync(filter, ct));
     }
 }
 
