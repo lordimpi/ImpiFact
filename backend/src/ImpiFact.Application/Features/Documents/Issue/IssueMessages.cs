@@ -57,6 +57,21 @@ internal static partial class IssueMessages
 
     public static string Array(string field) => $"{Attribute(field)} debe ser un conjunto.";
 
+    public static string Positive(string field) => $"{Attribute(field)} debe ser mayor que 0.";
+
+    /// <summary>The Laravel <c>in</c> message plus the accepted Incoterms, so the client knows what to send.</summary>
+    public static string Incoterm(string field) =>
+        $"{Attribute(field)} es inválido. Use uno de estos Incoterms: CFR, CIF, CIP, CPT, DAP, DAT, DDP, EXW, FAS, FCA o FOB.";
+
+    /// <summary>Export invoice in another currency without its exchange rate: ImpiFact never fetches nor invents it.</summary>
+    public static string ExchangeRateRequired(string field, string currency, string localCurrency) =>
+        $"El campo {Attribute(field)} es obligatorio cuando idcurrency es {currency} y no {localCurrency}: indique la tasa de cambio a " +
+        $"{localCurrency} (la TRM o la pactada con el comprador). ImpiFact no la consulta en línea ni la supone.";
+
+    public static string ExchangeRateDateRequired(string field, string currency, string localCurrency) =>
+        $"El campo {Attribute(field)} es obligatorio cuando idcurrency es {currency} y no {localCurrency}: indique la fecha de la tasa " +
+        "de cambio (Y-m-d).";
+
     /// <summary>Regla <c>dian_dv</c> del PHP (<c>AppServiceProvider.php</c>).</summary>
     public const string InvalidDv = "Error, el digito de verificacion no es valido para este NIT.";
 

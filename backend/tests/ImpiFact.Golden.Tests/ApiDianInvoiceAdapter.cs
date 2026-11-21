@@ -18,6 +18,9 @@ public enum ApiDianInvoiceVariant
 
     /// <summary>InvoiceTransportController: operation 21 (code 12).</summary>
     Transport = 21,
+
+    /// <summary>InvoiceExportController: template 02, operation 10 (code 10).</summary>
+    Export = 10,
 }
 
 /// <summary>
@@ -84,6 +87,9 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         return invoice with
         {
             OperationTypeCode = catalog.Get("operationTypes", (int)variant).Code,
+
+            // php-rules 11, item 4: InvoiceExportController never passes idcurrency nor the rate to template 02.
+            ForeignCurrency = variant == ApiDianInvoiceVariant.Export ? null : invoice.ForeignCurrency,
             AiuContractObject = variant == ApiDianInvoiceVariant.Aiu ? RequiredText(request, "noteAIU") : null,
             LineIdScheme = variant switch
             {
@@ -91,12 +97,33 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
                 ApiDianInvoiceVariant.Transport => InvoiceLineIdScheme.Transport,
                 _ => InvoiceLineIdScheme.Plain,
             },
+            Export = variant == ApiDianInvoiceVariant.Export ? MapExport(request) : null,
             Lines = invoice.Lines.Select((line, index) => line with
             {
                 Mandator = variant == ApiDianInvoiceVariant.Mandate ? MapMandator(lines[index]) : null,
                 Consignment = variant == ApiDianInvoiceVariant.Transport ? MapConsignment(lines[index]) : null,
+                BrandName = variant == ApiDianInvoiceVariant.Export ? OptionalText(lines[index], "brandname") : null,
+                ModelName = variant == ApiDianInvoiceVariant.Export ? OptionalText(lines[index], "modelname") : null,
             }).ToList(),
         };
+    }
+
+    /// <summary>deliveryterms and, when sent, the k_supplement of InvoiceExportController (php-rules 11).</summary>
+    private static ExportTerms MapExport(JsonElement request)
+    {
+        var terms = request.GetProperty("deliveryterms");
+        ExportSupplement? supplement = null;
+        if (request.TryGetProperty("k_supplement", out var k) && k.ValueKind == JsonValueKind.Object)
+        {
+            supplement = new ExportSupplement(
+                ExportSupplement.AdditionalInformationFields.Select(field => RequiredText(k, field.Key)).ToList(),
+                ExportSupplement.CopTotalFields.Select(field => RequiredText(k, field)).ToList());
+        }
+
+        return new ExportTerms(
+            new DeliveryTerms(
+                RequiredText(terms, "special_terms"), RequiredText(terms, "loss_risk_responsibility_code"), RequiredText(terms, "loss_risk")),
+            supplement);
     }
 
     private static LineMandator? MapMandator(JsonElement line) =>
@@ -149,6 +176,8 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
     {
         var municipalityId = OptionalText(customer, "municipality_id");
         var address = OptionalText(customer, "address");
+        var countryId = OptionalText(customer, "country_id");
+        var foreign = countryId is not null && countryId != GoldenCaptureContext.CountryId.ToString(CultureInfo.InvariantCulture);
         return new InvoiceParty
         {
             OrganizationTypeCode = catalog.Get("organizationTypes", RequiredInt(customer, "type_organization_id")).Code,
@@ -157,8 +186,11 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             IdentificationTypeCode = catalog.Get("identificationTypes", RequiredInt(customer, "type_document_identification_id")).Code,
             Name = RequiredText(customer, "name"),
 
-            // ApiDian solo escribe los bloques de dirección del cliente cuando existen la dirección y el municipio.
-            Address = string.IsNullOrEmpty(address) || municipalityId is null ? null : MapAddress(municipalityId, address),
+            // ApiDian solo escribe los bloques de dirección del cliente cuando existen la dirección y el municipio. Outside
+            // Colombia, _accounting.blade.php writes the fixed codes 00001 and 01 with municipality_name and state_name.
+            Address = string.IsNullOrEmpty(address) ? null
+                : foreign ? MapForeignAddress(customer, countryId!, address)
+                : municipalityId is null ? null : MapAddress(municipalityId, address),
             RegimeCode = catalog.Get("regimes", RequiredInt(customer, "type_regime_id")).Code,
             LiabilityCode = catalog.Get("liabilities", RequiredInt(customer, "type_liability_id")).Code,
             TaxSchemeCode = catalog.Get("taxes", GoldenCaptureContext.PartyTaxId).Code,
@@ -178,6 +210,15 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         var language = catalog.Get("languages", GoldenCaptureContext.LanguageId);
         return new PartyAddress(
             municipality.Code, municipality.Name, department.Name, department.Code,
+            addressLine, country.Code, country.Name, language.Code);
+    }
+
+    private PartyAddress MapForeignAddress(JsonElement customer, string countryId, string addressLine)
+    {
+        var country = catalog.Get("countries", countryId);
+        var language = catalog.Get("languages", GoldenCaptureContext.LanguageId);
+        return new PartyAddress(
+            "00001", OptionalText(customer, "municipality_name") ?? "", OptionalText(customer, "state_name") ?? "", "01",
             addressLine, country.Code, country.Name, language.Code);
     }
 

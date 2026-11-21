@@ -51,6 +51,26 @@ public sealed record IssueDocumentBody
     [JsonPropertyName("noteAIU")]
     public LegacyScalar? NoteAiu { get; init; }
 
+    /// <summary>
+    /// Export invoice only (required there): delivery terms with the Incoterm. The other documents ignore it.
+    /// </summary>
+    [JsonPropertyName("deliveryterms")]
+    public DeliveryTermsBody? DeliveryTerms { get; init; }
+
+    /// <summary>
+    /// Export invoice only, optional: supplement K of the DIAN annex 1.9 (export data and totals in pesos for the graphic
+    /// representation). When sent it needs all of its keys: <c>responsible_incharge</c>, <c>departure_place</c>,
+    /// <c>conveyance</c>, <c>transport_document_type</c>, <c>transport_document_number</c>, <c>transporter_processor</c>,
+    /// <c>merchandise_origin_country</c>, <c>destination</c>, <c>payment_means</c>, <c>insurance_carrier</c>,
+    /// <c>observations</c> and the totals <c>FctConvCop</c> (exchange rate), <c>MonedaCop</c>, <c>SubTotalCop</c>,
+    /// <c>DescuentoDetalleCop</c>, <c>RecargoDetalleCop</c>, <c>TotalBrutoFacturaCop</c>, <c>TotIvaCop</c>,
+    /// <c>TotIncCop</c>, <c>TotBolCop</c>, <c>ImpOtroCop</c>, <c>MntImpCop</c>, <c>TotalNetoFacturaCop</c>,
+    /// <c>MntDctoCop</c>, <c>MntRcgoCop</c>, <c>VlrPagarCop</c>, <c>ReteFueCop</c>, <c>ReteIvaCop</c>,
+    /// <c>ReteIcaCop</c> and <c>TotAnticiposCop</c>. Other keys are ignored.
+    /// </summary>
+    [JsonPropertyName("k_supplement")]
+    public Dictionary<string, LegacyScalar?>? KSupplement { get; init; }
+
     /// <summary>Moneda de negociación cuando no es la de la empresa.</summary>
     [JsonPropertyName("idcurrency")]
     public LegacyScalar? IdCurrency { get; init; }
@@ -172,6 +192,17 @@ public sealed record CustomerBody
     [JsonPropertyName("municipality_id")]
     public LegacyScalar? MunicipalityId { get; init; }
 
+    /// <summary>
+    /// Export invoice only: city of a customer outside Colombia (<c>country_id</c> other than 46), written as
+    /// cbc:CityName of its address; the other documents ignore it.
+    /// </summary>
+    [JsonPropertyName("municipality_name")]
+    public LegacyScalar? MunicipalityName { get; init; }
+
+    /// <summary>Export invoice only: state or province of a customer outside Colombia (cbc:CountrySubentity).</summary>
+    [JsonPropertyName("state_name")]
+    public LegacyScalar? StateName { get; init; }
+
     [JsonPropertyName("name")]
     public LegacyScalar? Name { get; init; }
 
@@ -186,6 +217,24 @@ public sealed record CustomerBody
 
     [JsonPropertyName("merchant_registration")]
     public LegacyScalar? MerchantRegistration { get; init; }
+}
+
+/// <summary>Delivery terms of an export invoice (<c>deliveryterms</c>, cac:DeliveryTerms of the XML).</summary>
+public sealed record DeliveryTermsBody
+{
+    /// <summary>How the transport costs are paid (cbc:SpecialTerms), free text.</summary>
+    [JsonPropertyName("special_terms")]
+    public LegacyScalar? SpecialTerms { get; init; }
+
+    /// <summary>
+    /// Incoterm (cbc:LossRiskResponsibilityCode): one of CFR, CIF, CIP, CPT, DAP, DAT, DDP, EXW, FAS, FCA or FOB.
+    /// </summary>
+    [JsonPropertyName("loss_risk_responsibility_code")]
+    public LegacyScalar? LossRiskResponsibilityCode { get; init; }
+
+    /// <summary>Free text the DIAN does not use (cbc:LossRisk).</summary>
+    [JsonPropertyName("loss_risk")]
+    public LegacyScalar? LossRisk { get; init; }
 }
 
 /// <summary>Forma y medio de pago.</summary>
@@ -347,6 +396,14 @@ public sealed record LineBody
 
     [JsonPropertyName("tax_totals")]
     public List<TaxTotalBody>? TaxTotals { get; init; }
+
+    /// <summary>Export invoice only: brand of the item (cbc:BrandName); the other documents ignore it.</summary>
+    [JsonPropertyName("brandname")]
+    public LegacyScalar? BrandName { get; init; }
+
+    /// <summary>Export invoice only: model of the item (cbc:ModelName); the other documents ignore it.</summary>
+    [JsonPropertyName("modelname")]
+    public LegacyScalar? ModelName { get; init; }
 
     /// <summary>Mandate invoice only: NIT (1 to 15 digits) of the third party on whose behalf the line is sold.</summary>
     [JsonPropertyName("agentparty")]

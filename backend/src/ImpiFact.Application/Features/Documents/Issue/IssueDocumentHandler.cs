@@ -417,6 +417,7 @@ internal static class IssueChecks
             .Distinct(StringComparer.Ordinal)
             .Select(field => new FieldError(field, IssueMessages.Invalid(field)))
             .Concat(CatalogNeeds.FixedValueGaps(spec, body))
+            .Concat(CatalogNeeds.ExchangeRateGaps(spec, body, found, issuer))
             .ToList();
         return errors.Count > 0 ? Error.Validation(errors) : Result<IReadOnlyDictionary<CatalogKey, CatalogItem>>.Ok(found);
     }
@@ -460,6 +461,14 @@ internal sealed class IssueTransportInvoiceHandler(
     : IssueDocumentHandler<IssueTransportInvoiceCommand>(
         new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
         IssueSpec.TransportInvoice);
+
+internal sealed class IssueExportInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    : IssueDocumentHandler<IssueExportInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        IssueSpec.ExportInvoice);
 
 internal sealed class IssueCreditNoteHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,

@@ -79,6 +79,22 @@ public sealed class ScalarExampleFlowTests
             using var json = JsonDocument.Parse(text);
             Assert.That(json.RootElement.GetProperty("document").GetProperty("status").GetString(), Is.EqualTo("Queued"), path);
         }
+
+        // The export examples (phase 7a, T3) use the type 2 resolution example and its own sequence.
+        var exportNumbers = new List<string>();
+        foreach (var name in new[] { "export-cop-cif", "export-usd-fob" })
+        {
+            using var export = await SendAsync(company, HttpMethod.Post, "/api/v1/documents/invoices/export",
+                Example("/api/v1/documents/invoices/export", "post", name));
+            var text = await export.Content.ReadAsStringAsync();
+            Assert.That(export.StatusCode, Is.EqualTo(HttpStatusCode.OK), $"{name}: {text}");
+            using var json = JsonDocument.Parse(text);
+            var exported = json.RootElement.GetProperty("document");
+            Assert.That((exported.GetProperty("status").GetString(), exported.GetProperty("document_type_id").GetInt32()), Is.EqualTo(("Queued", 2)), name);
+            exportNumbers.Add(exported.GetProperty("full_number").GetString()!);
+        }
+
+        Assert.That(exportNumbers, Is.EqualTo(new[] { "SETP990000000", "SETP990000001" }));
     }
 
     private string PathExample(string path, string method, string name) =>

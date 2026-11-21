@@ -1,6 +1,7 @@
 using System.Globalization;
 using FluentValidation;
 using FluentValidation.Results;
+using ImpiFact.Dian.Ubl;
 
 namespace ImpiFact.Application.Features.Documents.Issue;
 
@@ -347,6 +348,12 @@ internal static class IssueDocumentRules
             return;
         }
 
+        if (spec.Variant == InvoiceVariant.Export)
+        {
+            ValidateExport(spec, check, body);
+            return;
+        }
+
         foreach (var (line, index) in (spec.LinesOf(body) ?? []).Select((line, index) => (line, index)))
         {
             var at = $"{spec.LinesField}.{index}";
@@ -358,6 +365,82 @@ internal static class IssueDocumentRules
             {
                 ValidateConsignment(check, at, line);
             }
+        }
+    }
+
+    /// <summary>
+    /// Fields of the export invoice (php-rules, section 11): <c>deliveryterms</c> with an Incoterm of the PHP list (the
+    /// <c>incoterms</c> catalog without DPU, which the PHP rejected; open question 3 of section 18), the line brand and
+    /// model, the city and state of a foreign customer, and <c>k_supplement</c>, optional but complete when sent (the PHP
+    /// answered 500 to an incomplete one). A positive exchange rate; whether it is required depends on the currency
+    /// catalog (<see cref="CatalogNeeds.ExchangeRateGaps"/>).
+    /// </summary>
+    private static void ValidateExport(IssueSpec spec, Checker check, IssueDocumentBody body)
+    {
+        if (body.DeliveryTerms is not { } terms)
+        {
+            check.Fail("deliveryterms", IssueMessages.Required("deliveryterms"));
+        }
+        else
+        {
+            check.RequiredText("deliveryterms.special_terms", terms.SpecialTerms, 500);
+            if (check.RequiredText("deliveryterms.loss_risk_responsibility_code", terms.LossRiskResponsibilityCode, 10) is { } code
+                && !ExportIncoterms.Accepted.Contains(code))
+            {
+                check.Fail("deliveryterms.loss_risk_responsibility_code", IssueMessages.Incoterm("deliveryterms.loss_risk_responsibility_code"));
+            }
+
+            check.RequiredText("deliveryterms.loss_risk", terms.LossRisk, 500);
+        }
+
+        if (check.Decimal("calculationrate", body.CalculationRate) is <= 0m)
+        {
+            check.Fail("calculationrate", IssueMessages.Positive("calculationrate"));
+        }
+
+        if (body.Customer is { } customer)
+        {
+            check.Text("customer.municipality_name", customer.MunicipalityName, 100);
+            check.Text("customer.state_name", customer.StateName, 100);
+        }
+
+        foreach (var (line, index) in (spec.LinesOf(body) ?? []).Select((line, index) => (line, index)))
+        {
+            check.Text($"{spec.LinesField}.{index}.brandname", line.BrandName, 300);
+            check.Text($"{spec.LinesField}.{index}.modelname", line.ModelName, 300);
+        }
+
+        if (body.KSupplement is not { } supplement)
+        {
+            return;
+        }
+
+        // Annex 1.9, section 21: every value of the supplement K is text of up to 100 characters.
+        var keys = ExportSupplement.AdditionalInformationFields.Select(field => field.Key).Concat(ExportSupplement.CopTotalFields);
+        foreach (var key in keys)
+        {
+            var field = $"k_supplement.{key}";
+            var value = supplement.GetValueOrDefault(key);
+            if (LegacyScalar.IsMissing(value))
+            {
+                check.Fail(field, IssueMessages.RequiredWith(field, "k_supplement"));
+            }
+            else if (value!.Value.Kind is LegacyScalarKind.True or LegacyScalarKind.False)
+            {
+                check.Fail(field, IssueMessages.Invalid(field));
+            }
+            else
+            {
+                check.Text(field, value, 100);
+            }
+        }
+
+        // FctConvCop is the exchange rate to pesos: ImpiFact never fetches nor invents it (the PHP read the DIAN page or
+        // wrote 4000.00), so it must be a positive number.
+        if (supplement.GetValueOrDefault("FctConvCop") is { Kind: not (LegacyScalarKind.True or LegacyScalarKind.False) } rate
+            && !LegacyScalar.IsMissing(rate) && check.Decimal("k_supplement.FctConvCop", rate) is <= 0m)
+        {
+            check.Fail("k_supplement.FctConvCop", IssueMessages.Positive("k_supplement.FctConvCop"));
         }
     }
 
@@ -685,6 +768,27 @@ internal sealed class IssueTransportInvoiceCommandValidator : AbstractValidator<
     public IssueTransportInvoiceCommandValidator() =>
         RuleFor(command => command).Custom((command, context) =>
             IssueDocumentRules.Validate(IssueSpec.TransportInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueExportInvoiceCommandValidator : AbstractValidator<IssueExportInvoiceCommand>
+{
+    public IssueExportInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.ExportInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+/// <summary>
+/// Incoterms that the export invoice accepts: the list of the PHP validation (REQ/InvoiceExportRequest.php:231), which is
+/// the seeded <c>incoterms</c> catalog without DPU. DPU (Incoterms 2020) replaced DAT, but the annex 1.9 list 13.3.7 is
+/// in the DIAN toolbox and not in the repository, so it stays rejected until the habilitation tests confirm it
+/// (php-rules, section 18, question 3).
+/// </summary>
+internal static class ExportIncoterms
+{
+    public static readonly IReadOnlySet<string> Accepted = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "CFR", "CIF", "CIP", "CPT", "DAP", "DAT", "DDP", "EXW", "FAS", "FCA", "FOB",
+    };
 }
 
 internal sealed class IssueCreditNoteCommandValidator : AbstractValidator<IssueCreditNoteCommand>

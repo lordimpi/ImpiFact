@@ -19,13 +19,14 @@ public static class ContractScope
 
     /// <summary>
     /// Requests outside those folders that phase 7a already covers, by their name in the collection: folder 07 variants
-    /// implemented in T2 (odd/tasks/fase-7a-community.md).
+    /// implemented in T2 and T3 (odd/tasks/fase-7a-community.md).
     /// </summary>
     public static readonly IReadOnlySet<string> PhaseSevenRequests = new HashSet<string>(StringComparer.Ordinal)
     {
         "Factura AIU (administracion, imprevistos y utilidad)",
         "Factura de mandato",
         "Factura de transporte de carga",
+        "Factura de exportacion",
     };
 
     /// <summary>Palabra buscada (sin tildes y en minúsculas) y motivo de la exclusión.</summary>

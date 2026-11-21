@@ -1,7 +1,8 @@
 {
   "_source": "Extracted from ApiDian Community seed CSVs (apidian/public/csv/*.csv, commit da4ed76), keeping only the IDs the golden inputs and the fixed capture context use. Values are copied verbatim, including the trailing space of municipality 149.",
   "countries": {
-    "46": { "name": "Colombia", "code": "CO" }
+    "46": { "name": "Colombia", "code": "CO" },
+    "65": { "name": "Estados Unidos", "code": "US" }
   },
   "departments": {
     "5": { "name": "Bogotá", "code": "11" }
@@ -18,7 +19,8 @@
   },
   "identificationTypes": {
     "3": { "name": "Cédula de ciudadanía", "code": "13" },
-    "6": { "name": "NIT", "code": "31" }
+    "6": { "name": "NIT", "code": "31" },
+    "8": { "name": "Documento de identificación extranjero", "code": "42" }
   },
   "organizationTypes": {
     "1": { "name": "Persona Jurídica y asimiladas", "code": "1" },
@@ -75,6 +77,7 @@
   },
   "documentTypes": {
     "1": { "name": "Factura de Venta Nacional", "code": "01" },
+    "2": { "name": "Factura de Exportación", "code": "02" },
     "4": { "name": "Nota Crédito", "code": "91" },
     "5": { "name": "Nota Débito", "code": "92" }
   },

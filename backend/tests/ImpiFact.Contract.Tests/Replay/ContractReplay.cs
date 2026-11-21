@@ -33,7 +33,7 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
     private const string TestSetId = "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f";
 
     private readonly (string Nit, string Dv) company = CompaniesHost.NewNit();
-    private readonly Dictionary<int, long> nextNumber = new() { [1] = 990000001, [4] = 1, [5] = 1 };
+    private readonly Dictionary<int, long> nextNumber = new() { [1] = 990000001, [2] = 990000001, [4] = 1, [5] = 1 };
     private HttpClient? platform;
     private HttpClient? companyClient;
     private string? zipKey;
@@ -277,10 +277,11 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
     private static bool IsCompanyRoute(PostmanRequest request) =>
         request.Method == "POST" && CompanyRoute().IsMatch(request.ApiPath);
 
-    /// <summary>Tipo de documento que emite la solicitud (1 factura, 4 nota crédito, 5 nota débito); nulo si no emite.</summary>
+    /// <summary>Tipo de documento que emite la solicitud (1 factura, 2 exportación, 4 nota crédito, 5 nota débito); nulo si no emite.</summary>
     private static int? IssuedType(PostmanRequest request) => request.Method != "POST" ? null : request.ApiPath switch
     {
         "/api/ubl2.1/invoice" or "/api/ubl2.1/invoice-aiu" or "/api/ubl2.1/invoice-mandate" or "/api/ubl2.1/invoice-transport" => 1,
+        "/api/ubl2.1/invoice-export" => 2,
         "/api/ubl2.1/credit-note" => 4,
         "/api/ubl2.1/debit-note" => 5,
         _ => null,

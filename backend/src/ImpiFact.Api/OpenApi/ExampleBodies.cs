@@ -84,6 +84,19 @@ internal static class ExampleBodies
               "date_to": "2030-01-19"
             }
             """), "Valores públicos de la DIAN para habilitación; los ejemplos de factura usan esta resolución."),
+        new("factura-exportacion-setp", "Factura de exportación: resolución de tipo 2 de habilitación SETP", Parse($$"""
+            {
+              "type_document_id": 2,
+              "prefix": "SETP",
+              "resolution": "18760000001",
+              "resolution_date": "2019-01-19",
+              "technical_key": "{{TestTechnicalKey}}",
+              "from": 990000000,
+              "to": 995000000,
+              "date_from": "2019-01-19",
+              "date_to": "2030-01-19"
+            }
+            """), "La usan los ejemplos de factura de exportación, que tienen su propia resolución y su propio consecutivo."),
         new("nota-credito-nc", "Nota crédito: numeración NC", Parse("""
             { "type_document_id": 4, "prefix": "NC", "from": 1, "to": 99999999 }
             """), "La usan los ejemplos de nota crédito."),

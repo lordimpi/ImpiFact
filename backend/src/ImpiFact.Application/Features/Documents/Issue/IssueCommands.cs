@@ -51,6 +51,13 @@ public sealed record IssueMandateInvoiceCommand(IssueDocumentBody Body, byte[] R
 public sealed record IssueTransportInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
     : IIssueDocumentCommand;
 
+/// <summary>
+/// <c>POST /api/v1/documents/invoices/export</c> (<c>/api/ubl2.1/invoice-export[/{testSetId}]</c>): export invoice (type
+/// 2, template 02, operation 10; php-rules 11).
+/// </summary>
+public sealed record IssueExportInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
+    : IIssueDocumentCommand;
+
 /// <summary>Tipo de documento que se emite.</summary>
 public enum IssueKind
 {
@@ -60,8 +67,9 @@ public enum IssueKind
 }
 
 /// <summary>
-/// Invoice variants that reuse template 01 with per-variant options (php-rules, sections 9 and 10). They are type 1
-/// invoices: same resolution, numbering, CUFE and plan quota as the standard invoice.
+/// Invoice variants built by the invoice builder with per-variant options (php-rules, sections 9 to 11). AIU, mandate
+/// and transport are type 1 invoices on template 01: same resolution, numbering, CUFE and plan quota as the standard
+/// invoice. The export invoice is type 2 on template 02, with its own resolution and numbering.
 /// </summary>
 public enum InvoiceVariant
 {
@@ -75,6 +83,9 @@ public enum InvoiceVariant
 
     /// <summary>Freight transport with RNDC data (operation 21, code 12).</summary>
     Transport,
+
+    /// <summary>Export invoice (type 2, operation 10, code 10) with Incoterms and, optionally, the supplement K.</summary>
+    Export,
 }
 
 /// <summary>Lo que cambia entre la factura, sus variantes y las notas (php-rules, secciones 3, 4, 9 y 10).</summary>
@@ -111,6 +122,12 @@ internal sealed record IssueSpec(
     public static readonly IssueSpec TransportInvoice = Invoice with
     {
         Variant = InvoiceVariant.Transport, DefaultOperationTypeId = 21, AllowedOperationTypeIds = [21],
+    };
+
+    /// <summary>Type 2 with its own resolution (php-rules 11, item 1) and the standard operation 10 (item 6).</summary>
+    public static readonly IssueSpec ExportInvoice = Invoice with
+    {
+        DocumentTypeId = 2, Variant = InvoiceVariant.Export, DefaultOperationTypeId = 10, AllowedOperationTypeIds = [10],
     };
 
     /// <summary>Operaciones 7, 8, 12, 30, 31, 32; por defecto 12 (código 20); sin referencia, la 8 (código 22).</summary>

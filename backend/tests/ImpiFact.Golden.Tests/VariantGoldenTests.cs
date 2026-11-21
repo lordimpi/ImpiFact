@@ -19,7 +19,6 @@ public sealed class VariantGoldenTests
     /// <summary>Carpeta de tests/golden -> tarea de odd/tasks/fase-7a-community.md que escribe su builder.</summary>
     private static readonly (string Type, string Task, string Builder)[] Pending =
     [
-        ("invoice-export", "T3", "export invoice builder"),
         ("support-document", "T4", "support document builder"),
         ("sd-credit-note", "T4", "support-document adjustment note builder"),
         ("invoice-contingency", "T5", "contingency type 03 invoice builder"),

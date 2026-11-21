@@ -95,6 +95,20 @@ public sealed record SalesInvoice
     /// <summary>How the cbc:ID of each line carries a schemeID: none, mandate or freight transport.</summary>
     public InvoiceLineIdScheme LineIdScheme { get; init; } = InvoiceLineIdScheme.Plain;
 
+    /// <summary>
+    /// Export invoice data (type 02, ApiDian template <c>02.blade.php</c>); null for the other invoices. With it the
+    /// builder writes cac:DeliveryTerms after the customer, omits cac:PaymentTerms and, when the supplement is present,
+    /// adds the third ext:UBLExtension (annex 1.9, supplement K).
+    /// </summary>
+    public ExportTerms? Export { get; init; }
+
+    /// <summary>
+    /// When true every @currencyID is the document currency (cbc:DocumentCurrencyCode), as annex 1.9 rule FAD15b asks
+    /// (only the TotalesCop extension is in pesos). When false, the lines, charges, taxes and totals keep the local
+    /// currency like ApiDian's template 01 (php-rules 3.2, item 6), which the golden cases pin.
+    /// </summary>
+    public bool AmountsInDocumentCurrency { get; init; }
+
     /// <summary>Número del documento tal como se escribe en cbc:ID.</summary>
     public string DocumentNumber => Resolution.Prefix + Number.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
@@ -108,6 +122,49 @@ public sealed record NumberingResolution(
     long From,
     long To,
     string TechnicalKey);
+
+/// <summary>What an export invoice adds to the sales invoice: its Incoterm and, optionally, the supplement K.</summary>
+public sealed record ExportTerms(DeliveryTerms DeliveryTerms, ExportSupplement? Supplement);
+
+/// <summary>
+/// cac:DeliveryTerms of an export invoice: the payment of the transport costs (cbc:SpecialTerms), the Incoterm
+/// (cbc:LossRiskResponsibilityCode, annex 1.9 list 13.3.7) and cbc:LossRisk, a free text the DIAN does not use.
+/// </summary>
+public sealed record DeliveryTerms(string SpecialTerms, string LossRiskResponsibilityCode, string LossRisk);
+
+/// <summary>
+/// Supplement K of annex 1.9 (section 21): the CustomTagGeneral extension with the export data
+/// (Interoperabilidad) and the totals converted to pesos (TotalesCop). The DIAN does not validate it; it feeds the
+/// graphic representation. Values are written as they arrive, like ApiDian's <c>_ubl_extensions.blade.php</c>.
+/// </summary>
+/// <param name="AdditionalInformation">One value per <see cref="AdditionalInformationFields"/>, in that order.</param>
+/// <param name="CopTotals">One value per <see cref="CopTotalFields"/>, in that order.</param>
+public sealed record ExportSupplement(IReadOnlyList<string> AdditionalInformation, IReadOnlyList<string> CopTotals)
+{
+    /// <summary>Key of each value in the <c>k_supplement</c> request object and the name ApiDian writes for it.</summary>
+    public static readonly IReadOnlyList<(string Key, string Name)> AdditionalInformationFields =
+    [
+        ("responsible_incharge", "Responsable/Encargado"),
+        ("departure_place", "Lugar de Salida"),
+        ("conveyance", "Medio de transporte"),
+        ("transport_document_type", "Tipo de Doc.de transporte"),
+        ("transport_document_number", "N° de Doc. de transporte"),
+        ("transporter_processor", "Transportadora o Tramitadora"),
+        ("merchandise_origin_country", "País de Origen de la M/cia"),
+        ("destination", "Destino"),
+        ("payment_means", "Términos de pago"),
+        ("insurance_carrier", "Seguro"),
+        ("observations", "Observaciones"),
+    ];
+
+    /// <summary>Elements of TotalesCop; each one is also its key in the <c>k_supplement</c> request object.</summary>
+    public static readonly IReadOnlyList<string> CopTotalFields =
+    [
+        "FctConvCop", "MonedaCop", "SubTotalCop", "DescuentoDetalleCop", "RecargoDetalleCop", "TotalBrutoFacturaCop",
+        "TotIvaCop", "TotIncCop", "TotBolCop", "ImpOtroCop", "MntImpCop", "TotalNetoFacturaCop", "MntDctoCop",
+        "MntRcgoCop", "VlrPagarCop", "ReteFueCop", "ReteIvaCop", "ReteIcaCop", "TotAnticiposCop",
+    ];
+}
 
 /// <summary>Software registrado ante la DIAN; entra en sts:SoftwareID y sts:SoftwareSecurityCode.</summary>
 public sealed record SoftwareCredentials(string SoftwareId, string Pin)
@@ -293,6 +350,12 @@ public sealed record InvoiceLine
     public IReadOnlyList<AllowanceCharge> AllowanceCharges { get; init; } = [];
 
     public IReadOnlyList<TaxSubtotal> TaxSubtotals { get; init; } = [];
+
+    /// <summary>Brand of the item (cbc:BrandName after cbc:Description); null when not sent. Only the invoice writes it.</summary>
+    public string? BrandName { get; init; }
+
+    /// <summary>Model of the item (cbc:ModelName after cbc:BrandName); null when not sent. Only the invoice writes it.</summary>
+    public string? ModelName { get; init; }
 
     /// <summary>
     /// Third party on whose behalf the line is sold (mandate invoice); written in cac:Item as

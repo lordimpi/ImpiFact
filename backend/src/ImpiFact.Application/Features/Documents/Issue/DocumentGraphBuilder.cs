@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Dian.Rounding;
+using ImpiFact.Dian.Ubl;
 using ImpiFact.Domain.Common;
 using ImpiFact.Domain.Documents;
 
@@ -168,8 +169,37 @@ internal static class DocumentGraphBuilder
         InvoiceVariant.Standard => null,
         InvoiceVariant.Aiu => new JsonObject { ["variant"] = "aiu", ["note_aiu"] = body.NoteAiu?.Text },
         InvoiceVariant.Mandate => new JsonObject { ["variant"] = "mandate" },
+        InvoiceVariant.Export => ExportExtensions(body),
         _ => new JsonObject { ["variant"] = "transport" },
     };
+
+    /// <summary>The Incoterm and, when sent, the supplement K of an export invoice, as the client sent them.</summary>
+    private static JsonObject ExportExtensions(IssueDocumentBody body)
+    {
+        var terms = body.DeliveryTerms!;
+        var extensions = new JsonObject
+        {
+            ["variant"] = "export",
+            ["deliveryterms"] = new JsonObject
+            {
+                ["special_terms"] = terms.SpecialTerms?.Text,
+                ["loss_risk_responsibility_code"] = terms.LossRiskResponsibilityCode?.Text,
+                ["loss_risk"] = terms.LossRisk?.Text,
+            },
+        };
+        if (body.KSupplement is { } supplement)
+        {
+            var stored = new JsonObject();
+            foreach (var key in ExportSupplement.AdditionalInformationFields.Select(field => field.Key).Concat(ExportSupplement.CopTotalFields))
+            {
+                stored[key] = supplement[key]?.Text;
+            }
+
+            extensions["k_supplement"] = stored;
+        }
+
+        return extensions;
+    }
 
     /// <summary>The mandator (mandate) or the RNDC consignment (transport) of a line, as the client sent them.</summary>
     private static JsonObject? LineExtensions(InvoiceVariant variant, LineBody line)
@@ -192,6 +222,11 @@ internal static class DocumentGraphBuilder
             }
 
             return extensions;
+        }
+
+        if (variant == InvoiceVariant.Export && (!LegacyScalar.IsMissing(line.BrandName) || !LegacyScalar.IsMissing(line.ModelName)))
+        {
+            return new JsonObject { ["brandname"] = line.BrandName?.Text, ["modelname"] = line.ModelName?.Text };
         }
 
         return null;

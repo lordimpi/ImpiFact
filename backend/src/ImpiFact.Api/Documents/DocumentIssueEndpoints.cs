@@ -63,6 +63,8 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         legacy.MapPost("/invoice-mandate/{testSetId:guid}", MandateInvoice);
         legacy.MapPost("/invoice-transport", TransportInvoice);
         legacy.MapPost("/invoice-transport/{testSetId:guid}", TransportInvoice);
+        legacy.MapPost("/invoice-export", ExportInvoice);
+        legacy.MapPost("/invoice-export/{testSetId:guid}", ExportInvoice);
         legacy.MapPost("/credit-note", CreditNote);
         legacy.MapPost("/credit-note/{testSetId:guid}", CreditNote);
         legacy.MapPost("/debit-note", DebitNote);
@@ -103,6 +105,14 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
             .WithOperationId("issueTestSetTransportInvoice")
             .WithSummary("Emitir una factura de transporte de carga del set de pruebas")
             .WithDescription(TransportInvoiceText + VariantRules + TestSetRules + IssueRules);
+        Issue(canonical.MapPost("/invoices/export", ExportInvoice), OpenApiExamples.ExportInvoices)
+            .WithOperationId("issueExportInvoice")
+            .WithSummary("Emitir una factura de exportación")
+            .WithDescription(ExportInvoiceText + ExportRules + IssueRules);
+        Issue(canonical.MapPost("/invoices/export/test-set/{testSetId}", ExportInvoice), OpenApiExamples.ExportInvoices)
+            .WithOperationId("issueTestSetExportInvoice")
+            .WithSummary("Emitir una factura de exportación del set de pruebas")
+            .WithDescription(ExportInvoiceText + ExportRules + TestSetRules + IssueRules);
         Issue(canonical.MapPost("/credit-notes", CreditNote), OpenApiExamples.CreditNotes)
             .WithOperationId("issueCreditNote")
             .WithSummary("Emitir una nota crédito")
@@ -222,6 +232,26 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         "`internal_consignment_number`, `value_consignment` (entero), `unit_measure_consignment_id` (unidad del catálogo) " +
         "y `quantity_consignment` (numérico); van al XML tal como llegan.";
 
+    private const string ExportInvoiceText =
+        "Emite una factura de exportación (tipo de documento 2, código `02`, operación 10). El cuerpo es el de " +
+        "`issueInvoice` con `type_document_id` 2 más `deliveryterms` (obligatorio): `special_terms` (cómo se pagan los " +
+        "costos del transporte), `loss_risk_responsibility_code` (el Incoterm: CFR, CIF, CIP, CPT, DAP, DAT, DDP, EXW, " +
+        "FAS, FCA o FOB; DPU todavía no se acepta) y `loss_risk` (texto libre). Cada línea puede llevar `brandname` y " +
+        "`modelname`. Un comprador fuera de Colombia (`country_id` distinto de 46) lleva la ciudad en " +
+        "`customer.municipality_name` y el estado o provincia en `customer.state_name`. `k_supplement` (el suplemento K " +
+        "del anexo técnico 1.9, opcional) lleva los datos de la exportación y los totales en pesos para la representación " +
+        "gráfica; si lo envía, deben llegar sus 30 campos (de `responsible_incharge` a `observations` y de `FctConvCop` a " +
+        "`TotAnticiposCop`), o la respuesta es 422 con el campo que falta.";
+
+    private const string ExportRules =
+        " Usa su propia resolución de tipo 2 (con su clave técnica para el CUFE) y su propio consecutivo, y cuenta en el " +
+        "plan como una factura. La operación es fija: puede omitir `type_operation_id` o enviar 10; otra responde 422. " +
+        "Moneda: sin `idcurrency`, o con la moneda de la empresa, la factura va en pesos. Con otra moneda (por ejemplo " +
+        "`idcurrency` 149, USD) son obligatorios `calculationrate` (la tasa de cambio a pesos, mayor que 0: la TRM o la " +
+        "pactada con el comprador) y `calculationratedate` (su fecha); ImpiFact nunca la consulta en línea ni la supone. " +
+        "Todos los valores del cuerpo van en esa moneda, como pide el anexo técnico (regla FAD15b), y el XML lleva " +
+        "`cac:PaymentExchangeRate` con la tasa y su fecha.";
+
     private const string CreditNoteText =
         "Emite una nota crédito, que corrige o anula total o parcialmente una factura. El cuerpo sigue el contrato de " +
         "ApiDian: `billing_reference` (número, CUFE y fecha de la factura), `discrepancyresponsecode`, `customer`, " +
@@ -311,6 +341,10 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
     private static Task<IResult> TransportInvoice(
         HttpRequest request, string? testSetId, IHandler<IssueTransportInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
         IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueTransportInvoiceCommand(body, raw, key, testSetId), ct), ct);
+
+    private static Task<IResult> ExportInvoice(
+        HttpRequest request, string? testSetId, IHandler<IssueExportInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
+        IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueExportInvoiceCommand(body, raw, key, testSetId), ct), ct);
 
     private static Task<IResult> CreditNote(
         HttpRequest request, string? testSetId, IHandler<IssueCreditNoteCommand, IssueDocumentResponse> handler, CancellationToken ct) =>

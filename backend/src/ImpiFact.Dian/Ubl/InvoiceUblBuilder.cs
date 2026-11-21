@@ -13,7 +13,8 @@ public sealed record InvoiceUblResult(string Xml, string Cufe);
 
 /// <summary>
 /// Construye el XML UBL 2.1 (el estándar XML de documentos comerciales que usa la DIAN) de una factura
-/// electrónica de venta nacional (tipo 01), todavía sin firmar.
+/// electrónica de venta nacional (tipo 01), todavía sin firmar. Its variants (AIU, mandate, transport and export,
+/// type 02) are options of <see cref="SalesInvoice"/>.
 /// </summary>
 /// <remarks>
 /// La salida ya trae los campos que la implementación de referencia (ApiDian, en PHP) llena en su paso de
@@ -54,8 +55,14 @@ public static class InvoiceUblBuilder
         var root = Root("Invoice",
             "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2     http://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/maindoc/UBL-Invoice-2.1.xsd");
 
-        root.Add(Extensions(InvoiceControl(invoice.Resolution), invoice.Supplier, invoice.Software, invoice.DocumentNumber,
-            invoice.QrCodeBaseUrl + cufe));
+        var extensions = Extensions(InvoiceControl(invoice.Resolution), invoice.Supplier, invoice.Software, invoice.DocumentNumber,
+            invoice.QrCodeBaseUrl + cufe);
+        if (invoice.Export?.Supplement is { } supplement)
+        {
+            extensions.Add(SupplementK(supplement));
+        }
+
+        root.Add(extensions);
         root.Add("cbc:UBLVersionID", "UBL 2.1");
         root.Add("cbc:CustomizationID", invoice.OperationTypeCode);
         root.Add("cbc:ProfileID", "DIAN 2.1: Factura Electrónica de Venta");
@@ -72,34 +79,49 @@ public static class InvoiceUblBuilder
             root.Add("cbc:Note", invoice.Note);
         }
 
-        root.Add("cbc:DocumentCurrencyCode", invoice.ForeignCurrency?.CurrencyCode ?? invoice.LocalCurrencyCode);
+        var documentCurrency = invoice.ForeignCurrency?.CurrencyCode ?? invoice.LocalCurrencyCode;
+        var currency = invoice.AmountsInDocumentCurrency ? documentCurrency : invoice.LocalCurrencyCode;
+        root.Add("cbc:DocumentCurrencyCode", documentCurrency);
         root.Add("cbc:LineCountNumeric", invoice.Lines.Count.ToString(CultureInfo.InvariantCulture));
         root.Add(Party("cac:AccountingSupplierParty", invoice.Supplier, isSupplier: true, invoice.Resolution.Prefix));
         root.Add(Party("cac:AccountingCustomerParty", invoice.Customer, isSupplier: false, invoice.Resolution.Prefix));
+        if (invoice.Export is { } export)
+        {
+            root.Add(new UblElement("cac:DeliveryTerms")
+                .Add("cbc:SpecialTerms", export.DeliveryTerms.SpecialTerms)
+                .Add("cbc:LossRiskResponsibilityCode", export.DeliveryTerms.LossRiskResponsibilityCode)
+                .Add("cbc:LossRisk", export.DeliveryTerms.LossRisk));
+        }
+
         AddPaymentMeans(root, invoice.Payments, invoice.IssueDate, nameof(invoice));
-        root.Add(PaymentTerms(invoice.Payments[0]));
+
+        // Template 02 (export) has its cac:PaymentTerms commented out (php-rules 11, item 3).
+        if (invoice.Export is null)
+        {
+            root.Add(PaymentTerms(invoice.Payments[0]));
+        }
 
         // Los anticipos van en la moneda del documento, como en ApiDian y la regla FBD04 del anexo.
         foreach (var prepaid in invoice.PrepaidPayments)
         {
-            root.Add(PrepaidPayment(prepaid, invoice.ForeignCurrency?.CurrencyCode ?? invoice.LocalCurrencyCode));
+            root.Add(PrepaidPayment(prepaid, documentCurrency));
         }
 
-        AddAllowanceCharges(root, invoice.AllowanceCharges, invoice.LocalCurrencyCode);
+        AddAllowanceCharges(root, invoice.AllowanceCharges, currency);
         if (PaymentExchangeRate(invoice.ForeignCurrency, invoice.LocalCurrencyCode) is { } exchangeRate)
         {
             root.Add(exchangeRate);
         }
 
-        AddTaxTotals(root, invoice.TaxSubtotals, invoice.LocalCurrencyCode);
+        AddTaxTotals(root, invoice.TaxSubtotals, currency);
 
         // ApiDian escribe las retenciones en la moneda del documento (la extranjera, si la hay), a diferencia
         // de todos los demás valores, que van en la moneda local («Reglas del PHP», sección 3.2, ítem 6).
-        AddWithholdingTotals(root, invoice.WithholdingSubtotals, invoice.ForeignCurrency?.CurrencyCode ?? invoice.LocalCurrencyCode);
-        root.Add(MonetaryTotal("cac:LegalMonetaryTotal", invoice.Totals, invoice.LocalCurrencyCode));
+        AddWithholdingTotals(root, invoice.WithholdingSubtotals, documentCurrency);
+        root.Add(MonetaryTotal("cac:LegalMonetaryTotal", invoice.Totals, currency));
         for (var i = 0; i < invoice.Lines.Count; i++)
         {
-            root.Add(Line(i + 1, invoice.Lines[i], invoice.LocalCurrencyCode, invoice));
+            root.Add(Line(i + 1, invoice.Lines[i], currency, invoice));
         }
 
         return new InvoiceUblResult(UblXmlSerializer.Serialize(root), cufe);
@@ -124,6 +146,41 @@ public static class InvoiceUblBuilder
                 .Add("cbc:StartDate", Date(resolution.StartDate))
                 .Add("cbc:EndDate", Date(resolution.EndDate)))
             .Add(authorizedInvoices);
+    }
+
+    /// <summary>
+    /// Third ext:UBLExtension of an export invoice (annex 1.9, supplement K), as ApiDian's <c>_ubl_extensions.blade.php</c>
+    /// writes it: unprefixed elements, lowercase <c>name</c>/<c>value</c> and the values as they arrive.
+    /// </summary>
+    /// <exception cref="ArgumentException">If a list does not have one value per field.</exception>
+    private static UblElement SupplementK(ExportSupplement supplement)
+    {
+        if (supplement.AdditionalInformation.Count != ExportSupplement.AdditionalInformationFields.Count
+            || supplement.CopTotals.Count != ExportSupplement.CopTotalFields.Count)
+        {
+            throw new ArgumentException("The export supplement needs one value per field.", nameof(supplement));
+        }
+
+        var collection = new UblElement("Collection").Attr("schemeName", "DATOS ADICIONALES");
+        for (var i = 0; i < supplement.AdditionalInformation.Count; i++)
+        {
+            collection.Add(new UblElement("AdditionalInformation")
+                .Add("name", ExportSupplement.AdditionalInformationFields[i].Name)
+                .Add("value", supplement.AdditionalInformation[i]));
+        }
+
+        var copTotals = new UblElement("TotalesCop");
+        for (var i = 0; i < supplement.CopTotals.Count; i++)
+        {
+            copTotals.Add(ExportSupplement.CopTotalFields[i], supplement.CopTotals[i]);
+        }
+
+        return new UblElement("ext:UBLExtension")
+            .Add(new UblElement("ext:ExtensionContent")
+                .Add(new UblElement("CustomTagGeneral")
+                    .Add(new UblElement("Interoperabilidad")
+                        .Add(new UblElement("Group").Attr("schemeName", "Exportación").Add(collection)))
+                    .Add(copTotals)));
     }
 
     private static UblElement PaymentTerms(PaymentTerms payment) =>
@@ -194,9 +251,18 @@ public static class InvoiceUblBuilder
 
         AddAllowanceCharges(element, line.AllowanceCharges, currency);
         AddTaxTotals(element, line.TaxSubtotals, currency);
-        var item = new UblElement("cac:Item")
-            .Add("cbc:Description", line.Description)
-            .Add(StandardItemIdentification(line.ItemCode, line.ItemScheme.Code, line.ItemScheme.Name, line.ItemScheme.AgencyId));
+        var item = new UblElement("cac:Item").Add("cbc:Description", line.Description);
+        if (line.BrandName is not null)
+        {
+            item.Add("cbc:BrandName", line.BrandName);
+        }
+
+        if (line.ModelName is not null)
+        {
+            item.Add("cbc:ModelName", line.ModelName);
+        }
+
+        item.Add(StandardItemIdentification(line.ItemCode, line.ItemScheme.Code, line.ItemScheme.Name, line.ItemScheme.AgencyId));
         if (line.Mandator is { } mandator)
         {
             item.Add(new UblElement("cac:InformationContentProviderParty")

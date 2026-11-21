@@ -23,6 +23,8 @@ public sealed partial class ExpectedContract
         ["POST /api/ubl2.1/invoice-aiu"] = "POST /api/ubl2.1/invoice",
         ["POST /api/ubl2.1/invoice-mandate"] = "POST /api/ubl2.1/invoice",
         ["POST /api/ubl2.1/invoice-transport"] = "POST /api/ubl2.1/invoice",
+        // Section 11: the export invoice answers like the invoice too.
+        ["POST /api/ubl2.1/invoice-export"] = "POST /api/ubl2.1/invoice",
         // Sección 5.4.1: StateController arma la misma respuesta para status/document y status/zip.
         ["POST /api/ubl2.1/status/document/{}"] = "POST /api/ubl2.1/status/zip/{}",
         // ConfigurationController responde igual al guardar el software de cada tipo de documento.

@@ -81,6 +81,18 @@ internal static class OpenApiExamples
         }),
     ];
 
+    /// <summary>
+    /// The export examples start from the simple invoice too (the project embeds only the standard goldens): type 2, a
+    /// buyer in the United States, IVA 0 %, an Incoterm and the supplement K, in pesos and in dollars.
+    /// </summary>
+    public static IReadOnlyList<RequestExample> ExportInvoices { get; } =
+    [
+        Export("export-cop-cif", "Factura de exportación en pesos: CIF, comprador en Estados Unidos y suplemento K", "CIF",
+            "COSTO SEGURO Y FLETE", currency: null),
+        Export("export-usd-fob", "Factura de exportación en dólares (USD): FOB, con la tasa de cambio (`calculationrate`)", "FOB",
+            "LIBRE A BORDO", currency: ("4100.50", "2026-11-14")),
+    ];
+
     public static IReadOnlyList<RequestExample> CreditNotes { get; } =
     [
         Golden("credit-note/partial-return-with-reference", "Devolución parcial de la factura SETP990000001",
@@ -167,6 +179,95 @@ internal static class OpenApiExamples
         change(value);
         return new RequestExample(name, summary, value,
             "Parte de la factura simple (`single-line-iva19`) sin `number`, así toma el siguiente número de la resolución.");
+    }
+
+    /// <summary>
+    /// An export invoice from the simple invoice: amounts in the document currency (pesos, or dollars with the exchange
+    /// rate and its date) and the supplement K with the totals converted to pesos at that rate.
+    /// </summary>
+    private static RequestExample Export(string name, string summary, string incoterm, string terms, (string Rate, string Date)? currency)
+    {
+        const decimal amount = 1500000.00m;
+        var rate = currency is { } foreign ? decimal.Parse(foreign.Rate, System.Globalization.CultureInfo.InvariantCulture) : 1m;
+        string Pesos(decimal value) => (value * rate).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+        var example = Variant(name, summary, body =>
+        {
+            body["type_document_id"] = 2;
+            body["customer"] = new JsonObject
+            {
+                ["identification_number"] = "XE0000000001",
+                ["type_document_identification_id"] = 8,
+                ["type_organization_id"] = 2,
+                ["type_regime_id"] = 2,
+                ["type_liability_id"] = 117,
+                ["name"] = "COMPRADOR EXTRANJERO DE EJEMPLO",
+                ["phone"] = "3000000002",
+                ["address"] = "100 MAIN STREET",
+                ["email"] = "comprador@example.com",
+                ["merchant_registration"] = "0000-00",
+                ["country_id"] = 65,
+                ["municipality_name"] = "MIAMI",
+                ["state_name"] = "FLORIDA",
+            };
+            body["deliveryterms"] = new JsonObject
+            {
+                ["special_terms"] = terms, ["loss_risk_responsibility_code"] = incoterm, ["loss_risk"] = terms,
+            };
+            if (currency is { } foreign)
+            {
+                body["idcurrency"] = 149;
+                body["calculationrate"] = foreign.Rate;
+                body["calculationratedate"] = foreign.Date;
+            }
+
+            // Exports are exempt: IVA at 0 %.
+            body["tax_totals"]![0]!["tax_amount"] = "0.00";
+            body["tax_totals"]![0]!["percent"] = "0.00";
+            var line = body["invoice_lines"]![0]!;
+            line["tax_totals"]![0]!["tax_amount"] = "0.00";
+            line["tax_totals"]![0]!["percent"] = "0.00";
+            line["brandname"] = "MARCA DE EJEMPLO";
+            line["modelname"] = "MODELO 1";
+            body["legal_monetary_totals"]!["tax_inclusive_amount"] = "1500000.00";
+            body["legal_monetary_totals"]!["payable_amount"] = "1500000.00";
+
+            var supplement = new JsonObject
+            {
+                ["responsible_incharge"] = "RESPONSABLE DE EJEMPLO",
+                ["departure_place"] = "BOGOTÁ",
+                ["conveyance"] = "AVION",
+                ["transport_document_type"] = "GUIA AEREA",
+                ["transport_document_number"] = "AWB-000001",
+                ["transporter_processor"] = "TRANSPORTADORA DE EJEMPLO",
+                ["merchandise_origin_country"] = "COLOMBIA",
+                ["destination"] = "MIAMI",
+                ["payment_means"] = "CONTADO",
+                ["insurance_carrier"] = "ASEGURADORA DE EJEMPLO",
+                ["observations"] = "NINGUNA",
+                ["FctConvCop"] = currency?.Rate ?? "1.00",
+                ["MonedaCop"] = currency is null ? "COP" : "USD",
+            };
+            foreach (var field in new[] { "SubTotalCop", "TotalBrutoFacturaCop", "TotalNetoFacturaCop", "VlrPagarCop" })
+            {
+                supplement[field] = Pesos(amount);
+            }
+
+            foreach (var field in new[]
+            {
+                "DescuentoDetalleCop", "RecargoDetalleCop", "TotIvaCop", "TotIncCop", "TotBolCop", "ImpOtroCop", "MntImpCop", "MntDctoCop",
+                "MntRcgoCop", "ReteFueCop", "ReteIvaCop", "ReteIcaCop", "TotAnticiposCop",
+            })
+            {
+                supplement[field] = "0.00";
+            }
+
+            body["k_supplement"] = supplement;
+        });
+        return example with
+        {
+            Description = "Parte de la factura simple (`single-line-iva19`) sin `number`: toma el siguiente número de la resolución " +
+                "de exportación (tipo 2), que debe estar configurada." + (currency is null ? "" : " Los valores van en dólares."),
+        };
     }
 
     /// <summary>Lee el <c>input.json</c> de un caso golden incrustado por el proyecto (ver el <c>.csproj</c>).</summary>

@@ -60,7 +60,7 @@ public sealed partial class CollectionSnapshotTests
             Assert.That(inScope.Select(request => request.ApiPath), Has.None.Match("payroll|eqdoc|send-email-employee|support-document|sd-credit-note|contingency"));
             Assert.That(inScope.Select(request => request.Name), Has.None.Match("(?i)n[oó]mina|soporte|equivalente|contingencia"));
             Assert.That(inScope.Select(request => request.Name), Is.Unique, "Known deviations name requests, so names must be unique.");
-            Assert.That(inScope, Has.Count.EqualTo(94), "91 requests of the first delivery and the 3 phase 7a invoice variants.");
+            Assert.That(inScope, Has.Count.EqualTo(95), "91 requests of the first delivery and the 4 phase 7a invoice variants.");
         });
     }
 

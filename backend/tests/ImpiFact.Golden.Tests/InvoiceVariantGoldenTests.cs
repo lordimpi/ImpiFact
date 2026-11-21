@@ -17,6 +17,7 @@ public sealed class InvoiceVariantGoldenTests
         ("invoice-aiu", ApiDianInvoiceVariant.Aiu),
         ("invoice-mandate", ApiDianInvoiceVariant.Mandate),
         ("invoice-transport", ApiDianInvoiceVariant.Transport),
+        ("invoice-export", ApiDianInvoiceVariant.Export),
     ];
 
     private static readonly ApiDianCatalog Catalog = ApiDianCatalog.Load();

@@ -109,6 +109,8 @@ public sealed class OpenApiContractTests
     [TestCase("POST /api/v1/documents/invoices/mandate/test-set/{testSetId}", "issueTestSetMandateInvoice")]
     [TestCase("POST /api/v1/documents/invoices/transport", "issueTransportInvoice")]
     [TestCase("POST /api/v1/documents/invoices/transport/test-set/{testSetId}", "issueTestSetTransportInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/export", "issueExportInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/export/test-set/{testSetId}", "issueTestSetExportInvoice")]
     [TestCase("POST /api/v1/documents/credit-notes", "issueCreditNote")]
     [TestCase("POST /api/v1/documents/credit-notes/preview", "previewCreditNote")]
     [TestCase("POST /api/v1/documents/credit-notes/test-set/{testSetId}", "issueTestSetCreditNote")]

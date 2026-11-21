@@ -51,10 +51,25 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
     public const int DefaultPaymentFormId = 1;
     public const int DefaultPaymentMethodId = 10;
 
+    // Fixed codes that ApiDian writes in the address of a customer outside Colombia (_accounting.blade.php).
+    private const string ForeignMunicipalityCode = "00001";
+    private const string ForeignStateCode = "01";
+
     public SalesInvoice MapInvoice(IssueFrame frame, IssueDocumentBody body)
     {
         var company = frame.Issuer.Company;
         var resolution = frame.Resolution;
+        var isExport = frame.Spec.Variant == InvoiceVariant.Export;
+        var localCurrency = Get(DianCatalog.Currency, company.TypeCurrencyId).Code;
+        var foreignCurrency = MapForeignCurrency(body);
+
+        // Export invoice (php-rules 11, item 4): the company currency is written like the PHP, which ignored idcurrency;
+        // another currency follows annex 1.9 (FAD15b, FAR01-FAR07): every amount in that currency and its exchange rate.
+        if (isExport && foreignCurrency?.CurrencyCode == localCurrency)
+        {
+            foreignCurrency = null;
+        }
+
         return new SalesInvoice
         {
             Environment = (DianEnvironment)frame.Issuer.TypeEnvironmentId,
@@ -74,10 +89,12 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             IssueDate = frame.IssueDate,
             IssueTime = frame.IssueTime,
             Software = new SoftwareCredentials(frame.Issuer.Software!.Identifier, frame.SoftwarePin),
-            LocalCurrencyCode = Get(DianCatalog.Currency, company.TypeCurrencyId).Code,
-            ForeignCurrency = MapForeignCurrency(body),
+            LocalCurrencyCode = localCurrency,
+            ForeignCurrency = foreignCurrency,
+            AmountsInDocumentCurrency = isExport && foreignCurrency is not null,
+            Export = isExport ? MapExport(body) : null,
             Supplier = MapSupplier(frame.Issuer),
-            Customer = MapCustomer(body.Customer!),
+            Customer = MapCustomer(body.Customer!, foreignAddress: isExport),
             Payments = PaymentFormsOf(body).Select(form => MapPayment(form.Body)).ToList(),
             PrepaidPayments = PrepaidPaymentsOf(frame.Spec, body).Select(prepaid => MapPrepaidPayment(prepaid.Body)).ToList(),
             AllowanceCharges = MapAll(body.AllowanceCharges, MapAllowanceCharge),
@@ -101,6 +118,9 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
     /// </summary>
     private InvoiceLine MapInvoiceLine(InvoiceVariant variant, LineBody line) => MapLine(line) with
     {
+        // php-rules 11, item 7: only the export invoice declares the brand and the model of its lines.
+        BrandName = variant == InvoiceVariant.Export && !LegacyScalar.IsMissing(line.BrandName) ? PhpText.CleanOrNull(line.BrandName) : null,
+        ModelName = variant == InvoiceVariant.Export && !LegacyScalar.IsMissing(line.ModelName) ? PhpText.CleanOrNull(line.ModelName) : null,
         Mandator = variant == InvoiceVariant.Mandate && !LegacyScalar.IsMissing(line.AgentParty)
             ? new LineMandator(PhpText.Clean(line.AgentParty!.Value.Text.Trim()), PhpText.Clean(line.AgentPartyDv!.Value.Text.Trim()))
             : null,
@@ -113,6 +133,26 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
                 PhpText.Clean(line.QuantityConsignment!.Value.Text.Trim()))
             : null,
     };
+
+    /// <summary>
+    /// <c>deliveryterms</c> and <c>k_supplement</c> (php-rules 11, items 3 and 5). The delivery terms are cleaned like
+    /// the PHP template does; the supplement values go as they arrive, as <c>_ubl_extensions.blade.php</c> writes them.
+    /// </summary>
+    private static ExportTerms MapExport(IssueDocumentBody body)
+    {
+        var terms = body.DeliveryTerms!;
+        var supplement = body.KSupplement is { } k
+            ? new ExportSupplement(
+                ExportSupplement.AdditionalInformationFields.Select(field => k[field.Key]!.Value.Text).ToList(),
+                ExportSupplement.CopTotalFields.Select(field => k[field]!.Value.Text).ToList())
+            : null;
+        return new ExportTerms(
+            new DeliveryTerms(
+                PhpText.Clean(terms.SpecialTerms!.Value.Text),
+                PhpText.Clean(terms.LossRiskResponsibilityCode!.Value.Text),
+                PhpText.Clean(terms.LossRisk!.Value.Text)),
+            supplement);
+    }
 
     public SalesNote MapNote(IssueFrame frame, IssueDocumentBody body)
     {
@@ -270,13 +310,23 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
         };
     }
 
-    private InvoiceParty MapCustomer(CustomerBody customer)
+    /// <param name="foreignAddress">
+    /// Export invoice: a customer outside Colombia gets the address of <c>_accounting.blade.php</c> for another country
+    /// (codes 00001 and 01 with <c>municipality_name</c> and <c>state_name</c>; php-rules 11, item 7). The other
+    /// documents keep the previous behaviour, which needs a Colombian municipality.
+    /// </param>
+    private InvoiceParty MapCustomer(CustomerBody customer, bool foreignAddress = false)
     {
         var tax = Get(DianCatalog.Tax, IdOr(customer.TaxId, DefaultTaxId));
         var address = PhpText.CleanOrNull(customer.Address);
 
         // El PHP solo escribe los bloques de dirección del cliente cuando existen la dirección y el municipio.
         var municipalityId = IdOrNull(customer.MunicipalityId);
+        var countryId = IdOr(customer.CountryId, DefaultCountryId);
+        PartyAddress? partyAddress = string.IsNullOrEmpty(address) ? null
+            : foreignAddress && countryId != DefaultCountryId ? MapForeignAddress(customer, address, countryId)
+            : municipalityId is null ? null
+            : MapAddress(municipalityId.Value, address, countryId, IdOr(customer.LanguageId, DefaultLanguageId));
         return new InvoiceParty
         {
             OrganizationTypeCode = Get(DianCatalog.OrganizationType, IdOr(customer.TypeOrganizationId, DefaultOrganizationTypeId)).Code,
@@ -284,9 +334,7 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             CheckDigit = PhpText.CleanOrNull(customer.Dv),
             IdentificationTypeCode = Get(DianCatalog.IdentificationType, IdOr(customer.TypeDocumentIdentificationId, DefaultIdentificationTypeId)).Code,
             Name = PhpText.Clean(customer.Name!.Value.Text),
-            Address = string.IsNullOrEmpty(address) || municipalityId is null
-                ? null
-                : MapAddress(municipalityId.Value, address, IdOr(customer.CountryId, DefaultCountryId), IdOr(customer.LanguageId, DefaultLanguageId)),
+            Address = partyAddress,
             RegimeCode = Get(DianCatalog.Regime, IdOr(customer.TypeRegimeId, DefaultRegimeId)).Code,
             LiabilityCode = Get(DianCatalog.Liability, IdOr(customer.TypeLiabilityId, DefaultLiabilityId)).Code,
             TaxSchemeCode = tax.Code,
@@ -306,6 +354,15 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
         return new PartyAddress(
             municipality.Code, municipality.Name, department.Name, department.Code,
             PhpText.Clean(addressLine), country.Code, country.Name, language.Code);
+    }
+
+    private PartyAddress MapForeignAddress(CustomerBody customer, string addressLine, int countryId)
+    {
+        var country = Get(DianCatalog.Country, countryId);
+        var language = Get(DianCatalog.Language, IdOr(customer.LanguageId, DefaultLanguageId));
+        return new PartyAddress(
+            ForeignMunicipalityCode, PhpText.CleanOrNull(customer.MunicipalityName) ?? "", PhpText.CleanOrNull(customer.StateName) ?? "",
+            ForeignStateCode, addressLine, country.Code, country.Name, language.Code);
     }
 
     private PaymentTerms MapPayment(PaymentFormBody? payment)
@@ -507,6 +564,37 @@ internal static class CatalogNeeds
         }
 
         return needs;
+    }
+
+    /// <summary>
+    /// An export invoice in a currency other than the company one needs its exchange rate and its date: annex 1.9 rules
+    /// FAR01, FAR06 and FAR07 ask for cac:PaymentExchangeRate with both. The PHP fetched the TRM from the DIAN page or
+    /// wrote 4000.00 (php-rules 11, item 5); ImpiFact never fetches nor invents it.
+    /// </summary>
+    public static List<FieldError> ExchangeRateGaps(
+        IssueSpec spec, IssueDocumentBody body, IReadOnlyDictionary<CatalogKey, CatalogItem> found, IssuerContext issuer)
+    {
+        if (spec.Variant != InvoiceVariant.Export
+            || LegacyDocumentMapper.IdOrNull(body.IdCurrency) is not { } currencyId
+            || !found.TryGetValue(new CatalogKey(DianCatalog.Currency, currencyId), out var currency)
+            || !found.TryGetValue(new CatalogKey(DianCatalog.Currency, issuer.Company.TypeCurrencyId), out var local)
+            || currency.Code == local.Code)
+        {
+            return [];
+        }
+
+        var errors = new List<FieldError>();
+        if (LegacyScalar.IsMissing(body.CalculationRate))
+        {
+            errors.Add(new FieldError("calculationrate", IssueMessages.ExchangeRateRequired("calculationrate", currency.Code, local.Code)));
+        }
+
+        if (LegacyScalar.IsMissing(body.CalculationRateDate))
+        {
+            errors.Add(new FieldError("calculationratedate", IssueMessages.ExchangeRateDateRequired("calculationratedate", currency.Code, local.Code)));
+        }
+
+        return errors;
     }
 
     /// <summary>
