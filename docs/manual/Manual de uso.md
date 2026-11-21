@@ -256,6 +256,8 @@ Para el set de pruebas:
 2. Espere el resultado, por ejemplo «Factura SETP990000000: Aceptada». La DIAN aprueba el set cuando recibe todos los documentos que pide; puede enviar varias.
 3. Si cambió algo en otra pestaña, haga clic en «Volver a revisar» para actualizar el estado de los pasos.
 
+Cuando la DIAN aprueba el set, el paso muestra «La DIAN ya aprobó el set de pruebas.» y ya no ofrece enviar más facturas de prueba. Si el set ya estaba aprobado (por ejemplo, porque lo completó con otro sistema), la primera factura que envíe le trae esa respuesta de la DIAN: esa factura queda rechazada, porque la DIAN ya no valida documentos de un set aprobado, y el paso queda completo.
+
 ![Set de pruebas aceptado y paso «Producción» disponible.](img/27-paso-produccion-set-aceptado.png)
 
 Cuando la DIAN apruebe el set de pruebas en su portal, pase a producción.
