@@ -4,7 +4,7 @@ Nov 13, 2026 · @Santiago
 
 ## 1. Resumen ejecutivo
 
-Se reescribirá la edición Community de [ApiDian](https://github.com/facturalatam/apidian) (PHP 8.1 + Laravel 10; el archivo `LICENSE` dice MIT, pero `composer.json` declara LGPL-3.0: ver sección 13) en .NET 10 y Angular, como monolito modular con Clean Architecture. Después de la paridad con Community se construirán las funciones Enterprise.
+Se reescribirá la edición Community de [ApiDian](https://github.com/facturalatam/apidian) (PHP 8.1 + Laravel 10; el archivo `LICENSE` dice MIT, pero `composer.json` declara LGPL-3.0: ver sección 13) en .NET 10 y Angular, como monolito modular con Clean Architecture. La fase 7, la última, completa Community y construye las funciones Enterprise; el piloto con una empresa real empieza cuando todo esté terminado (decisión del 21-nov).
 
 No se escribe código hasta que este PRD, la arquitectura y el modelo de datos estén aprobados.
 
@@ -20,7 +20,7 @@ No se escribe código hasta que este PRD, la arquitectura y el modelo de datos e
 | AttachedDocument | XML contenedor que se envía al comprador con la factura y la respuesta de validación de la DIAN. |
 | Clave técnica | Valor que la DIAN entrega con la resolución de numeración; entra en el cálculo del CUFE. |
 | Código 98 «En proceso» | Respuesta de la DIAN cuando aún no decide; el documento queda `Unconfirmed` y se reconsulta. |
-| Community / Enterprise | Las dos ediciones de ApiDian. Community es la base de la paridad (fases 0 a 7); Enterprise llega en la fase 8. |
+| Community / Enterprise | Las dos ediciones de ApiDian. Las dos se completan en la fase 7, la última: primero el resto de Community (7a) y después Enterprise (7b). |
 | Contingencia | Emisión cuando la DIAN o los sistemas propios no están disponibles; se transmite después. Fase 7. |
 | Contract test | Prueba que ejecuta la colección Postman oficial contra .NET y compara las respuestas con el contrato. |
 | CUDE | Código Único de Documento Electrónico: el equivalente del CUFE para notas, documento soporte y eventos. |
@@ -57,8 +57,8 @@ No se escribe código hasta que este PRD, la arquitectura y el modelo de datos e
 | Destino | .NET 10, ASP.NET Core, EF Core + Dapper, Angular |
 | Bases de datos | PostgreSQL (principal), SQL Server, MySQL |
 | Nubes objetivo | Azure, AWS, GCP |
-| Fases 0 a 7 | Paridad funcional con Community (sección 12) |
-| Fase 8 | Enterprise: nómina, POS, RIPS, roles avanzados, extractor de compras, app móvil |
+| Fases 0 a 6 | Primera entrega de Community, panel y endurecimiento (sección 12) |
+| Fase 7 (última) | Resto de Community (7a) y Enterprise (7b): nómina, POS, RIPS, roles avanzados, extractor de compras, app móvil y WhatsApp. Al terminarla empieza el piloto |
 
 La firma XAdES y el SOAP con la DIAN dependen de la librería externa `ubl21dian/torresoftware`, que no está en el repo y debe portarse. Es el mayor riesgo técnico (sección 13).
 
@@ -78,9 +78,9 @@ La migración se considera exitosa cuando .NET emite los mismos documentos que e
 - Mejor seguridad que el original: certificados cifrados, secretos fuera del disco, aislamiento por empresa.
 - Panel Angular que reemplace al panel Blade/Laravel.
 
-**No-objetivos (fase 1)**
+**No-objetivos (fases 1 a 6)**
 
-- Nuevas funciones Enterprise (nómina, POS, RIPS, extractor, app móvil).
+- Nuevas funciones Enterprise (nómina, POS, RIPS, extractor, app móvil): llegan en la fase 7b.
 - Cambiar el contrato del API: se mantiene compatible con las rutas actuales.
 - Microservicios.
 - Migrar datos de producción de instalaciones existentes (resuelto: sin migración de datos, ADR-07).
@@ -140,7 +140,7 @@ Cada fila corresponde a un grupo de rutas del API original. P0 = obligatorio par
 | RF-15 | Paso a producción | Asistente de habilitación: software, resoluciones, documentos de prueba, ambiente | `ProductionController` (1.098 líneas) | P0 |
 | RF-16 | Panel web | Portales de propietario, vendedor y cliente; listados, impuestos, configuraciones, acepta o rechaza documento | Rutas `web.php` (164 líneas) | P1 |
 | RF-17 | Almacenamiento | Guardar XML, PDF y adjuntos en disco o S3, con descarga pública por token | `StorageService`, `DownloadController` | P1 |
-| RF-18 | WhatsApp | Configuración y envío de mensajes con PDF | `WhatsappConfigController` | Enterprise (fase 8) |
+| RF-18 | WhatsApp | Configuración y envío de mensajes con PDF | `WhatsappConfigController` | Enterprise (fase 7b) |
 | RF-19 | Respaldos | Respaldo diario programado | `spatie/laravel-backup` | P2 |
 
 **Primera entrega (decidido el 14-nov).** Las fases 3 y 4 cubren factura nacional, notas crédito y débito, resoluciones, certificado, ambiente y consultas, más lo necesario para operarlas (firma y envío, PDF y correo, catálogos, planes, almacenamiento y paso a producción). RF-03, RF-04, RF-05, RF-07, RF-09 y RF-10 pasan a la fase 7. RF-18 (WhatsApp) es Enterprise.
@@ -156,7 +156,7 @@ Hay rutas del API original que cubren un mismo flujo con variantes, por ejemplo 
 - Comandos de consola `setup:token`, `setup:reset`, `setup:admin` y `expirations:notify`. En .NET pasan a un asistente de instalación inicial y a una tarea del Worker que avisa del vencimiento de certificados.
 - Monitoreo de peticiones lentas (`monitoring_slow_requests`): en .NET lo cubre OpenTelemetry.
 - Almacenamiento `local` y `s3` ([manual S3](https://manual.facturalatam.com/apidian/almacenamiento-s3/)), más un modo `dual` que menciona la guía de rendimiento.
-- El manual lista también nómina, API RIPS, Extractor V2, WhatsApp, servicios para la app y asistente de IA: son la base del alcance Enterprise (fase 8).
+- El manual lista también nómina, API RIPS, Extractor V2, WhatsApp, servicios para la app y asistente de IA: son la base del alcance Enterprise (fase 7b).
 
 ## 5. Requisitos no funcionales
 
@@ -485,8 +485,7 @@ Cada fase termina en una puerta de salida medible. No se pasa a la siguiente sin
 | 4. Operación | Estados, Worker con reintentos, PDF, correo, almacenamiento, planes y consumo | Peticiones Postman de la primera entrega en verde (sección 13, revisión #9) |
 | 5. Panel Angular | Propietario, vendedor y cliente; configuración; paso a producción | Un flujo completo de alta de empresa y emisión sin usar el panel PHP |
 | 6. Endurecimiento | SQL Server, MySQL, Key Vault, Secrets Manager y Secret Manager, observabilidad, pruebas de carga, plantillas de despliegue | Plantillas de despliegue listas para Azure, AWS y GCP, validadas sin conexión, y almacenes de secretos probados con emuladores locales en Docker; el despliegue real, al elegir la nube (decisión del 19-nov, ver abajo) |
-| 7. Paridad y salida | Piloto con una empresa real usando la primera entrega; después, el resto de Community: exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes y eventos RADIAN; cierre de la referencia PHP y borrado de las rutas heredadas (`/api/ubl2.1/...` y demás) | Una empresa emite en producción con .NET; golden de cada variante y colección Postman Community completa en verde |
-| 8. Enterprise | Nómina, POS, RIPS, extractor de compras, roles avanzados, app móvil | Se planifica en un PRD aparte |
+| 7. Paridad completa (última) | 7a. Resto de Community: exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes y eventos RADIAN; cierre de la referencia PHP y borrado de las rutas heredadas (`/api/ubl2.1/...` y demás). 7b. Enterprise: nómina, POS, RIPS, extractor de compras, roles avanzados, app móvil y WhatsApp; se especifica en detalle al empezar la 7b, porque de Enterprise no hay código fuente de referencia, solo el manual y la colección Postman | Golden de cada variante, colección Postman completa (Community y Enterprise) en verde y pruebas de punta a punta en habilitación con la DIAN real. El piloto con una empresa real en producción empieza después, cuando el dueño del producto lo decida (decisión del 21-nov) |
 
 ```mermaid
 flowchart LR
@@ -494,7 +493,7 @@ flowchart LR
   F1a --> F2["2. Base"] --> F3["3. Documentos"] --> F4["4. Operación"]
   F1a -.->|"con certificado<br/>y testSetId"| F1b["1b. Prototipo<br/>con DIAN"]
   F1b --> F4
-  F4 --> F5["5. Panel Angular"] --> F6["6. Endurecimiento"] --> F7["7. Paridad y salida"] --> F8["8. Enterprise"]
+  F4 --> F5["5. Panel Angular"] --> F6["6. Endurecimiento"] --> F7["7. Paridad completa<br/>(Community y Enterprise)"] -.->|"cuando el dueño<br/>lo decida"| P["Piloto en<br/>producción"]
 ```
 
 **Estado al 15-nov-2026.** Fase 0 cerrada (los pendientes de licencia, consulta regulatoria y reglas de totales no bloquean el desarrollo). Fase 1a cerrada: `ImpiFact.Dian` genera el XML de factura idéntico byte a byte a los 11 golden, calcula los 14 CUFE/CUDE y firma con XAdES-EPES; la firma la validan .NET y `xmlsec1`. Siguen la fase 1b (espera certificado y `testSetId`) y la fase 2.
@@ -622,13 +621,14 @@ El diseño visual del panel y el manual de uso con capturas (Playwright) siguen 
 
 ## Decisiones confirmadas (13-nov-2026)
 
-- **Origen de paridad:** repo público github.com/facturalatam/apidian (Community; licencia por confirmar, ver riesgos) + colección Postman como referencia de contrato. Lo Enterprise de la colección (nómina, RIPS, extractor, WhatsApp) queda fuera de la fase Community.
+- **Origen de paridad:** repo público github.com/facturalatam/apidian (Community; licencia por confirmar, ver riesgos) + colección Postman como referencia de contrato. Lo Enterprise de la colección (nómina, RIPS, extractor, WhatsApp) va en la fase 7b, después del resto de Community.
 - **Datos:** sin migración de datos existentes; arranque desde cero (esquema nuevo, seeders de catálogos DIAN).
 - **Modelo comercial:** reventa con desarrollo propio y estándares de calidad nuevos → multi-empresa desde el día 1, planes/consumo y licencia propia.
 - **Clientes legados:** ninguno; no hay obligación de compatibilidad con las rutas públicas del PHP. Se conservan las rutas `/api/ubl2.1/*` solo como contrato de referencia y para los contract tests, no como promesa a terceros: no se documentan en OpenAPI y se borran en la fase 7; las rutas sin autenticación (sign/send/status) se cierran.
 - **Equipo:** una sola persona → la primera entrega se recorta a factura, notas crédito/débito, resoluciones, certificado, ambiente y consultas, contra habilitación DIAN. Confirmado el 14-nov: son las fases 3 y 4; el resto de Community pasa a la fase 7.
 - **Licencia del repositorio ImpiFact (14-nov):** se creó con Apache 2.0 de forma provisional. Hay que cambiarla por una licencia propia antes de vender o de publicar el código, porque Apache 2.0 permite a cualquiera usarlo y revenderlo.
-- **WhatsApp (14-nov):** Enterprise (fase 8). Sale de la fase 4, de los contract tests y de la migración inicial.
+- **WhatsApp (14-nov):** Enterprise (fase 7b). Sale de la fase 4, de los contract tests y de la migración inicial.
+- **Alcance final y piloto (21-nov):** la fase 7 es la última y trae todo: el resto de Community (7a) y Enterprise (7b). No hay fase 8. El piloto con una empresa real en producción no empieza hasta tener las dos partes terminadas y probadas en habilitación; la fecha la decide el dueño del producto.
 - **Credenciales DIAN:** aún sin certificado ni testSetId. La fase 1a (XML, CUFE, firma con certificado de prueba propio) avanza sin DIAN; el envío real a habilitación (fase 1b) queda bloqueado hasta tenerlos. Riesgo registrado.
 - **Pendiente:** ninguno. Proyecto personal sin fecha límite; las fases se miden por criterios de salida, no por calendario.
 
@@ -646,15 +646,15 @@ Revisión de todo el documento (PRD, anexo, modelo de datos, arquitectura y fron
 | 6 | **PRD y modelo detallado divergen** (ambiente por tipo de documento, collation, índice único, software por ambiente). | Media | Corregido en las secciones 8 y 11. Manda el modelo detallado. |
 | 7 | **Estrategia de salida obsoleta** (PHP como motor, migración de datos, fechas) frente a las decisiones del 13-nov. | Media | Corregido en la sección 12. |
 | 8 | **Criterios del modelo exigen los tres motores desde la fase 2**, pero SQL Server y MySQL son de la fase 6. | Media | Corregido: en la fase 2 solo PostgreSQL; los otros dos en la fase 6. |
-| 9 | **La colección Postman incluye Enterprise** (nómina, equivalentes, RIPS, extractor, app). Los contract tests no pueden exigirlos en verde. | Media | Corregido (actualizado el 14-nov con la decisión de alcance): en la fase 4 solo se ejecutan las peticiones de la primera entrega (carpetas 01 a 06, 09 y 10, sin documento soporte, contingencia ni lotes); en la fase 7 se suman la 07, la 08 y esas peticiones. Nunca se ejecutan `payroll`, `payroll-adjust-note`, `eqdoc`, `send-email-employee` ni las carpetas 11 a 14. |
+| 9 | **La colección Postman incluye Enterprise** (nómina, equivalentes, RIPS, extractor, app). Los contract tests no pueden exigirlos en verde. | Media | Corregido (actualizado el 14-nov con la decisión de alcance): en la fase 4 solo se ejecutan las peticiones de la primera entrega (carpetas 01 a 06, 09 y 10, sin documento soporte, contingencia ni lotes); en la fase 7a se suman la 07, la 08 y esas peticiones, y en la 7b las de Enterprise (`payroll`, `payroll-adjust-note`, `eqdoc`, `send-email-employee` y las carpetas 11 a 14). |
 | 10 | **Nombre del producto: ImpiFact.** Para un producto propio y revendible conviene nombre, namespaces y marca propios antes de crear el repo (renombrar después es costoso) y sin usar la marca FacturaLatam. | Media | Corregido (14-nov). Nombre elegido: ImpiFact. Namespaces `ImpiFact.*` y repo impifact. Pendiente: verificar dominio y marca en la SIC. |
 | 11 | **Faltaban requisitos operativos:** llaves de Data Protection compartidas entre instancias, copias de seguridad y recuperación, retención de XML y protección de datos personales. | Media | Corregido en la pestaña de arquitectura, sección 19. |
-| 12 | **Alcance grande para una persona.** Tres motores, panel, Worker y multi-empresa. | Media | Mitigado: PostgreSQL primero, fase 1 dividida en 1a (sin DIAN) y 1b (con certificado), Enterprise fuera. Si hay que recortar, el panel Angular es lo primero que se simplifica. |
+| 12 | **Alcance grande para una persona.** Tres motores, panel, Worker y multi-empresa. | Media | Mitigado: PostgreSQL primero, fase 1 dividida en 1a (sin DIAN) y 1b (con certificado), Enterprise al final (fase 7b). Si hay que recortar, el panel Angular es lo primero que se simplifica. |
 | 13 | **Decisiones que siguen abiertas:** ninguna (ADR-08, proveedor MySQL, se cerró el 19-nov). Cerradas el 17-nov: ADR-09 (el sobre SOAP propio pasó la habilitación con la DIAN real), ADR-17 (Optimus UI 2.0.2, MIT, aprobada en el spike `docs/spikes/optimus-ui.md`; tabla y paginador propios por tamaño) y ADR-18 (Transloco). | Baja | Cerrado. |
 | 14 | **Licencia del origen ambigua.** `LICENSE` dice MIT y `composer.json` declara LGPL-3.0; la licencia de `torresoftware` no se ha revisado. Importa para revender. | Alta | Abierto. `torresoftware` es LGPL-3.0 (confirmado el 14-nov): ImpiFact implementa las fórmulas y la firma desde el anexo técnico de la DIAN y usa la librería solo como referencia de comportamiento, sin traducir su código. Falta confirmar la licencia de ApiDian (MIT o LGPL-3.0). |
 | 15 | **Correcciones sin propagar.** Varias correcciones marcadas como hechas seguían contradichas en otras secciones: reglas de dependencia, consecutivo, estados, índice único, motores por fase, numeración de fases, versionado de rutas, estado de los ADR y referencias entre archivos. Se recuperaron los dos diagramas perdidos al exportar. | Media | Corregido (14-nov, segunda pasada) en los cinco documentos. |
 | 16 | **Alcance de la primera entrega.** La decisión del 13-nov recorta la «fase 1» a factura, notas, resoluciones, certificado, ambiente y consultas, pero las fases 3 y 4 incluyen exportación, contingencia, documento soporte, eventos RADIAN y lotes. | Alta | Resuelto (14-nov): entrega corta. Fases 3 y 4 con factura, notas, resoluciones, certificado, ambiente y consultas; el resto de Community, en la fase 7. |
-| 17 | **WhatsApp: ¿Community o Enterprise?** Las decisiones del 13-nov lo dejan en Enterprise, pero RF-18, la carpeta 13 de Postman, el backlog de la fase 4 y `company_whatsapp_settings` lo tratan como Community. | Media | Resuelto (14-nov): Enterprise (fase 8). |
+| 17 | **WhatsApp: ¿Community o Enterprise?** Las decisiones del 13-nov lo dejan en Enterprise, pero RF-18, la carpeta 13 de Postman, el backlog de la fase 4 y `company_whatsapp_settings` lo tratan como Community. | Media | Resuelto (14-nov): Enterprise (fase 7b). |
 | 18 | **Totales que no cuadran.** El PHP firma los totales que manda el cliente sin recalcularlos; ImpiFact los calcula con `DianRounding`. Si un integrador envía totales incoherentes, el XML de las dos versiones difiere («php-rules», sección 8). | Media | Resuelto (14-nov): antes de enviar, ImpiFact valida los totales con las mismas reglas y tolerancias de la DIAN y rechaza con 422 solo lo que la DIAN rechazaría. Si están dentro de la tolerancia, el XML lleva los valores del cliente, igual que el PHP. Reglas extraídas del Anexo Técnico v1.9 (17-nov): las de rechazo comparan valores redondeados a pesos enteros; las ambiguas del anexo no se exigen y se confirman en la fase 1b («php-rules», sección 8). |
 
 ### ADR-22: sin Redis ni broker de mensajes en la v1
