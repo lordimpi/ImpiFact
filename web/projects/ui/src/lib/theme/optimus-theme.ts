@@ -10,6 +10,7 @@ import datepicker from '@openng/optimus-ui-themes/aura/datepicker';
 import dialog from '@openng/optimus-ui-themes/aura/dialog';
 import fileupload from '@openng/optimus-ui-themes/aura/fileupload';
 import inputtext from '@openng/optimus-ui-themes/aura/inputtext';
+import menu from '@openng/optimus-ui-themes/aura/menu';
 import paginator from '@openng/optimus-ui-themes/aura/paginator';
 import select from '@openng/optimus-ui-themes/aura/select';
 import skeleton from '@openng/optimus-ui-themes/aura/skeleton';
@@ -74,6 +75,7 @@ export const impifactPreset = definePreset(
       dialog,
       fileupload,
       inputtext,
+      menu,
       paginator,
       select,
       skeleton,

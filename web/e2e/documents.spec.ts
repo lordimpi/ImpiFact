@@ -359,6 +359,14 @@ test('exports to Excel from the accessible Exportar menu with the current filter
   await expect(menu).toBeVisible();
   await expect(button).toHaveAttribute('aria-expanded', 'true');
   await expect(menu.getByRole('menuitem')).toHaveText(['Excel (.xlsx)', 'CSV', 'PDF']);
+  // The popup is styled by its Optimus theme: a card with a background and a shadow, not loose text on the page.
+  const popup = await menu.evaluate((list) => {
+    const panel = (list.closest('.p-menu') ?? list) as HTMLElement;
+    const style = getComputedStyle(panel);
+    return { background: style.backgroundColor, shadow: style.boxShadow };
+  });
+  expect(popup.background).not.toBe('rgba(0, 0, 0, 0)');
+  expect(popup.shadow).not.toBe('none');
   expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
   // Escape closes the menu and focus goes back to the button.
