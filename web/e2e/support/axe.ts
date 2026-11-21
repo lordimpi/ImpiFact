@@ -4,8 +4,13 @@ import { Page } from '@playwright/test';
 // WCAG = pautas de accesibilidad web; se revisan los niveles A y AA hasta la versión 2.2.
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
-/** Violaciones de accesibilidad graves o críticas de la página, según axe. */
+/**
+ * Violaciones de accesibilidad graves o críticas de la página, según axe. Mide después de que terminen las
+ * animaciones: un diálogo recién abierto funde su fondo oscurecido y, a mitad de ese fundido, el texto que queda detrás
+ * da un contraste falso.
+ */
 export async function seriousViolations(page: Page) {
+  await settled(page);
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
   return results.violations
     .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
@@ -35,8 +40,14 @@ async function setTheme(page: Page, theme: string) {
 
 async function violationsIn(page: Page, theme: 'light' | 'dark') {
   await setTheme(page, theme);
-  // Espera a que el navegador pinte con el tema nuevo y terminen las transiciones de color (los botones de
-  // Optimus UI animan el fondo y el texto): medido a mitad de la transición, el contraste sale falso.
+  return seriousViolations(page);
+}
+
+/**
+ * Espera a que el navegador pinte y terminen las transiciones y animaciones finitas (cambio de tema, botones de Optimus
+ * UI que animan el fondo y el texto, diálogos que funden su fondo): medido a mitad de una, el contraste sale falso.
+ */
+async function settled(page: Page) {
   await page.evaluate(async () => {
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     // Las animaciones sin fin (esqueletos de carga, indicadores) no se esperan; una cancelada cuenta como terminada.
@@ -45,5 +56,4 @@ async function violationsIn(page: Page, theme: 'light' | 'dark') {
       .filter((animation) => animation.effect?.getTiming().iterations !== Infinity);
     await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
   });
-  return seriousViolations(page);
 }

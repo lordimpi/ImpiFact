@@ -164,11 +164,7 @@
       <input uiInput type="email" autocomplete="email" />
     </ui-field>
     <ui-field [label]="'devUi.fields.documentType' | transloco">
-      <select uiSelect>
-        <option value="13">{{ 'devUi.fields.documentTypes.cc' | transloco }}</option>
-        <option value="31">{{ 'devUi.fields.documentTypes.nit' | transloco }}</option>
-        <option value="22">{{ 'devUi.fields.documentTypes.ce' | transloco }}</option>
-      </select>
+      <ui-select [options]="documentTypes()" [value]="'13'" />
     </ui-field>
     <ui-field
       [label]="'devUi.fields.regime' | transloco"

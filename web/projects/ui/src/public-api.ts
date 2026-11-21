@@ -17,7 +17,6 @@ export * from './lib/field/input.directive';
 export * from './lib/field/non-negative.directive';
 export * from './lib/field/password-toggle.directive';
 export * from './lib/field/select.component';
-export * from './lib/field/select.directive';
 export * from './lib/file-upload/file-upload.component';
 export * from './lib/help/help.component';
 export * from './lib/i18n/ui-texts';

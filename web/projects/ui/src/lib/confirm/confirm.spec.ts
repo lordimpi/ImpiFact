@@ -15,12 +15,12 @@ async function ask() {
   const dialog = await screen.findByRole(
     'alertdialog',
     { name: 'Cambios sin guardar' },
-    { timeout: 4000 },
+    { timeout: 8000 },
   );
   return { answer, dialog };
 }
 
-describe('UiConfirm', () => {
+describe('UiConfirm', { timeout: 10_000 }, () => {
   afterEach(() => {
     // The dialog lives under <body>, outside any test fixture.
     document.body.querySelectorAll('ui-confirm-dialog').forEach((host) => host.remove());

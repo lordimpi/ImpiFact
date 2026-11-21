@@ -21,7 +21,6 @@ import {
   PageTitleComponent,
   PaginatorComponent,
   SelectComponent,
-  SelectDirective,
   StatComponent,
   TableCellDirective,
   TableComponent,
@@ -102,7 +101,6 @@ const SAMPLE_ROWS: DocumentRow[] = [
     TabsComponent,
     FieldComponent,
     InputDirective,
-    SelectDirective,
     ComboboxComponent,
     SelectComponent,
     DatePickerComponent,
@@ -158,6 +156,17 @@ export class UiShowcasePage {
     // The texts of the newer sections live next to the page (see ui-showcase.texts.ts).
     this.transloco.setTranslation(SHOWCASE_TEXTS, this.transloco.getActiveLang(), { merge: true });
   }
+
+  protected readonly documentTypes = computed(() => {
+    const t = this.translator();
+    return (
+      [
+        ['13', 'cc'],
+        ['31', 'nit'],
+        ['22', 'ce'],
+      ] as const
+    ).map(([id, key]) => ({ id, name: t(`devUi.fields.documentTypes.${key}`) }));
+  });
 
   protected readonly tabs = computed<UiTab[]>(() => {
     const t = this.translator();
