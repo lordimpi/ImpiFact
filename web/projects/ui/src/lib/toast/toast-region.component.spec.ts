@@ -49,4 +49,15 @@ describe('ToastRegionComponent', () => {
     expect(copy).toHaveBeenCalledWith('abc-123');
     expect(dismiss).toHaveBeenCalledWith(2);
   });
+
+  it('closes with an icon button named for screen readers and shows an icon of the kind', async () => {
+    await render(ToastRegionComponent, { inputs: { toasts, labels } });
+    const success = screen.getByText('Empresa guardada').closest('li') as HTMLElement;
+
+    const close = within(success).getByRole('button', { name: 'Cerrar aviso' });
+    // An icon and no visible text: the name comes from aria-label.
+    expect(close.textContent?.trim()).toBe('');
+    expect(close.querySelector('svg[aria-hidden="true"]')).toBeTruthy();
+    expect(success.querySelector('.ui-toast__icon[aria-hidden="true"]')).toBeTruthy();
+  });
 });
