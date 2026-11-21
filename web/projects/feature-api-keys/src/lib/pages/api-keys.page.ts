@@ -7,6 +7,7 @@ import {
   ButtonComponent,
   CardComponent,
   CardFooterDirective,
+  CheckboxComponent,
   DialogComponent,
   DatePickerComponent,
   FieldComponent,
@@ -38,6 +39,7 @@ const DATE = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeZone: '
 @Component({
   selector: 'feat-api-keys-page',
   imports: [
+    CheckboxComponent,
     FormField,
     TranslocoPipe,
     BadgeComponent,
@@ -157,8 +159,7 @@ export class ApiKeysPage {
     return this.text(key, { name: row.name ?? '' });
   }
 
-  protected toggleScope(scope: string, event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
+  protected toggleScope(scope: string, checked: boolean): void {
     const current = this.selectedScopes().filter((item) => item !== scope);
     // Se guarda en el orden de la lista, así el cuerpo de la solicitud no depende del orden de los clics.
     const next = checked ? [...current, scope] : current;

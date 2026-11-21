@@ -8,7 +8,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { ButtonComponent, DialogComponent } from '@impifact/ui';
+import { ButtonComponent, CheckboxComponent, DialogComponent } from '@impifact/ui';
 
 /** Textos del diálogo, ya traducidos. */
 export interface ProductionConfirmLabels {
@@ -26,19 +26,17 @@ export interface ProductionConfirmLabels {
  */
 @Component({
   selector: 'feat-production-confirm-dialog',
-  imports: [ButtonComponent, DialogComponent],
+  imports: [ButtonComponent, CheckboxComponent, DialogComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ui-dialog [header]="labels().header" [closeLabel]="labels().close" [(visible)]="visible">
       <p class="confirm-warning">{{ labels().body }}</p>
-      <label class="confirm-accept">
-        <input
-          type="checkbox"
-          [checked]="accepted()"
-          (change)="accepted.set($any($event.target).checked)"
-        />
-        {{ labels().accept }}
-      </label>
+      <ui-checkbox
+        class="confirm-accept"
+        [checked]="accepted()"
+        (checkedChange)="accepted.set($event)"
+        [label]="labels().accept"
+      />
       <div uiDialogFooter class="confirm-actions">
         <ui-button variant="secondary" [label]="labels().cancel" (pressed)="visible.set(false)" />
         <ui-button
@@ -64,9 +62,6 @@ export interface ProductionConfirmLabels {
       border-radius: var(--if-radius-sm);
     }
     .confirm-accept {
-      display: flex;
-      gap: var(--if-space-2);
-      align-items: flex-start;
       font-weight: var(--if-font-weight-medium);
     }
     .confirm-actions {

@@ -256,3 +256,52 @@ test('the Optimus select, the locked combobox, the date picker and the file choo
   await expect(page.getByRole('listbox', { name: 'Departamento' })).toBeVisible();
   expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 });
+
+test('the Optimus checkbox toggles from its label, lines up with its first text line and passes axe', async ({
+  page,
+}) => {
+  await openShowcase(page);
+  const lastEvent = page.getByTestId('last-event');
+  const sendEmail = page.getByRole('checkbox', { name: 'Enviar la factura al correo del cliente' });
+
+  await expect(sendEmail).not.toBeChecked();
+  await page.getByText('Enviar la factura al correo del cliente').click();
+  await expect(sendEmail).toBeChecked();
+  await expect(lastEvent).toHaveText('sendEmail true');
+  await sendEmail.press('Space');
+  await expect(sendEmail).not.toBeChecked();
+  await expect(lastEvent).toHaveText('sendEmail false');
+
+  const long = page.getByRole('checkbox', { name: /^Entiendo que los documentos/ });
+  await expect(long).toBeChecked();
+  await expect(long).toHaveAccessibleDescription(
+    'Una etiqueta larga pasa a la línea de abajo bajo su propio texto.',
+  );
+  await expect(
+    page.getByRole('checkbox', { name: 'Casilla deshabilitada', exact: true }),
+  ).toBeDisabled();
+
+  // The box (Optimus, 1.25rem) is centred on the first line of its label; the wrapped lines start under the text.
+  const geometry = await page
+    .locator('ui-checkbox')
+    .filter({ hasText: 'Entiendo que los documentos' })
+    .evaluate((host) => {
+      const box = host.querySelector('.p-checkbox-box')!.getBoundingClientRect();
+      const text = host.querySelector('.ui-checkbox__label')!;
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      const lines = [...range.getClientRects()];
+      return {
+        size: box.height,
+        boxCentre: box.top + box.height / 2,
+        firstLineCentre: lines[0].top + lines[0].height / 2,
+        textStart: Math.min(...lines.map((line) => line.left)),
+        boxEnd: box.right,
+      };
+    });
+  expect(geometry.size).toBe(20);
+  expect(Math.abs(geometry.boxCentre - geometry.firstLineCentre)).toBeLessThanOrEqual(1);
+  expect(geometry.textStart).toBeGreaterThan(geometry.boxEnd);
+
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+});

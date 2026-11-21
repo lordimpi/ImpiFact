@@ -59,28 +59,19 @@
   padding-block-end: var(--if-space-2);
 }
 
+/* Pill around the checkbox; the padding goes inside the checkbox row, so the whole pill toggles it. */
 .filters__chip {
-  display: inline-flex;
-  gap: var(--if-space-2);
-  align-items: center;
-  padding: var(--if-space-1) var(--if-space-3);
+  --ui-checkbox-padding: var(--if-space-1) var(--if-space-3);
+
   font-size: var(--if-font-size-sm);
   border: 1px solid var(--if-color-border-strong);
   border-radius: var(--if-radius-pill);
-  cursor: pointer;
 }
 
-.filters__chip:has(:checked) {
+.filters__chip--checked {
   color: var(--if-color-primary);
   background: var(--if-color-primary-subtle);
   border-color: var(--if-color-primary);
-}
-
-.filters__check {
-  display: inline-flex;
-  gap: var(--if-space-2);
-  align-items: center;
-  cursor: pointer;
 }
 
 .filters__actions {

@@ -57,13 +57,11 @@
 }
 
 .keys-scope {
+  --ui-checkbox-padding: var(--if-space-2) var(--if-space-3);
+
   display: flex;
-  align-items: flex-start;
-  gap: var(--if-space-2);
-  padding: var(--if-space-2) var(--if-space-3);
   border: 1px solid var(--if-color-border);
   border-radius: var(--if-radius-md);
-  cursor: pointer;
 }
 
 .keys-scope:hover {
@@ -73,14 +71,6 @@
 .keys-scope--checked {
   border-color: var(--if-color-primary);
   background: var(--if-color-primary-subtle);
-}
-
-.keys-scope input {
-  flex: none;
-  inline-size: 1rem;
-  block-size: 1rem;
-  margin-block-start: 0.2rem;
-  accent-color: var(--if-color-primary);
 }
 
 .keys-scope-text {

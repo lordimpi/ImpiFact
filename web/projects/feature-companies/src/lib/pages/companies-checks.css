@@ -21,12 +21,6 @@
   margin: 0;
 }
 
-.companies-check {
-  display: flex;
-  gap: var(--if-space-2);
-  align-items: center;
-}
-
 .companies-field-error {
   font-size: var(--if-font-size-sm);
   color: var(--if-color-danger);

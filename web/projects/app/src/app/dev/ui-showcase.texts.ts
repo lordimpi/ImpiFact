@@ -72,6 +72,13 @@ export const SHOWCASE_TEXTS: Readonly<Record<string, string>> = {
     'Del 20 de noviembre de 2026 al 31 de diciembre de 2027; vacía si no vence.',
   'devUi.fields.certificate': 'Certificado digital',
   'devUi.fields.certificateHint': 'Archivo .p12 o .pfx de máximo 2 MB.',
+  'devUi.checkboxes.title': 'Casillas',
+  'devUi.checkboxes.sendEmail': 'Enviar la factura al correo del cliente',
+  'devUi.checkboxes.long':
+    'Entiendo que los documentos tendrán efecto fiscal real ante la DIAN y que no se pueden anular, solo corregir con una nota crédito.',
+  'devUi.checkboxes.longHint': 'Una etiqueta larga pasa a la línea de abajo bajo su propio texto.',
+  'devUi.checkboxes.disabled': 'Casilla deshabilitada',
+  'devUi.checkboxes.disabledChecked': 'Casilla deshabilitada y marcada',
   'devUi.meter.title': 'Consumo del plan',
   'devUi.meter.label': 'Documentos del plan',
   'devUi.meter.value': '820 de 1.000 documentos',

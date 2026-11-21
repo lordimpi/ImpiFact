@@ -103,14 +103,5 @@
 }
 
 .masters-check {
-  display: flex;
-  gap: var(--if-space-2);
-  align-items: center;
   margin-block-end: var(--if-space-3);
-}
-
-.masters-check input {
-  inline-size: 1rem;
-  block-size: 1rem;
-  accent-color: var(--if-color-primary);
 }

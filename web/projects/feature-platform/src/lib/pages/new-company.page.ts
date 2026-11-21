@@ -17,6 +17,7 @@ import {
   ButtonComponent,
   CardComponent,
   CardFooterDirective,
+  CheckboxComponent,
   ComboboxComponent,
   ComboboxLabels,
   DialogComponent,
@@ -69,6 +70,7 @@ const FORMAT_KEYS: Partial<Record<keyof NewCompanyModel, string>> = {
 @Component({
   selector: 'feat-new-company-page',
   imports: [
+    CheckboxComponent,
     CardComponent,
     CardFooterDirective,
     FormField,

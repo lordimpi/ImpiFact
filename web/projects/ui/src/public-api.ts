@@ -7,6 +7,7 @@ export * from './lib/badge/badge.component';
 export * from './lib/button/button-link.directive';
 export * from './lib/button/button.component';
 export * from './lib/card/card.component';
+export * from './lib/checkbox/checkbox.component';
 export * from './lib/confirm/confirm';
 export * from './lib/combobox/combobox.component';
 export * from './lib/date-picker/date-picker.component';

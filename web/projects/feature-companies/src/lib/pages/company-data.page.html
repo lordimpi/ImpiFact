@@ -85,14 +85,11 @@
               {{ 'companies.data.liabilitiesHint' | transloco }}
             </p>
             @for (option of liabilities(); track option.id) {
-              <label class="companies-check">
-                <input
-                  type="checkbox"
-                  [checked]="liabilityIds().has(option.id)"
-                  (change)="toggleLiability(option.id, $any($event.target).checked)"
-                />
-                {{ option.name }}
-              </label>
+              <ui-checkbox
+                [checked]="liabilityIds().has(option.id)"
+                (checkedChange)="toggleLiability(option.id, $event)"
+                [label]="option.name"
+              />
             }
             <p id="company-liabilities-error" class="companies-field-error">
               {{ errors().type_liability_ids }}

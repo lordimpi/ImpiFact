@@ -6,6 +6,7 @@ import {
   BadgeComponent,
   ButtonComponent,
   CardComponent,
+  CheckboxComponent,
   DialogComponent,
   DigitsOnlyDirective,
   FieldComponent,
@@ -47,6 +48,7 @@ const NUMBER = new Intl.NumberFormat('es-CO');
 @Component({
   selector: 'feat-platform-plans-page',
   imports: [
+    CheckboxComponent,
     BadgeComponent,
     CardComponent,
     FormField,

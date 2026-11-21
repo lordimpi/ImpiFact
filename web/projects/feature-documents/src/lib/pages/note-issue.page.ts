@@ -36,6 +36,7 @@ import {
   ButtonLinkDirective,
   CardActionsDirective,
   CardComponent,
+  CheckboxComponent,
   FieldComponent,
   InputDirective,
   PageTitleComponent,
@@ -92,6 +93,7 @@ type OriginalState =
 @Component({
   selector: 'feat-note-issue-page',
   imports: [
+    CheckboxComponent,
     ButtonLinkDirective,
     FormField,
     RouterLink,

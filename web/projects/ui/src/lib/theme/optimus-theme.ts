@@ -4,6 +4,7 @@ import { definePreset } from '@openng/optimus-ui-themes';
 import base from '@openng/optimus-ui-themes/aura/base';
 import breadcrumb from '@openng/optimus-ui-themes/aura/breadcrumb';
 import button from '@openng/optimus-ui-themes/aura/button';
+import checkbox from '@openng/optimus-ui-themes/aura/checkbox';
 import confirmdialog from '@openng/optimus-ui-themes/aura/confirmdialog';
 import datepicker from '@openng/optimus-ui-themes/aura/datepicker';
 import dialog from '@openng/optimus-ui-themes/aura/dialog';
@@ -57,10 +58,9 @@ const primary = {
 };
 
 /**
- * Preset reducido: la base de Aura y solo los componentes de Optimus UI que envuelve ui (botón, diálogo, campo de
- * texto, esqueleto, select, selector de fechas, carga de archivos, paginador, diálogo de confirmación, tooltip y
- * migas de pan). El preset completo trae los 80 componentes y pesa unos 145 kB
- * (docs/spikes/optimus-ui.md).
+ * Preset reducido: la base de Aura y solo los componentes de Optimus UI que envuelve ui (botón, casilla, diálogo,
+ * campo de texto, esqueleto, select, selector de fechas, carga de archivos, paginador, diálogo de confirmación,
+ * tooltip y migas de pan). El preset completo trae los 80 componentes y pesa unos 145 kB (docs/spikes/optimus-ui.md).
  */
 export const impifactPreset = definePreset(
   {
@@ -68,6 +68,7 @@ export const impifactPreset = definePreset(
     components: {
       breadcrumb,
       button,
+      checkbox,
       confirmdialog,
       datepicker,
       dialog,

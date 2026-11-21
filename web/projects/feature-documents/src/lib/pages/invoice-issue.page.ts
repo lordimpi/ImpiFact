@@ -22,6 +22,7 @@ import {
   ButtonLinkDirective,
   CardActionsDirective,
   CardComponent,
+  CheckboxComponent,
   DatePickerComponent,
   FieldComponent,
   InputDirective,
@@ -66,6 +67,7 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 @Component({
   selector: 'feat-invoice-issue-page',
   imports: [
+    CheckboxComponent,
     ButtonLinkDirective,
     FormField,
     RouterLink,

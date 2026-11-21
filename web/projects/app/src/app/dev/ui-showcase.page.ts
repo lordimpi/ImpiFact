@@ -7,6 +7,7 @@ import {
   CardActionsDirective,
   CardComponent,
   CardFooterDirective,
+  CheckboxComponent,
   ComboboxComponent,
   ComboboxLabels,
   DatePickerComponent,
@@ -96,6 +97,7 @@ const SAMPLE_ROWS: DocumentRow[] = [
     BadgeComponent,
     StatComponent,
     CardComponent,
+    CheckboxComponent,
     CardActionsDirective,
     CardFooterDirective,
     TabsComponent,
@@ -146,6 +148,7 @@ export class UiShowcasePage {
   protected readonly department = signal('');
   protected readonly regimes = SAMPLE_REGIMES;
   protected readonly regime = signal('');
+  protected readonly sendEmail = signal(false);
   protected readonly expiresAt = signal('');
   /** Largest certificate the example accepts: 2 MB. */
   protected readonly maxCertificateSize = 2 * 1024 * 1024;

@@ -221,6 +221,30 @@
   </div>
 </ui-card>
 
+<ui-card [title]="'devUi.checkboxes.title' | transloco">
+  <div class="showcase-stack">
+    <ui-checkbox
+      [(checked)]="sendEmail"
+      (checkedChange)="log('sendEmail', $event)"
+      [label]="'devUi.checkboxes.sendEmail' | transloco"
+    />
+    <ui-checkbox
+      [checked]="true"
+      ariaDescribedBy="showcase-checkbox-hint"
+      [label]="'devUi.checkboxes.long' | transloco"
+    />
+    <p id="showcase-checkbox-hint" class="showcase-muted">
+      {{ 'devUi.checkboxes.longHint' | transloco }}
+    </p>
+    <ui-checkbox disabled [label]="'devUi.checkboxes.disabled' | transloco" />
+    <ui-checkbox
+      disabled
+      [checked]="true"
+      [label]="'devUi.checkboxes.disabledChecked' | transloco"
+    />
+  </div>
+</ui-card>
+
 <ui-card [title]="'devUi.states.title' | transloco">
   <div class="showcase-grid">
     <ui-empty-state
