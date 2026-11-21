@@ -78,7 +78,7 @@ describe('CompanyUsersPage', () => {
     'lists the users of the active company with role, status and the current user marked',
     { timeout: 10_000 },
     async () => {
-      const { table } = await open();
+      const { http, table } = await open();
 
       const headers = within(table)
         .getAllByRole('columnheader')
@@ -97,6 +97,9 @@ describe('CompanyUsersPage', () => {
       expect(within(carlos).getByText('Sin teléfono')).toBeTruthy();
 
       expect(within(row(table, DIANA.email)).getByText('Inactivo')).toBeTruthy();
+      // The owner's page has no breadcrumb and never looks the company up among the platform companies.
+      expect(screen.queryByRole('navigation', { name: 'Ruta de navegación' })).toBeNull();
+      http.expectNone((candidate) => candidate.url === '/api/v1/platform/companies');
     },
   );
 
@@ -363,5 +366,200 @@ describe('CompanyUsersPage', () => {
       ).toBe('true');
       expect(screen.getByRole('dialog', { name: 'Nuevo usuario' })).toBeTruthy();
     });
+  });
+});
+
+describe('CompanyUsersPage for the platform admin', () => {
+  const BETA_NIT = '800111222';
+  const BETA_USERS_URL = `/api/v1/companies/${BETA_NIT}/users`;
+  const LOOKUP_URL = '/api/v1/platform/companies';
+  /** The company of the URL and another one whose name holds the same digits: only the exact NIT counts. */
+  const BETA = {
+    id: 'c-2',
+    name: 'Beta Ltda',
+    nit: BETA_NIT,
+    dv: '3',
+    email: 'beta@beta.test',
+    is_active: true,
+    plan_id: null,
+    plan_name: null,
+  };
+  const OTHER = { ...BETA, id: 'c-9', name: `Distribuidora ${BETA_NIT}1 SAS`, nit: '9001112223' };
+
+  /** A platform admin (no active company, `platform:*`); `user-1` is also the id of a user of the list. */
+  function renderAsAdmin(nit = BETA_NIT) {
+    return renderCompaniesRoute(`/plataforma/empresas/${nit}/usuarios`, {
+      roles: ['platform_admin'],
+      scopes: ['platform:*'],
+      companyId: null,
+      directory: [],
+    });
+  }
+
+  async function answerLookup(http: HttpTestingController, items: object[]) {
+    const request = await expectRequest(
+      http,
+      (candidate) => candidate.method === 'GET' && candidate.url === LOOKUP_URL,
+    );
+    request.flush({ items, next_cursor: null });
+    return request;
+  }
+
+  async function openAsAdmin() {
+    const rendered = await renderAsAdmin();
+    await answerLookup(rendered.http, [OTHER, BETA]);
+    await screen.findByRole('heading', { level: 1, name: 'Usuarios de Beta Ltda' });
+    await respond(rendered.http, BETA_USERS_URL, { items: USERS });
+    const table = await screen.findByRole('table', { name: 'Usuarios de la empresa' });
+    await within(table).findByText(CARLOS.email);
+    return { ...rendered, table };
+  }
+
+  it('finds the company of the URL by its exact NIT and lists its users', async () => {
+    const { http } = await renderAsAdmin();
+
+    const lookup = await answerLookup(http, [OTHER, BETA]);
+    expect(lookup.request.params.get('search')).toBe(BETA_NIT);
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Usuarios de Beta Ltda' }),
+    ).toBeTruthy();
+    await respond(http, BETA_USERS_URL, { items: USERS });
+    expect(await screen.findByText(CARLOS.email)).toBeTruthy();
+  });
+
+  it('shows the way back to the platform companies in a breadcrumb', async () => {
+    const { router } = await openAsAdmin();
+
+    const trail = screen.getByRole('navigation', { name: 'Ruta de navegación' });
+    expect(trail.textContent).toContain('Usuarios de Beta Ltda');
+    fireEvent.click(within(trail).getByRole('link', { name: 'Empresas de la plataforma' }));
+
+    await waitFor(() => expect(router.url).toBe('/plataforma/empresas'));
+  });
+
+  it('marks no row as the current user and offers the actions on every row', async () => {
+    const { table } = await openAsAdmin();
+
+    expect(within(table).queryByText('(usted)')).toBeNull();
+    expect(
+      within(table).queryByText('Es su cuenta: no puede cambiar su rol ni desactivarla.'),
+    ).toBeNull();
+    const ana = row(table, ME.email);
+    expect(within(ana).getByRole('button', { name: 'Cambiar a vendedor: Ana Gómez' })).toBeTruthy();
+    expect(within(ana).getByRole('button', { name: 'Desactivar a Ana Gómez' })).toBeTruthy();
+  });
+
+  it('changes the role and deactivates through the NIT of the URL', async () => {
+    const { http, table } = await openAsAdmin();
+
+    fireEvent.click(
+      within(row(table, CARLOS.email)).getByRole('button', { name: /^Cambiar a dueño/ }),
+    );
+    const role = await expectRequest(http, `${BETA_USERS_URL}/${CARLOS.id}`);
+    expect(role.request.method).toBe('PATCH');
+    expect(role.request.body).toEqual({ role: 'owner' });
+    role.flush({ ...CARLOS, role: 'owner' });
+    await waitFor(() => expect(toastTexts()).toContain('Carlos Ruiz ahora es dueño.'));
+
+    fireEvent.click(within(row(table, ME.email)).getByRole('button', { name: /^Desactivar/ }));
+    const dialog = await screen.findByRole('dialog', { name: 'Desactivar a Ana Gómez' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Desactivar' }));
+    const deactivate = await expectRequest(http, `${BETA_USERS_URL}/${ME.id}`);
+    expect(deactivate.request.method).toBe('PATCH');
+    expect(deactivate.request.body).toEqual({ is_active: false });
+    deactivate.flush({ ...ME, is_active: false });
+
+    await waitFor(() => expect(within(row(table, ME.email)).getByText('Inactivo')).toBeTruthy());
+    http.expectNone(`${COMPANY_PATH}/users/${CARLOS.id}`);
+  });
+
+  it('creates the new user in the company of the URL', async () => {
+    const { http } = await openAsAdmin();
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo usuario' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Nuevo usuario' });
+    const type = (label: RegExp, value: string) =>
+      fireEvent.input(within(dialog).getByLabelText(label), { target: { value } });
+    type(/^Correo electrónico/, 'luis@beta.test');
+    type(/^Nombre/, 'Luis Vendedor');
+    type(/^Contraseña/, 'clave-segura-123');
+    await pickOption(within(dialog).getByRole('combobox', { name: /^Rol/ }), 'Vendedor');
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Crear usuario' }));
+    const request = await expectRequest(http, '/api/v1/users');
+    expect(request.request.body).toEqual({
+      company_id: 'c-2',
+      email: 'luis@beta.test',
+      name: 'Luis Vendedor',
+      phone: null,
+      password: 'clave-segura-123',
+      role: 'seller',
+    });
+    request.flush({
+      id: 'user-9',
+      company_id: 'c-2',
+      email: 'luis@beta.test',
+      name: 'Luis Vendedor',
+      role: 'seller',
+    });
+
+    await respond(http, BETA_USERS_URL, {
+      items: [...USERS, { ...CARLOS, id: 'user-9', email: 'luis@beta.test', name: 'Luis' }],
+    });
+    expect(await screen.findByText('luis@beta.test')).toBeTruthy();
+  });
+
+  it('says when no company has the NIT of the URL and links back to the list', async () => {
+    const { http, router } = await renderAsAdmin('123');
+
+    await answerLookup(http, [OTHER]);
+
+    expect(await screen.findByText('No encontramos esa empresa')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Ninguna empresa de la plataforma tiene el NIT 123. Vuelva a la lista y elíjala de nuevo.',
+      ),
+    ).toBeTruthy();
+    http.expectNone((candidate) => candidate.url.endsWith('/users'));
+    fireEvent.click(screen.getByRole('link', { name: 'Volver a Empresas de la plataforma' }));
+    await waitFor(() => expect(router.url).toBe('/plataforma/empresas'));
+  });
+
+  it('treats a company the users API does not know as not found', async () => {
+    const { http } = await renderAsAdmin();
+    await answerLookup(http, [BETA]);
+
+    const error = problem(404, 'user.company_not_found', 'No existe.');
+    (await expectRequest(http, BETA_USERS_URL)).flush(error.body, error.options);
+
+    expect(await screen.findByText('No encontramos esa empresa')).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Volver a Empresas de la plataforma' })).toBeTruthy();
+  });
+
+  it('explains when the company cannot be read and retries', async () => {
+    const { http } = await renderAsAdmin();
+    const error = problem(503, 'unavailable', 'No disponible.');
+    (
+      await expectRequest(
+        http,
+        (candidate) => candidate.method === 'GET' && candidate.url === LOOKUP_URL,
+      )
+    ).flush(error.body, error.options);
+
+    expect(await screen.findByText('No se pudo consultar la empresa')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    await answerLookup(http, [BETA]);
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Usuarios de Beta Ltda' }),
+    ).toBeTruthy();
+  });
+
+  it('keeps the page from an owner without the platform scope', async () => {
+    const { router, http } = await renderCompaniesRoute(
+      `/plataforma/empresas/${BETA_NIT}/usuarios`,
+    );
+
+    await waitFor(() => expect(router.url).toBe('/'));
+    http.expectNone((candidate) => candidate.url === LOOKUP_URL);
   });
 });

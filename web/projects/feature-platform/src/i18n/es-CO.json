@@ -125,7 +125,7 @@
   },
   "companies": {
     "title": "Empresas de la plataforma",
-    "description": "Busque una empresa por razón social o NIT; desde su fila asígnele un plan o cree sus usuarios.",
+    "description": "Busque una empresa por razón social o NIT; desde su fila asígnele un plan, cree un usuario o administre sus usuarios.",
     "search": "Buscar empresa",
     "searchHint": "Escriba parte de la razón social o del NIT; la búsqueda se hace en el servidor.",
     "caption": "Empresas de la plataforma",
@@ -142,6 +142,8 @@
     "noMatch": "Ninguna empresa coincide con la búsqueda",
     "loadError": "No se pudieron consultar las empresas",
     "new": "Nueva empresa",
+    "users": "Usuarios",
+    "usersOf": "Usuarios de {{ name }}",
     "searchPlaceholder": "Buscar por razón social o NIT"
   },
   "newCompany": {

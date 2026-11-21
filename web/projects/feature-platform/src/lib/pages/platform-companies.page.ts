@@ -1,12 +1,13 @@
 import { HttpContext } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormField, submit } from '@angular/forms/signals';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Api, PlatformCompanyItem, assignCompanyPlan } from '@impifact/api';
 import { AppError, SKIP_ERROR_TOAST } from '@impifact/core';
 import {
   BadgeComponent,
   ButtonComponent,
+  ButtonLinkDirective,
   CardComponent,
   CardFooterDirective,
   DialogComponent,
@@ -50,7 +51,8 @@ const ASSIGN_FIELDS: readonly (keyof AssignModel & string)[] = ['plan_id'];
  * Página `/plataforma/empresas`: las empresas de la plataforma con su plan actual (`listPlatformCompanies`), con
  * búsqueda en el servidor por nombre o NIT y «Cargar más» por cursor. Desde cada fila se asigna un plan
  * (`assignCompanyPlan`) en un diálogo: la empresa se elige en la lista, ya no se escribe su NIT. Los planes salen del
- * store del feature. También desde cada fila se crea el primer dueño o un vendedor de la empresa, y «Nueva empresa»
+ * store del feature. También desde cada fila se crea el primer dueño o un vendedor de la empresa, «Usuarios» abre
+ * la página de sus usuarios (`/plataforma/empresas/:nit/usuarios`, de feature-companies), y «Nueva empresa»
  * lleva al alta (`/plataforma/empresas/nueva`); al volver, la lista se pide de nuevo.
  */
 @Component({
@@ -62,10 +64,12 @@ const ASSIGN_FIELDS: readonly (keyof AssignModel & string)[] = ['plan_id'];
     FormField,
     TranslocoPipe,
     ButtonComponent,
+    ButtonLinkDirective,
     DialogComponent,
     FieldComponent,
     InputDirective,
     PageTitleComponent,
+    RouterLink,
     SelectComponent,
     TableComponent,
     TableCellDirective,

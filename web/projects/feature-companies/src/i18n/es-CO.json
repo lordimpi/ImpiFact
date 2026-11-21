@@ -338,6 +338,15 @@
     "subtitle": "Las personas que trabajan con esta empresa en el panel, su rol y si pueden entrar.",
     "new": "Nuevo usuario",
     "reload": "Recargar",
+    "platform": {
+      "title": "Usuarios de {{ name }}",
+      "companies": "Empresas de la plataforma",
+      "notFoundTitle": "No encontramos esa empresa",
+      "notFoundDescription": "Ninguna empresa de la plataforma tiene el NIT {{ nit }}. Vuelva a la lista y elíjala de nuevo.",
+      "back": "Volver a Empresas de la plataforma",
+      "loadErrorTitle": "No se pudo consultar la empresa",
+      "loadErrorDescription": "Revise su conexión e intente de nuevo."
+    },
     "roles": {
       "owner": "Dueño",
       "seller": "Vendedor"
@@ -390,7 +399,8 @@
       "cannotDeactivateSelf": "No puede desactivar su propia cuenta.",
       "cannotRemoveOwnOwnerRole": "No puede quitarse a usted mismo el rol de dueño.",
       "notFound": "Este usuario ya no pertenece a la empresa; recargue la lista.",
-      "conflict": "Otro usuario cambió estos datos; recargue la lista."
+      "conflict": "Otro usuario cambió estos datos; recargue la lista.",
+      "companyNotFound": "La empresa ya no existe; vuelva a la lista de empresas."
     },
     "form": {
       "title": "Nuevo usuario",

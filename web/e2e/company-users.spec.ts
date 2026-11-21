@@ -8,7 +8,8 @@ import { signInAt } from './support/sign-in';
 // the entry and the page. The signed-in user of the mock is `user-1` (the `sub` of its token).
 
 const NIT = '900123456';
-const USERS_PATH = `**/api/v1/companies/${NIT}/users`;
+const usersPath = (nit: string) => `**/api/v1/companies/${nit}/users`;
+const USERS_PATH = usersPath(NIT);
 
 interface MockUser {
   id: string;
@@ -49,12 +50,12 @@ function users(): MockUser[] {
   ];
 }
 
-/** Mocks list, change and create; returns the bodies the panel sent. */
-async function mockUsers(page: Page) {
+/** Mocks list, change and create for the company `nit`; returns the bodies the panel sent. */
+async function mockUsers(page: Page, nit = NIT) {
   const state = users();
   const sent: { patch: unknown[]; create: unknown[] } = { patch: [], create: [] };
-  await page.route(USERS_PATH, (route) => route.fulfill({ json: { items: state } }));
-  await page.route(`${USERS_PATH}/*`, async (route: Route) => {
+  await page.route(usersPath(nit), (route) => route.fulfill({ json: { items: state } }));
+  await page.route(`${usersPath(nit)}/*`, async (route: Route) => {
     const id = new URL(route.request().url()).pathname.split('/').pop();
     const body = route.request().postDataJSON() as Partial<MockUser>;
     sent.patch.push(body);
@@ -214,4 +215,122 @@ test('a seller does not see the entry and cannot open the page', async ({ page }
 
   await expect(page).toHaveURL('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Usuarios' })).toHaveCount(0);
+});
+
+// The platform admin (no active company, `platform:*`) manages the users of any company from «Empresas de la
+// plataforma», on the same page (`/plataforma/empresas/:nit/usuarios`).
+const asPlatformAdmin = { companies: [], roles: ['platform_admin'], scopes: ['platform:*'] };
+const BETA = {
+  id: 'c-2',
+  name: 'Beta Ltda',
+  nit: '800111222',
+  dv: '3',
+  email: 'beta@beta.test',
+  is_active: true,
+  plan_id: null,
+  plan_name: null,
+};
+
+/** Signs in as the platform admin on the list of companies, with Beta in the platform. */
+async function signInAsPlatformAdmin(page: Page) {
+  await signInAt(page, '/plataforma/empresas', asPlatformAdmin);
+  await page.route('**/api/v1/plans', (route) =>
+    route.fulfill({ json: { success: true, data: [] } }),
+  );
+  await page.route(/\/api\/v1\/platform\/companies(\?|$)/, (route) => {
+    const search = new URL(route.request().url()).searchParams.get('search') ?? '';
+    const items = [BETA].filter((company) => company.nit.includes(search));
+    return route.fulfill({ json: { items, next_cursor: null } });
+  });
+  const sent = await mockUsers(page, BETA.nit);
+  await page.reload();
+  return sent;
+}
+
+test('the platform admin opens the users of a company, creates a seller and deactivates a user', async ({
+  page,
+}) => {
+  const sent = await signInAsPlatformAdmin(page);
+
+  await page.getByRole('link', { name: 'Usuarios de Beta Ltda' }).click();
+
+  await expect(page).toHaveURL(`/plataforma/empresas/${BETA.nit}/usuarios`);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Usuarios de Beta Ltda' }),
+  ).toBeVisible();
+  const trail = page.getByRole('navigation', { name: 'Ruta de navegación' });
+  await expect(trail.getByRole('link', { name: 'Empresas de la plataforma' })).toBeVisible();
+  // The admin is not a member: no row is theirs and every row has its actions.
+  await expect(usersTable(page)).not.toContainText('(usted)');
+  await expect(
+    userRow(page, 'ana@example.test').getByRole('button', { name: 'Desactivar a Ana Gómez' }),
+  ).toBeVisible();
+
+  // Create a seller of Beta.
+  await page.getByRole('button', { name: 'Nuevo usuario' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nuevo usuario' });
+  await dialog.getByLabel('Correo electrónico').fill('luis@beta.test');
+  await dialog.getByLabel('Nombre').fill('Luis Vendedor');
+  await dialog.getByLabel('Contraseña').fill('clave-segura-123');
+  await pickOption(page, dialog.getByRole('combobox', { name: 'Rol' }), 'Vendedor');
+  await dialog.getByRole('button', { name: 'Crear usuario' }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(userRow(page, 'luis@beta.test')).toContainText('Vendedor');
+  expect(sent.create).toEqual([
+    {
+      company_id: BETA.id,
+      email: 'luis@beta.test',
+      name: 'Luis Vendedor',
+      phone: null,
+      password: 'clave-segura-123',
+      role: 'seller',
+    },
+  ]);
+
+  // Deactivate, after the confirmation.
+  await userRow(page, 'carlos@example.test')
+    .getByRole('button', { name: 'Desactivar a Carlos Ruiz' })
+    .click();
+  const confirm = page.getByRole('dialog', { name: 'Desactivar a Carlos Ruiz' });
+  await confirm.getByRole('button', { name: 'Desactivar' }).click();
+
+  await expect(confirm).toBeHidden();
+  await expect(userRow(page, 'carlos@example.test')).toContainText('Inactivo');
+  expect(sent.patch).toEqual([{ is_active: false }]);
+
+  // Back to the list from the breadcrumb.
+  await trail.getByRole('link', { name: 'Empresas de la plataforma' }).click();
+  await expect(page).toHaveURL('/plataforma/empresas');
+});
+
+test('the platform users page has no serious accessibility violations, in both themes', async ({
+  page,
+}) => {
+  await signInAsPlatformAdmin(page);
+  await expect(page.getByRole('link', { name: 'Usuarios de Beta Ltda' })).toBeVisible();
+
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+
+  await page.goto(`/plataforma/empresas/${BETA.nit}/usuarios`);
+  await expect(userRow(page, 'diana@example.test')).toContainText('Inactivo');
+
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+
+  await page.goto('/plataforma/empresas/123/usuarios');
+  await expect(page.getByText('No encontramos esa empresa')).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Volver a Empresas de la plataforma' }),
+  ).toBeVisible();
+
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+});
+
+test('an owner cannot open the platform users page', async ({ page }) => {
+  await signInAt(page, '/');
+
+  await page.goto(`/plataforma/empresas/${BETA.nit}/usuarios`);
+
+  await expect(page).toHaveURL('/');
+  await expect(page.getByRole('heading', { level: 1, name: /^Usuarios de/ })).toHaveCount(0);
 });

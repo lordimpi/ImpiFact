@@ -56,3 +56,11 @@
 .users-confirm {
   margin: 0;
 }
+
+/* Way back to the platform list under the «company not found» message. */
+.users-back {
+  /* Pulls the link up into the bottom padding of the error state, so it reads as part of the message. */
+  margin: calc(-1 * var(--if-space-4)) 0 0;
+  padding-block-end: var(--if-space-6);
+  text-align: center;
+}
