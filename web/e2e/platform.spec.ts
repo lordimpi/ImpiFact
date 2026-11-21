@@ -95,6 +95,29 @@ test('assigns a plan to a company picked from the searchable list', async ({ pag
   expect(assigned[0]!.body).toEqual({ plan_id: 2 });
 });
 
+test('cancels a new plan without showing required errors', async ({ page }) => {
+  await signInAt(page, '/plataforma/planes', asPlatformAdmin);
+  await page.route('**/api/v1/plans', (route) =>
+    route.fulfill({ json: { success: true, data: PLANS } }),
+  );
+  await page.reload();
+
+  await page.getByRole('button', { name: 'Nuevo plan' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Nuevo plan' });
+  await expect(dialog.getByLabel('Nombre')).toBeFocused();
+
+  // Leaving the focused empty field to press Cancelar must not validate it: the dialog just closes. A person holds
+  // the button for a moment, so the press and the release are apart.
+  const cancel = await dialog.getByRole('button', { name: 'Cancelar' }).boundingBox();
+  await page.mouse.move(cancel!.x + cancel!.width / 2, cancel!.y + cancel!.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(150);
+  await page.mouse.up();
+
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText('Este campo es obligatorio.')).toHaveCount(0);
+});
+
 test('lists the plans with the platform menu', async ({ page }) => {
   const createdPlans: unknown[] = [];
   await signInAt(page, '/plataforma/planes', asPlatformAdmin);
