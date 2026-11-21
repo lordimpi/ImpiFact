@@ -3,7 +3,10 @@ import { RouterLink } from '@angular/router';
 import { ProductResponse } from '@impifact/api';
 import { ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  ButtonLinkDirective,
+  CardComponent,
   PageTitleComponent,
   TableCellDirective,
   TableComponent,
@@ -32,9 +35,12 @@ const PRICE_FORMAT = new Intl.NumberFormat('es-CO', {
 @Component({
   selector: 'feat-product-list-page',
   imports: [
+    ButtonLinkDirective,
     RouterLink,
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardComponent,
     PageTitleComponent,
     TableComponent,
     TableCellDirective,
@@ -72,7 +78,7 @@ export class ProductListPage {
 
   protected readonly tableLabels = computed(() => listLabels(this.transloco, 'products.list'));
   protected readonly toolbarLabels = computed(() =>
-    toolbarLabels(this.transloco, 'products.list.searchLabel'),
+    toolbarLabels(this.transloco, 'products.list.searchLabel', 'products.list.searchPlaceholder'),
   );
   protected readonly confirmLabels = computed(() => ({
     header: this.text('products.list.confirmTitle'),

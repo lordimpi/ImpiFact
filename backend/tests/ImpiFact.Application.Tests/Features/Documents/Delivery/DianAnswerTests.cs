@@ -90,6 +90,29 @@ public sealed class DianAnswerTests
         Assert.That(answer, Is.InstanceOf<DianAnswer.InProcess>());
     }
 
+    [TestCase("2", "Set de prueba con identificador 00000000-0000-0000-0000-000000000000 se encuentra Aceptado")]
+    [TestCase("2", "Set de prueba con identificador 00000000-0000-0000-0000-000000000000 se encuentra Aceptado.")]
+    [TestCase("2", "set de pruebas con identificador abc  se encuentra ACEPTADO")]
+    [TestCase(null, "Set de prueba con identificador 00000000-0000-0000-0000-000000000000 se encuentra Aceptado")]
+    public void A_test_set_the_dian_already_accepted_is_a_final_rejection_with_its_description(string? statusCode, string description)
+    {
+        var result = Result(false, statusCode) with { StatusDescription = description };
+
+        var answer = DianAnswer.From(Answered("GetStatusZip", result));
+
+        Assert.That(answer, Is.EqualTo(new DianAnswer.Decided(DocumentStatus.Rejected, result)));
+    }
+
+    [TestCase(null, "Batch en proceso de validación.")]
+    [TestCase("2", "Set de prueba con identificador 00000000-0000-0000-0000-000000000000 se encuentra en proceso")]
+    [TestCase("2", "Descripción")]
+    public void A_test_set_answer_that_does_not_say_accepted_is_still_in_process(string? statusCode, string description)
+    {
+        var answer = DianAnswer.From(Answered("GetStatusZip", Result(false, statusCode) with { StatusDescription = description }));
+
+        Assert.That(answer, Is.InstanceOf<DianAnswer.InProcess>());
+    }
+
     [TestCase(Rule90, true)]
     [TestCase("regla:90 rechazo", true)]
     [TestCase("Regla: 900, Rechazo: otra regla", false)]

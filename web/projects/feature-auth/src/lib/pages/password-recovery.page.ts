@@ -8,6 +8,7 @@ import { ButtonComponent, FieldComponent, InputDirective, PageTitleComponent } f
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { AUTH_I18N_SCOPE, provideAuthI18n } from '../auth-i18n';
+import { AuthBrandComponent } from '../components/auth-brand.component';
 import {
   createRecoveryForm,
   resetFieldMessage,
@@ -30,18 +31,22 @@ import {
     FieldComponent,
     InputDirective,
     PageTitleComponent,
+    AuthBrandComponent,
   ],
   providers: [provideAuthI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="auth-page">
+      <feat-auth-brand />
       <div class="auth-card">
-        <ui-page-title>{{ 'auth.recovery.title' | transloco }}</ui-page-title>
+        <ui-page-title
+          [subtitle]="sent() ? undefined : ('auth.recovery.description' | transloco)"
+          >{{ 'auth.recovery.title' | transloco }}</ui-page-title
+        >
 
         @if (sent()) {
           <p class="auth-notice" role="status">{{ 'auth.recovery.sent' | transloco }}</p>
         } @else {
-          <p class="auth-lead">{{ 'auth.recovery.description' | transloco }}</p>
           <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="submitting() || null">
             @if (generalError(); as message) {
               <p class="auth-error" role="alert">{{ message }}</p>
@@ -51,12 +56,14 @@ import {
                 uiInput
                 type="email"
                 autocomplete="username"
+                [placeholder]="'auth.login.emailPlaceholder' | transloco"
                 [formField]="recoveryForm.email"
               />
             </ui-field>
             <div class="auth-actions">
               <ui-button
                 type="submit"
+                block
                 [label]="'auth.recovery.submit' | transloco"
                 [loading]="submitting()"
               />

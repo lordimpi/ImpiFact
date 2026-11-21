@@ -33,10 +33,14 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  ButtonLinkDirective,
+  CardActionsDirective,
+  CardComponent,
+  CheckboxComponent,
   FieldComponent,
   InputDirective,
   PageTitleComponent,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom, map } from 'rxjs';
@@ -89,14 +93,18 @@ type OriginalState =
 @Component({
   selector: 'feat-note-issue-page',
   imports: [
+    CheckboxComponent,
+    ButtonLinkDirective,
     FormField,
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardActionsDirective,
     FieldComponent,
     InputDirective,
     PageTitleComponent,
-    SelectDirective,
+    SelectComponent,
     CopCurrencyPipe,
     LineFieldsComponent,
     SearchPickerComponent,
@@ -186,6 +194,7 @@ export class NoteIssuePage implements HasUnsavedChanges {
   protected readonly invoiceLabels: PickerLabels = {
     search: this.text('note.invoiceSearch'),
     hint: this.text('note.invoiceSearchHint'),
+    placeholder: this.text('note.invoiceSearchPlaceholder'),
     results: this.text('note.invoiceResults'),
     none: this.text('note.invoiceNone'),
     searching: this.text('issue.searching'),

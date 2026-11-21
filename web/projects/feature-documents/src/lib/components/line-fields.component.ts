@@ -5,7 +5,7 @@ import {
   FieldComponent,
   InputDirective,
   NonNegativeDirective,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { DOCUMENTS_I18N_SCOPE } from '../documents-i18n';
@@ -34,101 +34,155 @@ const ERROR_KEYS: Record<LineField, string> = {
     FieldComponent,
     InputDirective,
     NonNegativeDirective,
-    SelectDirective,
+    SelectComponent,
     CopCurrencyPipe,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let field = line();
-    <fieldset class="issue-line">
-      <legend>{{ 'documents.issue.line.title' | transloco: { number: index() + 1 } }}</legend>
-      <div class="issue-grid">
+    <fieldset class="line">
+      <legend class="line__legend">
+        {{ 'documents.issue.line.title' | transloco: { number: index() + 1 } }}
+      </legend>
+      <div class="line__header">
+        <p class="line__amount">
+          <span class="line__muted">{{ 'documents.issue.line.amount' | transloco }}</span>
+          <span class="line__value">{{ amount() | cop }}</span>
+        </p>
+        <ui-button
+          variant="ghost"
+          size="small"
+          [label]="'documents.issue.line.remove' | transloco: { number: index() + 1 }"
+          (pressed)="remove.emit()"
+        />
+      </div>
+      <div class="line__grid">
+        <ui-field
+          class="line__description"
+          [label]="'documents.issue.line.description' | transloco"
+          [error]="errors().description"
+          required
+        >
+          <input
+            uiInput
+            type="text"
+            [placeholder]="'documents.issue.line.descriptionPlaceholder' | transloco"
+            [formField]="field.description"
+          />
+        </ui-field>
         <ui-field
           [label]="'documents.issue.line.code' | transloco"
           [error]="errors().code"
           required
         >
-          <input uiInput type="text" [formField]="field.code" />
-        </ui-field>
-        <ui-field
-          class="issue-wide"
-          [label]="'documents.issue.line.description' | transloco"
-          [error]="errors().description"
-          required
-        >
-          <input uiInput type="text" [formField]="field.description" />
+          <input
+            uiInput
+            type="text"
+            [placeholder]="'documents.issue.line.codePlaceholder' | transloco"
+            [formField]="field.code"
+          />
         </ui-field>
         <ui-field
           [label]="'documents.issue.line.quantity' | transloco"
           [error]="errors().quantity"
           required
         >
-          <input uiInput uiNonNegative type="number" step="any" [formField]="field.quantity" />
+          <input
+            uiInput
+            uiNonNegative
+            type="number"
+            step="any"
+            [placeholder]="'documents.issue.line.quantityPlaceholder' | transloco"
+            [formField]="field.quantity"
+          />
         </ui-field>
         <ui-field
           [label]="'documents.issue.line.unitPrice' | transloco"
           [error]="errors().unitPrice"
           required
         >
-          <input uiInput uiNonNegative type="number" step="any" [formField]="field.unitPrice" />
+          <input
+            uiInput
+            uiNonNegative
+            type="number"
+            step="any"
+            [placeholder]="'documents.issue.line.unitPricePlaceholder' | transloco"
+            [formField]="field.unitPrice"
+          />
         </ui-field>
         <ui-field [label]="'documents.issue.line.taxPercent' | transloco">
-          <select uiSelect [formField]="field.taxPercent">
-            @for (option of ivaPercents; track option) {
-              <option [value]="option">
-                {{ 'documents.issue.line.taxOptions.' + option | transloco }}
-              </option>
-            }
-            @if (!ivaPercents.includes($any(taxPercent()))) {
-              <option [value]="taxPercent()">{{ taxPercent() }} %</option>
-            }
-          </select>
+          <ui-select [options]="taxOptions()" [formField]="field.taxPercent" />
         </ui-field>
       </div>
-      <p class="issue-line__amount">
-        <span class="doc-muted">{{ 'documents.issue.line.amount' | transloco }}</span>
-        <span class="doc-amount">{{ amount() | cop }}</span>
-      </p>
-      <ui-button
-        variant="text"
-        size="small"
-        [label]="'documents.issue.line.remove' | transloco: { number: index() + 1 }"
-        (pressed)="remove.emit()"
-      />
     </fieldset>
   `,
   styles: `
-    .issue-line {
-      margin: var(--if-space-3) 0 0;
+    :host {
+      display: block;
+      container-type: inline-size;
+    }
+    .line {
+      margin: 0;
       padding: var(--if-space-3);
-      border: 1px solid var(--if-color-border);
-      border-radius: var(--if-radius-sm);
       min-inline-size: 0;
+      background: var(--if-color-bg);
+      border: 1px solid var(--if-color-border);
+      border-radius: var(--if-radius-md);
     }
-    .issue-line legend {
+    .line__legend {
+      float: inline-start;
+      padding: 0;
+      margin-block-end: var(--if-space-2);
+      font-size: var(--if-font-size-sm);
       font-weight: var(--if-font-weight-bold);
-      padding-inline: var(--if-space-1);
+      line-height: var(--if-control-min-height);
     }
-    .issue-grid {
-      display: grid;
-      gap: 0 var(--if-space-3);
-      grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    .line__header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--if-space-1) var(--if-space-3);
+      align-items: center;
+      justify-content: flex-end;
+      min-block-size: var(--if-control-min-height);
+      margin-block-end: var(--if-space-2);
     }
-    .issue-wide {
-      grid-column: 1 / -1;
-    }
-    .issue-line__amount {
+    .line__amount {
       display: flex;
       gap: var(--if-space-2);
-      justify-content: space-between;
-      margin: 0 0 var(--if-space-2);
+      align-items: baseline;
+      margin: 0;
     }
-    .doc-muted {
+    .line__muted {
+      font-size: var(--if-font-size-sm);
       color: var(--if-color-text-muted);
     }
-    .doc-amount {
-      text-align: end;
+    .line__value {
+      font-weight: var(--if-font-weight-bold);
       font-variant-numeric: tabular-nums;
+    }
+    .line__grid {
+      clear: both;
+      display: grid;
+      gap: 0 var(--if-space-3);
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 9rem), 1fr));
+    }
+    .line__description {
+      grid-column: 1 / -1;
+    }
+    /* Tablet and the issue form beside the totals: description on top, the numbers in one row. */
+    @container (min-width: 32rem) {
+      .line__grid {
+        grid-template-columns: 7rem 5rem minmax(8rem, 1fr) 7rem;
+      }
+    }
+    /* Wide: the whole line in one row. */
+    @container (min-width: 56rem) {
+      .line__grid {
+        grid-template-columns: minmax(12rem, 1fr) 7rem 5rem 10rem 7rem;
+      }
+      .line__description {
+        grid-column: auto;
+      }
     }
   `,
 })
@@ -142,8 +196,18 @@ export class LineFieldsComponent {
   readonly amount = input<number | string | undefined>();
   readonly remove = output<void>();
 
-  protected readonly ivaPercents = IVA_PERCENTS;
-  protected readonly taxPercent = computed(() => this.line()().value().taxPercent);
+  private readonly taxPercent = computed(() => this.line()().value().taxPercent);
+  /** IVA rates of the select; a rate that came from a product or an invoice and is not one of them is kept. */
+  protected readonly taxOptions = computed(() => {
+    const options = IVA_PERCENTS.map((percent) => ({
+      id: percent,
+      name: this.transloco.translate(`${DOCUMENTS_I18N_SCOPE}.issue.line.taxOptions.${percent}`),
+    }));
+    const current = this.taxPercent();
+    return current === '' || (IVA_PERCENTS as readonly string[]).includes(current)
+      ? options
+      : [...options, { id: current, name: `${current} %` }];
+  });
 
   /** Mensaje bajo cada campo, solo después de que la persona lo tocó. */
   protected readonly errors = computed(() => {

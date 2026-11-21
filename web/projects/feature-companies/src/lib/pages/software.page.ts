@@ -2,15 +2,22 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { FormField, submit } from '@angular/forms/signals';
 import { AppError, HasUnsavedChanges, ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   ErrorStateComponent,
   FieldComponent,
   InputDirective,
-  PasswordToggleDirective,
   LoadingComponent,
+  PasswordToggleDirective,
+  TableCellDirective,
+  TableComponent,
+  UiBadgeTone,
+  UiTableColumn,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { companiesText, provideCompaniesI18n } from '../companies-i18n';
+import { companiesTableLabels, companiesText, provideCompaniesI18n } from '../companies-i18n';
 import { fieldMessage, serverFieldErrors } from '../forms/form-messages';
 import {
   SOFTWARE_FIELDS,
@@ -32,9 +39,14 @@ import { CompanySetupStore } from '../state/company-setup.store';
 @Component({
   selector: 'feat-software-page',
   imports: [
+    TableComponent,
+    TableCellDirective,
     FormField,
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     ErrorStateComponent,
     FieldComponent,
     InputDirective,
@@ -45,104 +57,104 @@ import { CompanySetupStore } from '../state/company-setup.store';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="companies-section">
-      <h2>{{ 'companies.software.title' | transloco }}</h2>
-      <p class="companies-lead">{{ 'companies.software.description' | transloco }}</p>
-
-      <form
-        class="companies-form"
-        novalidate
-        (submit)="onSubmit($event)"
-        [attr.aria-busy]="submitting() || null"
-      >
-        @if (generalError(); as message) {
-          <p class="companies-message companies-message--error" role="alert">{{ message }}</p>
-        }
-        <ui-field
-          [label]="'companies.software.id' | transloco"
-          [hint]="'companies.software.idHint' | transloco"
-          [error]="errors().id"
-          required
+      <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="submitting() || null">
+        <ui-card
+          [title]="'companies.software.title' | transloco"
+          [subtitle]="'companies.software.description' | transloco"
         >
-          <input uiInput type="text" autocomplete="off" [formField]="softwareForm.id" />
-        </ui-field>
-        <ui-field
-          [label]="'companies.software.pin' | transloco"
-          [hint]="pinHint()"
-          [error]="errors().pin"
-          [required]="pinRequired()"
-        >
-          <input
-            uiInput
-            uiPasswordToggle
-            type="password"
-            inputmode="numeric"
-            autocomplete="new-password"
-            [formField]="softwareForm.pin"
-          />
-        </ui-field>
-        <ui-field
-          class="companies-form__wide"
-          [label]="'companies.software.testSetId' | transloco"
-          [hint]="'companies.software.testSetIdHint' | transloco"
-          [error]="errors().test_set_id"
-        >
-          <input uiInput type="text" autocomplete="off" [formField]="softwareForm.test_set_id" />
-        </ui-field>
-        <div class="companies-form__actions">
-          <ui-button
-            type="submit"
-            [label]="'companies.common.save' | transloco"
-            [loading]="submitting()"
-          />
-        </div>
+          <div class="companies-grid">
+            @if (generalError(); as message) {
+              <p class="companies-message companies-message--error" role="alert">{{ message }}</p>
+            }
+            <ui-field
+              [label]="'companies.software.id' | transloco"
+              [hint]="'companies.software.idHint' | transloco"
+              [error]="errors().id"
+              required
+            >
+              <input
+                uiInput
+                type="text"
+                autocomplete="off"
+                [placeholder]="'companies.software.placeholders.id' | transloco"
+                [formField]="softwareForm.id"
+              />
+            </ui-field>
+            <ui-field
+              [label]="'companies.software.pin' | transloco"
+              [hint]="pinHint()"
+              [error]="errors().pin"
+              [required]="pinRequired()"
+            >
+              <input
+                uiInput
+                uiPasswordToggle
+                type="password"
+                inputmode="numeric"
+                autocomplete="new-password"
+                [placeholder]="'companies.software.placeholders.pin' | transloco"
+                [formField]="softwareForm.pin"
+              />
+            </ui-field>
+            <ui-field
+              class="companies-wide"
+              [label]="'companies.software.testSetId' | transloco"
+              [hint]="'companies.software.testSetIdHint' | transloco"
+              [error]="errors().test_set_id"
+            >
+              <input
+                uiInput
+                type="text"
+                autocomplete="off"
+                [placeholder]="'companies.software.placeholders.testSetId' | transloco"
+                [formField]="softwareForm.test_set_id"
+              />
+            </ui-field>
+          </div>
+          <div uiCardFooter class="companies-actions">
+            <ui-button
+              type="submit"
+              [label]="'companies.common.save' | transloco"
+              [loading]="submitting()"
+            />
+          </div>
+        </ui-card>
       </form>
 
-      @if (software(); as rows) {
-        @if (rows.length === 0) {
-          <p class="companies-lead">{{ 'companies.software.registeredEmpty' | transloco }}</p>
+      <ui-card
+        [headingLevel]="3"
+        [title]="'companies.software.registered' | transloco"
+        [padding]="software()?.length ? 'none' : 'normal'"
+      >
+        @if (software(); as rows) {
+          @if (rows.length === 0) {
+            <p class="companies-lead">{{ 'companies.software.registeredEmpty' | transloco }}</p>
+          } @else {
+            <ui-table
+              flush
+              [caption]="'companies.software.registered' | transloco"
+              [columns]="softwareColumns()"
+              [rows]="rows"
+              [labels]="tableLabels()"
+            >
+              <ng-template uiTableCell="environment" let-row>
+                <ui-badge [tone]="row.environmentTone">{{ row.environment }}</ui-badge>
+              </ng-template>
+            </ui-table>
+          }
+        } @else if (setup.softwareStatus() === 'error') {
+          <ui-error-state
+            [title]="'companies.software.loadError' | transloco"
+            [retryLabel]="'companies.common.retry' | transloco"
+            (retry)="load()"
+          />
         } @else {
-          <div class="companies-scroll">
-            <table class="companies-table">
-              <caption>
-                {{
-                  'companies.software.registered' | transloco
-                }}
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">{{ 'companies.software.columns.kind' | transloco }}</th>
-                  <th scope="col">{{ 'companies.software.columns.environment' | transloco }}</th>
-                  <th scope="col">{{ 'companies.software.columns.identifier' | transloco }}</th>
-                  <th scope="col">{{ 'companies.software.columns.testSet' | transloco }}</th>
-                  <th scope="col">{{ 'companies.software.columns.pin' | transloco }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (row of rows; track $index) {
-                  <tr>
-                    <td>{{ row.kind }}</td>
-                    <td>{{ row.environment }}</td>
-                    <td>{{ row.identifier }}</td>
-                    <td>{{ row.testSetId }}</td>
-                    <td>{{ row.pin }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+          <ui-loading [label]="'companies.common.loading' | transloco" />
         }
-      } @else if (setup.softwareStatus() === 'error') {
-        <ui-error-state
-          [title]="'companies.software.loadError' | transloco"
-          [retryLabel]="'companies.common.retry' | transloco"
-          (retry)="load()"
-        />
-      } @else {
-        <ui-loading [label]="'companies.common.loading' | transloco" />
-      }
+      </ui-card>
     </section>
   `,
-  styleUrl: './companies-page.css',
+  styleUrls: ['./companies-page.css', './companies-table.css'],
 })
 export class SoftwarePage implements HasUnsavedChanges {
   protected readonly setup = inject(CompanySetupStore);
@@ -165,6 +177,15 @@ export class SoftwarePage implements HasUnsavedChanges {
   protected readonly generalError = signal<string | null>(null);
   protected readonly submitting = computed(() => this.softwareForm().submitting());
 
+  protected readonly tableLabels = computed(() => companiesTableLabels(this.transloco));
+  protected readonly softwareColumns = computed<UiTableColumn[]>(() => [
+    { key: 'kind', header: this.text('software.columns.kind') },
+    { key: 'environment', header: this.text('software.columns.environment') },
+    { key: 'identifier', header: this.text('software.columns.identifier') },
+    { key: 'testSetId', header: this.text('software.columns.testSet') },
+    { key: 'pin', header: this.text('software.columns.pin') },
+  ]);
+
   protected readonly software = computed(() => {
     const rows = this.setup.software();
     return rows
@@ -175,6 +196,9 @@ export class SoftwarePage implements HasUnsavedChanges {
               ? 'environments.production'
               : 'environments.habilitation',
           ),
+          environmentTone: (Number(row.type_environment_id) === PRODUCTION
+            ? 'success'
+            : 'info') as UiBadgeTone,
           identifier: row.identifier ?? '',
           testSetId: row.test_set_id ?? '',
           pin: this.text(row.has_pin ? 'software.pinConfigured' : 'software.pinMissing'),

@@ -2,8 +2,9 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  ElementRef,
+  Injectable,
   ViewEncapsulation,
+  afterRenderEffect,
   booleanAttribute,
   computed,
   effect,
@@ -14,8 +15,12 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { FilterService } from '@openng/optimus-ui/api';
+import { Select } from '@openng/optimus-ui/select';
 import { ButtonComponent } from '../button/button.component';
+import { connectAccessor, selectPassThrough } from '../field/field-control';
 import { FieldComponent } from '../field/field.component';
+import { applyOptimusTexts } from '../field/optimus-texts';
 
 /** Una opción de la lista: el id del registro y su nombre visible. */
 export interface ComboboxOption {
@@ -28,7 +33,7 @@ export type ComboboxStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 /** Textos del combobox, ya traducidos. */
 export interface ComboboxLabels {
-  /** Texto dentro del campo vacío que invita a escribir («Escriba para buscar…»). */
+  /** Texto del campo vacío y de la caja de búsqueda que invita a escribir («Escriba para buscar…»). */
   placeholder?: string;
   /** Por qué todavía no hay opciones («Seleccione primero el departamento»). */
   idle?: string;
@@ -39,83 +44,71 @@ export interface ComboboxLabels {
   retry: string;
 }
 
+/** An option as the Optimus select shows it: the id as text (the value of the form) and the name. */
+interface ComboboxItem {
+  value: string;
+  name: string;
+}
+
+/**
+ * The server searches: the select shows the options it receives as they are, without filtering them again in the
+ * browser (the server matches without accents and by code; the browser would hide some of those results).
+ */
+@Injectable()
+class ServerSideFilter extends FilterService {
+  override filter<T>(value: T[]): T[] {
+    return value;
+  }
+}
+
 let nextId = 0;
 
 /** Distancia al final de la lista (en píxeles) desde la que se pide la página siguiente. */
 const LOAD_MORE_THRESHOLD_PX = 48;
 
 /**
- * Combobox con búsqueda en el servidor (presentación; patrón ARIA «combobox» con lista): se escribe para filtrar, se
- * recorre con las flechas, Enter elige y Escape cierra. Al bajar hasta el final de la lista, con el mouse o con el
- * teclado, pide la página siguiente (`loadMore`), sin botón. Quien lo usa busca en el Api con lo que emite
- * `termChange` y le pasa las opciones; aquí no se filtra nada. Es un control de Signal Forms (`[formField]`): su
- * valor es el id elegido como texto, vacío si no hay ninguno. Dentro de `ui-field` toma la etiqueta, la ayuda y el
- * error.
+ * Lista con búsqueda en el servidor sobre el select de Optimus UI (`p-select` con caja de búsqueda): se abre, se
+ * escribe en la caja para buscar, se recorre con las flechas, Enter elige y Escape cierra. Al bajar hasta el final de
+ * la lista, con el mouse o con el teclado, pide la página siguiente (`loadMore`), sin botón. Quien lo usa busca en el
+ * Api con lo que emite `termChange` y le pasa las opciones; aquí no se filtra nada. Es un control de Signal Forms
+ * (`[formField]`): su valor es el id elegido como texto, vacío si no hay ninguno. El elegido conserva su nombre aunque
+ * la búsqueda siguiente no lo traiga. Dentro de `ui-field` toma la etiqueta, la ayuda y el error. Con `locked` queda
+ * deshabilitado por una razón ajena al campo (el municipio, mientras no hay departamento).
  *
- * Uso: `<ui-field ...><ui-combobox [formField]="form.municipality_id" [options]="..." [labels]="..." /></ui-field>`
+ * Uso: `<ui-field ...><ui-combobox [formField]="form.municipality_id" [options]="..." [labels]="..."
+ * [locked]="location.municipalityLocked()" /></ui-field>`
  */
 @Component({
   selector: 'ui-combobox',
-  imports: [ButtonComponent],
+  imports: [Select, ButtonComponent],
+  viewProviders: [{ provide: FilterService, useClass: ServerSideFilter }],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // Sin encapsulación para compartir el estilo de los controles de ui-field; las clases llevan el prefijo ui-combobox.
+  // Sin encapsulación: el select de Optimus conserva sus clases; las propias llevan el prefijo ui-combobox.
   encapsulation: ViewEncapsulation.None,
   template: `
     <div class="ui-combobox">
-      <div class="ui-combobox__box">
-        <input
-          #control
-          class="ui-field__control ui-select ui-combobox__input"
-          type="text"
-          role="combobox"
-          autocomplete="off"
-          aria-autocomplete="list"
-          [id]="field?.controlId ?? ownId"
-          [value]="text()"
-          [attr.placeholder]="labels().placeholder ?? null"
-          [disabled]="disabled()"
-          [attr.aria-expanded]="open()"
-          [attr.aria-controls]="listId"
-          [attr.aria-activedescendant]="activeOptionId()"
-          [attr.aria-describedby]="describedBy()"
-          [attr.aria-invalid]="field?.invalid() ? 'true' : null"
-          [attr.aria-required]="field?.required() || required() ? 'true' : null"
-          (input)="onType($event)"
-          (keydown)="onKeydown($event)"
-          (click)="show()"
-          (blur)="onBlur()"
-        />
-        <span class="ui-combobox__arrow" aria-hidden="true"></span>
-      </div>
-      @if (open()) {
-        <ul
-          #list
-          class="ui-combobox__list"
-          role="listbox"
-          [id]="listId"
-          [attr.aria-labelledby]="field?.labelId ?? null"
-          (scroll)="onScroll()"
-        >
-          @for (option of options(); track option.id; let index = $index) {
-            <!-- El teclado lo maneja el campo de texto (aria-activedescendant): la opción no recibe foco. -->
-            <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
-            <li
-              class="ui-combobox__option"
-              role="option"
-              [id]="optionId(option)"
-              [class.ui-combobox__option--active]="index === active()"
-              [attr.aria-selected]="'' + option.id === value()"
-              (mousedown)="$event.preventDefault()"
-              (click)="choose(option)"
-            >
-              {{ option.name }}
-            </li>
-          }
-          @if (hasMore()) {
-            <li #sentinel class="ui-combobox__sentinel" role="presentation"></li>
-          }
-        </ul>
-      }
+      <p-select
+        [options]="items()"
+        optionLabel="name"
+        optionValue="value"
+        [filter]="true"
+        [resetFilterOnHide]="true"
+        [placeholder]="labels().placeholder"
+        [filterPlaceholder]="labels().placeholder"
+        [ariaFilterLabel]="labels().placeholder ?? field?.label()"
+        [emptyMessage]="emptyMessage()"
+        [emptyFilterMessage]="emptyMessage()"
+        [inputId]="field?.controlId ?? ownId"
+        [ariaLabelledBy]="field?.labelId"
+        [disabled]="disabled() || locked()"
+        [required]="required() || (field?.required() ?? false)"
+        [invalid]="field?.invalid() ?? false"
+        scrollHeight="16rem"
+        [pt]="passThrough()"
+        (onFilter)="onFilter($event.filter)"
+        (onShow)="onShow()"
+        (onHide)="onHide()"
+      />
       <div class="ui-combobox__status" [id]="statusId" aria-live="polite">
         @switch (status()) {
           @case ('idle') {
@@ -146,60 +139,9 @@ const LOAD_MORE_THRESHOLD_PX = 48;
   `,
   styles: `
     .ui-combobox {
-      position: relative;
       display: flex;
       flex-direction: column;
       gap: var(--if-space-1);
-    }
-    .ui-combobox__box {
-      position: relative;
-      display: flex;
-    }
-    .ui-combobox__input {
-      flex: 1;
-      min-inline-size: 0;
-      padding-inline-end: calc(var(--if-control-padding-x) * 3);
-    }
-    .ui-combobox__arrow {
-      position: absolute;
-      inset-block-start: 50%;
-      inset-inline-end: var(--if-control-padding-x);
-      inline-size: 0.5rem;
-      block-size: 0.5rem;
-      border-inline-end: 2px solid var(--if-color-text-muted);
-      border-block-end: 2px solid var(--if-color-text-muted);
-      transform: translateY(-75%) rotate(45deg);
-      pointer-events: none;
-    }
-    .ui-combobox__list {
-      position: absolute;
-      inset-block-start: calc(var(--if-control-min-height) + var(--if-space-1));
-      inset-inline: 0;
-      z-index: 30;
-      max-block-size: 16rem;
-      margin: 0;
-      padding: var(--if-space-1) 0;
-      overflow-y: auto;
-      list-style: none;
-      background: var(--if-color-bg);
-      border: 1px solid var(--if-color-border-strong);
-      border-radius: var(--if-radius-sm);
-      box-shadow: var(--if-shadow-overlay);
-    }
-    .ui-combobox__option {
-      padding: var(--if-space-2) var(--if-control-padding-x);
-      color: var(--if-color-text);
-      cursor: pointer;
-    }
-    .ui-combobox__option:hover,
-    .ui-combobox__option--active {
-      background: var(--if-color-primary-subtle);
-    }
-    .ui-combobox__option[aria-selected='true'] {
-      font-weight: var(--if-font-weight-bold);
-    }
-    .ui-combobox__sentinel {
-      block-size: 1px;
     }
     .ui-combobox__status:empty {
       display: none;
@@ -227,174 +169,134 @@ export class ComboboxComponent {
   readonly labels = input.required<ComboboxLabels>();
   readonly disabled = input(false, { transform: booleanAttribute });
   readonly required = input(false, { transform: booleanAttribute });
-  /** Texto escrito para buscar; vacío al elegir una opción o al salir del campo. */
+  /**
+   * Disabled for a reason outside the form field, for example the municipality while no department is chosen. It
+   * does not change the field: the value stays and Signal Forms keep validating it.
+   */
+  readonly locked = input(false, { transform: booleanAttribute });
+  /** Texto escrito para buscar; vacío al cerrar la lista después de buscar. */
   readonly termChange = output<string>();
   readonly loadMore = output<void>();
   readonly retry = output<void>();
-  /** El campo perdió el foco (Signal Forms lo marca como tocado). */
+  /** El campo perdió el foco o se cerró la lista (Signal Forms lo marca como tocado). */
   readonly touch = output<void>();
 
   protected readonly field = inject(FieldComponent, { optional: true });
   protected readonly ownId = `ui-combobox-${nextId++}`;
-  protected readonly listId = `${this.ownId}-list`;
   protected readonly statusId = `${this.ownId}-status`;
 
-  private readonly control = viewChild.required<ElementRef<HTMLInputElement>>('control');
-  private readonly list = viewChild<ElementRef<HTMLUListElement>>('list');
-  private readonly sentinel = viewChild<ElementRef<HTMLLIElement>>('sentinel');
+  private readonly select = viewChild.required(Select);
+  protected readonly passThrough = selectPassThrough(this.field, () => this.statusId);
+  private readonly open = signal(false);
+  /** Lo que la persona escribió en la caja de búsqueda; vacío sin búsqueda. */
+  private readonly term = signal('');
+  /** The chosen option, to keep showing its name when a later search does not bring it. */
+  private readonly chosen = signal<ComboboxOption | null>(null);
 
-  protected readonly open = signal(false);
-  protected readonly active = signal(-1);
-  /** Lo que la persona escribió; `null` mientras muestra el nombre de la opción elegida. */
-  private readonly query = signal<string | null>(null);
-
-  private readonly selectedName = computed(
-    () => this.options().find((option) => String(option.id) === this.value())?.name ?? '',
-  );
-  protected readonly text = computed(() => this.query() ?? this.selectedName());
-  protected readonly activeOptionId = computed(() => {
-    const option = this.open() ? this.options()[this.active()] : undefined;
-    return option ? this.optionId(option) : null;
+  protected readonly items = computed<ComboboxItem[]>(() => {
+    const items = this.options().map((option) => ({ value: String(option.id), name: option.name }));
+    const chosen = this.chosen();
+    const value = this.value();
+    if (chosen && String(chosen.id) === value && !items.some((item) => item.value === value)) {
+      items.push({ value, name: chosen.name });
+    }
+    return items;
   });
-  protected readonly describedBy = computed(() => {
-    const ids = [this.field?.describedBy() ?? null, this.statusId].filter((id) => id !== null);
-    return ids.join(' ');
+
+  protected readonly emptyMessage = computed(() => {
+    const labels = this.labels();
+    switch (this.status()) {
+      case 'idle':
+        return labels.idle ?? labels.empty;
+      case 'loading':
+        return labels.loading;
+      case 'error':
+        return labels.error;
+      default:
+        return labels.empty;
+    }
   });
 
   constructor() {
-    // Con el final de la lista a la vista se pide la página siguiente (también si la lista no alcanza a tener scroll).
-    const destroyRef = inject(DestroyRef);
-    let observer: IntersectionObserver | null = null;
-    destroyRef.onDestroy(() => observer?.disconnect());
+    applyOptimusTexts();
+    connectAccessor(this.select, this.value, () => this.touch.emit());
+
+    // Remember the name of the chosen option while it is among the options.
     effect(() => {
-      observer?.disconnect();
-      observer = null;
-      const sentinel = this.sentinel()?.nativeElement;
-      const list = this.list()?.nativeElement;
-      if (!sentinel || !list || typeof IntersectionObserver === 'undefined') {
-        return;
+      const value = this.value();
+      const option = this.options().find((candidate) => String(candidate.id) === value);
+      if (option) this.chosen.set(option);
+    });
+
+    // The next page is asked for with the keyboard on the last option, with the open list scrolled to its end, or
+    // when the list is too short to scroll.
+    const destroyRef = inject(DestroyRef);
+    let list: HTMLElement | null = null;
+    const onScroll = () => {
+      // jsdom has no layout (clientHeight 0): only a rendered list is measured.
+      if (
+        list &&
+        list.clientHeight > 0 &&
+        list.scrollTop + list.clientHeight >= list.scrollHeight - LOAD_MORE_THRESHOLD_PX
+      ) {
+        this.requestMore();
       }
-      observer = new IntersectionObserver(
-        (entries) => {
-          if (entries.some((entry) => entry.isIntersecting)) this.requestMore();
-        },
-        { root: list },
-      );
-      observer.observe(sentinel);
+    };
+    destroyRef.onDestroy(() => list?.removeEventListener('scroll', onScroll));
+    afterRenderEffect({
+      write: () => {
+        const open = this.open();
+        const focused = this.select().focusedOptionIndex();
+        const count = this.items().length;
+        this.hasMore();
+        this.status();
+        const container = open ? this.listContainer() : null;
+        if (container !== list) {
+          list?.removeEventListener('scroll', onScroll);
+          list = container;
+          list?.addEventListener('scroll', onScroll, { passive: true });
+        }
+        if (!open) return;
+        if (count > 0 && focused >= count - 1) this.requestMore();
+        onScroll();
+      },
     });
   }
 
-  /** Para Signal Forms: `focusBoundControl()` lleva el foco al campo de texto. */
-  focus(options?: FocusOptions): void {
-    this.control().nativeElement.focus(options);
+  /** Para Signal Forms: `focusBoundControl()` lleva el foco al select. */
+  focus(): void {
+    this.select().focus();
   }
 
-  protected optionId(option: ComboboxOption): string {
-    return `${this.listId}-${option.id}`;
-  }
-
-  protected show(): void {
-    if (this.disabled() || this.open()) {
-      return;
-    }
-    this.open.set(true);
-    this.active.set(Math.max(this.selectedIndex(), 0));
-  }
-
-  protected onType(event: Event): void {
-    const text = (event.target as HTMLInputElement).value;
-    this.query.set(text);
+  protected onFilter(term: string | null | undefined): void {
+    const text = term ?? '';
+    this.term.set(text);
     this.termChange.emit(text);
+  }
+
+  protected onShow(): void {
     this.open.set(true);
-    this.active.set(-1);
   }
 
-  protected onKeydown(event: KeyboardEvent): void {
-    const count = this.options().length;
-    switch (event.key) {
-      case 'ArrowDown':
-        event.preventDefault();
-        if (!this.open()) {
-          this.show();
-        } else if (count > 0) {
-          this.moveTo(Math.min(this.active() + 1, count - 1));
-        }
-        if (this.active() >= count - 1) this.requestMore();
-        return;
-      case 'ArrowUp':
-        event.preventDefault();
-        if (this.open() && count > 0) this.moveTo(Math.max(this.active() - 1, 0));
-        return;
-      case 'Enter': {
-        const option = this.open() ? this.options()[this.active()] : undefined;
-        if (option) {
-          event.preventDefault();
-          this.choose(option);
-        } else if (this.open()) {
-          event.preventDefault();
-        }
-        return;
-      }
-      case 'Escape':
-        if (this.open()) {
-          event.preventDefault();
-          event.stopPropagation();
-          this.open.set(false);
-        } else if (this.query() !== null) {
-          this.restore();
-        }
-        return;
-      case 'Tab':
-        this.open.set(false);
-        return;
-    }
-  }
-
-  protected choose(option: ComboboxOption): void {
-    this.value.set(String(option.id));
-    this.restore();
+  protected onHide(): void {
     this.open.set(false);
-  }
-
-  protected onBlur(): void {
-    this.open.set(false);
-    if (this.query() === '') {
-      // Borrar el texto y salir deja el campo sin valor.
-      this.value.set('');
-      this.restore();
-    } else if (this.query() !== null) {
-      this.restore();
+    // Closing the list clears the search box: the next search starts from the first page.
+    if (this.term() !== '') {
+      this.term.set('');
+      this.termChange.emit('');
     }
     this.touch.emit();
   }
 
-  protected onScroll(): void {
-    const list = this.list()?.nativeElement;
-    if (list && list.scrollTop + list.clientHeight >= list.scrollHeight - LOAD_MORE_THRESHOLD_PX) {
-      this.requestMore();
-    }
+  private listElement(): HTMLElement | null {
+    return document.getElementById(`${this.select().id}_list`);
   }
 
-  /** Vuelve a mostrar el nombre de lo elegido y deja la búsqueda sin texto. */
-  private restore(): void {
-    const typed = this.query() !== null && this.query() !== '';
-    this.query.set(null);
-    if (typed) this.termChange.emit('');
+  private listContainer(): HTMLElement | null {
+    return this.listElement()?.parentElement ?? null;
   }
 
   private requestMore(): void {
     if (this.hasMore() && this.status() === 'ready') this.loadMore.emit();
-  }
-
-  private selectedIndex(): number {
-    return this.options().findIndex((option) => String(option.id) === this.value());
-  }
-
-  private moveTo(index: number): void {
-    this.active.set(index);
-    const option = this.options()[index];
-    const element = option ? document.getElementById(this.optionId(option)) : null;
-    // jsdom no tiene scrollIntoView.
-    element?.scrollIntoView?.({ block: 'nearest' });
   }
 }

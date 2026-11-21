@@ -1,5 +1,5 @@
 import { Provider } from '@angular/core';
-import { PanelSessionTokens } from '@impifact/api';
+import { PanelSessionTokens } from '../api-shell';
 import { SessionMessage, SessionSync } from '../session/session-sync';
 
 /*
@@ -69,6 +69,7 @@ export function panelTokens(overrides: Partial<PanelSessionTokens> = {}): PanelS
     company_id: 'company-1',
     roles: ['owner'],
     companies: ['company-1', 'company-2'],
+    email: 'ana@example.test',
     ...overrides,
   };
 }

@@ -11,6 +11,7 @@ import {
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { AUTH_I18N_SCOPE, provideAuthI18n } from '../auth-i18n';
+import { AuthBrandComponent } from '../components/auth-brand.component';
 import {
   createLoginForm,
   fieldMessage,
@@ -20,8 +21,10 @@ import {
 import { safeReturnUrl } from '../navigation/return-url';
 
 /**
- * Inicio de sesión (`/login`). Tras entrar vuelve a la ruta que pidió la sesión (`returnUrl`), o pasa por la
- * selección de empresa si el usuario tiene empresas y ninguna quedó activa, o va al inicio.
+ * Inicio de sesión (`/login`): el formulario a la izquierda y, a la derecha, un panel de color que dice en breve qué
+ * hace ImpiFact (debajo del formulario en pantallas angostas). Tras entrar vuelve a la ruta que pidió la sesión
+ * (`returnUrl`), o pasa por la selección de empresa si el usuario tiene empresas y ninguna quedó activa, o va al
+ * inicio.
  */
 @Component({
   selector: 'feat-login-page',
@@ -34,11 +37,12 @@ import { safeReturnUrl } from '../navigation/return-url';
     InputDirective,
     PasswordToggleDirective,
     PageTitleComponent,
+    AuthBrandComponent,
   ],
   providers: [provideAuthI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './login.page.html',
-  styleUrl: './auth-page.css',
+  styleUrls: ['./auth-page.css', './login.page.css'],
 })
 export class LoginPage {
   private readonly session = inject(SessionStore);
@@ -50,6 +54,13 @@ export class LoginPage {
   readonly returnUrl = input<string>();
   /** Motivo por el que se llegó al login (`inactivity`, `password-reset`), si lo hubo. */
   readonly reason = input<string>();
+
+  /** Points of the side panel that says what ImpiFact does. */
+  protected readonly introPoints = [
+    'auth.login.intro.invoices',
+    'auth.login.intro.status',
+    'auth.login.intro.companies',
+  ] as const;
 
   protected readonly loginForm = createLoginForm();
   protected readonly submitting = computed(() => this.loginForm().submitting());

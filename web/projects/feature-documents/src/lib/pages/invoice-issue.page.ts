@@ -19,11 +19,16 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  ButtonLinkDirective,
+  CardActionsDirective,
+  CardComponent,
+  CheckboxComponent,
+  DatePickerComponent,
   FieldComponent,
   InputDirective,
   NonNegativeDirective,
   PageTitleComponent,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom, map } from 'rxjs';
@@ -62,15 +67,20 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 @Component({
   selector: 'feat-invoice-issue-page',
   imports: [
+    CheckboxComponent,
+    ButtonLinkDirective,
     FormField,
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardActionsDirective,
+    DatePickerComponent,
     FieldComponent,
     InputDirective,
     NonNegativeDirective,
     PageTitleComponent,
-    SelectDirective,
+    SelectComponent,
     LineFieldsComponent,
     SearchPickerComponent,
     TotalsPanelComponent,
@@ -92,8 +102,12 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
   private readonly idempotencyKey = crypto.randomUUID();
 
   protected readonly invoiceForm = createInvoiceForm();
-  protected readonly paymentForms = PAYMENT_FORMS;
-  protected readonly paymentMethods = PAYMENT_METHODS;
+  protected readonly paymentForms = computed(() =>
+    PAYMENT_FORMS.map((id) => ({ id, name: this.text(`issue.paymentForms.${id}`) })),
+  );
+  protected readonly paymentMethods = computed(() =>
+    PAYMENT_METHODS.map((id) => ({ id, name: this.text(`issue.paymentMethods.${id}`) })),
+  );
 
   protected readonly customer = signal<CustomerResponse | null>(null);
   /** Correo del cliente elegido, para explicar a dónde irá la factura (vacío si no tiene). */
@@ -287,6 +301,7 @@ export class InvoiceIssuePage implements HasUnsavedChanges {
     return {
       search: this.text(`issue.${kind}Search`),
       hint: this.text(`issue.${kind}SearchHint`),
+      placeholder: this.text(`issue.${kind}SearchPlaceholder`),
       results: this.text(`issue.${kind}Results`),
       none: this.text(`issue.${kind}None`),
       searching: this.text('issue.searching'),

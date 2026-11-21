@@ -34,6 +34,8 @@ export type { CompanyResponse } from './models/company-response';
 export type { CompanySavedResponse } from './models/company-saved-response';
 export type { CompanySetupStatusResponse } from './models/company-setup-status-response';
 export type { CompanySoftwareResponse } from './models/company-software-response';
+export type { CompanyUser } from './models/company-user';
+export type { CompanyUserList } from './models/company-user-list';
 export type { ConfiguredSoftwareResponse } from './models/configured-software-response';
 export type { CreateApiKeyBody } from './models/create-api-key-body';
 export type { CreateCompanyCommand } from './models/create-company-command';
@@ -115,6 +117,7 @@ export type { SoftwareSavedResponse } from './models/software-saved-response';
 export type { StorePlanCommand } from './models/store-plan-command';
 export type { TotalDocumentsResponse } from './models/total-documents-response';
 export type { UpdateCompanyCommand } from './models/update-company-command';
+export type { UpdateCompanyUserBody } from './models/update-company-user-body';
 export type { UpdateCustomerCommand } from './models/update-customer-command';
 export type { UpdateProductCommand } from './models/update-product-command';
 export type { UploadCertificateCommand } from './models/upload-certificate-command';
@@ -123,6 +126,10 @@ export type { UtilityDocumentResponse } from './models/utility-document-response
 
 export type { ListPlatformCompanies$Params as ListPlatformCompanies$Params } from './fn/empresas/list-platform-companies';
 export { listPlatformCompanies as listPlatformCompanies } from './fn/empresas/list-platform-companies';
+export type { ListCompanyUsers$Params as ListCompanyUsers$Params } from './fn/empresas/list-company-users';
+export { listCompanyUsers as listCompanyUsers } from './fn/empresas/list-company-users';
+export type { UpdateCompanyUser$Params as UpdateCompanyUser$Params } from './fn/empresas/update-company-user';
+export { updateCompanyUser as updateCompanyUser } from './fn/empresas/update-company-user';
 export type { UpdateCompany$Params as UpdateCompany$Params } from './fn/empresas/update-company';
 export { updateCompany as updateCompany } from './fn/empresas/update-company';
 export type { CreateCompany$Params as CreateCompany$Params } from './fn/empresas/create-company';
@@ -213,6 +220,10 @@ export type { ListDocuments$Params as ListDocuments$Params } from './fn/document
 export { listDocuments as listDocuments } from './fn/documentos/list-documents';
 export type { ExportDocumentsCsv$Params as ExportDocumentsCsv$Params } from './fn/documentos/export-documents-csv';
 export { exportDocumentsCsv as exportDocumentsCsv } from './fn/documentos/export-documents-csv';
+export type { ExportDocumentsXlsx$Params as ExportDocumentsXlsx$Params } from './fn/documentos/export-documents-xlsx';
+export { exportDocumentsXlsx as exportDocumentsXlsx } from './fn/documentos/export-documents-xlsx';
+export type { ExportDocumentsPdf$Params as ExportDocumentsPdf$Params } from './fn/documentos/export-documents-pdf';
+export { exportDocumentsPdf as exportDocumentsPdf } from './fn/documentos/export-documents-pdf';
 export type { GetDocument$Params as GetDocument$Params } from './fn/documentos/get-document';
 export { getDocument as getDocument } from './fn/documentos/get-document';
 export type { GetDocumentByCufe$Params as GetDocumentByCufe$Params } from './fn/documentos/get-document-by-cufe';

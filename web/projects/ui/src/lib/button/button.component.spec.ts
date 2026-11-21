@@ -55,4 +55,28 @@ describe('ButtonComponent', () => {
 
     expect(screen.getByRole('button', { name: 'Borrar' }).classList).toContain('p-button-danger');
   });
+
+  it('renders the ghost variant as a borderless text button', async () => {
+    await render(ButtonComponent, { inputs: { label: 'Ver detalle', variant: 'ghost' } });
+
+    expect(screen.getByRole('button', { name: 'Ver detalle' }).classList).toContain(
+      'p-button-text',
+    );
+  });
+
+  it('applies the small and large sizes', async () => {
+    await render(
+      `<ui-button label="Chico" size="small" /><ui-button label="Grande" size="large" />`,
+      { imports: [ButtonComponent] },
+    );
+
+    expect(screen.getByRole('button', { name: 'Chico' }).classList).toContain('p-button-sm');
+    expect(screen.getByRole('button', { name: 'Grande' }).classList).toContain('p-button-lg');
+  });
+
+  it('can fill the width of its container', async () => {
+    await render(ButtonComponent, { inputs: { label: 'Ingresar', block: true } });
+
+    expect(screen.getByRole('button', { name: 'Ingresar' }).classList).toContain('p-button-fluid');
+  });
 });

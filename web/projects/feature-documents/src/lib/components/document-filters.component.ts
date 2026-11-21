@@ -1,6 +1,24 @@
-import { ChangeDetectionStrategy, Component, effect, input, output, signal } from '@angular/core';
-import { ButtonComponent, FieldComponent, InputDirective, SelectDirective } from '@impifact/ui';
-import { TranslocoPipe } from '@jsverse/transloco';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
+import {
+  BadgeComponent,
+  ButtonComponent,
+  CheckboxComponent,
+  DatePickerComponent,
+  FieldComponent,
+  InputDirective,
+  SelectComponent,
+} from '@impifact/ui';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { DOCUMENTS_I18N_SCOPE } from '../documents-i18n';
 import { DOCUMENT_KINDS, DOCUMENT_STATUSES, kindKey, statusKey } from '../models/document-status';
 import { DocumentFilters } from '../state/list-filters';
 
@@ -10,7 +28,16 @@ import { DocumentFilters } from '../state/list-filters';
  */
 @Component({
   selector: 'feat-document-filters',
-  imports: [TranslocoPipe, ButtonComponent, FieldComponent, InputDirective, SelectDirective],
+  imports: [
+    TranslocoPipe,
+    BadgeComponent,
+    ButtonComponent,
+    CheckboxComponent,
+    DatePickerComponent,
+    FieldComponent,
+    InputDirective,
+    SelectComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <form class="filters" novalidate (submit)="submit($event)">
@@ -18,28 +45,27 @@ import { DocumentFilters } from '../state/list-filters';
         <legend class="filters__legend">{{ 'documents.filters.title' | transloco }}</legend>
         <div class="filters__grid">
           <ui-field [label]="'documents.filters.from' | transloco">
-            <input
-              uiInput
-              type="date"
-              name="from"
+            <ui-date-picker
+              [placeholder]="'documents.filters.datePlaceholder' | transloco"
               [value]="from()"
-              (change)="from.set(read($event))"
+              (valueChange)="from.set($event)"
             />
           </ui-field>
           <ui-field [label]="'documents.filters.to' | transloco">
-            <input uiInput type="date" name="to" [value]="to()" (change)="to.set(read($event))" />
+            <ui-date-picker
+              [placeholder]="'documents.filters.datePlaceholder' | transloco"
+              [value]="to()"
+              (valueChange)="to.set($event)"
+            />
           </ui-field>
           <ui-field [label]="'documents.filters.kind' | transloco">
-            <select uiSelect name="kind" (change)="kind.set(read($event))">
-              <option value="" [selected]="!kind()">
-                {{ 'documents.filters.anyKind' | transloco }}
-              </option>
-              @for (option of kinds; track option) {
-                <option [value]="option" [selected]="kind() === option">
-                  {{ 'documents.' + kindKey(option) | transloco }}
-                </option>
-              }
-            </select>
+            <!-- '' is «all types»: an option of its own, so the person can go back to it. -->
+            <ui-select
+              [options]="kindOptions()"
+              [placeholder]="'documents.filters.anyKind' | transloco"
+              [value]="kind()"
+              (valueChange)="kind.set($event)"
+            />
           </ui-field>
           <ui-field
             [label]="'documents.filters.customer' | transloco"
@@ -49,6 +75,7 @@ import { DocumentFilters } from '../state/list-filters';
               uiInput
               type="search"
               name="customer"
+              [placeholder]="'documents.filters.customerPlaceholder' | transloco"
               [value]="customer()"
               (input)="customer.set(read($event))"
             />
@@ -61,99 +88,81 @@ import { DocumentFilters } from '../state/list-filters';
               uiInput
               type="search"
               name="number"
+              [placeholder]="'documents.filters.numberPlaceholder' | transloco"
               [value]="number()"
               (input)="number.set(read($event))"
             />
           </ui-field>
         </div>
 
-        <fieldset class="filters__statuses">
-          <legend>{{ 'documents.filters.status' | transloco }}</legend>
-          <p class="filters__hint">{{ 'documents.filters.statusHint' | transloco }}</p>
-          <div class="filters__checks">
-            @for (option of statuses; track option) {
-              <label class="filters__check">
-                <input
-                  type="checkbox"
-                  [checked]="status().includes(option)"
-                  (change)="toggleStatus(option, $event)"
-                />
-                {{ 'documents.' + statusKey(option) | transloco }}
-              </label>
+        <!-- The long DIAN status list stays folded; it opens by itself when the URL filters by status. The summary
+             follows the real state (toggle event): «Más filtros» folded, «Menos filtros» open. -->
+        <details
+          #more
+          class="filters__more"
+          [open]="appliedStatuses() > 0"
+          (toggle)="moreOpen.set(more.open)"
+        >
+          <summary class="filters__summary">
+            <span>{{
+              (moreOpen() ? 'documents.filters.less' : 'documents.filters.more') | transloco
+            }}</span>
+            @if (status().length > 0) {
+              <ui-badge tone="info">{{
+                'documents.filters.statusCount' | transloco: { count: status().length }
+              }}</ui-badge>
             }
-          </div>
-        </fieldset>
-
-        <label class="filters__check">
-          <input
-            type="checkbox"
-            [checked]="withTotal()"
-            (change)="withTotal.set(checked($event))"
-          />
-          {{ 'documents.filters.withTotal' | transloco }}
-        </label>
+          </summary>
+          <fieldset class="filters__statuses">
+            <legend>{{ 'documents.filters.status' | transloco }}</legend>
+            <p class="filters__hint">{{ 'documents.filters.statusHint' | transloco }}</p>
+            <div class="filters__checks">
+              @for (option of statuses; track option) {
+                <ui-checkbox
+                  class="filters__chip"
+                  [class.filters__chip--checked]="status().includes(option)"
+                  [checked]="status().includes(option)"
+                  (checkedChange)="toggleStatus(option, $event)"
+                  [label]="'documents.' + statusKey(option) | transloco"
+                />
+              }
+            </div>
+          </fieldset>
+        </details>
 
         <div class="filters__actions">
-          <ui-button type="submit" [label]="'documents.filters.apply' | transloco" />
-          <ui-button
-            variant="text"
-            [label]="'documents.filters.clear' | transloco"
-            (pressed)="clear()"
+          <ui-checkbox
+            [checked]="withTotal()"
+            (checkedChange)="withTotal.set($event)"
+            [label]="'documents.filters.withTotal' | transloco"
           />
+          <div class="filters__buttons">
+            <ui-button
+              variant="ghost"
+              [label]="'documents.filters.clear' | transloco"
+              (pressed)="clear()"
+            />
+            <ui-button type="submit" [label]="'documents.filters.apply' | transloco" />
+          </div>
         </div>
       </fieldset>
     </form>
   `,
-  styles: `
-    .filters__group,
-    .filters__statuses {
-      margin: 0;
-      padding: 0;
-      border: 0;
-      min-inline-size: 0;
-    }
-    .filters__legend {
-      font-weight: var(--if-font-weight-bold);
-      margin-block-end: var(--if-space-2);
-    }
-    .filters__grid {
-      display: grid;
-      gap: var(--if-space-3);
-      grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-    }
-    .filters__statuses {
-      margin-block: var(--if-space-3);
-    }
-    .filters__hint {
-      margin: 0 0 var(--if-space-2);
-      color: var(--if-color-text-muted);
-      font-size: var(--if-font-size-sm);
-    }
-    .filters__checks {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--if-space-2) var(--if-space-3);
-    }
-    .filters__check {
-      display: inline-flex;
-      gap: var(--if-space-1);
-      align-items: center;
-    }
-    .filters__actions {
-      display: flex;
-      gap: var(--if-space-2);
-      margin-block-start: var(--if-space-3);
-    }
-  `,
+  styleUrl: './document-filters.component.css',
 })
 export class DocumentFiltersComponent {
+  private readonly transloco = inject(TranslocoService);
+
   /** Filtros vigentes (los de la URL). */
   readonly filters = input<DocumentFilters>({});
   readonly apply = output<DocumentFilters>();
 
-  protected readonly kinds = DOCUMENT_KINDS;
+  /** Document types for the select; '' (all types) first. */
+  protected readonly kindOptions = computed(() => [
+    { id: '', name: this.text('filters.anyKind') },
+    ...DOCUMENT_KINDS.map((kind) => ({ id: kind, name: this.text(kindKey(kind)) })),
+  ]);
   protected readonly statuses = DOCUMENT_STATUSES;
-  protected readonly kindKey = kindKey;
   protected readonly statusKey = statusKey;
 
   protected readonly from = signal('');
@@ -163,6 +172,10 @@ export class DocumentFiltersComponent {
   protected readonly customer = signal('');
   protected readonly number = signal('');
   protected readonly withTotal = signal(false);
+  /** DIAN statuses of the applied filters (the URL): with any, «Más filtros» starts open. */
+  protected readonly appliedStatuses = computed(() => this.filters().status?.length ?? 0);
+  /** Whether «Más filtros» is open right now (by the person or by the applied statuses). */
+  protected readonly moreOpen = signal(false);
 
   constructor() {
     // Cuando la URL cambia (atrás, enlace compartido), el formulario muestra lo que se está consultando.
@@ -179,16 +192,12 @@ export class DocumentFiltersComponent {
   }
 
   protected read(event: Event): string {
-    return (event.target as HTMLInputElement | HTMLSelectElement).value;
+    return (event.target as HTMLInputElement).value;
   }
 
-  protected checked(event: Event): boolean {
-    return (event.target as HTMLInputElement).checked;
-  }
-
-  protected toggleStatus(option: string, event: Event): void {
+  protected toggleStatus(option: string, checked: boolean): void {
     const others = this.status().filter((value) => value !== option);
-    this.status.set(this.checked(event) ? [...others, option] : others);
+    this.status.set(checked ? [...others, option] : others);
   }
 
   protected submit(event: Event): void {
@@ -209,5 +218,9 @@ export class DocumentFiltersComponent {
 
   protected clear(): void {
     this.apply.emit({});
+  }
+
+  private text(key: string): string {
+    return this.transloco.translate(`${DOCUMENTS_I18N_SCOPE}.${key}`);
   }
 }

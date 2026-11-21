@@ -1,7 +1,9 @@
 import { Page, Request, expect, test } from '@playwright/test';
 import { seriousViolations, seriousViolationsInBothThemes } from './support/axe';
 import { CRITICAL } from './support/critical';
+import { typeDate } from './support/date-picker';
 import { COMPANIES, USER, mockApi } from './support/mock-api';
+import { pickOption } from './support/select';
 
 // Lista, detalle con seguimiento del estado, emisión de factura con vista previa y notas crédito y débito
 // (feature-documents) contra la Api simulada.
@@ -83,6 +85,8 @@ const DETAIL = {
 
 interface DocumentsApi {
   listRequests: URL[];
+  /** URLs of the Excel and PDF exports, to check their filters. */
+  exportRequests: URL[];
   calculateBodies: unknown[];
   issueRequests: Request[];
   noteRequests: Request[];
@@ -107,6 +111,7 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
   let detailCalls = 0;
   const api: DocumentsApi = {
     listRequests: [],
+    exportRequests: [],
     calculateBodies: [],
     issueRequests: [],
     noteRequests: [],
@@ -134,6 +139,30 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
           next_cursor: null,
           total_count: url.searchParams.has('include_total') ? 1 : null,
         },
+      });
+    }
+    if (url.pathname === '/api/v1/documents/export.xlsx') {
+      api.exportRequests.push(url);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers: {
+          'Content-Disposition': 'attachment; filename="documentos.xlsx"',
+          'Access-Control-Expose-Headers': 'Content-Disposition',
+        },
+        body: 'PK',
+      });
+    }
+    if (url.pathname === '/api/v1/documents/export.pdf') {
+      api.exportRequests.push(url);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        headers: {
+          'Content-Disposition': 'attachment; filename="documentos.pdf"',
+          'Access-Control-Expose-Headers': 'Content-Disposition',
+        },
+        body: '%PDF-1.7\n%%EOF\n',
       });
     }
     if (url.pathname === '/api/v1/documents/export.csv') {
@@ -259,8 +288,12 @@ test('keeps the list filters in the URL and sends them to the API', async ({ pag
   await expect(page.getByRole('heading', { level: 1, name: 'Documentos' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'SETP990000001', exact: true })).toBeVisible();
 
-  await page.getByLabel('Desde').fill('2026-11-01');
-  await page.getByLabel('Tipo de documento').selectOption('invoice');
+  await typeDate(page.getByRole('combobox', { name: 'Desde' }), '2026-11-01');
+  await pickOption(page, page.getByRole('combobox', { name: 'Tipo de documento' }), 'Factura');
+  // The DIAN statuses are folded under «Más filtros» until someone opens it; open, it reads «Menos filtros».
+  await expect(page.getByLabel('En cola')).toBeHidden();
+  await page.getByText('Más filtros').click();
+  await expect(page.getByText('Menos filtros')).toBeVisible();
   await page.getByLabel('En cola').check();
   await page.getByLabel('Enviado a la DIAN').check();
   await page.getByLabel('Cliente', { exact: true }).fill('golden');
@@ -281,6 +314,11 @@ test('keeps the list filters in the URL and sends them to the API', async ({ pag
   // La misma URL, recargada, consulta lo mismo y muestra los filtros.
   await page.reload();
   await expect(page.getByLabel('Cliente', { exact: true })).toHaveValue('golden');
+  await expect(page.getByRole('combobox', { name: 'Desde' })).toHaveValue('01/11/2026');
+  await expect(page.getByRole('combobox', { name: 'Tipo de documento' })).toHaveText('Factura');
+  // With statuses in the URL the section opens by itself, so the active filter is in sight.
+  await expect(page.getByLabel('Enviado a la DIAN')).toBeVisible();
+  await expect(page.getByLabel('Enviado a la DIAN')).toBeChecked();
   expect(api.listRequests.at(-1)!.searchParams.getAll('status')).toEqual(['Queued', 'Sent']);
 
   expect(await seriousViolations(page)).toEqual([]);
@@ -294,12 +332,94 @@ test('downloads the CSV export with the token, not with a plain link', async ({ 
 
   const exportRequest = page.waitForRequest('**/api/v1/documents/export.csv**');
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Exportar CSV' }).click();
+  await page.getByRole('button', { name: 'Exportar' }).click();
+  await page.getByRole('menuitem', { name: 'CSV' }).click();
 
   const request = await exportRequest;
   expect(request.headers()['authorization']).toMatch(/^Bearer /);
   expect(new URL(request.url()).searchParams.get('kind')).toBe('invoice');
   expect((await download).suggestedFilename()).toBe('documentos-2026-11.csv');
+});
+
+test('exports to Excel from the accessible Exportar menu with the current filters', async ({
+  page,
+}) => {
+  // Two axe runs in both themes with the menu open.
+  test.slow();
+  const api = await mockDocuments(page);
+  await logIn(page);
+  await page.goto('/documentos?tipo=credit_note&estado=Accepted,Rejected&desde=2026-11-01');
+  await expect(page.getByRole('link', { name: 'SETP990000001', exact: true })).toBeVisible();
+
+  const button = page.getByRole('button', { name: 'Exportar' });
+  await expect(button).toHaveAttribute('aria-haspopup', 'menu');
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+  await button.click();
+  const menu = page.getByRole('menu', { name: 'Exportar' });
+  await expect(menu).toBeVisible();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  await expect(menu.getByRole('menuitem')).toHaveText(['Excel (.xlsx)', 'CSV', 'PDF']);
+  // The popup is styled by its Optimus theme: a card with a background and a shadow, not loose text on the page.
+  const popup = await menu.evaluate((list) => {
+    const panel = (list.closest('.p-menu') ?? list) as HTMLElement;
+    const style = getComputedStyle(panel);
+    return { background: style.backgroundColor, shadow: style.boxShadow };
+  });
+  expect(popup.background).not.toBe('rgba(0, 0, 0, 0)');
+  expect(popup.shadow).not.toBe('none');
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+
+  // Escape closes the menu and focus goes back to the button.
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(button).toBeFocused();
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
+
+  // Keyboard: open, first option with the down arrow, Enter picks it.
+  const download = page.waitForEvent('download');
+  await page.keyboard.press('Enter');
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+
+  expect((await download).suggestedFilename()).toBe('documentos.xlsx');
+  const request = api.exportRequests.at(-1)!;
+  expect(request.pathname).toBe('/api/v1/documents/export.xlsx');
+  expect(request.searchParams.get('kind')).toBe('credit_note');
+  expect(request.searchParams.getAll('status')).toEqual(['Accepted', 'Rejected']);
+  expect(request.searchParams.get('from')).toBe('2026-11-01');
+  expect(request.searchParams.has('limit')).toBe(false);
+  await expect(menu).toBeHidden();
+  await expect(button).toBeFocused();
+  await expect(page.getByText('Se descargó el archivo de Excel.')).toBeVisible();
+});
+
+test('exports the PDF report from the Exportar menu with the current filters', async ({ page }) => {
+  const api = await mockDocuments(page);
+  await logIn(page);
+  await page.goto(
+    '/documentos?tipo=invoice&estado=Accepted&desde=2026-11-01&hasta=2026-11-30&cliente=golden',
+  );
+  await expect(page.getByRole('link', { name: 'SETP990000001', exact: true })).toBeVisible();
+
+  const exportRequest = page.waitForRequest('**/api/v1/documents/export.pdf**');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Exportar' }).click();
+  await page.getByRole('menuitem', { name: 'PDF' }).click();
+
+  const request = await exportRequest;
+  expect(request.method()).toBe('GET');
+  expect(request.headers()['authorization']).toMatch(/^Bearer /);
+  expect((await download).suggestedFilename()).toBe('documentos.pdf');
+  const url = api.exportRequests.at(-1)!;
+  expect(url.pathname).toBe('/api/v1/documents/export.pdf');
+  expect(url.searchParams.get('kind')).toBe('invoice');
+  expect(url.searchParams.getAll('status')).toEqual(['Accepted']);
+  expect(url.searchParams.get('from')).toBe('2026-11-01');
+  expect(url.searchParams.get('to')).toBe('2026-11-30');
+  expect(url.searchParams.get('customer')).toBe('golden');
+  expect(url.searchParams.has('limit')).toBe(false);
+  await expect(page.getByText('Se descargó el archivo PDF.')).toBeVisible();
 });
 
 // Flujo crítico 3 de 5: emisión con totales del servidor, seguimiento del estado hasta Aceptado y descarga del PDF.
@@ -408,6 +528,14 @@ test('previews the invoice PDF in a dialog and explains when the PDF service is 
   await page.getByRole('button', { name: 'Vista previa' }).click();
   const dialog = page.getByRole('dialog', { name: 'Vista previa del PDF' });
   await expect(dialog.locator('iframe')).toHaveAttribute('src', /^blob:/);
+  // The dialog sits above the fixed sidebar and top bar: nothing covers its title.
+  const title = dialog.getByText('Vista previa del PDF').first();
+  const box = (await title.boundingBox())!;
+  const topmost = await page.evaluate(
+    ([x, y]) => document.elementFromPoint(x, y)?.closest('[role="dialog"]') !== null,
+    [box.x + 4, box.y + box.height / 2],
+  );
+  expect(topmost).toBe(true);
   expect(page.context().pages()).toHaveLength(1);
   const download = page.waitForEvent('download');
   await dialog.getByRole('button', { name: 'Descargar PDF' }).click();
@@ -447,9 +575,11 @@ test('issues a credit note from an accepted invoice with its lines', CRITICAL, a
   await expect(line.getByLabel('Código')).toHaveValue('SERV01');
   await expect(page.getByTestId('payable')).toContainText('1.785.000,00');
   await expect(page.getByRole('button', { name: 'Vista previa' })).toBeVisible();
-  await page
-    .getByLabel('Concepto de la corrección')
-    .selectOption({ label: 'Anulación de factura electrónica' });
+  await pickOption(
+    page,
+    page.getByRole('combobox', { name: /^Concepto de la corrección/ }),
+    'Anulación de factura electrónica',
+  );
   expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
   await page.getByRole('button', { name: 'Emitir nota crédito' }).click();
@@ -473,7 +603,7 @@ test('a debit note found from the list shows why the API rejects it', async ({ p
   const api = await mockDocuments(page);
   await logIn(page);
   await page.goto('/documentos');
-  await page.getByRole('link', { name: 'Nota débito' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Nota débito' }).click();
 
   await expect(page.getByRole('heading', { level: 1, name: 'Emitir nota débito' })).toBeVisible();
   await page.getByLabel('Buscar factura').fill('990000001');
@@ -488,7 +618,11 @@ test('a debit note found from the list shows why the API rejects it', async ({ p
   await line.getByLabel('Descripción').fill('Intereses de mora');
   await line.getByLabel('Precio unitario').fill('50000');
   await expect(page.getByTestId('payable')).toBeVisible();
-  await page.getByLabel('Concepto de la corrección').selectOption({ label: 'Intereses' });
+  await pickOption(
+    page,
+    page.getByRole('combobox', { name: /^Concepto de la corrección/ }),
+    'Intereses',
+  );
   await page.getByRole('button', { name: 'Emitir nota débito' }).click();
 
   await expect(page.getByRole('alert')).toContainText(
@@ -501,4 +635,51 @@ test('a debit note found from the list shows why the API rejects it', async ({ p
   });
   await expect(page).toHaveURL('/documentos/nota-debito');
   expect(await seriousViolations(page)).toEqual([]);
+});
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  /** The cell sits fully inside the screen width: nothing hides behind a sideways scroll. */
+  async function expectOnScreen(page: Page, cell: ReturnType<Page['locator']>) {
+    await expect(cell).toBeVisible();
+    const box = (await cell.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+  }
+
+  /** Neither the page nor the table's own scroll region scrolls sideways. */
+  async function expectNoSidewaysScroll(page: Page, caption: string) {
+    const scrollsSideways = (element: Element) => element.scrollWidth > element.clientWidth;
+    expect(await page.locator('html').evaluate(scrollsSideways)).toBe(false);
+    expect(await page.getByRole('region', { name: caption }).evaluate(scrollsSideways)).toBe(false);
+  }
+
+  test('stacks the list and the detail lines so status and amounts show without scrolling sideways', async ({
+    page,
+  }) => {
+    await mockDocuments(page);
+    await logIn(page);
+    await page.goto('/documentos');
+
+    const list = page.getByRole('table', { name: 'Documentos emitidos' });
+    const row = list
+      .getByRole('row')
+      .filter({ has: page.getByRole('link', { name: 'SETP990000001', exact: true }) });
+    await expectOnScreen(page, row.locator('td[data-label="Estado DIAN"]'));
+    await expect(row.locator('td[data-label="Estado DIAN"]')).toContainText('Aceptad');
+    await expectOnScreen(page, row.locator('td[data-label="Total"]'));
+    await expect(row.locator('td[data-label="Total"]')).toContainText('1.785.000');
+    await expectNoSidewaysScroll(page, 'Documentos emitidos');
+    expect(await seriousViolations(page)).toEqual([]);
+
+    await page.goto('/documentos/doc-1');
+    const lines = page.getByRole('table', { name: 'Líneas del documento' });
+    const line = lines.getByRole('row').filter({ hasText: 'SERV01' });
+    await expectOnScreen(page, line.locator('td[data-label="Descripción"]'));
+    await expectOnScreen(page, line.locator('td[data-label="Valor"]'));
+    await expect(line.locator('td[data-label="Valor"]')).toContainText('1.500.000');
+    await expectNoSidewaysScroll(page, 'Líneas del documento');
+    expect(await seriousViolations(page)).toEqual([]);
+  });
 });

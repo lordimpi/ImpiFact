@@ -62,6 +62,8 @@ public sealed class OpenApiContractTests
     [TestCase("GET /api/v1/api-keys", "listApiKeys")]
     [TestCase("POST /api/v1/users", "createUser")]
     [TestCase("GET /api/v1/me/companies", "listMyCompanies")]
+    [TestCase("GET /api/v1/companies/{nit}/users", "listCompanyUsers")]
+    [TestCase("PATCH /api/v1/companies/{nit}/users/{userId}", "updateCompanyUser")]
     [TestCase("POST /api/v1/auth/password-reset/request", "requestPasswordReset")]
     [TestCase("POST /api/v1/auth/password-reset/confirm", "confirmPasswordReset")]
     [TestCase("POST /api/v1/companies/{nit}/{dv}", "createCompany")]
@@ -94,6 +96,8 @@ public sealed class OpenApiContractTests
     [TestCase("GET /api/v1/documents/current-number/{type}", "getNextDocumentNumber")]
     [TestCase("GET /api/v1/documents", "listDocuments")]
     [TestCase("GET /api/v1/documents/export.csv", "exportDocumentsCsv")]
+    [TestCase("GET /api/v1/documents/export.xlsx", "exportDocumentsXlsx")]
+    [TestCase("GET /api/v1/documents/export.pdf", "exportDocumentsPdf")]
     [TestCase("GET /api/v1/documents/{id}", "getDocument")]
     [TestCase("GET /api/v1/documents/by-cufe/{cufe}", "getDocumentByCufe")]
     [TestCase("POST /api/v1/documents/invoices", "issueInvoice")]
@@ -173,8 +177,9 @@ public sealed class OpenApiContractTests
             Assert.That(panel.GetProperty("properties").TryGetProperty("refresh_token", out _), Is.False);
             Assert.That(Names(panel, "required"), Is.EquivalentTo(new[]
             {
-                "access_token", "expires_at", "refresh_token_expires_at", "company_id", "roles", "companies",
+                "access_token", "expires_at", "refresh_token_expires_at", "company_id", "roles", "companies", "email",
             }));
+            Assert.That(Names(integration, "required"), Does.Contain("email"));
             Assert.That(Text(panel, "description"), Does.Contain("X-Client: panel"));
             Assert.That(Names(integration, "required"), Does.Contain("refresh_token"));
             Assert.That(Text(integration, "description"), Does.Contain("X-Client: panel"));

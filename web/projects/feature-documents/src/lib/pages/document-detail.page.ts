@@ -5,6 +5,9 @@ import { Api, DocumentDetailResponse, getDocument } from '@impifact/api';
 import { SessionStore } from '@impifact/core';
 import {
   ButtonComponent,
+  ButtonLinkDirective,
+  CardComponent,
+  CardFooterDirective,
   ErrorStateComponent,
   LoadingComponent,
   PageTitleComponent,
@@ -34,9 +37,12 @@ type DocumentLine = NonNullable<DocumentDetailResponse['lines']>[number];
 @Component({
   selector: 'feat-document-detail-page',
   imports: [
+    ButtonLinkDirective,
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     ErrorStateComponent,
     LoadingComponent,
     PageTitleComponent,
@@ -49,7 +55,7 @@ type DocumentLine = NonNullable<DocumentDetailResponse['lines']>[number];
   providers: [provideDocumentsI18n(), DocumentActions],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './document-detail.page.html',
-  styleUrl: './documents-page.css',
+  styleUrls: ['./documents-page.css', './document-detail.page.css'],
 })
 export class DocumentDetailPage {
   private readonly api = inject(Api);

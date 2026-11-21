@@ -1,33 +1,34 @@
 <form class="doc-page" novalidate (submit)="issue($event)" [attr.aria-busy]="submitting() || null">
-  <header class="doc-header">
-    <div>
-      <ui-page-title>{{ 'documents.issue.title' | transloco }}</ui-page-title>
-      <p class="doc-lead">{{ 'documents.issue.description' | transloco }}</p>
-    </div>
-    <a routerLink="/documentos">{{ 'documents.issue.cancel' | transloco }}</a>
-  </header>
+  <ui-page-title [subtitle]="'documents.issue.description' | transloco">
+    {{ 'documents.issue.title' | transloco }}
+    <a uiPageTitleActions uiButtonLink variant="secondary" routerLink="/documentos">{{
+      'documents.issue.cancel' | transloco
+    }}</a>
+  </ui-page-title>
 
   <div class="issue-layout">
     <div class="issue-main">
-      <section class="doc-section" aria-labelledby="issue-customer">
-        <h2 id="issue-customer">{{ 'documents.issue.customer' | transloco }}</h2>
+      <ui-card [title]="'documents.issue.customer' | transloco">
         @if (customer(); as chosen) {
-          <p class="doc-muted">{{ 'documents.issue.customerSelected' | transloco }}</p>
-          <dl class="doc-data">
-            <dt>{{ 'documents.detail.customer' | transloco }}</dt>
-            <dd>{{ chosen.name }}</dd>
-            <dt>{{ 'documents.detail.identification' | transloco }}</dt>
-            <dd>{{ chosen.identification_number }}{{ chosen.dv ? '-' + chosen.dv : '' }}</dd>
-            @if (chosen.email) {
-              <dt>{{ 'documents.detail.email' | transloco }}</dt>
-              <dd>{{ chosen.email }}</dd>
-            }
-          </dl>
-          <ui-button
-            variant="text"
-            [label]="'documents.issue.customerChange' | transloco"
-            (pressed)="clearCustomer()"
-          />
+          <div class="issue-chosen">
+            <p class="issue-chosen__label">{{ 'documents.issue.customerSelected' | transloco }}</p>
+            <dl class="doc-data">
+              <dt>{{ 'documents.detail.customer' | transloco }}</dt>
+              <dd>{{ chosen.name }}</dd>
+              <dt>{{ 'documents.detail.identification' | transloco }}</dt>
+              <dd>{{ chosen.identification_number }}{{ chosen.dv ? '-' + chosen.dv : '' }}</dd>
+              @if (chosen.email) {
+                <dt>{{ 'documents.detail.email' | transloco }}</dt>
+                <dd>{{ chosen.email }}</dd>
+              }
+            </dl>
+            <ui-button
+              variant="ghost"
+              size="small"
+              [label]="'documents.issue.customerChange' | transloco"
+              (pressed)="clearCustomer()"
+            />
+          </div>
         } @else {
           <feat-search-picker
             [labels]="customerLabels"
@@ -38,30 +39,19 @@
             (termChange)="searchCustomers($event)"
             (picked)="chooseCustomer($event)"
           />
-          <a routerLink="/clientes/nuevo">{{ 'documents.issue.customerCreate' | transloco }}</a>
+          <a class="issue-link" routerLink="/clientes/nuevo">{{
+            'documents.issue.customerCreate' | transloco
+          }}</a>
         }
-      </section>
+      </ui-card>
 
-      <section class="doc-section" aria-labelledby="issue-payment">
-        <h2 id="issue-payment">{{ 'documents.issue.payment' | transloco }}</h2>
+      <ui-card [title]="'documents.issue.payment' | transloco">
         <div class="issue-grid">
           <ui-field [label]="'documents.issue.paymentForm' | transloco" required>
-            <select uiSelect [formField]="invoiceForm.paymentFormId">
-              @for (option of paymentForms; track option) {
-                <option [value]="option">
-                  {{ 'documents.issue.paymentForms.' + option | transloco }}
-                </option>
-              }
-            </select>
+            <ui-select [options]="paymentForms()" [formField]="invoiceForm.paymentFormId" />
           </ui-field>
           <ui-field [label]="'documents.issue.paymentMethod' | transloco" required>
-            <select uiSelect [formField]="invoiceForm.paymentMethodId">
-              @for (option of paymentMethods; track option) {
-                <option [value]="option">
-                  {{ 'documents.issue.paymentMethods.' + option | transloco }}
-                </option>
-              }
-            </select>
+            <ui-select [options]="paymentMethods()" [formField]="invoiceForm.paymentMethodId" />
           </ui-field>
           @if (onCredit()) {
             <ui-field
@@ -69,7 +59,10 @@
               [error]="fieldError('paymentDueDate')"
               required
             >
-              <input uiInput type="date" [formField]="invoiceForm.paymentDueDate" />
+              <ui-date-picker
+                [placeholder]="'documents.filters.datePlaceholder' | transloco"
+                [formField]="invoiceForm.paymentDueDate"
+              />
             </ui-field>
             <ui-field
               [label]="'documents.issue.durationDays' | transloco"
@@ -81,15 +74,22 @@
                 uiNonNegative
                 type="number"
                 step="1"
+                [placeholder]="'documents.issue.durationPlaceholder' | transloco"
                 [formField]="invoiceForm.durationDays"
               />
             </ui-field>
           }
         </div>
-      </section>
+      </ui-card>
 
-      <section class="doc-section" aria-labelledby="issue-lines">
-        <h2 id="issue-lines">{{ 'documents.issue.lines' | transloco }}</h2>
+      <ui-card [title]="'documents.issue.lines' | transloco">
+        <ui-button
+          uiCardActions
+          variant="secondary"
+          size="small"
+          [label]="'documents.issue.addFreeLine' | transloco"
+          (pressed)="addFreeLine()"
+        />
         <feat-search-picker
           [labels]="productLabels"
           [term]="productSearch().term"
@@ -99,94 +99,103 @@
           (termChange)="searchProducts($event)"
           (picked)="addProduct($event)"
         />
-        <div class="doc-actions">
-          <ui-button
-            variant="secondary"
-            [label]="'documents.issue.addFreeLine' | transloco"
-            (pressed)="addFreeLine()"
-          />
+
+        <div class="issue-lines">
+          @for (line of invoiceForm.lines().value(); track $index; let index = $index) {
+            <feat-line-fields
+              [line]="lineFields(index)"
+              [index]="index"
+              [amount]="lineAmount(index)"
+              (remove)="removeLine(index)"
+            />
+          } @empty {
+            <p class="issue-empty">{{ 'documents.issue.noLines' | transloco }}</p>
+          }
         </div>
+      </ui-card>
 
-        @for (line of invoiceForm.lines().value(); track $index; let index = $index) {
-          <feat-line-fields
-            [line]="lineFields(index)"
-            [index]="index"
-            [amount]="lineAmount(index)"
-            (remove)="removeLine(index)"
-          />
-        } @empty {
-          <p class="doc-muted">{{ 'documents.issue.noLines' | transloco }}</p>
-        }
-      </section>
-
-      <section class="doc-section" aria-labelledby="issue-notes">
-        <h2 id="issue-notes">{{ 'documents.issue.notes' | transloco }}</h2>
+      <ui-card [title]="'documents.issue.notes' | transloco">
         <ui-field
           [label]="'documents.issue.notes' | transloco"
           [hint]="'documents.issue.notesHint' | transloco"
         >
-          <textarea uiInput rows="3" [formField]="invoiceForm.notes"></textarea>
+          <textarea
+            uiInput
+            rows="3"
+            [placeholder]="'documents.issue.notesPlaceholder' | transloco"
+            [formField]="invoiceForm.notes"
+          ></textarea>
         </ui-field>
-        <label class="issue-check">
-          <input type="checkbox" [formField]="invoiceForm.sendEmail" />
-          <span>{{ 'documents.issue.sendEmail' | transloco }}</span>
-        </label>
-        <p class="doc-muted">
+        <ui-checkbox
+          class="issue-check"
+          [formField]="invoiceForm.sendEmail"
+          [label]="'documents.issue.sendEmail' | transloco"
+        />
+        <p class="doc-muted doc-small issue-check__hint">
           @if (customerEmail(); as email) {
             {{ 'documents.issue.sendEmailHint' | transloco: { email } }}
           } @else if (customer()) {
             {{ 'documents.issue.sendEmailNoAddress' | transloco }}
           }
         </p>
-      </section>
+      </ui-card>
     </div>
 
-    <aside class="issue-side doc-section" aria-labelledby="issue-totals">
-      <h2 id="issue-totals">{{ 'documents.totals.title' | transloco }}</h2>
-      <feat-totals-panel
-        [totals]="calculated()?.legal_monetary_totals"
-        [taxes]="totals.taxes()"
-        [state]="totals.state()"
-        (retry)="totals.retry()"
-      />
+    <ui-card class="issue-side" [title]="'documents.totals.title' | transloco">
+      <div class="issue-side__body">
+        <feat-totals-panel
+          [totals]="calculated()?.legal_monetary_totals"
+          [taxes]="totals.taxes()"
+          [state]="totals.state()"
+          (retry)="totals.retry()"
+        />
 
-      @if (issueError(); as failure) {
-        <div class="doc-error" role="alert">
-          <p>{{ failure.message }}</p>
-          @if (failure.details.length > 0) {
-            <ul>
-              @for (detail of failure.details; track $index) {
-                <li>{{ detail }}</li>
-              }
-            </ul>
-          }
+        @if (issueError(); as failure) {
+          <div class="doc-error" role="alert">
+            <p>{{ failure.message }}</p>
+            @if (failure.details.length > 0) {
+              <ul>
+                @for (detail of failure.details; track $index) {
+                  <li>{{ detail }}</li>
+                }
+              </ul>
+            }
+          </div>
+        }
+
+        @if (!canIssue() && !submitting()) {
+          <p class="doc-muted doc-small" id="issue-not-ready">
+            {{ 'documents.issue.notReady' | transloco }}
+          </p>
+        }
+        @if (previewError(); as message) {
+          <p class="doc-error" role="alert">{{ message }}</p>
+        }
+        <div class="issue-side__actions">
+          <ui-button
+            type="submit"
+            size="large"
+            block
+            [label]="'documents.issue.submit' | transloco"
+            [loading]="submitting()"
+            [disabled]="!canIssue()"
+          />
+          <ui-button
+            variant="secondary"
+            block
+            [label]="'documents.issue.preview' | transloco"
+            [loading]="previewing()"
+            [disabled]="!canIssue() || previewing()"
+            (pressed)="preview()"
+          />
         </div>
-      }
-
-      @if (!canIssue() && !submitting()) {
-        <p class="doc-muted" id="issue-not-ready">{{ 'documents.issue.notReady' | transloco }}</p>
-      }
-      @if (previewError(); as message) {
-        <p class="doc-error" role="alert">{{ message }}</p>
-      }
-      <ui-button
-        variant="secondary"
-        [label]="'documents.issue.preview' | transloco"
-        [loading]="previewing()"
-        [disabled]="!canIssue() || previewing()"
-        (pressed)="preview()"
-      />
-      <feat-pdf-preview
-        [pdf]="previewPdf()"
-        (closed)="previewPdf.set(null)"
-        (download)="savePreview()"
-      />
-      <ui-button
-        type="submit"
-        [label]="'documents.issue.submit' | transloco"
-        [loading]="submitting()"
-        [disabled]="!canIssue()"
-      />
-    </aside>
+      </div>
+    </ui-card>
   </div>
+  <!-- Outside the sticky totals column: a sticky box is its own stacking context and would trap the dialog. -->
+  <feat-pdf-preview
+    [pdf]="previewPdf()"
+    (closed)="previewPdf.set(null)"
+    (download)="savePreview()"
+  />
 </form>

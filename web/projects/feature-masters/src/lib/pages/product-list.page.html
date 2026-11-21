@@ -1,72 +1,74 @@
 <section class="masters-page">
-  <header class="masters-header">
-    <div>
-      <ui-page-title>{{ 'masters.products.list.title' | transloco }}</ui-page-title>
-      <p class="masters-lead">{{ 'masters.products.list.description' | transloco }}</p>
-    </div>
-    <a class="masters-primary-link" routerLink="/productos/nuevo">{{
-      'masters.products.list.new' | transloco
-    }}</a>
-  </header>
+  <ui-page-title [subtitle]="'masters.products.list.description' | transloco">
+    {{ 'masters.products.list.title' | transloco }}
+    <a uiPageTitleActions uiButtonLink routerLink="/productos/nuevo"
+      ><svg class="masters-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M12 5v14M5 12h14" /></svg
+      >{{ 'masters.products.list.new' | transloco }}</a
+    >
+  </ui-page-title>
 
-  <feat-master-list-toolbar
-    [labels]="toolbarLabels()"
-    [search]="url.filters().search"
-    [status]="url.filters().status"
-    (searchInput)="url.typeSearch($event)"
-    (statusChange)="url.changeStatus($event)"
-  />
+  <ui-card padding="none">
+    <feat-master-list-toolbar
+      [labels]="toolbarLabels()"
+      [search]="url.filters().search"
+      [status]="url.filters().status"
+      (searchInput)="url.typeSearch($event)"
+      (statusChange)="url.changeStatus($event)"
+    />
 
-  <ui-table
-    [caption]="'masters.products.list.caption' | transloco"
-    [columns]="columns()"
-    [rows]="store.items()"
-    [labels]="tableLabels()"
-    [loading]="store.loading()"
-    [error]="store.error() !== null"
-    [sort]="store.sort()"
-    [pagination]="store.pagination()"
-    [trackBy]="trackById"
-    (sortChange)="store.setSort($event)"
-    (pageChange)="store.changePage($event)"
-    (retry)="store.refresh()"
-  >
-    <ng-template uiTableCell="unit_price" let-row>{{ price(row) }}</ng-template>
-    <ng-template uiTableCell="is_active" let-row>
-      <span class="masters-status" [class.masters-status--inactive]="!row.is_active">{{
-        (row.is_active ? 'masters.common.status.isActive' : 'masters.common.status.isInactive')
-          | transloco
-      }}</span>
-    </ng-template>
-    <ng-template uiTableCell="actions" let-row>
-      <div class="masters-row-actions">
-        <a
-          [routerLink]="['/productos', row.id]"
-          [attr.aria-label]="rowText('products.list.editRow', row)"
-          >{{ 'masters.common.edit' | transloco }}</a
-        >
-        @if (row.is_active) {
-          <ui-button
-            variant="text"
-            size="small"
-            [label]="'masters.common.deactivate' | transloco"
-            [ariaLabel]="rowText('products.list.deactivateRow', row)"
-            [disabled]="store.busyId() === row.id"
-            (pressed)="askDeactivate(row)"
-          />
-        } @else {
-          <ui-button
-            variant="text"
-            size="small"
-            [label]="'masters.common.reactivate' | transloco"
-            [ariaLabel]="rowText('products.list.reactivateRow', row)"
-            [loading]="store.busyId() === row.id"
-            (pressed)="reactivate(row)"
-          />
-        }
-      </div>
-    </ng-template>
-  </ui-table>
+    <ui-table
+      flush
+      [caption]="'masters.products.list.caption' | transloco"
+      [columns]="columns()"
+      [rows]="store.items()"
+      [labels]="tableLabels()"
+      [loading]="store.loading()"
+      [error]="store.error() !== null"
+      [sort]="store.sort()"
+      [pagination]="store.pagination()"
+      [trackBy]="trackById"
+      (sortChange)="store.setSort($event)"
+      (pageChange)="store.changePage($event)"
+      (retry)="store.refresh()"
+    >
+      <ng-template uiTableCell="unit_price" let-row>{{ price(row) }}</ng-template>
+      <ng-template uiTableCell="is_active" let-row>
+        <ui-badge [tone]="row.is_active ? 'success' : 'neutral'">{{
+          (row.is_active ? 'masters.common.status.isActive' : 'masters.common.status.isInactive')
+            | transloco
+        }}</ui-badge>
+      </ng-template>
+      <ng-template uiTableCell="actions" let-row>
+        <div class="masters-row-actions">
+          <a
+            [routerLink]="['/productos', row.id]"
+            [attr.aria-label]="rowText('products.list.editRow', row)"
+            >{{ 'masters.common.edit' | transloco }}</a
+          >
+          @if (row.is_active) {
+            <ui-button
+              variant="ghost"
+              size="small"
+              [label]="'masters.common.deactivate' | transloco"
+              [ariaLabel]="rowText('products.list.deactivateRow', row)"
+              [disabled]="store.busyId() === row.id"
+              (pressed)="askDeactivate(row)"
+            />
+          } @else {
+            <ui-button
+              variant="ghost"
+              size="small"
+              [label]="'masters.common.reactivate' | transloco"
+              [ariaLabel]="rowText('products.list.reactivateRow', row)"
+              [loading]="store.busyId() === row.id"
+              (pressed)="reactivate(row)"
+            />
+          }
+        </div>
+      </ng-template>
+    </ui-table>
+  </ui-card>
 
   <feat-confirm-dialog
     [labels]="confirmLabels()"

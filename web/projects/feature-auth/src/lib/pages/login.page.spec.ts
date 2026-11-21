@@ -16,9 +16,12 @@ describe('LoginPage', () => {
     const email = screen.getByLabelText(/Correo electrónico/) as HTMLInputElement;
     expect(email.type).toBe('email');
     expect(email.autocomplete).toBe('username');
+    expect(email.placeholder).toBe('nombre@empresa.com');
     const password = screen.getByLabelText(/Contraseña/) as HTMLInputElement;
     expect(password.type).toBe('password');
     expect(password.autocomplete).toBe('current-password');
+    // A password field never shows an example password.
+    expect(password.placeholder).toBe('');
     expect(screen.getByRole('link', { name: '¿Olvidó su contraseña?' }).getAttribute('href')).toBe(
       '/recuperar',
     );

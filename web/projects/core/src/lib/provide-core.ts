@@ -5,7 +5,7 @@ import {
   makeEnvironmentProviders,
   provideEnvironmentInitializer,
 } from '@angular/core';
-import { provideApiRootUrl } from '@impifact/api';
+import { provideApiRootUrl } from './api-shell';
 import { RuntimeConfigService } from './config/runtime-config';
 import { InactivityMonitor } from './inactivity/inactivity-monitor';
 import { CORE_ROUTE_PATHS, CoreRoutePaths, DEFAULT_CORE_ROUTE_PATHS } from './session/route-paths';

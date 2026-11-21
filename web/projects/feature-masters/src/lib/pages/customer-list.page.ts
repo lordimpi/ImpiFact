@@ -3,7 +3,10 @@ import { RouterLink } from '@angular/router';
 import { CustomerResponse } from '@impifact/api';
 import { CatalogsStore, ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  ButtonLinkDirective,
+  CardComponent,
   PageTitleComponent,
   TableCellDirective,
   TableComponent,
@@ -25,9 +28,12 @@ import { listLabels, toolbarLabels } from './list-labels';
 @Component({
   selector: 'feat-customer-list-page',
   imports: [
+    ButtonLinkDirective,
     RouterLink,
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardComponent,
     PageTitleComponent,
     TableComponent,
     TableCellDirective,
@@ -71,7 +77,7 @@ export class CustomerListPage {
 
   protected readonly tableLabels = computed(() => listLabels(this.transloco, 'customers.list'));
   protected readonly toolbarLabels = computed(() =>
-    toolbarLabels(this.transloco, 'customers.list.searchLabel'),
+    toolbarLabels(this.transloco, 'customers.list.searchLabel', 'customers.list.searchPlaceholder'),
   );
   protected readonly confirmLabels = computed(() => ({
     header: this.text('customers.list.confirmTitle'),
@@ -83,12 +89,19 @@ export class CustomerListPage {
 
   protected readonly trackById = (_: number, row: CustomerResponse) => row.id;
 
-  /** «NIT 900123456-8» o «Cédula de ciudadanía 1020304050». */
-  protected identification(row: CustomerResponse): string {
+  /** Name of the identification type of the customer: «NIT», «Cédula de ciudadanía»; empty if it is unknown. */
+  protected identificationType(row: CustomerResponse): string {
     const type = Number(row.type_document_identification_id);
-    const name = this.identificationTypes().find((item) => item.id === type)?.name ?? '';
-    const dv = type === NIT_IDENTIFICATION_TYPE && row.dv ? `-${row.dv}` : '';
-    return `${name} ${row.identification_number ?? ''}${dv}`.trim();
+    return this.identificationTypes().find((item) => item.id === type)?.name ?? '';
+  }
+
+  /** «900123456-8» for a NIT with its DV, «1020304050» otherwise; the cell keeps it on one line. */
+  protected identificationNumber(row: CustomerResponse): string {
+    const dv =
+      Number(row.type_document_identification_id) === NIT_IDENTIFICATION_TYPE && row.dv
+        ? `-${row.dv}`
+        : '';
+    return `${row.identification_number ?? ''}${dv}`;
   }
 
   protected rowText(key: string, row: CustomerResponse): string {

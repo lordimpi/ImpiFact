@@ -1,43 +1,156 @@
-<ui-page-title>{{ 'devUi.title' | transloco }}</ui-page-title>
-<p>{{ 'devUi.description' | transloco }}</p>
-
-<fieldset class="showcase-theme">
-  <legend>{{ 'devUi.theme.label' | transloco }}</legend>
-  @for (option of themes; track option) {
-    <label>
-      <input
-        type="radio"
-        name="theme"
-        [value]="option"
-        [checked]="theme() === option"
-        (change)="setTheme(option)"
-      />
-      {{ 'devUi.theme.' + option | transloco }}
-    </label>
-  }
-</fieldset>
+<ui-page-title
+  [subtitle]="'devUi.description' | transloco"
+  [breadcrumb]="[
+    { label: 'devUi.breadcrumb.home' | transloco, link: '/' },
+    { label: 'devUi.breadcrumb.current' | transloco },
+  ]"
+>
+  {{ 'devUi.title' | transloco }}
+  <ui-button
+    uiPageTitleActions
+    [label]="'devUi.pageAction' | transloco"
+    (pressed)="log('pressed page action')"
+  />
+</ui-page-title>
 
 <p class="showcase-log" aria-live="polite">
   {{ 'devUi.lastEvent' | transloco }}:
   <output data-testid="last-event">{{ lastEvent() ?? ('devUi.noEvent' | transloco) }}</output>
 </p>
 
-<section aria-labelledby="buttons-title">
-  <h2 id="buttons-title">{{ 'devUi.buttons.title' | transloco }}</h2>
+<section class="showcase-section" aria-labelledby="stats-title">
+  <h2 id="stats-title">{{ 'devUi.stats.title' | transloco }}</h2>
+  <div class="showcase-stats">
+    <ui-stat
+      [label]="'devUi.stats.issued' | transloco"
+      [value]="'devUi.stats.issuedValue' | transloco"
+      [trend]="'devUi.stats.issuedTrend' | transloco"
+      trendTone="positive"
+      trendDirection="up"
+      [hint]="'devUi.stats.period' | transloco"
+    />
+    <ui-stat
+      [label]="'devUi.stats.sales' | transloco"
+      [value]="'devUi.stats.salesValue' | transloco"
+      [hint]="'devUi.stats.period' | transloco"
+    />
+    <ui-stat
+      [label]="'devUi.stats.rejected' | transloco"
+      [value]="'devUi.stats.rejectedValue' | transloco"
+      [trend]="'devUi.stats.rejectedTrend' | transloco"
+      trendTone="negative"
+      trendDirection="up"
+    />
+    <ui-stat
+      [label]="'devUi.stats.customers' | transloco"
+      [value]="'devUi.stats.customersValue' | transloco"
+      [hint]="'devUi.stats.customersHint' | transloco"
+    />
+  </div>
+</section>
+
+<ui-card [title]="'devUi.buttons.title' | transloco">
+  <h3>{{ 'devUi.buttons.variants' | transloco }}</h3>
   <div class="showcase-row">
     <ui-button [label]="'devUi.buttons.primary' | transloco" (pressed)="log('pressed primary')" />
     <ui-button variant="secondary" [label]="'devUi.buttons.secondary' | transloco" />
     <ui-button variant="danger" [label]="'devUi.buttons.danger' | transloco" />
-    <ui-button variant="text" [label]="'devUi.buttons.text' | transloco" />
+    <ui-button variant="ghost" [label]="'devUi.buttons.text' | transloco" />
     <ui-button [label]="'devUi.buttons.disabled' | transloco" [disabled]="true" />
     <ui-button [label]="'devUi.buttons.loading' | transloco" [loading]="true" />
   </div>
+  <h3>{{ 'devUi.buttons.sizes' | transloco }}</h3>
+  <div class="showcase-row showcase-row--center">
+    <ui-button size="small" [label]="'devUi.buttons.small' | transloco" />
+    <ui-button [label]="'devUi.buttons.normal' | transloco" />
+    <ui-button size="large" [label]="'devUi.buttons.large' | transloco" />
+    <ui-button size="small" variant="secondary" [label]="'devUi.buttons.small' | transloco" />
+  </div>
+</ui-card>
+
+<div class="showcase-grid">
+  <ui-card [title]="'devUi.badges.title' | transloco">
+    <div class="showcase-row">
+      <ui-badge>{{ 'devUi.badges.neutral' | transloco }}</ui-badge>
+      <ui-badge tone="info">{{ 'devUi.badges.info' | transloco }}</ui-badge>
+      <ui-badge tone="success">{{ 'devUi.badges.success' | transloco }}</ui-badge>
+      <ui-badge tone="warning">{{ 'devUi.badges.warning' | transloco }}</ui-badge>
+      <ui-badge tone="danger">{{ 'devUi.badges.danger' | transloco }}</ui-badge>
+    </div>
+  </ui-card>
+
+  <ui-card [title]="'devUi.meter.title' | transloco">
+    <div class="showcase-stack">
+      <ui-meter
+        [label]="'devUi.meter.label' | transloco"
+        [value]="820"
+        [max]="1000"
+        [valueText]="'devUi.meter.value' | transloco"
+      />
+      <ui-meter
+        [label]="'devUi.meter.label' | transloco"
+        [value]="960"
+        [max]="1000"
+        [valueText]="'devUi.meter.highValue' | transloco"
+      />
+    </div>
+  </ui-card>
+</div>
+
+<ui-card [title]="'devUi.tabs.title' | transloco">
+  <ui-tabs [label]="'devUi.tabs.label' | transloco" [tabs]="tabs()" />
+</ui-card>
+
+<section class="showcase-section" aria-labelledby="cards-title">
+  <h2 id="cards-title">{{ 'devUi.cards.title' | transloco }}</h2>
+  <div class="showcase-grid">
+    <ui-card
+      [headingLevel]="3"
+      [title]="'devUi.cards.resolution' | transloco"
+      [subtitle]="'devUi.cards.resolutionSubtitle' | transloco"
+    >
+      <ui-button
+        uiCardActions
+        variant="secondary"
+        size="small"
+        [label]="'devUi.cards.edit' | transloco"
+        (pressed)="log('edit resolution')"
+      />
+      <p class="showcase-text">{{ 'devUi.cards.resolutionBody' | transloco }}</p>
+      <p uiCardFooter class="showcase-muted">{{ 'devUi.cards.updated' | transloco }}</p>
+    </ui-card>
+    <ui-card padding="compact">
+      <p class="showcase-text">{{ 'devUi.cards.plain' | transloco }}</p>
+    </ui-card>
+  </div>
+  <ui-card [headingLevel]="3" [title]="'devUi.cards.latest' | transloco" padding="none">
+    <ui-button
+      uiCardActions
+      variant="ghost"
+      size="small"
+      [label]="'devUi.cards.viewAll' | transloco"
+    />
+    <ui-table
+      flush
+      [caption]="'devUi.cards.latestCaption' | transloco"
+      [columns]="columns()"
+      [rows]="rows"
+      [labels]="tableLabels()"
+    >
+      <ng-template uiTableCell="status" let-row>
+        <ui-badge [tone]="row.tone">{{ row.status }}</ui-badge>
+      </ng-template>
+    </ui-table>
+  </ui-card>
 </section>
 
-<section aria-labelledby="fields-title">
-  <h2 id="fields-title">{{ 'devUi.fields.title' | transloco }}</h2>
-  <div class="showcase-grid">
-    <ui-field [label]="'devUi.fields.nit' | transloco" [hint]="'devUi.fields.nitHint' | transloco">
+<ui-card [title]="'devUi.fields.title' | transloco">
+  <div class="showcase-fields">
+    <ui-field
+      [label]="'devUi.fields.nit' | transloco"
+      [hint]="'devUi.fields.nitHint' | transloco"
+      [help]="'devUi.fields.nitHelp' | transloco"
+    >
       <input uiInput inputmode="numeric" />
     </ui-field>
     <ui-field
@@ -50,11 +163,89 @@
     <ui-field [label]="'devUi.fields.email' | transloco">
       <input uiInput type="email" autocomplete="email" />
     </ui-field>
+    <ui-field [label]="'devUi.fields.documentType' | transloco">
+      <ui-select [options]="documentTypes()" [value]="'13'" />
+    </ui-field>
+    <ui-field
+      [label]="'devUi.fields.regime' | transloco"
+      [required]="true"
+      [error]="regime() === '' ? ('devUi.fields.regimeError' | transloco) : null"
+    >
+      <ui-select
+        [options]="regimes"
+        [placeholder]="'devUi.fields.regimePlaceholder' | transloco"
+        [(value)]="regime"
+        (valueChange)="log('regime', $event)"
+      />
+    </ui-field>
+    <ui-field [label]="'devUi.fields.department' | transloco">
+      <ui-select
+        [options]="departments"
+        [placeholder]="'devUi.fields.departmentPlaceholder' | transloco"
+        [value]="department()"
+        (valueChange)="chooseDepartment($event)"
+      />
+    </ui-field>
+    <ui-field [label]="'devUi.fields.municipality' | transloco">
+      <ui-combobox
+        [(value)]="municipality"
+        [options]="municipalities()"
+        [status]="department() === '' ? 'idle' : 'ready'"
+        [locked]="department() === ''"
+        [labels]="comboboxLabels()"
+        (termChange)="term.set($event)"
+        (valueChange)="log('municipality', $event)"
+      />
+    </ui-field>
+    <ui-field
+      [label]="'devUi.fields.expiresAt' | transloco"
+      [hint]="'devUi.fields.expiresAtHint' | transloco"
+    >
+      <ui-date-picker
+        [(value)]="expiresAt"
+        minDate="2026-11-20"
+        maxDate="2027-12-31"
+        (valueChange)="log('expiresAt', $event)"
+      />
+    </ui-field>
+    <ui-field
+      [label]="'devUi.fields.certificate' | transloco"
+      [hint]="'devUi.fields.certificateHint' | transloco"
+    >
+      <ui-file-upload
+        accept=".p12,.pfx"
+        [maxFileSize]="maxCertificateSize"
+        (fileChange)="log('file', $event?.name ?? null)"
+      />
+    </ui-field>
   </div>
-</section>
+</ui-card>
 
-<section aria-labelledby="states-title">
-  <h2 id="states-title">{{ 'devUi.states.title' | transloco }}</h2>
+<ui-card [title]="'devUi.checkboxes.title' | transloco">
+  <div class="showcase-stack">
+    <ui-checkbox
+      [(checked)]="sendEmail"
+      (checkedChange)="log('sendEmail', $event)"
+      [label]="'devUi.checkboxes.sendEmail' | transloco"
+    />
+    <ui-checkbox
+      [checked]="true"
+      ariaDescribedBy="showcase-checkbox-hint"
+      [label]="'devUi.checkboxes.long' | transloco"
+    />
+    <p id="showcase-checkbox-hint" class="showcase-muted">
+      {{ 'devUi.checkboxes.longHint' | transloco }}
+    </p>
+    <ui-checkbox disabled [label]="'devUi.checkboxes.disabled' | transloco" />
+    <ui-checkbox
+      disabled
+      [checked]="true"
+      [label]="'devUi.checkboxes.disabledChecked' | transloco"
+    />
+  </div>
+</ui-card>
+
+<ui-card [title]="'devUi.states.title' | transloco">
   <div class="showcase-grid">
     <ui-empty-state
       [title]="'devUi.states.emptyTitle' | transloco"
@@ -70,9 +261,9 @@
       (retry)="log('retry')"
     />
   </div>
-</section>
+</ui-card>
 
-<section aria-labelledby="table-title">
+<section class="showcase-section" aria-labelledby="table-title">
   <h2 id="table-title">{{ 'devUi.table.title' | transloco }}</h2>
   <ui-table
     [caption]="'devUi.table.caption' | transloco"
@@ -88,10 +279,11 @@
     (pageChange)="onPage($event)"
   >
     <ng-template uiTableCell="status" let-row>
-      <span class="showcase-status">{{ row.status }}</span>
+      <ui-badge [tone]="row.tone">{{ row.status }}</ui-badge>
     </ng-template>
   </ui-table>
   <ui-table
+    striped
     [caption]="'devUi.table.loadingCaption' | transloco"
     [showCaption]="true"
     [columns]="columns()"
@@ -116,37 +308,52 @@
   />
 </section>
 
-<section aria-labelledby="paginator-title">
-  <h2 id="paginator-title">{{ 'devUi.paginator.title' | transloco }}</h2>
+<ui-card [title]="'devUi.paginator.title' | transloco">
   <h3>{{ 'devUi.paginator.cursor' | transloco }}</h3>
   <ui-paginator
     [pagination]="cursorPagination"
     [labels]="cursorPaginatorLabels()"
     (pageChange)="log('pageChange', $event)"
   />
-</section>
+</ui-card>
 
-<section aria-labelledby="dialog-title">
-  <h2 id="dialog-title">{{ 'devUi.dialog.title' | transloco }}</h2>
-  <ui-button [label]="'devUi.dialog.open' | transloco" (pressed)="dialogOpen.set(true)" />
-  <ui-dialog
-    [header]="'devUi.dialog.header' | transloco"
-    [closeLabel]="'ui.close' | transloco"
-    [(visible)]="dialogOpen"
-    (closed)="log('closed')"
-  >
-    <p>{{ 'devUi.dialog.body' | transloco }}</p>
-    <div uiDialogFooter class="showcase-row">
-      <ui-button
-        variant="secondary"
-        [label]="'devUi.dialog.cancel' | transloco"
-        (pressed)="dialogOpen.set(false)"
-      />
-      <ui-button
-        variant="danger"
-        [label]="'devUi.dialog.confirm' | transloco"
-        (pressed)="dialogOpen.set(false)"
-      />
-    </div>
-  </ui-dialog>
-</section>
+<div class="showcase-grid">
+  <ui-card [title]="'devUi.dialog.title' | transloco">
+    <ui-button [label]="'devUi.dialog.open' | transloco" (pressed)="dialogOpen.set(true)" />
+    <ui-dialog
+      [header]="'devUi.dialog.header' | transloco"
+      [closeLabel]="'ui.close' | transloco"
+      [(visible)]="dialogOpen"
+      (closed)="log('closed')"
+    >
+      <p>{{ 'devUi.dialog.body' | transloco }}</p>
+      <div uiDialogFooter class="showcase-row">
+        <ui-button
+          variant="secondary"
+          [label]="'devUi.dialog.cancel' | transloco"
+          (pressed)="dialogOpen.set(false)"
+        />
+        <ui-button
+          variant="danger"
+          [label]="'devUi.dialog.confirm' | transloco"
+          (pressed)="dialogOpen.set(false)"
+        />
+      </div>
+    </ui-dialog>
+  </ui-card>
+
+  <ui-card [title]="'devUi.toasts.title' | transloco">
+    <ui-button
+      variant="secondary"
+      [label]="'devUi.toasts.show' | transloco"
+      (pressed)="showToasts()"
+    />
+  </ui-card>
+</div>
+
+<ui-toast-region
+  [toasts]="toasts()"
+  [labels]="toastLabels()"
+  (dismiss)="dismissToast($event)"
+  (copyReference)="log('copy', $event)"
+/>

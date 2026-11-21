@@ -1,4 +1,5 @@
 using ImpiFact.Application.Abstractions.Companies;
+using ImpiFact.Application.Abstractions.Dian;
 using ImpiFact.Domain.Companies;
 using ImpiFact.Domain.Documents;
 using ImpiFact.Infrastructure.Persistence;
@@ -68,15 +69,24 @@ internal sealed class EfCompanyConfigurationReads(ImpiFactDbContext db) : ICompa
 
     public async Task<bool?> FindTestSetResultAsync(Guid companyId, CancellationToken ct)
     {
-        // Solo las respuestas de GetStatusZip con veredicto: un envío sin respuesta todavía no dice nada.
+        // Solo las respuestas de GetStatusZip con veredicto: un envío sin respuesta todavía no dice nada, y tampoco las
+        // que dicen que la DIAN sigue procesando («Batch en proceso de validación.», «se encuentra en proceso»), aunque
+        // lleguen con IsValid falso. Un documento validado, o la descripción «Set de prueba con identificador … se
+        // encuentra Aceptado» (la DIAN ya aprobó el set y no valida más documentos), dicen que el set está aceptado. Las
+        // descripciones se comparan en memoria, igual en todos los motores.
         var verdicts = await db.Set<DianSubmission>().AsNoTracking()
             .IgnoreQueryFilters([QueryFilters.Tenant])
             .Where(submission => submission.CompanyId == companyId
                 && submission.Operation == DianOperation.GetStatusZip
                 && submission.IsValid != null)
-            .Select(submission => submission.IsValid!.Value)
+            .Select(submission => new { IsValid = submission.IsValid!.Value, submission.DianStatusDescription })
             .Distinct()
             .ToListAsync(ct);
-        return verdicts.Count == 0 ? null : verdicts.Contains(true);
+        verdicts.RemoveAll(verdict => !verdict.IsValid
+            && !DianTestSetAnswers.IsAlreadyAccepted(verdict.DianStatusDescription)
+            && DianTestSetAnswers.IsInProcess(verdict.DianStatusDescription));
+        return verdicts.Count == 0
+            ? null
+            : verdicts.Any(verdict => verdict.IsValid || DianTestSetAnswers.IsAlreadyAccepted(verdict.DianStatusDescription));
     }
 }

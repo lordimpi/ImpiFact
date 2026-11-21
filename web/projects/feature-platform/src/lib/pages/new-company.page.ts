@@ -1,7 +1,6 @@
 import { HttpContext } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormField, submit } from '@angular/forms/signals';
-import { RouterLink } from '@angular/router';
 import { Api, createCompany } from '@impifact/api';
 import {
   AppError,
@@ -16,6 +15,9 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
+  CheckboxComponent,
   ComboboxComponent,
   ComboboxLabels,
   DialogComponent,
@@ -24,7 +26,7 @@ import {
   HelpComponent,
   InputDirective,
   PageTitleComponent,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -68,8 +70,10 @@ const FORMAT_KEYS: Partial<Record<keyof NewCompanyModel, string>> = {
 @Component({
   selector: 'feat-new-company-page',
   imports: [
+    CheckboxComponent,
+    CardComponent,
+    CardFooterDirective,
     FormField,
-    RouterLink,
     TranslocoPipe,
     ButtonComponent,
     DialogComponent,
@@ -79,14 +83,14 @@ const FORMAT_KEYS: Partial<Record<keyof NewCompanyModel, string>> = {
     PageTitleComponent,
     ComboboxComponent,
     DigitsOnlyDirective,
-    SelectDirective,
+    SelectComponent,
     CompanyUserDialogComponent,
     PlatformNavComponent,
   ],
   providers: [providePlatformI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './new-company.page.html',
-  styleUrl: './platform-page.css',
+  styleUrls: ['./platform-page.css', './new-company.page.css'],
 })
 export class NewCompanyPage {
   private readonly api = inject(Api);

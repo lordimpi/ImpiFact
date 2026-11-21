@@ -9,9 +9,14 @@ import {
 } from '@angular/core';
 import { AppError } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   ErrorStateComponent,
+  UiBadgeTone,
   FieldComponent,
+  FileUploadComponent,
   InputDirective,
   PasswordToggleDirective,
   LoadingComponent,
@@ -22,6 +27,8 @@ import { CompanySetupStore } from '../state/company-setup.store';
 
 /** Tamaño máximo del archivo; un .p12 normal pesa unos pocos kilobytes. */
 const MAX_BYTES = 1024 * 1024;
+/** Tipos que acepta el selector de archivo (`accept`). */
+const ACCEPT = '.p12,.pfx';
 const EXTENSIONS = /\.(p12|pfx)$/i;
 
 /** Contenido del archivo en base64, sin el prefijo `data:` que agrega `FileReader`. */
@@ -38,16 +45,22 @@ function readAsBase64(file: File): Promise<string> {
  * Certificado digital (`/empresas/:id/certificado`): los certificados de la empresa (titular, emisor, vencimiento y
  * días restantes) y la carga de uno nuevo en base64, que es lo que recibe el Api.
  *
- * La contraseña se lee del campo `type=password` solo al enviar y nunca pasa por un signal, el store ni la consola;
- * el campo y el archivo se vacían después de cada envío, haya salido bien o no.
+ * El archivo se elige con `ui-file-upload`, que solo deja elegir .p12 o .pfx de máximo 1 MB y explica por qué rechaza
+ * otro; la página vuelve a revisar el archivo al enviar. La contraseña se lee del campo `type=password` solo al enviar
+ * y nunca pasa por un signal, el store ni la consola; el campo y el archivo se vacían después de cada envío, haya salido
+ * bien o no.
  */
 @Component({
   selector: 'feat-certificate-page',
   imports: [
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     ErrorStateComponent,
     FieldComponent,
+    FileUploadComponent,
     InputDirective,
     PasswordToggleDirective,
     LoadingComponent,
@@ -56,115 +69,138 @@ function readAsBase64(file: File): Promise<string> {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="companies-section">
-      <h2>{{ 'companies.certificate.title' | transloco }}</h2>
-      <p class="companies-lead">{{ 'companies.certificate.description' | transloco }}</p>
-
-      @switch (setup.certificatesStatus()) {
-        @case ('error') {
-          <ui-error-state
-            [title]="'companies.certificate.loadError' | transloco"
-            [retryLabel]="'companies.common.retry' | transloco"
-            (retry)="setup.loadCertificates()"
-          />
-        }
-        @case ('ready') {
-          @if (certificates().length === 0) {
-            <p class="companies-lead">{{ 'companies.certificate.empty' | transloco }}</p>
-          } @else {
-            <ul
-              class="companies-cards"
-              [attr.aria-label]="'companies.certificate.current' | transloco"
-            >
-              @for (certificate of certificates(); track certificate.id) {
-                <li class="companies-card">
-                  <span class="companies-badge" [class.companies-badge--done]="certificate.active">
-                    {{
-                      (certificate.active
-                        ? 'companies.certificate.active'
-                        : 'companies.certificate.inactive'
-                      ) | transloco
-                    }}
-                  </span>
-                  <p>
-                    <strong>{{ 'companies.certificate.subject' | transloco }}:</strong>
-                    <span>{{ certificate.subject }}</span>
-                  </p>
-                  <p>{{ 'companies.certificate.issuer' | transloco }}: {{ certificate.issuer }}</p>
-                  <p>
-                    {{ 'companies.certificate.expiration' | transloco }}:
-                    {{ certificate.expiration }}
-                  </p>
-                  <p>
-                    @if (certificate.expired) {
-                      {{ 'companies.certificate.expired' | transloco }}
-                    } @else {
-                      {{
-                        'companies.certificate.daysLeft' | transloco: { days: certificate.daysLeft }
-                      }}
-                    }
-                  </p>
-                </li>
-              }
-            </ul>
+      <ui-card
+        [title]="'companies.certificate.title' | transloco"
+        [subtitle]="'companies.certificate.description' | transloco"
+        [padding]="
+          setup.certificatesStatus() === 'ready' && certificates().length ? 'none' : 'normal'
+        "
+      >
+        @switch (setup.certificatesStatus()) {
+          @case ('error') {
+            <ui-error-state
+              [title]="'companies.certificate.loadError' | transloco"
+              [retryLabel]="'companies.common.retry' | transloco"
+              (retry)="setup.loadCertificates()"
+            />
+          }
+          @case ('ready') {
+            @if (certificates().length === 0) {
+              <p class="companies-lead">{{ 'companies.certificate.empty' | transloco }}</p>
+            } @else {
+              <ul
+                class="companies-list"
+                [attr.aria-label]="'companies.certificate.current' | transloco"
+              >
+                @for (certificate of certificates(); track certificate.id) {
+                  <li>
+                    <div>
+                      <p>
+                        <strong>{{ 'companies.certificate.subject' | transloco }}:</strong>&ngsp;
+                        <span>{{ certificate.subject }}</span>
+                      </p>
+                      <p class="companies-lead">
+                        {{ 'companies.certificate.issuer' | transloco }}: {{ certificate.issuer }}
+                      </p>
+                      <p class="companies-lead">
+                        {{ 'companies.certificate.expiration' | transloco }}:
+                        {{ certificate.expiration }}
+                      </p>
+                    </div>
+                    <div class="companies-badges">
+                      <ui-badge [tone]="certificate.active ? 'success' : 'neutral'">{{
+                        (certificate.active
+                          ? 'companies.certificate.active'
+                          : 'companies.certificate.inactive'
+                        ) | transloco
+                      }}</ui-badge>
+                      <ui-badge [tone]="certificate.validityTone">
+                        @if (certificate.expired) {
+                          {{ 'companies.certificate.expired' | transloco }}
+                        } @else {
+                          {{
+                            'companies.certificate.daysLeft'
+                              | transloco: { days: certificate.daysLeft }
+                          }}
+                        }
+                      </ui-badge>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          }
+          @default {
+            <ui-loading [label]="'companies.common.loading' | transloco" />
           }
         }
-        @default {
-          <ui-loading [label]="'companies.common.loading' | transloco" />
-        }
-      }
+      </ui-card>
 
-      <form
-        class="companies-form"
-        novalidate
-        (submit)="onSubmit($event)"
-        [attr.aria-busy]="uploading() || null"
-      >
-        @if (result(); as message) {
-          <p class="companies-message companies-message--success" role="status">{{ message }}</p>
-        }
-        @if (generalError(); as message) {
-          <p class="companies-message companies-message--error" role="alert">{{ message }}</p>
-        }
-        <ui-field
-          [label]="'companies.certificate.file' | transloco"
-          [hint]="'companies.certificate.fileHint' | transloco"
-          [error]="fileError()"
-          required
+      <form novalidate (submit)="onSubmit($event)" [attr.aria-busy]="uploading() || null">
+        <ui-card
+          [headingLevel]="3"
+          [title]="'companies.certificate.uploadTitle' | transloco"
+          [subtitle]="'companies.certificate.uploadHint' | transloco"
         >
-          <input #file uiInput type="file" accept=".p12,.pfx" (change)="fileError.set(null)" />
-        </ui-field>
-        <ui-field
-          [label]="'companies.certificate.password' | transloco"
-          [hint]="'companies.certificate.passwordHint' | transloco"
-          [error]="passwordError()"
-          required
-        >
-          <input
-            #password
-            uiInput
-            uiPasswordToggle
-            type="password"
-            autocomplete="new-password"
-            (input)="passwordError.set(null)"
-          />
-        </ui-field>
-        <div class="companies-form__actions">
-          <ui-button
-            type="submit"
-            [label]="'companies.certificate.upload' | transloco"
-            [loading]="uploading()"
-          />
-        </div>
+          <div class="companies-grid">
+            @if (result(); as message) {
+              <p class="companies-message companies-message--success" role="status">
+                {{ message }}
+              </p>
+            }
+            @if (generalError(); as message) {
+              <p class="companies-message companies-message--error" role="alert">{{ message }}</p>
+            }
+            <ui-field
+              [label]="'companies.certificate.file' | transloco"
+              [hint]="'companies.certificate.fileHint' | transloco"
+              [error]="fileError()"
+              required
+            >
+              <ui-file-upload
+                [accept]="accept"
+                [maxFileSize]="maxBytes"
+                (fileChange)="onFile($event)"
+              />
+            </ui-field>
+            <ui-field
+              [label]="'companies.certificate.password' | transloco"
+              [hint]="'companies.certificate.passwordHint' | transloco"
+              [error]="passwordError()"
+              required
+            >
+              <input
+                #password
+                uiInput
+                uiPasswordToggle
+                type="password"
+                autocomplete="new-password"
+                [placeholder]="'companies.certificate.passwordPlaceholder' | transloco"
+                (input)="passwordError.set(null)"
+              />
+            </ui-field>
+          </div>
+          <div uiCardFooter class="companies-actions">
+            <ui-button
+              type="submit"
+              [label]="'companies.certificate.upload' | transloco"
+              [loading]="uploading()"
+            />
+          </div>
+        </ui-card>
       </form>
     </section>
   `,
-  styleUrl: './companies-page.css',
+  styleUrls: ['./companies-page.css', './companies-list.css'],
 })
 export class CertificatePage {
   protected readonly setup = inject(CompanySetupStore);
   private readonly transloco = inject(TranslocoService);
 
-  private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('file');
+  protected readonly accept = ACCEPT;
+  protected readonly maxBytes = MAX_BYTES;
+  private readonly fileUpload = viewChild.required(FileUploadComponent);
+  private readonly file = signal<File | null>(null);
   private readonly passwordInput = viewChild.required<ElementRef<HTMLInputElement>>('password');
 
   protected readonly uploading = signal(false);
@@ -184,6 +220,7 @@ export class CertificatePage {
         daysLeft,
         expired: daysLeft <= 0,
         active: !!certificate.is_active,
+        validityTone: validityTone(daysLeft),
       };
     }),
   );
@@ -196,7 +233,7 @@ export class CertificatePage {
     event.preventDefault();
     this.generalError.set(null);
     this.result.set(null);
-    const file = this.fileInput().nativeElement.files?.[0] ?? null;
+    const file = this.file();
     const password = this.passwordInput().nativeElement.value;
     this.fileError.set(this.validateFile(file));
     this.passwordError.set(password ? null : this.text('certificate.errors.passwordRequired'));
@@ -218,6 +255,11 @@ export class CertificatePage {
       this.uploading.set(false);
       this.clearInputs();
     }
+  }
+
+  protected onFile(file: File | null): void {
+    this.file.set(file);
+    this.fileError.set(null);
   }
 
   private validateFile(file: File | null): string | null {
@@ -246,10 +288,22 @@ export class CertificatePage {
 
   private clearInputs(): void {
     this.passwordInput().nativeElement.value = '';
-    this.fileInput().nativeElement.value = '';
+    this.fileUpload().clear();
+    this.file.set(null);
   }
 
   protected text(key: string, params?: Record<string, unknown>): string {
     return companiesText(this.transloco, key, params);
   }
+}
+
+/** Days of validity at or below which a certificate is about to expire and should be renewed. */
+const EXPIRING_DAYS = 30;
+
+/** Badge tone of the validity: expired (danger), about to expire (warning) or valid (success). */
+function validityTone(daysLeft: number): UiBadgeTone {
+  if (daysLeft <= 0) {
+    return 'danger';
+  }
+  return daysLeft <= EXPIRING_DAYS ? 'warning' : 'success';
 }

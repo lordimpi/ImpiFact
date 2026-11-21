@@ -20,6 +20,7 @@
     "module": "preserve",
     "paths": {
       "@impifact/api": ["./projects/api/src/public-api.ts"],
+      "@impifact/api/shell": ["./projects/api/src/shell.ts"],
       "@impifact/core": ["./projects/core/src/public-api.ts"],
       "@impifact/ui": ["./projects/ui/src/public-api.ts"],
       "@impifact/feature-*": ["./projects/feature-*/src/public-api.ts"]

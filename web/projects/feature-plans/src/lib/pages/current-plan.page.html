@@ -1,8 +1,7 @@
 <section class="plan-page">
-  <header>
-    <ui-page-title>{{ 'plans.title' | transloco }}</ui-page-title>
-    <p class="plan-lead">{{ 'plans.description' | transloco }}</p>
-  </header>
+  <ui-page-title [subtitle]="'plans.description' | transloco">{{
+    'plans.title' | transloco
+  }}</ui-page-title>
 
   @if (summary.isLoading()) {
     <ui-loading [label]="'plans.loading' | transloco" [lines]="4" />
@@ -14,60 +13,60 @@
       (retry)="summary.reload()"
     />
   } @else if (plan(); as plan) {
-    <section class="plan-card" aria-labelledby="plan-summary-title">
-      <h2 id="plan-summary-title" class="plan-subtitle">
-        {{ 'plans.summary.title' | transloco }}
-      </h2>
-      <dl class="plan-facts">
-        <div>
-          <dt>{{ 'plans.summary.name' | transloco }}</dt>
-          <dd>{{ plan.name }}</dd>
-        </div>
-        <div>
-          <dt>{{ 'plans.summary.period' | transloco }}</dt>
-          <dd>{{ periodLabel(plan.period) }}</dd>
-        </div>
-        <div>
-          <dt>{{ 'plans.summary.status' | transloco }}</dt>
-          <dd [class.plan-expired]="plan.expired">{{ status() }}</dd>
-        </div>
-        <div>
-          <dt>{{ 'plans.summary.startsAt' | transloco }}</dt>
-          <dd>{{ date(plan.starts_at) }}</dd>
-        </div>
-        <div>
-          <dt>{{ 'plans.summary.periodEnd' | transloco }}</dt>
-          <dd>{{ date(plan.period_end) }}</dd>
-        </div>
-      </dl>
-    </section>
+    <div class="plan-grid">
+      <ui-card [title]="'plans.summary.title' | transloco">
+        <dl class="plan-facts">
+          <div class="plan-facts__main">
+            <dt>{{ 'plans.summary.name' | transloco }}</dt>
+            <dd class="plan-name">{{ plan.name }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'plans.summary.status' | transloco }}</dt>
+            <dd>
+              <ui-badge [tone]="statusTone()">{{ status() }}</ui-badge>
+            </dd>
+          </div>
+          <div>
+            <dt>{{ 'plans.summary.period' | transloco }}</dt>
+            <dd>{{ periodLabel(plan.period) }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'plans.summary.startsAt' | transloco }}</dt>
+            <dd>{{ date(plan.starts_at) }}</dd>
+          </div>
+          <div>
+            <dt>{{ 'plans.summary.periodEnd' | transloco }}</dt>
+            <dd [class.plan-expired]="plan.expired">{{ date(plan.period_end) }}</dd>
+          </div>
+        </dl>
+      </ui-card>
 
-    <section class="plan-card" aria-labelledby="plan-quotas-title">
-      <h2 id="plan-quotas-title" class="plan-subtitle">
-        {{ 'plans.quotas.title' | transloco }}
-      </h2>
-      @if (quotas().length === 0) {
-        <p class="plan-lead">{{ 'plans.quotas.none' | transloco }}</p>
-      } @else {
-        <ul class="plan-quotas">
-          @for (quota of quotas(); track quota.kind) {
-            <li>
-              <span class="plan-quota-label">{{ quota.label }}</span>
-              <ui-meter
-                [label]="quota.label"
-                [value]="quota.used"
-                [max]="quota.limit"
-                [valueText]="quota.text"
-              />
-            </li>
-          }
-        </ul>
-      }
-    </section>
+      <ui-card [title]="'plans.quotas.title' | transloco">
+        @if (quotas().length === 0) {
+          <p class="plan-muted">{{ 'plans.quotas.none' | transloco }}</p>
+        } @else {
+          <ul class="plan-quotas">
+            @for (quota of quotas(); track quota.kind) {
+              <li>
+                <span class="plan-quota-label">{{ quota.label }}</span>
+                <ui-meter
+                  [label]="quota.label"
+                  [value]="quota.used"
+                  [max]="quota.limit"
+                  [valueText]="quota.text"
+                />
+              </li>
+            }
+          </ul>
+        }
+      </ui-card>
+    </div>
   } @else {
-    <ui-empty-state
-      [title]="'plans.noPlanTitle' | transloco"
-      [description]="'plans.noPlanDescription' | transloco"
-    />
+    <ui-card>
+      <ui-empty-state
+        [title]="'plans.noPlanTitle' | transloco"
+        [description]="'plans.noPlanDescription' | transloco"
+      />
+    </ui-card>
   }
 </section>

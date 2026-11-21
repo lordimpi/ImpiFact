@@ -100,13 +100,28 @@ function answerConcepts(http: Http, kind: 'credit' | 'debit') {
   );
 }
 
-const choose = (label: RegExp, value: string) => {
-  const select = screen.getByLabelText(label) as HTMLSelectElement;
-  fireEvent.change(select, { target: { value } });
-  fireEvent.input(select, { target: { value } });
-};
+/** Opens the Optimus select named `label` and clicks its option `option`. */
+async function choose(label: RegExp, option: string): Promise<void> {
+  fireEvent.click(screen.getByRole('combobox', { name: label }));
+  fireEvent.click(await screen.findByRole('option', { name: option }));
+}
 
 describe('NoteIssuePage', () => {
+  // jsdom has no matchMedia nor scrollIntoView; the Optimus select overlay and list use them.
+  beforeAll(() => {
+    window.matchMedia ??= ((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+    Element.prototype.scrollIntoView ??= () => undefined;
+  });
+
   beforeEach(() => sessionStorage.clear());
 
   it(
@@ -153,7 +168,7 @@ describe('NoteIssuePage', () => {
         name: 'Emitir nota crédito',
       }) as HTMLButtonElement;
       expect(submit.disabled).toBe(true);
-      choose(/^Concepto de la corrección/, '2');
+      await choose(/^Concepto de la corrección/, 'Anulación de factura electrónica');
       await waitFor(() => expect(submit.disabled).toBe(false));
       fireEvent.click(submit);
 
@@ -201,7 +216,7 @@ describe('NoteIssuePage', () => {
     );
     (await waitFor(() => http.expectOne(isCalculate))).flush(CALCULATION);
     await screen.findByTestId('payable');
-    choose(/^Concepto de la corrección/, '1');
+    await choose(/^Concepto de la corrección/, 'Intereses');
 
     const submit = screen.getByRole('button', { name: 'Emitir nota débito' }) as HTMLButtonElement;
     await waitFor(() => expect(submit.disabled).toBe(false));
@@ -249,7 +264,10 @@ describe('NoteIssuePage', () => {
       }
       (await waitFor(() => rendered.http.expectOne(isCalculate))).flush(CALCULATION);
       await screen.findByTestId('payable');
-      choose(/^Concepto de la corrección/, '1');
+      await choose(
+        /^Concepto de la corrección/,
+        kind === 'credit' ? 'Devolución parcial de los bienes' : 'Intereses',
+      );
       return rendered;
     }
 

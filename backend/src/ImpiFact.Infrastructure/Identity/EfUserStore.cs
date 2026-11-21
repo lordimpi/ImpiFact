@@ -42,9 +42,10 @@ internal sealed class EfUserStore(ImpiFactDbContext db, CredentialStoreGuard gua
                 .ToListAsync(ct);
 
             // A propósito sin el filtro de empresa: se necesitan todas las empresas del usuario antes de elegir una.
+            // Una pertenencia desactivada no da nada: el inicio de sesión, la renovación y las revisiones de dueño la saltan.
             var companies = await db.Set<UserCompany>().AsNoTracking()
                 .IgnoreQueryFilters([QueryFilters.Tenant])
-                .Where(link => link.UserId == userId)
+                .Where(link => link.UserId == userId && link.IsActive)
                 .Join(db.Set<Role>(), link => link.RoleId, role => role.Id, (link, role) => new { link.CompanyId, role.Name })
                 .OrderBy(link => link.CompanyId).ThenBy(link => link.Name)
                 .ToListAsync(ct);

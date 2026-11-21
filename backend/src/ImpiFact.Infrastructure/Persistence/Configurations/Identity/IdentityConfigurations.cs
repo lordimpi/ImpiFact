@@ -75,6 +75,8 @@ internal sealed class UserCompanyConfiguration : IEntityTypeConfiguration<UserCo
         builder.References<UserCompany, User>(link => link.UserId);
         builder.References<UserCompany, Role>(link => link.RoleId);
         builder.ReferencesInCompany<UserCompany, Customer>(nameof(UserCompany.CustomerId));
+        // Rows that existed before the column (migration UserCompanyActive) come out active.
+        builder.Property(link => link.IsActive).HasStoreDefault(true);
         builder.HasIndex(link => new { link.UserId, link.CompanyId, link.RoleId }).IsUnique();
     }
 }

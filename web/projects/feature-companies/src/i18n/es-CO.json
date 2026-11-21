@@ -14,6 +14,7 @@
     "errors": {
       "required": "Este campo es obligatorio.",
       "maxLength": "Escriba como máximo {{ max }} caracteres.",
+      "minLength": "Escriba al menos {{ min }} caracteres.",
       "email": "Escriba un correo electrónico válido.",
       "pattern": "El formato no es válido.",
       "unexpected": "No se pudo completar la operación. Intente de nuevo.",
@@ -24,7 +25,9 @@
     "catalog": {
       "loading": "Cargando la lista…",
       "error": "No se pudo cargar la lista."
-    }
+    },
+    "filterPlaceholder": "Buscar por nombre",
+    "datePlaceholder": "dd/mm/aaaa"
   },
   "layout": {
     "title": "Configuración de la empresa",
@@ -39,7 +42,8 @@
       "certificate": "Certificado",
       "resolutions": "Resoluciones",
       "production": "Paso a producción"
-    }
+    },
+    "subtitle": "Datos fiscales, ambientes, certificado y numeración con los que la empresa factura ante la DIAN."
   },
   "data": {
     "title": "Datos de la empresa",
@@ -78,7 +82,18 @@
     },
     "departmentPlaceholder": "Escriba para buscar el departamento…",
     "departmentNone": "Ningún departamento coincide con lo que escribió.",
-    "municipalityPlaceholder": "Escriba para buscar el municipio…"
+    "municipalityPlaceholder": "Escriba para buscar el municipio…",
+    "groups": {
+      "identity": "Identificación tributaria",
+      "location": "Ubicación y contacto"
+    },
+    "placeholders": {
+      "businessName": "Mi Empresa S.A.S.",
+      "address": "Calle 10 # 20-30",
+      "phone": "3001234567",
+      "email": "nombre@empresa.com",
+      "merchantRegistration": "123456"
+    }
   },
   "environments": {
     "title": "Ambientes",
@@ -102,6 +117,14 @@
       "body": "En producción cada documento tiene efecto fiscal real ante la DIAN y no se puede borrar: solo se corrige con notas. Familias que pasan a producción: {{ kinds }}.",
       "accept": "Entiendo que los documentos tendrán efecto fiscal real.",
       "confirm": "Pasar a producción"
+    },
+    "summary": "Ambiente actual por familia",
+    "change": "Cambiar de ambiente",
+    "changeHint": "Elija solo las familias que cambian; las demás quedan como están.",
+    "badge": {
+      "unknown": "Sin definir",
+      "loading": "Consultando…",
+      "error": "No disponible"
     }
   },
   "software": {
@@ -126,6 +149,11 @@
       "identifier": "Identificador",
       "testSet": "Set de pruebas",
       "pin": "PIN"
+    },
+    "placeholders": {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "pin": "PIN de cinco dígitos",
+      "testSetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
     }
   },
   "certificate": {
@@ -152,7 +180,10 @@
       "fileType": "El archivo debe ser .p12 o .pfx.",
       "fileSize": "El archivo pesa más de 1 MB.",
       "passwordRequired": "Escriba la contraseña del certificado."
-    }
+    },
+    "uploadTitle": "Cargar un certificado",
+    "uploadHint": "El certificado nuevo reemplaza al activo.",
+    "passwordPlaceholder": "Contraseña del archivo .p12"
   },
   "resolutions": {
     "title": "Resoluciones de numeración",
@@ -218,6 +249,14 @@
         "validity": "Vigencia",
         "actions": "Acciones"
       }
+    },
+    "placeholders": {
+      "prefix": "SETP",
+      "resolution": "18760000001",
+      "technicalKey": "fc8eac422eba16e22ffd8c6f94b3f40a6e38162c",
+      "from": "990000000",
+      "to": "995000000",
+      "softwareId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
     }
   },
   "wizard": {
@@ -256,7 +295,8 @@
         "missing": "La empresa no tiene software en el ambiente actual: guárdelo en la sección Software.",
         "missingTestSet": "Falta el identificador del set de pruebas (TestSetId): guárdelo en la sección Software o escríbalo aquí para enviar la factura de prueba.",
         "testSetId": "Identificador del set de pruebas (TestSetId)",
-        "use": "Usar este set de pruebas"
+        "use": "Usar este set de pruebas",
+        "testSetIdPlaceholder": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
       },
       "testSet": {
         "title": "Set de pruebas de la DIAN",
@@ -267,7 +307,7 @@
         "dian": "Respuesta de la DIAN: {{ code }} {{ description }}",
         "accepted": "La DIAN aceptó la factura de prueba.",
         "noResult": "Sin resultado de la DIAN todavía.",
-        "setAccepted": "La DIAN aceptó el set de pruebas.",
+        "setAccepted": "La DIAN ya aprobó el set de pruebas.",
         "setRejected": "La DIAN rechazó el set de pruebas. Revise la respuesta de cada documento y vuelva a enviar.",
         "needsTestSet": "Falta el identificador del set de pruebas.",
         "statuses": {
@@ -292,5 +332,92 @@
       }
     },
     "loadError": "No se pudo consultar el estado del paso a producción."
+  },
+  "users": {
+    "title": "Usuarios",
+    "subtitle": "Las personas que trabajan con esta empresa en el panel, su rol y si pueden entrar.",
+    "new": "Nuevo usuario",
+    "platform": {
+      "title": "Usuarios de {{ name }}",
+      "companies": "Empresas de la plataforma",
+      "notFoundTitle": "No encontramos esa empresa",
+      "notFoundDescription": "Ninguna empresa de la plataforma tiene el NIT {{ nit }}. Vuelva a la lista y elíjala de nuevo.",
+      "back": "Volver a Empresas de la plataforma",
+      "loadErrorTitle": "No se pudo consultar la empresa",
+      "loadErrorDescription": "Revise su conexión e intente de nuevo."
+    },
+    "roles": {
+      "owner": "Dueño",
+      "seller": "Vendedor"
+    },
+    "roleNames": {
+      "owner": "dueño",
+      "seller": "vendedor"
+    },
+    "list": {
+      "caption": "Usuarios de la empresa",
+      "name": "Nombre",
+      "email": "Correo",
+      "phone": "Teléfono",
+      "role": "Rol",
+      "status": "Estado",
+      "actions": "Acciones",
+      "you": "(usted)",
+      "noPhone": "Sin teléfono",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "selfHint": "Es su cuenta: no puede cambiar su rol ni desactivarla.",
+      "loading": "Cargando los usuarios…",
+      "emptyTitle": "La empresa aún no tiene usuarios",
+      "emptyDescription": "Cree el primero con «Nuevo usuario».",
+      "errorTitle": "No se pudieron consultar los usuarios",
+      "errorDescription": "Revise su conexión e intente de nuevo."
+    },
+    "actions": {
+      "makeOwner": "Cambiar a dueño",
+      "makeSeller": "Cambiar a vendedor",
+      "deactivate": "Desactivar",
+      "reactivate": "Reactivar",
+      "makeOwnerRow": "Cambiar a dueño: {{ name }}",
+      "makeSellerRow": "Cambiar a vendedor: {{ name }}",
+      "deactivateRow": "Desactivar a {{ name }}",
+      "reactivateRow": "Reactivar a {{ name }}"
+    },
+    "deactivate": {
+      "title": "Desactivar a {{ name }}",
+      "body": "{{ name }} perderá el acceso a esta empresa y se cerrarán sus sesiones abiertas. Lo que emitió conserva su autor, y usted puede reactivarlo cuando quiera.",
+      "confirm": "Desactivar"
+    },
+    "done": {
+      "role": "{{ name }} ahora es {{ role }}.",
+      "deactivated": "{{ name }} quedó inactivo y se cerraron sus sesiones.",
+      "reactivated": "{{ name }} puede volver a entrar a la empresa."
+    },
+    "errors": {
+      "lastOwner": "La empresa debe tener al menos un dueño activo: nombre otro dueño antes de hacer este cambio.",
+      "cannotDeactivateSelf": "No puede desactivar su propia cuenta.",
+      "cannotRemoveOwnOwnerRole": "No puede quitarse a usted mismo el rol de dueño.",
+      "notFound": "Este usuario ya no pertenece a la empresa; la lista se actualizó.",
+      "conflict": "Otra persona cambió estos datos al mismo tiempo; la lista se actualizó.",
+      "companyNotFound": "La empresa ya no existe; vuelva a la lista de empresas."
+    },
+    "form": {
+      "title": "Nuevo usuario",
+      "description": "Cree un dueño o un vendedor de esta empresa. El dueño configura la empresa y administra los usuarios; el vendedor emite y consulta documentos.",
+      "email": "Correo electrónico",
+      "name": "Nombre",
+      "phone": "Teléfono",
+      "password": "Contraseña",
+      "passwordHint": "Al menos {{ min }} caracteres. El panel no la guarda: entréguela a la persona por un medio seguro.",
+      "role": "Rol",
+      "submit": "Crear usuario",
+      "done": "Se creó el usuario {{ email }} como {{ role }}; ya puede iniciar sesión.",
+      "roleNotAllowed": "Su sesión no puede crear usuarios con ese rol.",
+      "placeholders": {
+        "email": "nombre@empresa.com",
+        "name": "Ana Gómez",
+        "phone": "3001234567"
+      }
+    }
   }
 }

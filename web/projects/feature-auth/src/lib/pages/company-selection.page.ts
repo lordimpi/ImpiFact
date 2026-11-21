@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AppError, CORE_ROUTE_PATHS, MyCompaniesStore, SessionStore } from '@impifact/core';
-import { ButtonComponent, EmptyStateComponent, PageTitleComponent } from '@impifact/ui';
+import { BadgeComponent, EmptyStateComponent, PageTitleComponent } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { AUTH_I18N_SCOPE, provideAuthI18n } from '../auth-i18n';
+import { AuthBrandComponent } from '../components/auth-brand.component';
 import { safeReturnUrl } from '../navigation/return-url';
 
 const FORBIDDEN = 403;
@@ -18,13 +19,26 @@ const FORBIDDEN = 403;
  */
 @Component({
   selector: 'feat-company-selection-page',
-  imports: [ButtonComponent, EmptyStateComponent, PageTitleComponent, RouterLink, TranslocoPipe],
+  imports: [
+    AuthBrandComponent,
+    BadgeComponent,
+    EmptyStateComponent,
+    PageTitleComponent,
+    RouterLink,
+    TranslocoPipe,
+  ],
   providers: [provideAuthI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="auth-page">
-      <div class="auth-card">
-        <ui-page-title>{{ 'auth.selectCompany.title' | transloco }}</ui-page-title>
+      <feat-auth-brand />
+      <div class="auth-card auth-card--wide">
+        <ui-page-title
+          [subtitle]="
+            companies().length === 0 ? undefined : ('auth.selectCompany.description' | transloco)
+          "
+          >{{ 'auth.selectCompany.title' | transloco }}</ui-page-title
+        >
 
         @if (companies().length === 0) {
           <ui-empty-state
@@ -34,49 +48,71 @@ const FORBIDDEN = 403;
             <a class="auth-link" routerLink="/">{{ 'auth.selectCompany.goHome' | transloco }}</a>
           </ui-empty-state>
         } @else {
-          <p class="auth-lead">{{ 'auth.selectCompany.description' | transloco }}</p>
           @if (error(); as message) {
             <p class="auth-error" role="alert">{{ message }}</p>
           }
           <ul class="auth-list" [attr.aria-label]="'auth.selectCompany.listLabel' | transloco">
             @for (company of companies(); track company.id) {
-              <li class="auth-company">
-                <div>
-                  @if (company.name; as name) {
-                    <p class="auth-company__name">{{ name }}</p>
-                    <p class="auth-company__id">
-                      {{
-                        'auth.selectCompany.nit' | transloco: { nit: company.nit, dv: company.dv }
-                      }}
-                    </p>
-                  } @else {
-                    <p class="auth-company__name">
+              <!--
+                Card with a stretched button: the button is the company name (its accessible name, «Trabajar con …»,
+                contains the visible name) and its ::after covers the whole card, so a click anywhere chooses it.
+              -->
+              <li
+                class="company-card"
+                [class.company-card--active]="company.active"
+                [class.company-card--disabled]="pending() !== null || company.inactive"
+              >
+                <span class="company-card__avatar" aria-hidden="true">{{ company.initial }}</span>
+                <span class="company-card__text">
+                  <button
+                    type="button"
+                    class="company-card__select"
+                    [attr.aria-describedby]="'company-details-' + company.id"
+                    [attr.aria-busy]="pending() === company.id || null"
+                    [disabled]="pending() !== null || company.inactive"
+                    (click)="choose(company.id)"
+                  >
+                    <span class="ui-visually-hidden"
+                      >{{ 'auth.selectCompany.selectPrefix' | transloco }}
+                    </span>
+                    @if (company.name; as name) {
+                      {{ name }}
+                    } @else {
                       {{ 'auth.selectCompany.company' | transloco: { number: company.number } }}
-                    </p>
-                    <p class="auth-company__id">
-                      {{ 'auth.selectCompany.companyId' | transloco: { id: company.id } }}
-                    </p>
-                  }
-                  @if (company.active) {
-                    <p class="auth-company__active">
-                      {{ 'auth.selectCompany.active' | transloco }}
-                    </p>
-                  }
-                  @if (company.inactive) {
-                    <p class="auth-company__id">{{ 'auth.selectCompany.inactive' | transloco }}</p>
-                  }
-                </div>
-                <ui-button
-                  [variant]="company.active ? 'secondary' : 'primary'"
-                  [label]="
-                    company.name
-                      ? ('auth.selectCompany.selectNamed' | transloco: { name: company.name })
-                      : ('auth.selectCompany.select' | transloco: { number: company.number })
-                  "
-                  [loading]="pending() === company.id"
-                  [disabled]="pending() !== null || company.inactive"
-                  (pressed)="choose(company.id)"
-                />
+                    }
+                  </button>
+                  <span class="company-card__details" [id]="'company-details-' + company.id">
+                    <span class="company-card__id">
+                      @if (company.name) {
+                        {{
+                          'auth.selectCompany.nit' | transloco: { nit: company.nit, dv: company.dv }
+                        }}
+                      } @else {
+                        {{ 'auth.selectCompany.companyId' | transloco: { id: company.id } }}
+                      }
+                    </span>
+                    @if (company.active) {
+                      <ui-badge tone="success">{{
+                        'auth.selectCompany.active' | transloco
+                      }}</ui-badge>
+                    }
+                    @if (company.inactive) {
+                      <ui-badge>{{ 'auth.selectCompany.inactive' | transloco }}</ui-badge>
+                    }
+                  </span>
+                </span>
+                @if (pending() === company.id) {
+                  <span class="company-card__spinner" aria-hidden="true"></span>
+                } @else {
+                  <svg
+                    class="company-card__chevron"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                }
               </li>
             }
           </ul>
@@ -84,7 +120,7 @@ const FORBIDDEN = 403;
       </div>
     </section>
   `,
-  styleUrl: './auth-page.css',
+  styleUrls: ['./auth-page.css', './company-selection.page.css'],
 })
 export class CompanySelectionPage {
   private readonly session = inject(SessionStore);
@@ -105,6 +141,7 @@ export class CompanySelectionPage {
         number: index + 1,
         active: id === active,
         name: known?.name ?? null,
+        initial: (known?.name?.trim().charAt(0) ?? '').toUpperCase() || String(index + 1),
         nit: known?.nit ?? '',
         dv: known?.dv ?? '',
         inactive: known ? !known.is_active : false,

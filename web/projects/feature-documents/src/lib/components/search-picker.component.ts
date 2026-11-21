@@ -12,6 +12,8 @@ export interface PickerOption {
 export interface PickerLabels {
   search: string;
   hint: string;
+  /** Example inside the empty search box («Buscar por …»). */
+  placeholder?: string;
   results: string;
   none: string;
   searching: string;
@@ -34,6 +36,7 @@ export interface PickerLabels {
         uiInput
         type="search"
         autocomplete="off"
+        [placeholder]="labels().placeholder ?? ''"
         [value]="term()"
         (input)="termChange.emit(read($event))"
       />
@@ -73,33 +76,44 @@ export interface PickerLabels {
     .picker__list {
       display: flex;
       flex-direction: column;
-      gap: var(--if-space-1);
-      margin: 0;
+      margin: 0 0 var(--if-space-2);
       padding: 0;
       list-style: none;
+      overflow: hidden;
+      border: 1px solid var(--if-color-border);
+      border-radius: var(--if-radius-md);
+      box-shadow: var(--if-shadow-card);
+    }
+    .picker__list li + li {
+      border-block-start: 1px solid var(--if-color-border);
     }
     .picker__option {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--if-space-2);
+      gap: var(--if-space-1) var(--if-space-3);
+      align-items: baseline;
       inline-size: 100%;
       padding: var(--if-space-2) var(--if-space-3);
       font: inherit;
       text-align: start;
       color: var(--if-color-text);
       background: var(--if-color-bg);
-      border: 1px solid var(--if-color-border);
-      border-radius: var(--if-radius-sm);
+      border: 0;
       cursor: pointer;
     }
     .picker__option:hover {
-      border-color: var(--if-color-primary);
+      background: var(--if-color-primary-subtle);
+    }
+    .picker__option:focus-visible {
+      outline: var(--if-focus-ring-width) solid var(--if-color-focus);
+      outline-offset: calc(-1 * var(--if-focus-ring-width));
     }
     .picker__title {
       font-weight: var(--if-font-weight-medium);
     }
     .picker__muted {
       margin: 0;
+      font-size: var(--if-font-size-sm);
       color: var(--if-color-text-muted);
     }
     .picker__error {

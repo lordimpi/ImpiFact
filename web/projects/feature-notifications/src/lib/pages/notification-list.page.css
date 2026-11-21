@@ -1,4 +1,4 @@
-/* Página de avisos: cómoda en móvil y en escritorio. */
+/* Notifications page: filter toolbar and table inside one card, usable on phones and desktops. */
 :host {
   display: block;
 }
@@ -7,25 +7,34 @@
   display: flex;
   flex-direction: column;
   gap: var(--if-space-4);
-  max-inline-size: 72rem;
-  margin-inline: auto;
 }
 
-.notifications-header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--if-space-3);
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.notifications-lead {
-  margin: 0;
-  color: var(--if-color-text-muted);
+/* The page title keeps its own bottom margin: cancel the flex gap after it. */
+.notifications-page > ui-page-title {
+  margin-block-end: calc(-1 * var(--if-space-4));
 }
 
 .notifications-toolbar {
-  max-inline-size: 16rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--if-space-3);
+  padding: var(--if-space-3) var(--if-space-4) 0;
+  border-block-end: 1px solid var(--if-color-border);
+}
+
+.notifications-filter {
+  flex: 0 1 14rem;
+}
+
+@media (max-width: 40rem) {
+  .notifications-toolbar {
+    padding-inline: var(--if-space-3);
+  }
+
+  .notifications-filter {
+    flex-basis: 100%;
+  }
 }
 
 .notifications-title {
@@ -33,16 +42,17 @@
   font-weight: var(--if-font-weight-medium);
 }
 
+.notifications-title--unread {
+  font-weight: var(--if-font-weight-bold);
+}
+
 .notifications-body {
   display: block;
+  font-size: var(--if-font-size-sm);
   color: var(--if-color-text-muted);
 }
 
-.notifications-status {
-  color: var(--if-color-text-muted);
-}
-
-.notifications-status--unread {
-  color: var(--if-color-primary);
-  font-weight: var(--if-font-weight-bold);
+.notifications-date {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }

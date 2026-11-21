@@ -1,0 +1,20 @@
+/* Cells of the company tables (saved software, resolutions and DIAN ranges) and the range lookup row. */
+
+.companies-nowrap {
+  white-space: nowrap;
+}
+
+.companies-lookup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--if-space-3);
+  align-items: flex-end;
+}
+
+.companies-lookup ui-field {
+  flex: 1 1 16rem;
+}
+
+.companies-lookup .companies-actions {
+  margin-block-end: var(--if-space-3);
+}

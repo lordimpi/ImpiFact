@@ -24,9 +24,7 @@ describe('CompanySelectionPage', () => {
     expect(within(items[0]!).getByText('Empresa 1')).toBeTruthy();
     expect(within(items[0]!).getByText(`Identificador: ${SIGNED_IN.companies[0]}`)).toBeTruthy();
     expect(within(items[1]!).getByText('Empresa activa')).toBeTruthy();
-    expect(
-      within(items[1]!).getByRole('button', { name: 'Trabajar con la empresa 2' }),
-    ).toBeTruthy();
+    expect(within(items[1]!).getByRole('button', { name: 'Trabajar con Empresa 2' })).toBeTruthy();
   });
 
   it('shows the business name and NIT when the API lists the companies of the user', async () => {
@@ -48,7 +46,13 @@ describe('CompanySelectionPage', () => {
     const items = within(list).getAllByRole('listitem');
     expect(within(items[0]!).getByText('Acme SAS')).toBeTruthy();
     expect(within(items[0]!).getByText('NIT 900123456-7')).toBeTruthy();
-    expect(within(items[0]!).getByRole('button', { name: 'Trabajar con Acme SAS' })).toBeTruthy();
+    // The company name is the button of the card: its name says what it does and its description is the NIT.
+    const card = within(items[0]!).getByRole('button', { name: 'Trabajar con Acme SAS' });
+    const description = (card.getAttribute('aria-describedby') ?? '')
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent?.trim())
+      .join(' ');
+    expect(description).toContain('NIT 900123456-7');
     // La que el Api no listó conserva el número y el identificador.
     expect(within(items[1]!).getByText('Empresa 2')).toBeTruthy();
     expect(within(items[1]!).getByText(`Identificador: ${SIGNED_IN.companies[1]}`)).toBeTruthy();
@@ -82,7 +86,7 @@ describe('CompanySelectionPage', () => {
       SIGNED_IN,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Trabajar con la empresa 2' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Trabajar con Empresa 2' }));
 
     await waitFor(() => expect(router.url).toBe('/documentos'));
     expect(session.selectCompany).toHaveBeenCalledExactlyOnceWith(SIGNED_IN.companies[1]);
@@ -91,7 +95,7 @@ describe('CompanySelectionPage', () => {
   it('goes home after choosing when nothing asked for the session', async () => {
     const { router } = await renderAuthRoute('/empresas/seleccionar', SIGNED_IN);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Trabajar con la empresa 1' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Trabajar con Empresa 1' }));
 
     await waitFor(() => expect(router.url).toBe('/'));
   });
@@ -103,11 +107,11 @@ describe('CompanySelectionPage', () => {
       () => new Promise<void>((resolve) => (finish = resolve)),
     );
 
-    const first = await screen.findByRole('button', { name: 'Trabajar con la empresa 1' });
+    const first = await screen.findByRole('button', { name: 'Trabajar con Empresa 1' });
     fireEvent.click(first);
 
     await waitFor(() => expect(first.getAttribute('aria-busy')).toBe('true'));
-    const second = screen.getByRole('button', { name: 'Trabajar con la empresa 2' });
+    const second = screen.getByRole('button', { name: 'Trabajar con Empresa 2' });
     expect((second as HTMLButtonElement).disabled).toBe(true);
     finish();
   });
@@ -118,14 +122,14 @@ describe('CompanySelectionPage', () => {
       new AppError('identity.company_not_allowed', 'No pertenece a la empresa.', 403),
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Trabajar con la empresa 1' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Trabajar con Empresa 1' }));
 
     expect((await screen.findByRole('alert')).textContent).toContain(
       'No tiene acceso a esa empresa. Elija otra.',
     );
     expect(router.url).toBe('/empresas/seleccionar');
     expect(
-      (screen.getByRole('button', { name: 'Trabajar con la empresa 2' }) as HTMLButtonElement)
+      (screen.getByRole('button', { name: 'Trabajar con Empresa 2' }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
   });
@@ -140,7 +144,7 @@ describe('CompanySelectionPage', () => {
       throw new AppError('identity.invalid_refresh_token', 'Sesión vencida.', 401);
     });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Trabajar con la empresa 1' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Trabajar con Empresa 1' }));
 
     await waitFor(() => expect(router.url).toBe('/login?returnUrl=%2Fdocumentos'));
   });

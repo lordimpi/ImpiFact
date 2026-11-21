@@ -57,13 +57,16 @@ const step = (title: string) => {
     .getAllByRole('listitem')
     .find((item) => within(item).queryByRole('heading', { name: title }))!;
 };
-const badge = (title: string) => step(title).querySelector('.companies-badge')?.textContent?.trim();
+const badge = (title: string) =>
+  step(title).querySelector('.wizard-step__status')?.textContent?.trim();
 const sendButton = () =>
   within(step('Set de pruebas de la DIAN')).getByRole('button', {
     name: 'Enviar factura de prueba',
   }) as HTMLButtonElement;
 
 describe('ProductionWizardPage', () => {
+  // The first test of the file pays the cold render of the route and of the Optimus controls (about 3 s alone,
+  // more while the other files of the project run in parallel).
   it('derives each step from the setup status the API reports', async () => {
     await open();
 
@@ -107,11 +110,21 @@ describe('ProductionWizardPage', () => {
   });
 
   it('tells whether the DIAN accepted or rejected the test set', async () => {
-    const { http } = await open({ readiness: { ...READY, test_set_accepted: true } });
+    const { http } = await open({
+      readiness: { ...READY, test_set_accepted: true },
+      software: [{ ...INVOICE_SOFTWARE, test_set_id: TEST_SET }],
+    });
     expect(badge('Set de pruebas de la DIAN')).toBe('Completo');
+    // Approved set: the DIAN no longer validates test invoices, so the button gives way to a badge.
+    const accepted = within(step('Set de pruebas de la DIAN')).getByText(
+      'La DIAN ya aprobó el set de pruebas.',
+    );
+    expect(accepted.closest('ui-badge')).toBeTruthy();
     expect(
-      within(step('Set de pruebas de la DIAN')).getByText('La DIAN aceptó el set de pruebas.'),
-    ).toBeTruthy();
+      within(step('Set de pruebas de la DIAN')).queryByRole('button', {
+        name: 'Enviar factura de prueba',
+      }),
+    ).toBeNull();
 
     const store = TestBed.inject(CompanySetupStore);
     fireEvent.click(screen.getByRole('button', { name: 'Volver a revisar' }));
@@ -124,6 +137,7 @@ describe('ProductionWizardPage', () => {
     expect(
       within(step('Set de pruebas de la DIAN')).getByText(/La DIAN rechazó el set de pruebas/),
     ).toBeTruthy();
+    expect(sendButton().disabled).toBe(false);
   });
 
   it('locks the following steps while there is no valid certificate', async () => {
@@ -162,9 +176,11 @@ describe('ProductionWizardPage', () => {
   it('sends the test invoice, follows its DIAN status and reads the setup status again', async () => {
     const { http } = await open();
     const testSet = step('Software y set de pruebas');
-    fireEvent.input(within(testSet).getByLabelText(/Identificador del set de pruebas/), {
-      target: { value: TEST_SET },
-    });
+    const testSetInput = within(testSet).getByLabelText(
+      /Identificador del set de pruebas/,
+    ) as HTMLInputElement;
+    expect(testSetInput.placeholder).toBe('a1b2c3d4-e5f6-7890-abcd-ef1234567890');
+    fireEvent.input(testSetInput, { target: { value: TEST_SET } });
 
     fireEvent.click(sendButton());
 

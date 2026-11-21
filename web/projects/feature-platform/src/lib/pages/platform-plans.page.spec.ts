@@ -1,5 +1,8 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
+import { pickOption, stubOptimusDom } from '../testing/optimus-testing';
 import { expectRequest, problem, renderPlatformRoute } from '../testing/platform-testing';
+
+beforeAll(stubOptimusDom);
 
 const isList = (request: { url: string; method: string }) =>
   request.method === 'GET' && request.url === '/api/v1/plans';
@@ -55,10 +58,9 @@ describe('PlatformPlansPage', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Nuevo plan' });
     expect(within(dialog).queryByLabelText(/Id del plan/)).toBeNull();
     fireEvent.input(within(dialog).getByLabelText(/^Nombre/), { target: { value: 'Micro 50' } });
-    // Signal Forms lee el evento `input` del <select>; el navegador manda también `change`.
-    const period = within(dialog).getByLabelText(/Periodo/);
-    fireEvent.change(period, { target: { value: '3' } });
-    fireEvent.input(period, { target: { value: '3' } });
+    const period = within(dialog).getByRole('combobox', { name: /^Periodo/ });
+    expect(period.textContent?.trim()).toBe('Mensual');
+    await pickOption(period, 'Paquete');
     fireEvent.input(within(dialog).getByLabelText('Facturas y notas'), {
       target: { value: '50' },
     });
@@ -119,7 +121,11 @@ describe('PlatformPlansPage', () => {
     const id = within(dialog).getByLabelText(/Id del plan/) as HTMLInputElement;
     expect(id.value).toBe('2');
     expect(id.readOnly).toBe(true);
-    expect((within(dialog).getByLabelText(/Periodo/) as HTMLSelectElement).value).toBe('2');
+    expect(
+      within(dialog)
+        .getByRole('combobox', { name: /^Periodo/ })
+        .textContent?.trim(),
+    ).toBe('Anual');
     expect((within(dialog).getByLabelText('Plan activo') as HTMLInputElement).checked).toBe(false);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar' }));
 

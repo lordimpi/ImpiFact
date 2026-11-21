@@ -53,6 +53,8 @@ export async function renderPlatformRoute(url: string, options: RenderOptions = 
     providers: [
       provideRouter(
         [
+          // The users of a company belong to feature-companies; as in the app, its route goes first.
+          { path: 'plataforma/empresas/:nit/usuarios', component: StubPage },
           ...platformRoutes,
           { path: '', pathMatch: 'full', component: StubPage },
           { path: 'empresas/seleccionar', component: StubPage },

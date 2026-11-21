@@ -1,42 +1,24 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { TabsComponent, UiTab } from '@impifact/ui';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
+import { platformText } from '../platform-i18n';
 
-/** Enlaces entre las secciones de la plataforma (planes y empresas). */
+/** Tabs between the platform sections (plans and companies); each stays active on its child pages. */
 @Component({
   selector: 'feat-platform-nav',
-  imports: [RouterLink, RouterLinkActive, TranslocoPipe],
+  imports: [TabsComponent, TranslocoPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <nav class="platform-nav" [attr.aria-label]="'platform.nav.label' | transloco">
-      <a
-        routerLink="/plataforma/planes"
-        routerLinkActive="is-active"
-        ariaCurrentWhenActive="page"
-        >{{ 'platform.nav.plans' | transloco }}</a
-      >
-      <a
-        routerLink="/plataforma/empresas"
-        routerLinkActive="is-active"
-        ariaCurrentWhenActive="page"
-        >{{ 'platform.nav.companies' | transloco }}</a
-      >
-    </nav>
-  `,
-  styles: `
-    .platform-nav {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--if-space-3);
-      padding-block-end: var(--if-space-2);
-      border-block-end: 1px solid var(--if-color-border);
-    }
-    .platform-nav a {
-      color: var(--if-color-primary);
-    }
-    .platform-nav .is-active {
-      font-weight: var(--if-font-weight-bold);
-    }
-  `,
+  template: `<ui-tabs [label]="'platform.nav.label' | transloco" [tabs]="tabs" />`,
 })
-export class PlatformNavComponent {}
+export class PlatformNavComponent {
+  private readonly transloco = inject(TranslocoService);
+
+  protected readonly tabs: readonly UiTab[] = [
+    { label: platformText(this.transloco, 'nav.plans'), link: '/plataforma/planes', exact: false },
+    {
+      label: platformText(this.transloco, 'nav.companies'),
+      link: '/plataforma/empresas',
+      exact: false,
+    },
+  ];
+}

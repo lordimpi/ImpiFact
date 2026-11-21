@@ -3,14 +3,17 @@ import { FormField, submit } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 import { AppError, ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
+  CheckboxComponent,
   DialogComponent,
   DigitsOnlyDirective,
   FieldComponent,
   HelpComponent,
   InputDirective,
   PageTitleComponent,
-  SelectDirective,
+  SelectComponent,
   TableCellDirective,
   TableComponent,
   UiTableColumn,
@@ -45,6 +48,9 @@ const NUMBER = new Intl.NumberFormat('es-CO');
 @Component({
   selector: 'feat-platform-plans-page',
   imports: [
+    CheckboxComponent,
+    BadgeComponent,
+    CardComponent,
     FormField,
     RouterLink,
     TranslocoPipe,
@@ -55,7 +61,7 @@ const NUMBER = new Intl.NumberFormat('es-CO');
     HelpComponent,
     InputDirective,
     PageTitleComponent,
-    SelectDirective,
+    SelectComponent,
     TableComponent,
     TableCellDirective,
     PlatformNavComponent,
@@ -70,7 +76,9 @@ export class PlatformPlansPage {
   private readonly transloco = inject(TranslocoService);
   private readonly toasts = inject(ToastStore);
 
-  protected readonly periods = PLAN_PERIODS;
+  protected readonly periodOptions = computed(() =>
+    PLAN_PERIODS.map((id) => ({ id, name: this.periodLabel(id) })),
+  );
   protected readonly quantityFields = QUANTITY_FIELDS;
 
   /** Plan que se edita; `null` al crear uno nuevo. */

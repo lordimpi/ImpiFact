@@ -9,6 +9,8 @@ import {
   downloadDocumentFile$Xml,
   downloadDocumentFile$Zip,
   exportDocumentsCsv,
+  exportDocumentsPdf,
+  exportDocumentsXlsx,
   regenerateAttachedDocument,
   regenerateDocumentPdf,
   resendDocumentEmail,
@@ -20,8 +22,8 @@ import { DOCUMENTS_I18N_SCOPE } from '../documents-i18n';
 import { DocumentFilters } from './list-filters';
 
 /*
- * Acciones sobre documentos que comparten la lista y el detalle: descargas, exportación CSV (valores separados por
- * coma), reenvío del correo y regeneración de archivos. El token vive solo en memoria, así que los archivos se piden
+ * Acciones sobre documentos que comparten la lista y el detalle: descargas, exportación a Excel, CSV (valores separados por
+ * coma) o PDF, reenvío del correo y regeneración de archivos. El token vive solo en memoria, así que los archivos se piden
  * con HttpClient (pasan por los interceptores con el Bearer) y se guardan desde un `Blob`, nunca con un enlace
  * directo al Api. Los errores del Api los avisa core con un *toast*.
  */
@@ -77,7 +79,21 @@ export function fileNameFrom(response: HttpResponse<unknown>, fallback: string):
   return /filename="?([^";]+)"?/i.exec(header)?.[1] ?? fallback;
 }
 
-/** Parámetros de `exportDocumentsCsv`: los mismos filtros de la lista, sin paginación. */
+/**
+ * Route and fallback file name of each export format, in the order the list offers them; all take the same filters.
+ * A new format is one more line here (plus its `list.exportFormats` and `list.exported` texts).
+ */
+const EXPORTS = {
+  xlsx: { path: exportDocumentsXlsx.PATH, fileName: 'documentos.xlsx' },
+  csv: { path: exportDocumentsCsv.PATH, fileName: 'documentos.csv' },
+  pdf: { path: exportDocumentsPdf.PATH, fileName: 'documentos.pdf' },
+} as const satisfies Record<string, { path: string; fileName: string }>;
+
+export type ExportFormat = keyof typeof EXPORTS;
+
+export const EXPORT_FORMATS = Object.keys(EXPORTS) as ExportFormat[];
+
+/** Parámetros de las exportaciones (`exportDocumentsXlsx`, `exportDocumentsCsv`, `exportDocumentsPdf`): los mismos filtros de la lista, sin paginación. */
 export function exportParams(filters: DocumentFilters): HttpParams {
   let params = new HttpParams();
   const single: [string, string | undefined][] = [
@@ -135,11 +151,13 @@ export class DocumentActions {
   }
 
   /**
-   * Exporta a CSV con los filtros de la lista. El generado de `exportDocumentsCsv` descarta el cuerpo, así que se
-   * pide con HttpClient a su misma ruta. Sobre 50.000 filas el Api responde 422 `documents.export_too_large`.
+   * Exports the list with its filters as Excel, CSV or PDF. The generated `exportDocumentsXlsx`, `exportDocumentsCsv`
+   * and `exportDocumentsPdf` drop the body, so the file is requested with HttpClient on the same route. Over the row
+   * cap of the format (50,000 for Excel and CSV, 5,000 for PDF) the Api answers 422 `documents.export_too_large`.
    */
-  async exportCsv(filters: DocumentFilters): Promise<boolean> {
-    const url = `${this.config.rootUrl}${exportDocumentsCsv.PATH}`;
+  async exportDocuments(format: ExportFormat, filters: DocumentFilters): Promise<boolean> {
+    const target = EXPORTS[format];
+    const url = `${this.config.rootUrl}${target.path}`;
     try {
       const response = await firstValueFrom(
         this.http.get(url, {
@@ -149,8 +167,8 @@ export class DocumentActions {
           context: new HttpContext().set(SKIP_ERROR_TOAST, true),
         }),
       );
-      this.save(response.body ?? new Blob([]), fileNameFrom(response, 'documentos.csv'));
-      this.notify('success', 'list.exported');
+      this.save(response.body ?? new Blob([]), fileNameFrom(response, target.fileName));
+      this.notify('success', `list.exported.${format}`);
       return true;
     } catch (error) {
       const tooLarge = error instanceof AppError && error.code === 'documents.export_too_large';

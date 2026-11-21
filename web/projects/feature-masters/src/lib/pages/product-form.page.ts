@@ -24,6 +24,9 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
+  CheckboxComponent,
   ComboboxComponent,
   ComboboxLabels,
   ErrorStateComponent,
@@ -31,7 +34,7 @@ import {
   InputDirective,
   LoadingComponent,
   PageTitleComponent,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -67,17 +70,20 @@ const AMOUNT_FIELDS: readonly (keyof ProductModel)[] = [
 @Component({
   selector: 'feat-product-form-page',
   imports: [
+    CheckboxComponent,
     FormField,
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     ComboboxComponent,
     ErrorStateComponent,
     FieldComponent,
     InputDirective,
     LoadingComponent,
     PageTitleComponent,
-    SelectDirective,
+    SelectComponent,
   ],
   providers: [provideMastersI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -121,8 +127,10 @@ export class ProductFormPage implements HasUnsavedChanges {
     retry: this.text('common.catalog.retry'),
   };
   private readonly taxItems = this.catalogs.items('taxes');
-  protected readonly taxes = computed(() =>
-    optionsWith(
+  /** Taxes of the select; «Sin impuesto» ('') first, so the tax can be taken off again. */
+  protected readonly taxes = computed(() => [
+    { id: '', name: this.text('products.form.noTax') },
+    ...optionsWith(
       catalogOptions(
         'taxes',
         this.taxItems().filter((item) => !WITHHOLDING_TAXES.includes(item.id)),
@@ -130,7 +138,7 @@ export class ProductFormPage implements HasUnsavedChanges {
       this.model().tax_id,
       this.other,
     ),
-  );
+  ]);
 
   /** Mensaje bajo cada campo, por nombre del campo. */
   protected readonly errors = computed(() => {

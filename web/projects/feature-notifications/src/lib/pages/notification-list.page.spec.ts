@@ -10,6 +10,21 @@ const isList = (request: { url: string; method: string }) =>
   request.method === 'GET' && request.url === '/api/v1/notifications';
 
 describe('NotificationListPage', () => {
+  // jsdom has no matchMedia nor scrollIntoView; the Optimus select list uses them.
+  beforeAll(() => {
+    window.matchMedia ??= ((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+    Element.prototype.scrollIntoView ??= () => undefined;
+  });
+
   it('asks the server for the first page and shows read and unread notices', async () => {
     const { http } = await renderNotificationsRoute('/notificaciones');
 
@@ -52,7 +67,10 @@ describe('NotificationListPage', () => {
     request.flush({ items: [], next_cursor: null, unread_count: 0 });
     expect(await screen.findByText('No tiene avisos sin leer')).toBeTruthy();
 
-    fireEvent.change(screen.getByLabelText('Mostrar'), { target: { value: 'all' } });
+    const filter = screen.getByRole('combobox', { name: 'Mostrar' });
+    expect(filter.textContent?.trim()).toBe('Sin leer');
+    fireEvent.click(filter);
+    fireEvent.click(await screen.findByRole('option', { name: 'Todos' }));
     await waitFor(() => expect(router.url).toBe('/notificaciones'));
     expect(params(await expectRequest(http, isList))).toEqual({ limit: '20' });
   });

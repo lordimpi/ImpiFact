@@ -57,6 +57,7 @@ public sealed class SessionHandlerTests
             Assert.That(tokens.Roles, Is.EqualTo(new[] { "owner" }));
             Assert.That(tokens.Companies, Is.EqualTo(new[] { companyId }));
             Assert.That(tokens.TokenType, Is.EqualTo("Bearer"));
+            Assert.That(tokens.Email, Is.EqualTo("ana@example.com"), "The stored email, not the typed one.");
             Assert.That(_refreshStore.Tokens, Has.Count.EqualTo(1));
             Assert.That(_refreshStore.Tokens[0].TokenHash, Is.EqualTo("sha:refresh-1"));
             Assert.That(_refreshStore.Tokens[0].UserId, Is.EqualTo(user.Id));
@@ -174,6 +175,7 @@ public sealed class SessionHandlerTests
             Assert.That(refreshed.Value.RefreshToken, Is.EqualTo("refresh-2"));
             Assert.That(refreshed.Value.AccessToken, Is.EqualTo("jwt-2"));
             Assert.That(refreshed.Value.CompanyId, Is.EqualTo(companyId));
+            Assert.That(refreshed.Value.Email, Is.EqualTo("ana@example.com"), "A reloaded panel learns the email again.");
             Assert.That(old.RevokedAt, Is.EqualTo(_clock.UtcNow));
             Assert.That(old.ReplacedBy, Is.EqualTo(replacement.Id));
             Assert.That(replacement.RevokedAt, Is.Null);

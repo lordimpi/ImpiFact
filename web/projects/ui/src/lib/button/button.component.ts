@@ -8,8 +8,14 @@ import {
 } from '@angular/core';
 import { ButtonDirective, ButtonLabel } from '@openng/optimus-ui/button';
 
-/** Variante visual del botón. `text` es un botón sin fondo para acciones secundarias. */
-export type UiButtonVariant = 'primary' | 'secondary' | 'danger' | 'text';
+/**
+ * Variante visual del botón. `primary` for the main action of a view, `secondary` (white with a border) for the rest,
+ * `danger` for destructive actions; `ghost` (alias `text`) is a borderless button for low-emphasis actions.
+ */
+export type UiButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'text';
+
+/** Button height: `small` inside tables and toolbars, `large` for the main action of a short form. */
+export type UiButtonSize = 'small' | 'normal' | 'large';
 
 /**
  * Botón del panel sobre un <button> nativo con el estilo de Optimus UI.
@@ -19,13 +25,15 @@ export type UiButtonVariant = 'primary' | 'secondary' | 'danger' | 'text';
   selector: 'ui-button',
   imports: [ButtonDirective, ButtonLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.ui-button--block]': 'block()' },
   template: `
     <button
       pButton
       [attr.type]="type()"
       [severity]="severity()"
-      [text]="variant() === 'text'"
-      [size]="size() === 'small' ? 'small' : undefined"
+      [text]="borderless()"
+      [size]="optimusSize()"
+      [fluid]="block()"
       [disabled]="disabled() || loading()"
       [attr.aria-busy]="loading() || null"
       [attr.aria-label]="ariaLabel() ?? null"
@@ -40,6 +48,12 @@ export type UiButtonVariant = 'primary' | 'secondary' | 'danger' | 'text';
   styles: `
     :host {
       display: inline-flex;
+    }
+    :host(.ui-button--block) {
+      display: flex;
+    }
+    button {
+      white-space: nowrap;
     }
     .ui-button__spinner {
       inline-size: 1em;
@@ -67,13 +81,25 @@ export class ButtonComponent {
   /** Nombre accesible cuando debe ser más explícito que el texto visible; debe contenerlo. */
   readonly ariaLabel = input<string>();
   readonly variant = input<UiButtonVariant>('primary');
-  readonly size = input<'small' | 'normal'>('normal');
+  readonly size = input<UiButtonSize>('normal');
+  /** Fills the width of its container (for example, the submit button of the login form). */
+  readonly block = input(false, { transform: booleanAttribute });
   readonly type = input<'button' | 'submit' | 'reset'>('button');
   readonly disabled = input(false, { transform: booleanAttribute });
   readonly loading = input(false, { transform: booleanAttribute });
 
   /** Se emite al pulsar el botón; no se emite si está deshabilitado o cargando. */
   readonly pressed = output<MouseEvent>();
+
+  protected readonly borderless = computed(() => {
+    const variant = this.variant();
+    return variant === 'ghost' || variant === 'text';
+  });
+
+  protected readonly optimusSize = computed(() => {
+    const size = this.size();
+    return size === 'normal' ? undefined : size;
+  });
 
   protected readonly severity = computed(() => {
     const variant = this.variant();

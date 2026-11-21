@@ -22,6 +22,11 @@ export interface MunicipalityPicker {
   searchDepartments(term: string): void;
   /** Búsqueda de los municipios del departamento elegido, para `ui-combobox`. */
   municipalities: CatalogSearch;
+  /**
+   * The municipality cannot be chosen yet because no department is chosen: `[locked]` of its `ui-combobox`. While a
+   * saved municipality resolves its department it is locked too, showing the saved name.
+   */
+  municipalityLocked: Signal<boolean>;
   /** La persona eligió un departamento: si cambió, el municipio anterior se vacía. */
   selectDepartment(id: string): void;
 }
@@ -81,6 +86,7 @@ export function municipalityPicker(options: MunicipalityPickerOptions): Municipa
     departmentOptions,
     searchDepartments: (term) => departmentTerm.set(term),
     municipalities,
+    municipalityLocked: computed(() => department() === ''),
     selectDepartment: (id) => {
       if (id === untracked(department)) {
         return;

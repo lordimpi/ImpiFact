@@ -1,118 +1,148 @@
 <section class="companies-section">
-  <h2>{{ 'companies.wizard.title' | transloco }}</h2>
-  <p class="companies-lead">{{ 'companies.wizard.description' | transloco }}</p>
-  <div class="companies-form__actions">
+  <ui-card
+    [title]="'companies.wizard.title' | transloco"
+    [subtitle]="'companies.wizard.description' | transloco"
+  >
     <ui-button
+      uiCardActions
       variant="secondary"
+      size="small"
       [label]="'companies.wizard.refresh' | transloco"
       (pressed)="refresh()"
     />
-  </div>
 
-  @if (setup.readiness()) {
-    <ol class="companies-cards" [attr.aria-label]="'companies.wizard.stepsLabel' | transloco">
-      @for (step of steps(); track step.id) {
-        <li class="companies-card">
-          <h3>
-            <span aria-hidden="true">{{ $index + 1 }}. </span>{{ step.title }}
-          </h3>
-          <span class="companies-badge companies-badge--{{ step.status }}">
-            {{ 'companies.wizard.status.' + step.status | transloco }}
-          </span>
-          <p>{{ step.detail }}</p>
-          @if (step.note; as note) {
-            <p>{{ note }}</p>
-          }
-
-          @if (step.section; as section) {
-            <a class="companies-link" [routerLink]="section.path">{{ section.label }}</a>
-          }
-
-          @switch (step.id) {
-            @case ('software') {
-              <ui-field [label]="'companies.wizard.steps.software.testSetId' | transloco">
-                <input
-                  uiInput
-                  type="text"
-                  autocomplete="off"
-                  [value]="setup.effectiveTestSetId()"
-                  (input)="setTestSetId($any($event.target).value)"
-                />
-              </ui-field>
-            }
-            @case ('testSet') {
-              @if (step.status !== 'locked') {
-                <div class="companies-form__actions">
-                  <ui-button
-                    [label]="'companies.wizard.steps.testSet.send' | transloco"
-                    [disabled]="!canSendTest()"
-                    [loading]="sending()"
-                    (pressed)="sendTestInvoice()"
-                  />
-                </div>
-                <div role="status" aria-live="polite">
-                  @if (sending() && !testDocument()) {
-                    <p>{{ 'companies.wizard.steps.testSet.sending' | transloco }}</p>
-                  }
-                  @if (testDocument(); as test) {
-                    <p>{{ test.result }}</p>
-                    @if (test.dian) {
-                      <p>{{ test.dian }}</p>
-                    }
-                  }
-                </div>
-                @if (testError(); as message) {
-                  <p class="companies-message companies-message--error" role="alert">
-                    {{ message }}
-                  </p>
-                }
+    @if (setup.readiness()) {
+      <ol class="wizard-steps" [attr.aria-label]="'companies.wizard.stepsLabel' | transloco">
+        @for (step of steps(); track step.id) {
+          <li class="wizard-step" [attr.data-status]="step.status">
+            <span class="wizard-step__marker" aria-hidden="true"
+              ><span>{{ $index + 1 }}</span></span
+            >
+            <div class="wizard-step__body">
+              <div class="wizard-step__head">
+                <h3>{{ step.title }}</h3>
+                <ui-badge class="wizard-step__status" [tone]="tones[step.status]">
+                  {{ 'companies.wizard.status.' + step.status | transloco }}
+                </ui-badge>
+              </div>
+              @if (step.id === 'production' && step.status !== 'locked') {
+                <p class="wizard-warning">
+                  <svg
+                    class="wizard-warning__icon"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d="M12 3 2 21h20L12 3Z" />
+                    <path d="M12 10v5M12 18h.01" />
+                  </svg>
+                  <span>{{ step.detail }}</span>
+                </p>
+              } @else {
+                <p class="companies-lead">{{ step.detail }}</p>
               }
-            }
-            @case ('production') {
-              @if (step.status !== 'locked') {
-                <ul class="companies-cards">
-                  @for (entry of productionKinds(); track entry.kind) {
-                    <li>
-                      @if (entry.inProduction) {
-                        <p>
-                          {{ entry.label }}:
-                          <span class="companies-badge companies-badge--done">{{
-                            'companies.wizard.steps.production.inProduction' | transloco
-                          }}</span>
-                        </p>
+              @if (step.note; as note) {
+                <p>{{ note }}</p>
+              }
+
+              @if (step.section; as section) {
+                <a class="companies-link" [routerLink]="section.path">{{ section.label }}</a>
+              }
+
+              @switch (step.id) {
+                @case ('software') {
+                  <ui-field [label]="'companies.wizard.steps.software.testSetId' | transloco">
+                    <input
+                      uiInput
+                      type="text"
+                      autocomplete="off"
+                      [placeholder]="
+                        'companies.wizard.steps.software.testSetIdPlaceholder' | transloco
+                      "
+                      [value]="setup.effectiveTestSetId()"
+                      (input)="setTestSetId($any($event.target).value)"
+                    />
+                  </ui-field>
+                }
+                @case ('testSet') {
+                  @if (step.status !== 'locked') {
+                    <div class="companies-actions companies-actions--start">
+                      @if (step.status === 'done') {
+                        <ui-badge tone="success">{{
+                          'companies.wizard.steps.testSet.setAccepted' | transloco
+                        }}</ui-badge>
                       } @else {
                         <ui-button
-                          variant="danger"
-                          [label]="
-                            'companies.wizard.steps.production.switch'
-                              | transloco: { kind: entry.label }
-                          "
-                          (pressed)="askProduction(entry.kind)"
+                          [label]="'companies.wizard.steps.testSet.send' | transloco"
+                          [disabled]="!canSendTest()"
+                          [loading]="sending()"
+                          (pressed)="sendTestInvoice()"
                         />
                       }
-                    </li>
+                    </div>
+                    <div role="status" aria-live="polite">
+                      @if (sending() && !testDocument()) {
+                        <p>{{ 'companies.wizard.steps.testSet.sending' | transloco }}</p>
+                      }
+                      @if (testDocument(); as test) {
+                        <p>{{ test.result }}</p>
+                        @if (test.dian) {
+                          <p>{{ test.dian }}</p>
+                        }
+                      }
+                    </div>
+                    @if (testError(); as message) {
+                      <p class="companies-message companies-message--error" role="alert">
+                        {{ message }}
+                      </p>
+                    }
                   }
-                </ul>
-                @if (switchError(); as message) {
-                  <p class="companies-message companies-message--error" role="alert">
-                    {{ message }}
-                  </p>
+                }
+                @case ('production') {
+                  @if (step.status !== 'locked') {
+                    <ul class="wizard-kinds">
+                      @for (entry of productionKinds(); track entry.kind) {
+                        <li>
+                          @if (entry.inProduction) {
+                            <span>{{ entry.label }}:</span>
+                            <ui-badge tone="success">{{
+                              'companies.wizard.steps.production.inProduction' | transloco
+                            }}</ui-badge>
+                          } @else {
+                            <ui-button
+                              variant="secondary"
+                              [label]="
+                                'companies.wizard.steps.production.switch'
+                                  | transloco: { kind: entry.label }
+                              "
+                              (pressed)="askProduction(entry.kind)"
+                            />
+                          }
+                        </li>
+                      }
+                    </ul>
+                    @if (switchError(); as message) {
+                      <p class="companies-message companies-message--error" role="alert">
+                        {{ message }}
+                      </p>
+                    }
+                  }
                 }
               }
-            }
-          }
-        </li>
-      }
-    </ol>
-  } @else if (setup.readinessStatus() === 'error') {
-    <ui-error-state
-      [title]="'companies.wizard.loadError' | transloco"
-      [retryLabel]="'companies.common.retry' | transloco"
-      (retry)="refresh()"
-    />
-  } @else {
-    <ui-loading [label]="'companies.common.loading' | transloco" />
-  }
+            </div>
+          </li>
+        }
+      </ol>
+    } @else if (setup.readinessStatus() === 'error') {
+      <ui-error-state
+        [title]="'companies.wizard.loadError' | transloco"
+        [retryLabel]="'companies.common.retry' | transloco"
+        (retry)="refresh()"
+      />
+    } @else {
+      <ui-loading [label]="'companies.common.loading' | transloco" />
+    }
+  </ui-card>
 </section>
 
 <feat-production-confirm-dialog

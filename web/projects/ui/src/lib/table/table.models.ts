@@ -13,6 +13,8 @@ export interface UiTableColumn {
   filterLabel?: string;
   /** Alineación de la celda; `end` para importes y cantidades. */
   align?: 'start' | 'end';
+  /** Keeps the value on one line, for short codes that must not break, such as a NIT with its DV («900123456-7»). */
+  nowrap?: boolean;
 }
 
 /** Orden pedido al Api. */

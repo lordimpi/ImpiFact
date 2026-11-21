@@ -1,0 +1,93 @@
+/* List filters: a compact grid of fields, the DIAN statuses folded as chips and the actions in a bottom bar. */
+.filters__group,
+.filters__statuses {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.filters__legend {
+  padding: 0;
+  margin-block-end: var(--if-space-3);
+  font-weight: var(--if-font-weight-bold);
+}
+
+.filters__grid {
+  display: grid;
+  gap: 0 var(--if-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
+  align-items: start;
+}
+
+.filters__more {
+  margin-block-start: var(--if-space-2);
+}
+
+.filters__summary {
+  display: inline-flex;
+  gap: var(--if-space-2);
+  align-items: center;
+  min-block-size: var(--if-control-min-height);
+  padding-inline-end: var(--if-space-2);
+  color: var(--if-color-primary);
+  font-weight: var(--if-font-weight-medium);
+  border-radius: var(--if-radius-sm);
+  cursor: pointer;
+}
+
+.filters__summary:focus-visible {
+  outline: var(--if-focus-ring-width) solid var(--if-color-focus);
+  outline-offset: var(--if-focus-ring-offset);
+}
+
+.filters__statuses legend {
+  padding: 0;
+  font-weight: var(--if-font-weight-medium);
+}
+
+.filters__hint {
+  margin: 0 0 var(--if-space-2);
+  font-size: var(--if-font-size-sm);
+  color: var(--if-color-text-muted);
+}
+
+.filters__checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+  padding-block-end: var(--if-space-2);
+}
+
+/* Pill around the checkbox; the padding goes inside the checkbox row, so the whole pill toggles it. */
+.filters__chip {
+  --ui-checkbox-padding: var(--if-space-1) var(--if-space-3);
+
+  font-size: var(--if-font-size-sm);
+  border: 1px solid var(--if-color-border-strong);
+  border-radius: var(--if-radius-pill);
+}
+
+.filters__chip--checked {
+  color: var(--if-color-primary);
+  background: var(--if-color-primary-subtle);
+  border-color: var(--if-color-primary);
+}
+
+.filters__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2) var(--if-space-3);
+  align-items: center;
+  justify-content: space-between;
+  margin-block-start: var(--if-space-2);
+  padding-block-start: var(--if-space-3);
+  border-block-start: 1px solid var(--if-color-border);
+}
+
+.filters__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+  margin-inline-start: auto;
+}

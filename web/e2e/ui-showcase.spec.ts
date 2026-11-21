@@ -1,5 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { Page, expect, test } from '@playwright/test';
+import { seriousViolationsInBothThemes } from './support/axe';
+import { pickOption } from './support/select';
 
 // Vitrina de ui (/dev/ui, solo en desarrollo): accesibilidad con axe y eventos de los componentes.
 // WCAG = pautas de accesibilidad web; se revisan los niveles A y AA hasta la versión 2.2.
@@ -23,32 +25,104 @@ async function openShowcase(page: Page) {
   ).toBeVisible();
 }
 
-// Fondo esperado de cada tema (--if-color-bg en tokens.css): prueba que el tema realmente se aplicó.
-const BACKGROUNDS = { light: 'rgb(255, 255, 255)', dark: 'rgb(18, 22, 29)' } as const;
+// Light by default: the page background is --if-color-page (tokens.css) whatever the system prefers.
+const PAGE_BACKGROUND = 'rgb(244, 246, 250)';
+const DARK_PAGE_BACKGROUND = 'rgb(34, 42, 55)';
+
+test('renders every component in the dark theme without serious accessibility violations', async ({
+  page,
+}) => {
+  await page.addInitScript(() => localStorage.setItem('impifact.theme', 'dark'));
+  await openShowcase(page);
+
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  expect(await bodyBackground(page)).toBe(DARK_PAGE_BACKGROUND);
+  expect(await seriousViolations(page)).toEqual([]);
+});
 
 const bodyBackground = (page: Page) =>
   page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
-for (const theme of ['light', 'dark'] as const) {
-  test(`has no serious accessibility violations in the ${theme} theme`, async ({ page }) => {
-    await page.emulateMedia({ colorScheme: theme });
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`renders the light theme without serious accessibility violations under a ${colorScheme} system preference`, async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme });
     await openShowcase(page);
 
-    expect(await bodyBackground(page)).toBe(BACKGROUNDS[theme]);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    expect(await bodyBackground(page)).toBe(PAGE_BACKGROUND);
     expect(await seriousViolations(page)).toEqual([]);
   });
 }
 
-test('the theme selector overrides the system preference', async ({ page }) => {
-  await page.emulateMedia({ colorScheme: 'light' });
+test('the page title shows its subtitle, breadcrumb and action', async ({ page }) => {
   await openShowcase(page);
-  expect(await bodyBackground(page)).toBe(BACKGROUNDS.light);
 
-  await page.getByRole('radio', { name: 'Oscuro' }).check();
+  await expect(
+    page.getByText('Página solo para desarrollo: cada componente de ui en cada estado.'),
+  ).toBeVisible();
+  const breadcrumb = page.getByRole('navigation', { name: 'Ruta de navegación' });
+  await expect(breadcrumb.getByRole('link', { name: 'Inicio' })).toBeVisible();
+  await expect(breadcrumb.getByText('Vitrina')).toHaveAttribute('aria-current', 'page');
+  await page.getByRole('button', { name: 'Nueva factura' }).click();
+  await expect(page.getByTestId('last-event')).toHaveText('pressed page action');
+});
 
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  expect(await bodyBackground(page)).toBe(BACKGROUNDS.dark);
+test('the field help is a small Optimus info icon with a 24px target and a tooltip', async ({
+  page,
+}) => {
+  await openShowcase(page);
+  const help = page.getByRole('button', { name: 'Ayuda sobre NIT' });
+
+  const target = await help.boundingBox();
+  expect(target?.width).toBeGreaterThanOrEqual(24);
+  expect(target?.height).toBeGreaterThanOrEqual(24);
+  const icon = await help.locator('svg[data-p-icon="info-circle"]').boundingBox();
+  expect(icon?.width).toBeLessThanOrEqual(17);
+
+  await help.hover();
+  await expect(page.getByRole('tooltip')).toBeVisible();
+  await help.focus();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toBeHidden();
+});
+
+test('the stats pair each label with its value', async ({ page }) => {
+  await openShowcase(page);
+
+  const stat = page.locator('ui-stat').filter({ hasText: 'Facturas emitidas' });
+  await expect(stat.getByRole('term')).toHaveText('Facturas emitidas');
+  await expect(stat.getByRole('definition').first()).toHaveText('1.284');
+});
+
+test('the routed tabs mark the active section with aria-current', async ({ page }) => {
+  await openShowcase(page);
+  const tabs = page.getByRole('navigation', { name: 'Secciones de la empresa' });
+
+  await tabs.getByRole('link', { name: 'Resoluciones' }).click();
+
+  await expect(page).toHaveURL(/\/dev\/ui\?tab=resolutions$/);
+  await expect(tabs.getByRole('link', { name: 'Resoluciones' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expect(tabs.getByRole('link', { name: 'Datos' })).not.toHaveAttribute('aria-current');
+  await page.keyboard.press('Tab');
+  await expect(tabs.getByRole('link', { name: 'Certificado' })).toBeFocused();
+});
+
+test('the toasts appear, are announced and can be dismissed', async ({ page }) => {
+  await openShowcase(page);
+
+  await page.getByRole('button', { name: 'Mostrar avisos' }).click();
+  const region = page.getByRole('region', { name: 'Avisos' });
+  await expect(region.getByText('La factura SETP990000004 se envió a la DIAN.')).toBeVisible();
+  await expect(region.getByText('7f3c9a2e-41b0')).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
+
+  await region.getByRole('button', { name: 'Cerrar' }).first().click();
+  await expect(region.getByText('La factura SETP990000004 se envió a la DIAN.')).toBeHidden();
 });
 
 test('the open dialog traps focus, closes with Escape and has no violations', async ({ page }) => {
@@ -120,4 +194,114 @@ test('the error state retries', async ({ page }) => {
     .click();
 
   await expect(page.getByTestId('last-event')).toHaveText('retry table');
+});
+
+test('the Optimus select, the locked combobox, the date picker and the file chooser work and pass axe', async ({
+  page,
+}) => {
+  await openShowcase(page);
+  const lastEvent = page.getByTestId('last-event');
+  const department = page.getByRole('combobox', { name: 'Departamento' });
+  const municipality = page.getByRole('combobox', { name: 'Municipio' });
+
+  // S9: the municipality stays locked (out of the tab order) until a department is chosen.
+  await expect(municipality).toHaveAttribute('aria-disabled', 'true');
+  await expect(municipality).toHaveAttribute('tabindex', '-1');
+  await expect(page.getByText('Seleccione primero el departamento.')).toBeVisible();
+
+  // The select works with the keyboard: Enter opens, the arrows move and Enter chooses.
+  await department.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('listbox', { name: 'Departamento' })).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(department).toHaveText('Antioquia');
+  await expect(lastEvent).toHaveText('department "5"');
+
+  await expect(municipality).toHaveAttribute('aria-disabled', 'false');
+  await pickOption(page, municipality, 'Medellín', 'mede');
+  await expect(lastEvent).toHaveText('municipality "5001"');
+
+  // The date picker takes a typed date and gives the ISO date; its calendar is in Spanish.
+  const expiresAt = page.getByRole('combobox', { name: 'Vence el' });
+  await expiresAt.pressSequentially('15/12/2026');
+  await expect(lastEvent).toHaveText('expiresAt "2026-12-15"');
+  await page.getByRole('button', { name: 'Elegir la fecha' }).click();
+  await expect(page.getByText('diciembre', { exact: true })).toBeVisible();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+  await page.keyboard.press('Escape');
+
+  // The file chooser names the chosen file and rejects other types in Spanish.
+  const choose = page.getByRole('button', { name: 'Certificado digital Seleccionar archivo' });
+  await expect(choose).toBeVisible();
+  const chooser = page.waitForEvent('filechooser');
+  await choose.click();
+  await (
+    await chooser
+  ).setFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('x') });
+  await expect(page.locator('ui-file-upload').getByRole('alert')).toHaveText(
+    '«notas.txt» no es de un tipo permitido. Use un archivo .p12, .pfx.',
+  );
+  await page.locator('ui-file-upload input[type="file"]').setInputFiles({
+    name: 'empresa.p12',
+    mimeType: 'application/x-pkcs12',
+    buffer: Buffer.from('x'),
+  });
+  await expect(page.getByText('empresa.p12', { exact: true })).toBeVisible();
+  await expect(lastEvent).toHaveText('file "empresa.p12"');
+
+  // Open list over the page, in both themes.
+  await department.click();
+  await expect(page.getByRole('listbox', { name: 'Departamento' })).toBeVisible();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+});
+
+test('the Optimus checkbox toggles from its label, lines up with its first text line and passes axe', async ({
+  page,
+}) => {
+  await openShowcase(page);
+  const lastEvent = page.getByTestId('last-event');
+  const sendEmail = page.getByRole('checkbox', { name: 'Enviar la factura al correo del cliente' });
+
+  await expect(sendEmail).not.toBeChecked();
+  await page.getByText('Enviar la factura al correo del cliente').click();
+  await expect(sendEmail).toBeChecked();
+  await expect(lastEvent).toHaveText('sendEmail true');
+  await sendEmail.press('Space');
+  await expect(sendEmail).not.toBeChecked();
+  await expect(lastEvent).toHaveText('sendEmail false');
+
+  const long = page.getByRole('checkbox', { name: /^Entiendo que los documentos/ });
+  await expect(long).toBeChecked();
+  await expect(long).toHaveAccessibleDescription(
+    'Una etiqueta larga pasa a la línea de abajo bajo su propio texto.',
+  );
+  await expect(
+    page.getByRole('checkbox', { name: 'Casilla deshabilitada', exact: true }),
+  ).toBeDisabled();
+
+  // The box (Optimus, 1.25rem) is centred on the first line of its label; the wrapped lines start under the text.
+  const geometry = await page
+    .locator('ui-checkbox')
+    .filter({ hasText: 'Entiendo que los documentos' })
+    .evaluate((host) => {
+      const box = host.querySelector('.p-checkbox-box')!.getBoundingClientRect();
+      const text = host.querySelector('.ui-checkbox__label')!;
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      const lines = [...range.getClientRects()];
+      return {
+        size: box.height,
+        boxCentre: box.top + box.height / 2,
+        firstLineCentre: lines[0].top + lines[0].height / 2,
+        textStart: Math.min(...lines.map((line) => line.left)),
+        boxEnd: box.right,
+      };
+    });
+  expect(geometry.size).toBe(20);
+  expect(Math.abs(geometry.boxCentre - geometry.firstLineCentre)).toBeLessThanOrEqual(1);
+  expect(geometry.textStart).toBeGreaterThan(geometry.boxEnd);
+
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 });

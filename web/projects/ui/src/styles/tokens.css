@@ -3,98 +3,226 @@
  * Es el único archivo con valores de diseño; los componentes de ui y el preset de Optimus UI
  * (provide-ui-theme.ts) usan solo estas variables.
  *
- * Tema claro y oscuro: cada color se declara con light-dark(claro, oscuro). El navegador elige según
- * `color-scheme`: por defecto sigue la preferencia del sistema (prefers-color-scheme) y el atributo
- * `data-theme="light" | "dark"` en <html> la fuerza.
+ * Two themes (odd/tasks/diseno-panel.md S2, S7): light by default and a soft slate dark that the user picks with
+ * the sun/moon button of the top bar. index.html sets `data-theme="light"` on <html>; main.ts swaps it for the
+ * stored choice before the first render. The system preference (prefers-color-scheme) does not change the panel.
+ * `:root` holds the light values; `:root[data-theme='dark']` redefines every color token with the same names.
  *
- * Contraste WCAG (pautas de accesibilidad web) 2.2 AA verificado sobre el fondo y la superficie de cada tema:
- * texto ≥ 4,5:1 y bordes de controles ≥ 3:1.
+ * WCAG 2.2 AA contrast, computed on white (--if-color-bg), the page background (--if-color-page) and the
+ * surfaces where each token is used: text ≥ 4.5:1 and control borders ≥ 3:1. The dark block documents its own.
  */
 :root {
-  /* Fondos y superficies. */
-  --if-color-bg: light-dark(#ffffff, #12161d);
-  --if-color-surface: light-dark(#f5f7fa, #1b212b);
-  --if-color-surface-raised: light-dark(#eceff4, #252d39);
-  --if-color-overlay: light-dark(rgb(18 22 29 / 45%), rgb(0 0 0 / 60%));
+  color-scheme: light;
 
-  /* Texto sobre fondo (claro / oscuro): normal 16,5:1 / 15,3:1; secundario 7,6:1 / 8,6:1. */
-  --if-color-text: light-dark(#1a1f29, #e8ecf2);
-  --if-color-text-muted: light-dark(#4a5466, #aab3c2);
+  /* Backgrounds: white cards (bg) on a grey page (page); surface for table headers, hovers and wells. */
+  --if-color-bg: #ffffff;
+  --if-color-surface: #f8fafc;
+  --if-color-surface-raised: #eef2f6;
+  --if-color-overlay: rgb(16 24 40 / 45%);
 
-  /* Marca: primario sobre fondo 6,7:1 / 7,8:1; texto sobre primario 6,7:1 / 7,5:1. */
-  --if-color-primary: light-dark(#0b5cad, #6aaef5);
-  --if-color-primary-hover: light-dark(#094a8c, #8cc1f7);
-  --if-color-primary-active: light-dark(#073a6e, #a9d0f9);
-  --if-color-on-primary: light-dark(#ffffff, #0b1a2b);
-  --if-color-primary-subtle: light-dark(#e6f0fa, #1a2d44);
-  --if-color-primary-subtle-strong: light-dark(#cde1f5, #223b59);
+  /* Text: normal 17.8:1 on bg, 16.4:1 on page; muted 7.7:1 on bg, 7.1:1 on page, 6.8:1 on surface-raised. */
+  --if-color-text: #101828;
+  --if-color-text-muted: #475467;
 
-  /* Estados: peligro sobre fondo 6,6:1 / 7,6:1; éxito 5,4:1 / 9,9:1; aviso 5,9:1 / 10,8:1. */
-  --if-color-danger: light-dark(#b42318, #f28b82);
-  --if-color-danger-hover: light-dark(#912018, #f5a39c);
-  --if-color-danger-active: light-dark(#7a1a13, #f8bbb6);
-  --if-color-on-danger: light-dark(#ffffff, #2b0b08);
-  --if-color-danger-subtle: light-dark(#fdecea, #3a1714);
-  --if-color-success: light-dark(#1e7a3c, #6fd394);
-  --if-color-warning: light-dark(#8a5a00, #f2c14e);
+  /*
+   * Brand blue: primary on bg 6.0:1, on page 5.5:1, on primary-subtle 5.4:1, on primary-subtle-strong 4.8:1;
+   * on-primary (white) on primary 6.0:1, on hover 7.3:1, on active 9.7:1.
+   */
+  --if-color-primary: #1d5bd6;
+  --if-color-primary-hover: #1a4fbb;
+  --if-color-primary-active: #163f94;
+  --if-color-on-primary: #ffffff;
+  --if-color-primary-subtle: #eff4ff;
+  --if-color-primary-subtle-strong: #dbe6fd;
 
-  /* Bordes: decorativo (sin requisito de contraste) y de controles 4,6:1 / 5,1:1. */
-  --if-color-border: light-dark(#d5dbe3, #2e3744);
-  --if-color-border-strong: light-dark(#6b7687, #7d8899);
-  --if-color-focus: light-dark(#0b5cad, #6aaef5);
+  /*
+   * Status colors, each on bg / page / its subtle background: danger 6.6 / 6.1 / 6.1:1; success 5.7 / 5.3 / 5.4:1;
+   * warning 5.4 / 5.0 / 5.2:1; info 5.9 / 5.5:1 (on bg / info-subtle). on-danger (white) on danger 6.6:1,
+   * on hover 8.7:1, on active 9.9:1.
+   */
+  --if-color-danger: #b42318;
+  --if-color-danger-hover: #912018;
+  --if-color-danger-active: #7a271a;
+  --if-color-on-danger: #ffffff;
+  --if-color-danger-subtle: #fef3f2;
+  --if-color-success: #067647;
+  --if-color-success-subtle: #ecfdf3;
+  --if-color-warning: #b54708;
+  --if-color-warning-subtle: #fffaeb;
+  --if-color-info: #026aa2;
+  --if-color-info-subtle: #f0f9ff;
+  /* Neutral badge background: text on it 9.5:1, muted text 7.0:1. */
+  --if-color-neutral-subtle: #f2f4f7;
 
-  /* Tipografía. */
+  /*
+   * Borders: decorative (no contrast requirement: cards, row dividers, secondary buttons whose label already
+   * identifies them); control borders (border-strong) 3.6:1 on bg, 3.4:1 on page, 3.5:1 on surface.
+   */
+  --if-color-border: #e4e7ec;
+  --if-color-border-subtle: #eef0f3;
+  --if-color-border-emphasis: #d0d5dd;
+  --if-color-border-strong: #7d8799;
+  --if-color-focus: #1d5bd6;
+
+  /* Typography. */
   --if-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --if-font-family-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
+  --if-font-size-xs: 0.75rem;
   --if-font-size-sm: 0.875rem;
   --if-font-size-base: 1rem;
   --if-font-size-md: 1.125rem;
   --if-font-size-lg: 1.5rem;
+  --if-font-size-xl: 1.875rem;
   --if-font-weight-normal: 400;
   --if-font-weight-medium: 500;
   --if-font-weight-bold: 600;
   --if-line-height: 1.5;
   --if-line-height-tight: 1.25;
 
-  /* Espaciado (escala de 4 px). */
+  /* Spacing (4 px based scale). */
   --if-space-1: 0.25rem;
   --if-space-2: 0.5rem;
   --if-space-3: 1rem;
   --if-space-4: 1.5rem;
   --if-space-5: 2rem;
+  --if-space-6: 3rem;
 
-  /* Radios. */
-  --if-radius-sm: 4px;
+  /* Radii. */
+  --if-radius-sm: 6px;
   --if-radius-md: 8px;
   --if-radius-lg: 12px;
+  --if-radius-pill: 999px;
 
   /* Densidad: alto y relleno de controles y celdas. `data-density="compact"` en <html> la reduce. */
   --if-control-padding-y: 0.5rem;
   --if-control-padding-x: 0.75rem;
   --if-control-min-height: 2.5rem;
-  --if-cell-padding-y: 0.625rem;
-  --if-cell-padding-x: 0.75rem;
+  --if-cell-padding-y: 0.75rem;
+  --if-cell-padding-x: 1rem;
 
-  /* Elevación y foco. */
-  --if-shadow-overlay: 0 10px 30px rgb(0 0 0 / 20%);
+  /*
+   * App shell: page background behind cards, sidebar and top bar. Sidebar text 17.8:1 on sidebar-bg,
+   * muted 5.9:1 on sidebar-bg and 5.4:1 on hover; active text 5.4:1 on active-bg.
+   */
+  --if-color-page: #f4f6fa;
+  --if-sidebar-width: 16rem;
+  --if-sidebar-bg: #ffffff;
+  --if-sidebar-fg: #101828;
+  --if-sidebar-fg-muted: #5b6576;
+  --if-sidebar-hover-bg: #f2f5f9;
+  --if-sidebar-active-bg: #eff4ff;
+  --if-sidebar-active-fg: #1d5bd6;
+  --if-topbar-height: 3.5rem;
+  --if-topbar-bg: #ffffff;
+
+  /*
+   * Brand panel of the login: a blue gradient from primary to primary-active. Text 6.0:1 on the lighter end,
+   * muted text 4.8:1.
+   */
+  --if-brand-panel-bg-start: #1d5bd6;
+  --if-brand-panel-bg-end: #163f94;
+  --if-brand-panel-fg: #ffffff;
+  --if-brand-panel-fg-muted: #dbe6fd;
+
+  /* Light shimmer of the loading skeleton (Optimus UI skeleton animation). */
+  --if-color-shimmer: rgb(255 255 255 / 60%);
+
+  /* Elevation and focus. */
+  --if-shadow-card: 0 1px 2px rgb(16 24 40 / 5%), 0 1px 3px rgb(16 24 40 / 6%);
+  --if-shadow-overlay: 0 12px 32px rgb(16 24 40 / 18%);
   --if-focus-ring-width: 2px;
   --if-focus-ring-offset: 2px;
 }
 
 /*
- * Esquema de color. Los selectores llevan un atributo para ganarle en especificidad al
+ * Esquema de color. El selector lleva un atributo para ganarle en especificidad al
  * `:root { color-scheme: light }` que inyecta Optimus UI en tiempo de ejecución.
  */
-:root:not([data-theme]) {
-  color-scheme: light dark;
-}
-
 :root[data-theme='light'] {
   color-scheme: light;
 }
 
+/*
+ * Soft dark theme («el modo oscuro no debe ser muy oscuro», S7): slate greys, not near-black. Page #222a37, cards
+ * one step lighter, visible borders, off-white text and a lightened blue with dark text on it. Ratios below.
+ */
 :root[data-theme='dark'] {
   color-scheme: dark;
+
+  /* Cards (bg) one step above the page; surface and surface-raised one more step each. */
+  --if-color-bg: #2a3343;
+  --if-color-surface: #303a4b;
+  --if-color-surface-raised: #364153;
+  --if-color-overlay: rgb(8 12 20 / 60%);
+
+  /*
+   * Text 10.6:1 on bg, 12.1:1 on page, 9.6:1 on surface, 8.6:1 on surface-raised, 8.1:1 on neutral-subtle,
+   * 8.3:1 on primary-subtle-strong. Muted 6.3:1 on bg, 7.2:1 on page, 5.7:1 on surface, 5.1:1 on surface-raised,
+   * 4.8:1 on neutral-subtle.
+   */
+  --if-color-text: #e6ebf2;
+  --if-color-text-muted: #aeb8c7;
+
+  /*
+   * Lightened blue: primary on bg 5.9:1, on page 6.7:1, on surface 5.3:1, on primary-subtle 5.2:1, on
+   * primary-subtle-strong 4.6:1; hover (links) 6.7:1 on bg. on-primary (dark) on primary 8.1:1, on hover 9.2:1,
+   * on active 11.0:1. Hover and active get lighter, not darker, so they stand out on the dark surfaces.
+   */
+  --if-color-primary: #8ab0ff;
+  --if-color-primary-hover: #9dbcff;
+  --if-color-primary-active: #b6ceff;
+  --if-color-on-primary: #111a2b;
+  --if-color-primary-subtle: #2e3b57;
+  --if-color-primary-subtle-strong: #334363;
+
+  /*
+   * Status colors, each on bg / page / its subtle background: danger 5.8 / 6.5 / 5.5:1 (5.2:1 on surface);
+   * success 6.8 / 7.8 / 6.1:1; warning 7.1 / 8.1 / 6.3:1; info 6.8 / 7.7 / 5.9:1. on-danger (dark) on danger
+   * 7.9:1, on hover 9.3:1, on active 11.0:1.
+   */
+  --if-color-danger: #ff8f85;
+  --if-color-danger-hover: #ffa69e;
+  --if-color-danger-active: #ffbdb7;
+  --if-color-on-danger: #111a2b;
+  --if-color-danger-subtle: #45303a;
+  --if-color-success: #5dd39e;
+  --if-color-success-subtle: #243f3a;
+  --if-color-warning: #f5b75c;
+  --if-color-warning-subtle: #433a2c;
+  --if-color-info: #72c7f2;
+  --if-color-info-subtle: #233e54;
+  --if-color-neutral-subtle: #3a4558;
+
+  /* Borders: decorative ones stay visible on the slate; control borders (border-strong) 3.7:1 on bg, 4.2:1 on page,
+     3.3:1 on surface. Focus ring 5.9:1 on bg, 6.7:1 on page. */
+  --if-color-border: #3d485b;
+  --if-color-border-subtle: #354052;
+  --if-color-border-emphasis: #4a566b;
+  --if-color-border-strong: #7e8ba1;
+  --if-color-focus: #8ab0ff;
+
+  /*
+   * App shell: sidebar and top bar share the card color. Sidebar text 10.6:1 on sidebar-bg and 8.9:1 on hover,
+   * muted 5.7:1 on sidebar-bg and 4.7:1 on hover; active text 5.7:1 on active-bg.
+   */
+  --if-color-page: #222a37;
+  --if-sidebar-bg: #2a3343;
+  --if-sidebar-fg: #e6ebf2;
+  --if-sidebar-fg-muted: #a3aec0;
+  --if-sidebar-hover-bg: #343f51;
+  --if-sidebar-active-bg: #33456b;
+  --if-sidebar-active-fg: #b0c9ff;
+
+  /* Brand panel of the login: a muted navy, not the lightened blue. Text 7.2:1 on the lighter end, muted 5.7:1. */
+  --if-brand-panel-bg-start: #2c4a85;
+  --if-brand-panel-bg-end: #23396a;
+  --if-brand-panel-fg: #e6ebf2;
+  --if-brand-panel-fg-muted: #c9d3e3;
+  --if-topbar-bg: #2a3343;
+
+  --if-color-shimmer: rgb(255 255 255 / 8%);
+  --if-shadow-card: 0 1px 2px rgb(0 0 0 / 24%), 0 1px 3px rgb(0 0 0 / 20%);
+  --if-shadow-overlay: 0 12px 32px rgb(0 0 0 / 45%);
 }
 
 :root[data-density='compact'] {
@@ -103,4 +231,25 @@
   --if-control-min-height: 2rem;
   --if-cell-padding-y: 0.375rem;
   --if-cell-padding-x: 0.5rem;
+}
+
+/*
+ * Global ui utilities: this is the one ui stylesheet loaded globally (angular.json `styles`), so the shared
+ * classes live here instead of a copy in each component or feature.
+ */
+
+/* Hidden on screen, still read by screen readers. */
+.ui-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* `a[uiButtonLink]`: undo the link underline and match the label weight of `ui-button` (`.p-button-label`). */
+.ui-button-link {
+  font-weight: var(--p-button-label-font-weight, var(--if-font-weight-bold));
+  text-decoration: none;
 }

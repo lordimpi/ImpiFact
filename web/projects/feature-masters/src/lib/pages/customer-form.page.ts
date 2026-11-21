@@ -34,6 +34,8 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   ComboboxComponent,
   ComboboxLabels,
   DigitsOnlyDirective,
@@ -42,7 +44,7 @@ import {
   InputDirective,
   LoadingComponent,
   PageTitleComponent,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -82,6 +84,8 @@ const IN_FORM = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
     RouterLink,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     ComboboxComponent,
     DigitsOnlyDirective,
     ErrorStateComponent,
@@ -89,7 +93,7 @@ const IN_FORM = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
     InputDirective,
     LoadingComponent,
     PageTitleComponent,
-    SelectDirective,
+    SelectComponent,
   ],
   providers: [provideMastersI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -130,13 +134,22 @@ export class CustomerFormPage implements HasUnsavedChanges {
   // Listas de los catálogos de la DIAN en el Api; el municipio se busca en el servidor (son 1.122).
   private readonly catalogs = inject(CatalogsStore);
   private readonly other = (id: number) => this.text('common.otherOption', { id });
-  private readonly catalogField = (name: SmallCatalogName, current: () => string) => {
+  /** Options of a catalog select; an optional one starts with «Sin seleccionar» ('') so it can be emptied again. */
+  private readonly catalogField = (
+    name: SmallCatalogName,
+    current: () => string,
+    optional = true,
+  ) => {
     const items = this.catalogs.items(name);
-    return computed(() => optionsWith(catalogOptions(name, items()), current(), this.other));
+    return computed(() => {
+      const options = optionsWith(catalogOptions(name, items()), current(), this.other);
+      return optional ? [{ id: '', name: this.text('common.noneOption') }, ...options] : options;
+    });
   };
   protected readonly identificationTypes = this.catalogField(
     'identification-types',
     () => this.model().type_document_identification_id,
+    false,
   );
   protected readonly organizationTypes = this.catalogField(
     'organization-types',

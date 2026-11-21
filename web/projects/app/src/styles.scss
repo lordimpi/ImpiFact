@@ -1,4 +1,5 @@
 /* Estilos globales del panel. Los valores de diseño salen de los design tokens de ui (styles/tokens.css). */
+/* Base element styles only; the shell layout lives in the shell components. */
 *,
 *::before,
 *::after {
@@ -11,10 +12,50 @@ body {
   font-size: var(--if-font-size-base);
   line-height: var(--if-line-height);
   color: var(--if-color-text);
-  background: var(--if-color-bg);
+  background: var(--if-color-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: var(--if-line-height-tight);
+  font-weight: var(--if-font-weight-bold);
+  color: var(--if-color-text);
+}
+
+h2 {
+  font-size: var(--if-font-size-md);
+}
+
+h3 {
+  font-size: var(--if-font-size-base);
+}
+
+a {
+  color: var(--if-color-primary);
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  color: var(--if-color-primary-hover);
+}
+
+code,
+kbd,
+samp {
+  font-family: var(--if-font-family-mono);
+  font-size: 0.9em;
+}
+
+::selection {
+  background: var(--if-color-primary-subtle-strong);
 }
 
 :focus-visible {
-  outline: 2px solid var(--if-color-focus);
-  outline-offset: 2px;
+  outline: var(--if-focus-ring-width) solid var(--if-color-focus);
+  outline-offset: var(--if-focus-ring-offset);
 }

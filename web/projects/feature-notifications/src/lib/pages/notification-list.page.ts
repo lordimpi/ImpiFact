@@ -12,10 +12,12 @@ import { Router } from '@angular/router';
 import { NotificationResponse } from '@impifact/api';
 import { NotificationsStore, ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
   FieldComponent,
   PageTitleComponent,
-  SelectDirective,
+  SelectComponent,
   TableCellDirective,
   TableComponent,
   UiTableColumn,
@@ -41,10 +43,12 @@ const UNREAD_PARAM = 'sin-leer';
   selector: 'feat-notification-list-page',
   imports: [
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardComponent,
     FieldComponent,
     PageTitleComponent,
-    SelectDirective,
+    SelectComponent,
     TableComponent,
     TableCellDirective,
   ],
@@ -64,6 +68,10 @@ export class NotificationListPage {
   readonly estado = input<string>();
 
   protected readonly onlyUnread = computed(() => this.estado() === UNREAD_PARAM);
+  protected readonly filterOptions = computed(() => [
+    { id: 'all', name: this.text('list.filters.all') },
+    { id: 'unread', name: this.text('list.filters.unread') },
+  ]);
   protected readonly busyId = signal<string | null>(null);
   protected readonly markingAll = signal(false);
 
@@ -100,8 +108,7 @@ export class NotificationListPage {
     });
   }
 
-  protected changeFilter(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
+  protected changeFilter(value: string): void {
     void this.router.navigate([], {
       queryParams: { estado: value === 'unread' ? UNREAD_PARAM : null },
       queryParamsHandling: 'merge',

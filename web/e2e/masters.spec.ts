@@ -3,6 +3,8 @@ import { seriousViolations, seriousViolationsInBothThemes } from './support/axe'
 import { CRITICAL } from './support/critical';
 import { CUSTOMER, PRODUCT, mockMasters, problem } from './support/mock-masters';
 import { COMPANIES, USER, mockApi } from './support/mock-api';
+import { pressLikeAPerson } from './support/press';
+import { pickOption } from './support/select';
 
 // Clientes y productos (feature-masters) contra la Api simulada: con una sola empresa, queda activa al entrar.
 
@@ -83,7 +85,7 @@ test('the customer list pages, sorts and searches on the server', async ({ page 
     .poll(() => masters.calls('GET', '/api/v1/customers').at(-1)!.params)
     .toEqual({ search: 'acme', status: 'active', sort: 'identification_number', limit: '20' });
 
-  await page.getByRole('combobox', { name: 'Estado' }).selectOption('all');
+  await pickOption(page, page.getByRole('combobox', { name: 'Estado' }), 'Todos');
   await expect(page).toHaveURL('/clientes?q=acme&estado=all');
   expect(await seriousViolations(page)).toEqual([]);
 });
@@ -116,7 +118,7 @@ test('creates a customer after fixing the NIT whose check digit the server rejec
   });
 
   await expect(page.getByRole('heading', { level: 1, name: 'Nuevo cliente' })).toBeVisible();
-  await page.getByRole('combobox', { name: 'Tipo de identificación' }).selectOption('6');
+  await pickOption(page, page.getByRole('combobox', { name: 'Tipo de identificación' }), 'NIT');
   const number = page.getByRole('textbox', { name: 'Número de identificación' });
   const dv = page.getByRole('textbox', { name: 'Dígito de verificación (DV)' });
   // Con NIT el número solo admite dígitos y el DV se calcula solo.
@@ -158,7 +160,7 @@ test('prefills the customer from the DIAN acquirer lookup', async ({ page }) => 
     route.fulfill({ json: { found: true, name: 'ANA COMERCIAL SAS', email: 'fe@ana.test' } }),
   );
 
-  await page.getByRole('combobox', { name: 'Tipo de identificación' }).selectOption('6');
+  await pickOption(page, page.getByRole('combobox', { name: 'Tipo de identificación' }), 'NIT');
   await page.getByRole('textbox', { name: 'Número de identificación' }).fill('900123456');
   await page.getByRole('button', { name: 'Buscar en la DIAN' }).click();
 
@@ -248,7 +250,7 @@ test(
     expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
     await page.getByRole('link', { name: 'Nuevo cliente' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Nuevo cliente' })).toBeVisible();
-    await page.getByRole('combobox', { name: 'Tipo de identificación' }).selectOption('6');
+    await pickOption(page, page.getByRole('combobox', { name: 'Tipo de identificación' }), 'NIT');
     await page.getByRole('textbox', { name: 'Número de identificación' }).fill('901555777');
     await page.getByRole('button', { name: 'Buscar en la DIAN' }).click();
     await expect(page.getByRole('status')).toContainText(
@@ -322,8 +324,14 @@ test('the product unit measure comes from the DIAN catalog, page by page', async
   await signInAt(page, '/productos/nuevo');
 
   const unit = page.getByRole('combobox', { name: 'Unidad de medida', exact: true });
-  await expect(unit).toHaveValue('unidad (94)');
-  await expect(page.getByRole('combobox', { name: 'Impuesto' })).not.toContainText('ReteIVA');
+  await expect(unit).toHaveText('unidad (94)');
+  // The tax list leaves the withholdings (ReteIVA) out.
+  await page.getByRole('combobox', { name: 'Impuesto' }).click();
+  const taxes = page.getByRole('listbox', { name: 'Impuesto' });
+  await expect(taxes.getByRole('option', { name: 'IVA (Impuesto sobre la Ventas)' })).toBeVisible();
+  await expect(taxes).not.toContainText('ReteIVA');
+  await page.keyboard.press('Escape');
+  await expect(taxes).toBeHidden();
   expect(await seriousViolations(page)).toEqual([]);
 
   // La simulación da dos filas por página: al abrir la lista, el final queda a la vista y la página siguiente
@@ -337,21 +345,82 @@ test('the product unit measure comes from the DIAN catalog, page by page', async
   ]);
   await expect(page.getByRole('button', { name: /Cargar más/ })).toHaveCount(0);
   await list.getByRole('option', { name: 'litro (LTR)' }).click();
-  await expect(unit).toHaveValue('litro (LTR)');
+  await expect(unit).toHaveText('litro (LTR)');
 
-  // También se busca escribiendo y se elige con el teclado.
-  await unit.fill('kilo');
+  // También se busca escribiendo en la caja de la lista y se elige con el teclado.
+  await unit.click();
+  const search = page.getByRole('searchbox');
+  await search.fill('kilo');
   await expect(list.getByRole('option')).toHaveText(['kilogramo (KGM)', 'litro (LTR)']);
-  await unit.press('ArrowDown');
-  await unit.press('Enter');
-  await expect(unit).toHaveValue('kilogramo (KGM)');
+  await search.press('ArrowDown');
+  await search.press('Enter');
+  await expect(unit).toHaveText('kilogramo (KGM)');
+});
+
+test('cancels a new product from an empty field without showing required errors', async ({
+  page,
+}) => {
+  await signInAt(page, '/productos/nuevo');
+  await page.getByRole('textbox', { name: 'Código', exact: true }).click();
+
+  // The press must not blur the empty field into an error that pushes «Cancelar» away before the release.
+  await pressLikeAPerson(page, page.getByRole('link', { name: 'Cancelar' }));
+
+  await expect(page).toHaveURL('/productos');
+});
+
+test('leaving a product form with unsaved changes asks with the Optimus dialog, not the browser one', async ({
+  page,
+}) => {
+  const nativeDialogs: string[] = [];
+  page.on('dialog', (dialog) => {
+    nativeDialogs.push(dialog.message());
+    void dialog.dismiss();
+  });
+  await signInAt(page, '/productos/nuevo');
+  await page.getByRole('textbox', { name: 'Nombre', exact: true }).fill('Bolsa reutilizable');
+  const customers = page
+    .getByRole('navigation', { name: 'Navegación principal' })
+    .getByRole('link', { name: 'Clientes' });
+  const dialog = page.getByRole('alertdialog', { name: 'Cambios sin guardar' });
+
+  // «Seguir editando» is the focused, safe choice: the form stays with what was typed.
+  await customers.click();
+  // The first question downloads the dialog chunk, which can be slow on a busy dev server.
+  await expect(dialog).toBeVisible({ timeout: 15_000 });
+  await expect(
+    dialog.getByText('Hay cambios sin guardar. ¿Desea salir de todos modos?'),
+  ).toBeVisible();
+  const stay = dialog.getByRole('button', { name: 'Seguir editando' });
+  await expect(stay).toBeFocused();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+  await stay.click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL('/productos/nuevo');
+  await expect(page.getByRole('textbox', { name: 'Nombre', exact: true })).toHaveValue(
+    'Bolsa reutilizable',
+  );
+
+  // Escape also stays.
+  await customers.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL('/productos/nuevo');
+
+  // «Salir sin guardar» leaves.
+  await customers.click();
+  await dialog.getByRole('button', { name: 'Salir sin guardar' }).click();
+  await expect(page).toHaveURL('/clientes');
+  expect(nativeDialogs).toEqual([]);
 });
 
 for (const theme of ['light', 'dark'] as const) {
   test(`the product list and form have no serious accessibility violations (${theme})`, async ({
     page,
   }) => {
-    await page.emulateMedia({ colorScheme: theme });
+    // The stored theme of the top bar toggle (localStorage); the access pages follow it too.
+    await page.addInitScript((value) => localStorage.setItem('impifact.theme', value), theme);
     await signInAt(page, '/productos');
     await expect(
       page.getByRole('table', { name: 'Productos y servicios' }).getByText(PRODUCT.name),
@@ -363,7 +432,10 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByRole('textbox', { name: 'Tarifa (%)' })).toHaveValue('19');
     expect(await seriousViolations(page)).toEqual([]);
 
-    await page.getByRole('link', { name: 'Volver al listado' }).click();
+    await page
+      .getByRole('navigation', { name: 'Ruta de navegación' })
+      .getByRole('link', { name: 'Productos y servicios' })
+      .click();
     await page.getByRole('link', { name: 'Nuevo producto' }).click();
     await page.getByRole('button', { name: 'Guardar' }).click();
     await expect(page.getByText('Este campo es obligatorio.').first()).toBeVisible();

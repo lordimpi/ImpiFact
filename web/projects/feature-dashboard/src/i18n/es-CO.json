@@ -5,6 +5,18 @@
   "errorTitle": "No se pudo cargar el tablero",
   "errorDescription": "Revise su conexión e intente de nuevo.",
   "retry": "Reintentar",
+  "kpi": {
+    "total": "Documentos del mes",
+    "accepted": "Aceptados por la DIAN",
+    "rejected": "Rechazados o con error",
+    "thisMonth": "Este mes",
+    "certificate": "Vigencia del certificado",
+    "certificateDays": "{{ days }} días",
+    "certificateOneDay": "1 día",
+    "certificateExpired": "Vencido",
+    "certificateNone": "Sin certificado",
+    "certificateUntil": "Hasta el {{ date }}"
+  },
   "month": {
     "title": "Documentos de {{ month }}",
     "total": "Total del mes",

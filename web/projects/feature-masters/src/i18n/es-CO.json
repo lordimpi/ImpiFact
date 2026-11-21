@@ -16,7 +16,6 @@
     "cancel": "Cancelar",
     "close": "Cerrar",
     "save": "Guardar",
-    "back": "Volver al listado",
     "loading": "Cargando",
     "retry": "Reintentar",
     "noneOption": "Sin seleccionar",
@@ -49,6 +48,7 @@
       "description": "Clientes de la empresa activa para facturarles más rápido.",
       "new": "Nuevo cliente",
       "searchLabel": "Buscar por nombre o número de identificación",
+      "searchPlaceholder": "Buscar por nombre o identificación",
       "caption": "Clientes",
       "identification": "Identificación",
       "name": "Nombre",
@@ -67,6 +67,11 @@
       "reactivated": "Cliente reactivado."
     },
     "form": {
+      "sections": {
+        "identification": "Identificación",
+        "tax": "Datos tributarios",
+        "contact": "Ubicación y contacto"
+      },
       "newTitle": "Nuevo cliente",
       "editTitle": "Editar cliente",
       "description": "Los datos se validan en el servidor con las reglas de la DIAN (Dirección de Impuestos y Aduanas Nacionales).",
@@ -116,7 +121,16 @@
       },
       "departmentPlaceholder": "Escriba para buscar el departamento…",
       "departmentNone": "Ningún departamento coincide con lo que escribió.",
-      "municipalityPlaceholder": "Escriba para buscar el municipio…"
+      "municipalityPlaceholder": "Escriba para buscar el municipio…",
+      "placeholders": {
+        "identification": "1020304050",
+        "dv": "7",
+        "name": "Mi Empresa S.A.S.",
+        "address": "Calle 10 # 20-30",
+        "email": "nombre@empresa.com",
+        "phone": "3001234567",
+        "merchantRegistration": "123456"
+      }
     }
   },
   "products": {
@@ -125,6 +139,7 @@
       "description": "Productos y servicios de la empresa activa para agregarlos a las facturas.",
       "new": "Nuevo producto",
       "searchLabel": "Buscar por código o nombre",
+      "searchPlaceholder": "Buscar por código o nombre",
       "caption": "Productos y servicios",
       "code": "Código",
       "name": "Nombre",
@@ -143,6 +158,10 @@
       "reactivated": "Producto reactivado."
     },
     "form": {
+      "sections": {
+        "general": "Datos del producto",
+        "price": "Precio e impuestos"
+      },
       "newTitle": "Nuevo producto",
       "editTitle": "Editar producto",
       "description": "Precio sin impuestos. El servidor valida los impuestos con las reglas de la DIAN.",
@@ -163,7 +182,15 @@
       "isActive": "Producto activo",
       "saved": "Producto guardado.",
       "duplicate": "Ya existe otro producto con ese código.",
-      "numberFormat": "Escriba un número sin separadores de miles, con punto para los decimales."
+      "numberFormat": "Escriba un número sin separadores de miles, con punto para los decimales.",
+      "placeholders": {
+        "code": "PRD-001",
+        "name": "Servicio de consultoría",
+        "description": "Asesoría contable mensual",
+        "unitPrice": "12500.50",
+        "taxPercent": "19",
+        "taxPerUnit": "150.00"
+      }
     }
   }
 }

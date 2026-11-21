@@ -20,7 +20,7 @@ import {
   FieldComponent,
   InputDirective,
   PasswordToggleDirective,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -56,7 +56,7 @@ export interface UserCompany {
     FieldComponent,
     InputDirective,
     PasswordToggleDirective,
-    SelectDirective,
+    SelectComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -76,13 +76,31 @@ export interface UserCompany {
           <p class="user-error" role="alert">{{ message }}</p>
         }
         <ui-field [label]="'platform.user.email' | transloco" [error]="errors().email" required>
-          <input uiInput type="email" autocomplete="off" [formField]="userForm.email" />
+          <input
+            uiInput
+            type="email"
+            autocomplete="off"
+            [placeholder]="'platform.user.placeholders.email' | transloco"
+            [formField]="userForm.email"
+          />
         </ui-field>
         <ui-field [label]="'platform.user.name' | transloco" [error]="errors().name" required>
-          <input uiInput type="text" autocomplete="off" [formField]="userForm.name" />
+          <input
+            uiInput
+            type="text"
+            autocomplete="off"
+            [placeholder]="'platform.user.placeholders.name' | transloco"
+            [formField]="userForm.name"
+          />
         </ui-field>
         <ui-field [label]="'platform.user.phone' | transloco" [error]="errors().phone">
-          <input uiInput type="tel" autocomplete="off" [formField]="userForm.phone" />
+          <input
+            uiInput
+            type="tel"
+            autocomplete="off"
+            [placeholder]="'platform.user.placeholders.phone' | transloco"
+            [formField]="userForm.phone"
+          />
         </ui-field>
         <ui-field
           [label]="'platform.user.password' | transloco"
@@ -99,11 +117,7 @@ export interface UserCompany {
           />
         </ui-field>
         <ui-field [label]="'platform.user.role' | transloco" [error]="errors().role" required>
-          <select uiSelect [formField]="userForm.role">
-            @for (role of roles; track role) {
-              <option [value]="role">{{ 'platform.user.roles.' + role | transloco }}</option>
-            }
-          </select>
+          <ui-select [options]="roleOptions()" [formField]="userForm.role" />
         </ui-field>
         <div class="user-actions">
           <ui-button
@@ -132,7 +146,11 @@ export interface UserCompany {
     }
     .user-error {
       margin: 0;
+      padding: var(--if-space-2) var(--if-space-3);
       color: var(--if-color-danger);
+      background: var(--if-color-danger-subtle);
+      border-inline-start: 4px solid currentColor;
+      border-radius: var(--if-radius-sm);
     }
     .user-actions {
       display: flex;
@@ -151,7 +169,9 @@ export class CompanyUserDialogComponent {
   /** Texto de confirmación para la página, cuando el usuario quedó creado. */
   readonly created = output<string>();
 
-  protected readonly roles = COMPANY_USER_ROLES;
+  protected readonly roleOptions = computed(() =>
+    COMPANY_USER_ROLES.map((role) => ({ id: role, name: this.text(`user.roles.${role}`) })),
+  );
   private readonly model = signal<CompanyUserModel>(emptyCompanyUser());
   protected readonly userForm = createCompanyUserForm(this.model);
   protected readonly submitting = computed(() => this.userForm().submitting());

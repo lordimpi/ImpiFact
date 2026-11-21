@@ -6,28 +6,70 @@ import { expectRequest, problem, renderMastersRoute } from '../testing/masters-t
 
 const field = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement;
 const type = (label: RegExp, value: string) => fireEvent.input(field(label), { target: { value } });
-const choose = (label: RegExp, value: string) => {
-  const select = screen.getByLabelText(label) as HTMLSelectElement;
-  fireEvent.change(select, { target: { value } });
-  fireEvent.input(select, { target: { value } });
-};
-/** Textos de las opciones de una lista (más rápido que buscar cada `option` por su rol). */
-const optionTexts = (label: RegExp) =>
-  Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((option) =>
-    option.textContent?.trim(),
-  );
+/** Opens the Optimus select named `label`, clicks its option `option` and waits until the list closes. */
+async function choose(label: RegExp, option: string): Promise<void> {
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+  fireEvent.click(screen.getByRole('combobox', { name: label }));
+  fireEvent.click(await screen.findByRole('option', { name: option }));
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+}
+/**
+ * Labels of the options of an Optimus select: opens its list, waits for the option `until` (the catalog arrived),
+ * reads them and closes it again.
+ */
+async function optionTexts(label: RegExp, until: string): Promise<(string | undefined)[]> {
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+  const combobox = screen.getByRole('combobox', { name: label });
+  fireEvent.click(combobox);
+  await screen.findByRole('option', { name: until });
+  const texts = within(screen.getByRole('listbox'))
+    .queryAllByRole('option')
+    .map((option) => option.textContent?.trim());
+  fireEvent.click(combobox);
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+  return texts;
+}
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
-const municipality = () => screen.getByRole('combobox', { name: /^Municipio/ }) as HTMLInputElement;
+const municipality = () => screen.getByRole('combobox', { name: /^Municipio/ });
+const department = () => screen.getByRole('combobox', { name: /^Departamento/ });
 const municipalityOptions = () =>
   within(screen.getByRole('listbox'))
     .queryAllByRole('option')
     .map((option) => option.textContent?.trim());
 
-/** Elige el municipio en el combobox: escribe para buscar y hace clic en la opción. */
-async function pickMunicipality(search: string, name: string) {
-  fireEvent.input(municipality(), { target: { value: search } });
-  fireEvent.click(await screen.findByRole('option', { name }));
+/** Abre la lista del combobox, escribe en su caja de búsqueda y deja la lista abierta. */
+async function search(combobox: HTMLElement, text: string) {
+  fireEvent.click(combobox);
+  fireEvent.input(await screen.findByRole('searchbox'), { target: { value: text } });
 }
+
+/** Elige en la lista abierta y espera a que se cierre. */
+async function chooseOption(name: string) {
+  fireEvent.click(await screen.findByRole('option', { name }));
+  await waitFor(() => expect(screen.queryByRole('searchbox')).toBeNull());
+}
+
+/** Elige el municipio en el combobox: busca escribiendo y hace clic en la opción. */
+async function pickMunicipality(text: string, name: string) {
+  await search(municipality(), text);
+  await chooseOption(name);
+}
+
+// jsdom has no matchMedia nor scrollIntoView; the Optimus select list uses them.
+beforeAll(() => {
+  window.matchMedia ??= ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
+  Element.prototype.scrollIntoView ??= () => undefined;
+});
+
 const toastTexts = () =>
   TestBed.inject(ToastStore)
     .toasts()
@@ -36,60 +78,75 @@ const toastTexts = () =>
 async function openNew() {
   const rendered = await renderMastersRoute('/clientes/nuevo');
   await screen.findByRole('heading', { level: 1, name: 'Nuevo cliente' });
-  // Las listas salen de los catálogos del Api.
-  await waitFor(() => expect(optionTexts(/^Tipo de identificación/)).toContain('NIT'));
   expect(screen.getByRole('combobox', { name: /^Departamento/ })).toBeTruthy();
   return rendered;
 }
 
-function fillNit() {
-  choose(/^Tipo de identificación/, '6');
+async function fillNit() {
+  await choose(/^Tipo de identificación/, 'NIT');
   type(/^Número de identificación/, '900123456');
 }
 
 /** Elige el departamento en su combobox: escribe parte del nombre (sin tildes) y hace clic en la opción. */
 async function pickDepartment(name: string) {
-  const input = screen.getByRole('combobox', { name: /^Departamento/ });
-  fireEvent.input(input, {
-    target: { value: name.slice(0, 4).normalize('NFD').replace(/[̀-ͯ]/g, '') },
-  });
-  fireEvent.click(await screen.findByRole('option', { name }));
+  await search(department(), name.slice(0, 4).normalize('NFD').replace(/[̀-ͯ]/g, ''));
+  await chooseOption(name);
 }
 
-describe('CustomerFormPage', () => {
-  it('fills the lists from the DIAN catalogs and searches the municipalities of the chosen department', async () => {
-    await openNew();
-    const names = catalogRequests.map((request) => request.url.replace('/api/v1/catalogs/', ''));
-    expect(names).toEqual(
-      expect.arrayContaining([
-        'identification-types',
-        'organization-types',
-        'regimes',
-        'liabilities',
-        'departments',
-      ]),
-    );
-    expect(names).not.toContain('municipalities');
-    expect(optionTexts(/^Responsabilidad fiscal/)).toContain('O-13 Gran contribuyente');
-    expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
+/** Opening and closing the Optimus lists in jsdom is slow; with the suite in parallel it passes 5 s. */
+const LIST_FLOW_MS = 15_000;
 
-    await pickDepartment('Bogotá');
-    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('4'));
-    fireEvent.input(municipality(), { target: { value: 'bogo' } });
-    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('bogo'));
-    await waitFor(() => expect(municipalityOptions()).toEqual(['Bogotá, D.C.']));
-    expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
-  });
+describe('CustomerFormPage', () => {
+  it(
+    'fills the lists from the DIAN catalogs and searches the municipalities of the chosen department',
+    async () => {
+      await openNew();
+      // Las listas salen de los catálogos del Api.
+      expect(await optionTexts(/^Tipo de identificación/, 'NIT')).toEqual([
+        'Cédula de ciudadanía',
+        'NIT',
+        'Pasaporte',
+      ]);
+      const names = catalogRequests.map((request) => request.url.replace('/api/v1/catalogs/', ''));
+      expect(names).toEqual(
+        expect.arrayContaining([
+          'identification-types',
+          'organization-types',
+          'regimes',
+          'liabilities',
+          'departments',
+        ]),
+      );
+      expect(names).not.toContain('municipalities');
+      expect(await optionTexts(/^Responsabilidad fiscal/, 'O-13 Gran contribuyente')).toEqual([
+        'Sin seleccionar',
+        'O-13 Gran contribuyente',
+        'R-99-PN No aplica – Otros',
+      ]);
+      expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
+      // S9: the municipality is locked until a department is chosen.
+      expect(municipality().getAttribute('aria-disabled')).toBe('true');
+
+      await pickDepartment('Bogotá');
+      await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('4'));
+      expect(municipality().getAttribute('aria-disabled')).toBe('false');
+      await search(municipality(), 'bogo');
+      await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('bogo'));
+      await waitFor(() => expect(municipalityOptions()).toEqual(['Bogotá, D.C.']));
+      expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
+    },
+    LIST_FLOW_MS,
+  );
 
   it('accepts only digits for a NIT or a cédula but letters for a passport', async () => {
     await openNew();
 
-    choose(/^Tipo de identificación/, '6');
+    await choose(/^Tipo de identificación/, 'NIT');
     type(/^Número de identificación/, '900.123.456-x');
     expect(field(/^Número de identificación/).value).toBe('900123456');
     expect(field(/^Número de identificación/).getAttribute('inputmode')).toBe('numeric');
 
-    choose(/^Tipo de identificación/, '7');
+    await choose(/^Tipo de identificación/, 'Pasaporte');
     type(/^Número de identificación/, 'AB123456');
     expect(field(/^Número de identificación/).value).toBe('AB123456');
     expect(field(/^Número de identificación/).getAttribute('inputmode')).toBeNull();
@@ -100,7 +157,7 @@ describe('CustomerFormPage', () => {
 
   it('computes the check digit of a NIT and explains every field', async () => {
     await openNew();
-    fillNit();
+    await fillNit();
 
     const dv = (await screen.findByLabelText(/Dígito de verificación/)) as HTMLInputElement;
     expect(dv.readOnly).toBe(true);
@@ -112,15 +169,19 @@ describe('CustomerFormPage', () => {
     expect(help?.textContent).toContain('(por ejemplo, ACUÑA OBANDO SANTIAGO)');
     expect(screen.getAllByRole('tooltip', { hidden: true }).length).toBe(13);
     expect(screen.getByText(/Es opcional: déjelo vacío si el cliente no tiene/)).toBeTruthy();
+    // S9: the text fields show a short example while empty.
+    expect(field(/^Dirección/).placeholder).toBe('Calle 10 # 20-30');
+    expect(field(/^Correo/).placeholder).toBe('nombre@empresa.com');
+    expect(field(/^Teléfono/).placeholder).toBe('3001234567');
   });
 
   it('shows the check digit only for a NIT', async () => {
     await openNew();
 
     expect(screen.queryByLabelText(/Dígito de verificación/)).toBeNull();
-    choose(/^Tipo de identificación/, '6');
+    await choose(/^Tipo de identificación/, 'NIT');
     expect(await screen.findByLabelText(/Dígito de verificación/)).toBeTruthy();
-    choose(/^Tipo de identificación/, '3');
+    await choose(/^Tipo de identificación/, 'Cédula de ciudadanía');
     await waitFor(() => expect(screen.queryByLabelText(/Dígito de verificación/)).toBeNull());
   });
 
@@ -136,7 +197,7 @@ describe('CustomerFormPage', () => {
 
   it('shows the server field errors next to each field and then saves', async () => {
     const { http, router } = await openNew();
-    fillNit();
+    await fillNit();
     type(/^Nombre o razón social/, 'Ana Comercial SAS');
     type(/Correo para recibir facturas/, 'facturas@ana.test');
     await pickDepartment('Bogotá');
@@ -184,7 +245,7 @@ describe('CustomerFormPage', () => {
 
   it('explains a duplicate customer in the form', async () => {
     const { http } = await openNew();
-    choose(/^Tipo de identificación/, '3');
+    await choose(/^Tipo de identificación/, 'Cédula de ciudadanía');
     type(/^Número de identificación/, '1020304050');
     type(/^Nombre o razón social/, 'Ana Pérez');
 
@@ -203,7 +264,7 @@ describe('CustomerFormPage', () => {
 
   it('prefills the name and the email from the DIAN', async () => {
     const { http } = await openNew();
-    fillNit();
+    await fillNit();
 
     fireEvent.click(screen.getByRole('button', { name: 'Buscar en la DIAN' }));
     const lookup = await expectRequest(
@@ -225,7 +286,7 @@ describe('CustomerFormPage', () => {
 
   it('says when the DIAN does not know the buyer', async () => {
     const { http } = await openNew();
-    fillNit();
+    await fillNit();
 
     fireEvent.click(screen.getByRole('button', { name: 'Buscar en la DIAN' }));
     (await expectRequest(http, (r) => r.url === '/api/v1/customers/lookup')).flush({
@@ -246,7 +307,7 @@ describe('CustomerFormPage', () => {
     [404, 'certificate.not_found', 'La empresa no tiene un certificado activo.'],
   ])('explains a %s (%s) from the DIAN lookup', async (status, code, text) => {
     const { http } = await openNew();
-    fillNit();
+    await fillNit();
 
     fireEvent.click(screen.getByRole('button', { name: 'Buscar en la DIAN' }));
     const error = problem(status, code, 'Documento no válido.');
@@ -293,8 +354,8 @@ describe('CustomerFormPage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Editar cliente' })).toBeTruthy();
     await waitFor(() => expect(field(/^Nombre o razón social/).value).toBe('Ana Pérez'));
     // El departamento sale del municipio guardado.
-    await waitFor(() => expect(field(/^Departamento/).value).toBe('Antioquia'));
-    await waitFor(() => expect(municipality().value).toBe('Medellín'));
+    await waitFor(() => expect(department().textContent?.trim()).toBe('Antioquia'));
+    await waitFor(() => expect(municipality().textContent?.trim()).toBe('Medellín'));
 
     type(/^Nombre o razón social/, 'Ana María Pérez');
     save();
@@ -351,5 +412,15 @@ describe('CustomerFormPage', () => {
 
     expect(confirmLeave).not.toHaveBeenCalled();
     expect(router.url).toBe('/clientes');
+  });
+
+  it('shows the way back to the list in the breadcrumb', async () => {
+    await openNew();
+
+    const breadcrumb = screen.getByRole('navigation', { name: 'Ruta de navegación' });
+    expect(within(breadcrumb).getByRole('link', { name: 'Clientes' }).getAttribute('href')).toBe(
+      '/clientes',
+    );
+    expect(within(breadcrumb).getByText('Nuevo cliente').getAttribute('aria-current')).toBe('page');
   });
 });

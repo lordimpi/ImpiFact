@@ -26,6 +26,9 @@ let nextId = 0;
  * muestra las filas tal como llegan y emite `sortChange`, `filterChange` y `pageChange` para que
  * quien la usa pida al Api la página correspondiente. Muestra los estados de carga (esqueletos),
  * vacío y error (con reintento). La cabecera queda fija al desplazarse.
+ *
+ * On a narrow container (under 40rem: a phone, or a narrow card) each row stacks as a block where every cell shows
+ * its column header next to the value, instead of scrolling sideways; sort buttons and filters stay above the rows.
  */
 @Component({
   selector: 'ui-table',
@@ -38,6 +41,7 @@ let nextId = 0;
     ErrorStateComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.ui-table--stack]': 'stackOnNarrow()' },
   templateUrl: './table.component.html',
   styleUrl: './table.component.css',
 })
@@ -59,6 +63,15 @@ export class TableComponent<T extends object> {
   readonly pagination = input<UiPagination | null>(null);
   /** Filas de esqueleto mientras carga. */
   readonly skeletonRows = input(5, { transform: numberAttribute });
+  /** Without its own border and radius, to sit flush inside a `ui-card padding="none"`. */
+  readonly flush = input(false, { transform: booleanAttribute });
+  /** Alternate row background (zebra) for long, dense lists. */
+  readonly striped = input(false, { transform: booleanAttribute });
+  /**
+   * Stacks the rows on a narrow container instead of scrolling sideways. On by default, because every list of the
+   * panel reads better stacked on a phone; turn it off for a grid whose columns must be compared across rows.
+   */
+  readonly stackOnNarrow = input(true, { transform: booleanAttribute });
   /** Identidad de cada fila para el `@for`; por defecto, la propia fila. */
   readonly trackBy = input<(index: number, row: T) => unknown>((_, row) => row);
 
@@ -80,6 +93,8 @@ export class TableComponent<T extends object> {
   protected readonly hasFilters = computed(() =>
     this.columns().some((column) => column.filterable),
   );
+
+  protected readonly hasSorting = computed(() => this.columns().some((column) => column.sortable));
 
   protected readonly skeletonList = computed(() =>
     Array.from({ length: Math.max(1, this.skeletonRows()) }, (_, index) => index),

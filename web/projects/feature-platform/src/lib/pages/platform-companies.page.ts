@@ -5,14 +5,19 @@ import { Router } from '@angular/router';
 import { Api, PlatformCompanyItem, assignCompanyPlan } from '@impifact/api';
 import { AppError, SKIP_ERROR_TOAST } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
   DialogComponent,
   FieldComponent,
   InputDirective,
+  MenuButtonComponent,
   PageTitleComponent,
-  SelectDirective,
+  SelectComponent,
   TableCellDirective,
   TableComponent,
+  UiMenuItem,
   UiTableColumn,
   UiTableLabels,
 } from '@impifact/ui';
@@ -43,24 +48,35 @@ const DATE = new Intl.DateTimeFormat('es-CO', {
 
 const ASSIGN_FIELDS: readonly (keyof AssignModel & string)[] = ['plan_id'];
 
+/** Ids of the options of the «Acciones» menu of every row. */
+type RowAction = 'assign' | 'user' | 'users';
+
 /**
  * Página `/plataforma/empresas`: las empresas de la plataforma con su plan actual (`listPlatformCompanies`), con
  * búsqueda en el servidor por nombre o NIT y «Cargar más» por cursor. Desde cada fila se asigna un plan
  * (`assignCompanyPlan`) en un diálogo: la empresa se elige en la lista, ya no se escribe su NIT. Los planes salen del
- * store del feature. También desde cada fila se crea el primer dueño o un vendedor de la empresa, y «Nueva empresa»
+ * store del feature. También desde cada fila se crea el primer dueño o un vendedor de la empresa, «Usuarios» abre
+ * la página de sus usuarios (`/plataforma/empresas/:nit/usuarios`, de feature-companies), y «Nueva empresa»
  * lleva al alta (`/plataforma/empresas/nueva`); al volver, la lista se pide de nuevo.
+ *
+ * The row actions live in one «Acciones» menu per row (`ui-menu-button`), so the table fits on one line per row at
+ * 1366 px; the NIT column never wraps.
  */
 @Component({
   selector: 'feat-platform-companies-page',
   imports: [
+    BadgeComponent,
+    CardComponent,
+    CardFooterDirective,
     FormField,
     TranslocoPipe,
     ButtonComponent,
     DialogComponent,
     FieldComponent,
     InputDirective,
+    MenuButtonComponent,
     PageTitleComponent,
-    SelectDirective,
+    SelectComponent,
     TableComponent,
     TableCellDirective,
     CompanyUserDialogComponent,
@@ -101,11 +117,16 @@ export class PlatformCompaniesPage {
 
   protected readonly columns = computed<UiTableColumn[]>(() => [
     { key: 'name', header: this.text('companies.name') },
-    { key: 'nit', header: this.text('companies.nit') },
+    { key: 'nit', header: this.text('companies.nit'), nowrap: true },
     { key: 'email', header: this.text('companies.email') },
     { key: 'plan', header: this.text('companies.plan') },
     { key: 'active', header: this.text('companies.status') },
     { key: 'actions', header: this.text('common.actions') },
+  ]);
+  protected readonly rowActions = computed<UiMenuItem[]>(() => [
+    { id: 'assign' satisfies RowAction, label: this.text('assign.submit') },
+    { id: 'user' satisfies RowAction, label: this.text('user.open') },
+    { id: 'users' satisfies RowAction, label: this.text('companies.users') },
   ]);
   protected readonly tableLabels = computed<UiTableLabels>(() => ({
     loading: this.text('common.loading'),
@@ -139,6 +160,20 @@ export class PlatformCompaniesPage {
 
   protected rowText(key: string, row: PlatformCompanyItem): string {
     return this.text(key, { name: row.name ?? '' });
+  }
+
+  protected onRowAction(action: string, row: PlatformCompanyItem): void {
+    switch (action as RowAction) {
+      case 'assign':
+        this.openAssign(row);
+        break;
+      case 'user':
+        this.openUser(row);
+        break;
+      case 'users':
+        void this.router.navigate(['/plataforma/empresas', row.nit, 'usuarios']);
+        break;
+    }
   }
 
   protected newCompany(): void {

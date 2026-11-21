@@ -14,9 +14,11 @@ namespace ImpiFact.Application.Features.Documents.Delivery;
 /// DIAN todavía no registra) no es una decisión, aunque traiga mensajes; <c>IsValid</c> verdadero es aceptado, con
 /// advertencias si trae notificaciones; <c>IsValid</c> falso con la regla 90 («documento procesado anteriormente») es
 /// un documento ya procesado que hay que reconciliar con GetStatus (y si GetStatus no conoce el CUFE, el número lo usó
-/// otro documento: ver <see cref="DianDelivery.ReconcileAsync"/>); <c>IsValid</c> falso con reglas de rechazo o con
-/// código <c>99</c> es rechazado. Cualquier otro resultado (por ejemplo, GetStatus de un documento que la DIAN todavía
-/// no registra) no es una decisión y se sigue consultando. Si algún intento de la llamada pudo llegar a la DIAN
+/// otro documento: ver <see cref="DianDelivery.ReconcileAsync"/>); <c>IsValid</c> falso con la descripción «Set de
+/// prueba con identificador … se encuentra Aceptado» es rechazado (la DIAN ya aprobó el set; ver
+/// <see cref="DianTestSetAnswers.IsAlreadyAccepted"/>); <c>IsValid</c> falso con reglas de rechazo o con código <c>99</c> es rechazado. Cualquier otro resultado (por
+/// ejemplo, GetStatus de un documento que la DIAN todavía no registra, o GetStatusZip con «Batch en proceso de
+/// validación.») no es una decisión y se sigue consultando. Si algún intento de la llamada pudo llegar a la DIAN
 /// (<see cref="DianCall.PossiblyReceived"/>), una respuesta que diría «no se entregó» o «rechazó el mensaje» (un 503,
 /// un SOAP Fault) se lee como «sin respuesta»: la DIAN pudo haber recibido el documento y hay que consultar su estado.
 /// </remarks>
@@ -64,6 +66,11 @@ internal abstract partial record DianAnswer
         if (result.IsValid == false && IsRule90(result))
         {
             return new AlreadyProcessed(result);
+        }
+
+        if (result.IsValid == false && DianTestSetAnswers.IsAlreadyAccepted(result.StatusDescription))
+        {
+            return new Decided(DocumentStatus.Rejected, result);
         }
 
         return result.IsValid == false && (result.ErrorMessages.Count > 0 || result.StatusCode == RejectedCode)
@@ -124,7 +131,10 @@ internal abstract partial record DianAnswer
     /// <summary>SendTestSetAsync recibió el ZIP; el resultado se consulta después con GetStatusZip y esta ZipKey.</summary>
     public sealed record ZipReceived(string ZipKey) : DianAnswer;
 
-    /// <summary>La DIAN decidió: <see cref="Status"/> es Accepted, AcceptedWithWarnings o Rejected.</summary>
+    /// <summary>
+    /// La DIAN decidió: <see cref="Status"/> es Accepted, AcceptedWithWarnings o Rejected (también cuando el set de
+    /// pruebas ya estaba aceptado y la DIAN no validó el documento).
+    /// </summary>
     public sealed record Decided(DocumentStatus Status, DianResult Result) : DianAnswer;
 
     /// <summary>La DIAN todavía no tiene una decisión (código 98, código 66 o un resultado que no decide).</summary>

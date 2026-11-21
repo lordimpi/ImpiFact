@@ -3,15 +3,24 @@ import { FormField, submit } from '@angular/forms/signals';
 import { NumberingRangeItem } from '@impifact/api';
 import { AppError, HasUnsavedChanges, ToastStore } from '@impifact/core';
 import {
+  BadgeComponent,
   ButtonComponent,
+  CardActionsDirective,
+  CardComponent,
+  CardFooterDirective,
+  DatePickerComponent,
   ErrorStateComponent,
   FieldComponent,
   InputDirective,
   LoadingComponent,
-  SelectDirective,
+  SelectComponent,
+  TableCellDirective,
+  TableComponent,
+  UiBadgeTone,
+  UiTableColumn,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
-import { companiesText, provideCompaniesI18n } from '../companies-i18n';
+import { companiesTableLabels, companiesText, provideCompaniesI18n } from '../companies-i18n';
 import {
   NextNumberDialogComponent,
   NextNumberLabels,
@@ -57,18 +66,25 @@ const DIGITS = /^\d+$/;
   imports: [
     FormField,
     TranslocoPipe,
+    BadgeComponent,
     ButtonComponent,
+    CardActionsDirective,
+    CardComponent,
+    CardFooterDirective,
+    DatePickerComponent,
     ErrorStateComponent,
     FieldComponent,
     InputDirective,
     LoadingComponent,
-    SelectDirective,
+    SelectComponent,
     NextNumberDialogComponent,
+    TableComponent,
+    TableCellDirective,
   ],
   providers: [provideCompaniesI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './resolutions.page.html',
-  styleUrl: './companies-page.css',
+  styleUrls: ['./companies-page.css', './companies-table.css'],
 })
 export class ResolutionsPage implements HasUnsavedChanges {
   protected readonly setup = inject(CompanySetupStore);
@@ -79,7 +95,12 @@ export class ResolutionsPage implements HasUnsavedChanges {
   protected readonly resolutionForm = createResolutionForm(this.model);
   protected readonly generalError = signal<string | null>(null);
   protected readonly submitting = computed(() => this.resolutionForm().submitting());
-  protected readonly documentTypes = RESOLUTION_DOCUMENT_TYPES;
+  protected readonly documentTypes = computed(() =>
+    RESOLUTION_DOCUMENT_TYPES.map((id) => ({
+      id,
+      name: this.text(`resolutions.documentTypes.${id}`),
+    })),
+  );
 
   protected readonly softwareId = signal(this.setup.invoiceSoftware()?.identifier ?? '');
   protected readonly lookup = signal<LookupState>({ kind: 'idle' });
@@ -98,8 +119,8 @@ export class ResolutionsPage implements HasUnsavedChanges {
       type: this.text(`resolutions.documentTypes.${resolution.type_document_id}`),
       prefix: resolution.prefix ?? '',
       resolution: resolution.resolution ?? '',
-      range: `${resolution.from} – ${resolution.to}`,
-      validity: `${resolution.date_from ?? ''} – ${resolution.date_to ?? ''}`,
+      range: [`${resolution.from}`, `${resolution.to}`],
+      validity: [resolution.date_from ?? '', resolution.date_to ?? ''],
       next: `${resolution.next_number ?? ''}`,
       remaining: `${resolution.remaining ?? ''}`,
       daysLeft:
@@ -107,6 +128,7 @@ export class ResolutionsPage implements HasUnsavedChanges {
           ? this.text('resolutions.noExpiry')
           : `${resolution.days_left}`,
       status: this.text(resolution.is_active ? 'resolutions.active' : 'resolutions.inactive'),
+      statusTone: statusTone(resolution.is_active, resolution.days_left),
       target: {
         id: resolution.id ?? '',
         next: `${resolution.next_number ?? ''}`,
@@ -115,6 +137,27 @@ export class ResolutionsPage implements HasUnsavedChanges {
       } satisfies NextNumberTarget,
     })),
   );
+
+  protected readonly tableLabels = computed(() => companiesTableLabels(this.transloco));
+  protected readonly savedColumns = computed<UiTableColumn[]>(() => [
+    { key: 'type', header: this.text('resolutions.typeDocument') },
+    { key: 'prefix', header: this.text('resolutions.ranges.columns.prefix') },
+    { key: 'resolution', header: this.text('resolutions.ranges.columns.resolution') },
+    { key: 'range', header: this.text('resolutions.ranges.columns.range') },
+    { key: 'validity', header: this.text('resolutions.ranges.columns.validity') },
+    { key: 'next', header: this.text('resolutions.columns.next') },
+    { key: 'remaining', header: this.text('resolutions.columns.remaining') },
+    { key: 'daysLeft', header: this.text('resolutions.columns.daysLeft') },
+    { key: 'status', header: this.text('resolutions.columns.status') },
+    { key: 'actions', header: this.text('resolutions.ranges.columns.actions') },
+  ]);
+  protected readonly rangeColumns = computed<UiTableColumn[]>(() => [
+    { key: 'resolution_number', header: this.text('resolutions.ranges.columns.resolution') },
+    { key: 'prefix', header: this.text('resolutions.ranges.columns.prefix') },
+    { key: 'range', header: this.text('resolutions.ranges.columns.range') },
+    { key: 'validity', header: this.text('resolutions.ranges.columns.validity') },
+    { key: 'actions', header: this.text('resolutions.ranges.columns.actions') },
+  ]);
 
   protected readonly nextNumberTarget = signal<NextNumberTarget | null>(null);
   protected readonly nextNumberOpen = signal(false);
@@ -129,6 +172,8 @@ export class ResolutionsPage implements HasUnsavedChanges {
       range: target
         ? this.text('resolutions.nextNumber.range', { from: target.from, to: target.to })
         : '',
+      // The example is the current next number (or the start of the range): a valid number for that resolution.
+      placeholder: target ? target.next || String(target.from) : '',
       save: this.text('resolutions.nextNumber.save'),
       cancel: this.text('common.cancel'),
       close: this.text('common.close'),
@@ -265,4 +310,20 @@ export class ResolutionsPage implements HasUnsavedChanges {
 
   protected readonly text = (key: string, params?: Record<string, unknown>): string =>
     companiesText(this.transloco, key, params);
+}
+
+/** Days of validity at or below which an active resolution is about to expire and should be renewed. */
+const EXPIRING_DAYS = 30;
+
+/** Badge tone of a saved resolution: inactive (neutral), about to expire (warning) or active (success). */
+function statusTone(
+  active: boolean | null | undefined,
+  daysLeft: string | number | null | undefined,
+): UiBadgeTone {
+  if (!active) {
+    return 'neutral';
+  }
+  const days =
+    daysLeft === null || daysLeft === undefined || daysLeft === '' ? NaN : Number(daysLeft);
+  return days <= EXPIRING_DAYS ? 'warning' : 'success';
 }

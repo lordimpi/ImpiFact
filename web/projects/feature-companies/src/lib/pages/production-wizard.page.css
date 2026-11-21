@@ -1,0 +1,148 @@
+/* Stepper of the production wizard: numbered markers joined by a line; done, current and pending states. */
+.wizard-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wizard-step {
+  position: relative;
+  display: flex;
+  gap: var(--if-space-3);
+  padding-block-end: var(--if-space-4);
+}
+
+.wizard-step:last-child {
+  padding-block-end: 0;
+}
+
+/* Line between this marker and the next one. */
+.wizard-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  inset-block: 2.25rem 0;
+  inset-inline-start: calc(1rem - 1px);
+  inline-size: 2px;
+  background: var(--if-color-border);
+}
+
+.wizard-step[data-status='done']:not(:last-child)::before {
+  background: var(--if-color-success);
+}
+
+.wizard-step__marker {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  font-size: var(--if-font-size-sm);
+  font-weight: var(--if-font-weight-bold);
+  color: var(--if-color-text-muted);
+  background: var(--if-color-bg);
+  border: 2px solid var(--if-color-border-emphasis);
+  border-radius: var(--if-radius-pill);
+}
+
+.wizard-step[data-status='done'] .wizard-step__marker {
+  color: var(--if-color-on-primary);
+  background: var(--if-color-success);
+  border-color: var(--if-color-success);
+}
+
+.wizard-step[data-status='done'] .wizard-step__marker span {
+  display: none;
+}
+
+.wizard-step[data-status='done'] .wizard-step__marker::after {
+  content: '\2713';
+}
+
+.wizard-step[data-status='missing'] .wizard-step__marker,
+.wizard-step[data-status='inProgress'] .wizard-step__marker {
+  color: var(--if-color-primary);
+  background: var(--if-color-primary-subtle);
+  border-color: var(--if-color-primary);
+}
+
+.wizard-step[data-status='locked'] .wizard-step__marker {
+  background: var(--if-color-surface-raised);
+}
+
+.wizard-step__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--if-space-2);
+  min-inline-size: 0;
+  padding-block-start: 0.25rem;
+}
+
+.wizard-step__body p {
+  margin: 0;
+}
+
+.wizard-step__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2) var(--if-space-3);
+  align-items: center;
+}
+
+.wizard-step__head h3 {
+  font-size: var(--if-font-size-base);
+}
+
+.wizard-step[data-status='locked'] h3 {
+  color: var(--if-color-text-muted);
+}
+
+/*
+ * The production switch has a real fiscal effect at the DIAN: the notice stands out with the warning tone and an icon.
+ * Danger stays for the irreversible confirmation inside the dialog.
+ */
+.wizard-warning {
+  display: flex;
+  gap: var(--if-space-2);
+  align-items: flex-start;
+  padding: var(--if-space-3);
+  font-weight: var(--if-font-weight-medium);
+  color: var(--if-color-warning);
+  background: var(--if-color-warning-subtle);
+  border: 1px solid var(--if-color-warning);
+  border-inline-start-width: 4px;
+  border-radius: var(--if-radius-sm);
+}
+
+.wizard-warning__icon {
+  flex: none;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wizard-kinds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wizard-kinds li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-2);
+  align-items: center;
+}
+
+.companies-link {
+  color: var(--if-color-primary);
+  font-weight: var(--if-font-weight-medium);
+}

@@ -7,21 +7,27 @@ import {
   input,
   signal,
 } from '@angular/core';
+import { InfoCircleIcon } from '@openng/optimus-ui/icons/infocircle';
 import { UI_TEXTS } from '../i18n/ui-texts';
 
 let nextId = 0;
 
 /**
- * Botón de información con un tooltip que explica un campo (presentación). Se abre al pasar el mouse, al llegar con
+ * Botón de información (el ícono `info-circle` de Optimus UI, chico y junto al texto de la etiqueta) con un tooltip que explica un campo (presentación). Se abre al pasar el mouse, al llegar con
  * el teclado o al tocarlo en una pantalla táctil (cada toque abre o cierra), y se cierra con Escape o al salir. El
  * tooltip está siempre en el DOM con su id (`tooltipId`): el control que explica lo pone en su `aria-describedby`,
  * así un lector de pantalla lee la explicación aunque el tooltip esté cerrado. Se ubica bajo la etiqueta, a lo ancho
  * del contenedor posicionado más cercano (`ui-field` ya lo es; en un `fieldset`, póngale `position: relative`).
  *
  * Uso: `<legend>Responsabilidades <ui-help [text]="..." [label]="..." tooltipId="liabilities-help" /></legend>`
+ *
+ * The bubble is ours and not Optimus `pTooltip`: that directive creates its element on show and removes it on hide,
+ * so the control's `aria-describedby` would point at nothing while it is closed. It looks like a small card (card
+ * background, border and overlay shadow) instead of a dark bubble, so it fits the light and the dark theme.
  */
 @Component({
   selector: 'ui-help',
+  imports: [InfoCircleIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // Sin encapsulación: el tooltip se ubica respecto del campo que lo contiene; las clases llevan el prefijo ui-help.
   encapsulation: ViewEncapsulation.None,
@@ -39,9 +45,14 @@ let nextId = 0;
       (click)="toggle()"
       (keydown.escape)="dismiss($event)"
     >
-      <span aria-hidden="true">i</span>
+      <svg
+        data-p-icon="info-circle"
+        class="ui-help__icon"
+        aria-hidden="true"
+        focusable="false"
+      ></svg>
       <!-- El nombre va como texto y no en aria-label: así no se confunde con la etiqueta del campo. -->
-      <span class="ui-help__name">{{ buttonLabel() }}</span>
+      <span class="ui-visually-hidden">{{ buttonLabel() }}</span>
     </button>
     <span
       role="tooltip"
@@ -56,6 +67,7 @@ let nextId = 0;
       display: inline-flex;
       vertical-align: middle;
     }
+    /* A 24px hit area (WCAG 2.5.8) around a 1rem icon; the negative margin keeps the label line height. */
     .ui-help__button {
       position: relative;
       display: inline-flex;
@@ -64,39 +76,33 @@ let nextId = 0;
       flex: none;
       inline-size: 1.5rem;
       block-size: 1.5rem;
+      margin-block: -0.25rem;
       padding: 0;
-      font: inherit;
-      font-size: var(--if-font-size-sm);
-      font-weight: var(--if-font-weight-bold);
-      font-style: italic;
-      line-height: 1;
-      color: var(--if-color-primary);
-      background: var(--if-color-primary-subtle);
-      border: 1px solid var(--if-color-primary);
-      border-radius: 50%;
+      color: var(--if-color-text-muted);
+      background: none;
+      border: 0;
+      border-radius: var(--if-radius-sm);
       cursor: help;
     }
-    .ui-help__name {
-      position: absolute;
-      inline-size: 1px;
-      block-size: 1px;
-      margin: -1px;
-      padding: 0;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
-      border: 0;
+    .ui-help__button:hover,
+    .ui-help__button:focus-visible,
+    .ui-help__button[aria-expanded='true'] {
+      color: var(--if-color-primary);
     }
     .ui-help__button:focus-visible {
       outline: var(--if-focus-ring-width) solid var(--if-color-focus);
-      outline-offset: var(--if-focus-ring-offset);
+      outline-offset: 0;
+    }
+    .ui-help__button svg {
+      inline-size: 1rem;
+      block-size: 1rem;
     }
     .ui-help__tooltip {
       display: none;
       position: absolute;
       inset-inline: 0;
       z-index: 20;
-      max-inline-size: 28rem;
+      max-inline-size: 22rem;
       margin-block-start: 1.75rem;
       padding: var(--if-space-2) var(--if-space-3);
       font-size: var(--if-font-size-sm);
@@ -104,8 +110,8 @@ let nextId = 0;
       line-height: var(--if-line-height);
       color: var(--if-color-text);
       background: var(--if-color-bg);
-      border: 1px solid var(--if-color-border-strong);
-      border-radius: var(--if-radius-sm);
+      border: 1px solid var(--if-color-border-emphasis);
+      border-radius: var(--if-radius-md);
       box-shadow: var(--if-shadow-overlay);
     }
     .ui-help__tooltip--open {

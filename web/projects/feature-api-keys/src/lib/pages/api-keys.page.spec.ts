@@ -2,6 +2,21 @@ import { HttpTestingController, TestRequest } from '@angular/common/http/testing
 import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
 import { expectRequest, problem, renderApiKeysRoute } from '../testing/api-keys-testing';
 
+// jsdom has no matchMedia nor scrollIntoView; the Optimus date picker overlay uses them.
+beforeAll(() => {
+  window.matchMedia ??= ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
+  Element.prototype.scrollIntoView ??= () => undefined;
+});
+
 const SECRET = 'ifk_live_9f8e7d6c5b4a39281706f5e4d3c2b1a0';
 const URL = '/api/v1/api-keys';
 
@@ -170,11 +185,25 @@ describe('ApiKeysPage', () => {
 
   it('sends the expiry date at the end of that day in Colombia', async () => {
     const { http } = await open();
-    fireEvent.input(await screen.findByLabelText(/Vence el/), { target: { value: '2027-01-31' } });
+    // The ui-date-picker takes the date typed as dd/mm/aaaa and gives the form the ISO date.
+    const expiresAt = (await screen.findByRole('combobox', {
+      name: /Vence el/,
+    })) as HTMLInputElement;
+    expect(expiresAt.placeholder).toBe('dd/mm/aaaa');
+    fireEvent.keyDown(expiresAt, { key: '7' });
+    fireEvent.input(expiresAt, { target: { value: '31/01/2027' } });
     await fillAndCreate();
 
     const request = await expectRequest(http, isCreate);
     expect(request.request.body.expires_at).toBe('2027-01-31T23:59:59-05:00');
+  });
+
+  it('shows an example in the name of the key', async () => {
+    await open();
+
+    expect(
+      ((await screen.findByLabelText(/Nombre de la llave/)) as HTMLInputElement).placeholder,
+    ).toBe('Tienda en línea');
   });
 
   it('asks for a name and at least one scope before calling the API', async () => {

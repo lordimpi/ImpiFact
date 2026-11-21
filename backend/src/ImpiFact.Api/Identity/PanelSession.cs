@@ -147,13 +147,15 @@ internal sealed record PanelSessionTokens(
     [property: JsonPropertyName("refresh_token_expires_at")] DateTimeOffset RefreshTokenExpiresAt,
     [property: JsonPropertyName("company_id")] Guid? CompanyId,
     [property: JsonPropertyName("roles")] IReadOnlyList<string> Roles,
-    [property: JsonPropertyName("companies")] IReadOnlyList<Guid> Companies)
+    [property: JsonPropertyName("companies")] IReadOnlyList<Guid> Companies,
+    [property: JsonPropertyName("email")] string Email)
 {
     [JsonPropertyName("token_type")]
     public string TokenType => "Bearer";
 
     public static PanelSessionTokens From(SessionTokens tokens) => new(
-        tokens.AccessToken, tokens.AccessTokenExpiresAt, tokens.RefreshTokenExpiresAt, tokens.CompanyId, tokens.Roles, tokens.Companies);
+        tokens.AccessToken, tokens.AccessTokenExpiresAt, tokens.RefreshTokenExpiresAt, tokens.CompanyId, tokens.Roles, tokens.Companies,
+        tokens.Email);
 
     /// <summary>No incluye el token de acceso, para que un registro accidental del objeto no lo filtre.</summary>
     public override string ToString() => $"PanelSessionTokens {{ CompanyId = {CompanyId}, ExpiresAt = {AccessTokenExpiresAt:O} }}";

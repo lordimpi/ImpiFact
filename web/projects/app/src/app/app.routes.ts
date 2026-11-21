@@ -32,7 +32,9 @@ const devRoutes: Routes =
  * `apiKeysRoutes`, `/llaves-api`; `plansRoutes`, `/plan`; `platformRoutes`, `/plataforma/*`; `dashboardRoutes`, el
  * tablero de `/` para el propietario y el vendedor.
  * `companiesRoutes`, `/empresa` y `/empresas/:id/...` (configuración y paso a producción); va después de
- * `authRoutes` para que `/empresas/seleccionar` no se tome por una empresa.
+ * `authRoutes` para que `/empresas/seleccionar` no se tome por una empresa. También trae
+ * `/plataforma/empresas/:nit/usuarios` (los usuarios de una empresa para la plataforma, junto a su chunk), así que va
+ * antes que `platformRoutes`.
  * Las rutas del panel exigen sesión con `authGuard`, que manda al login con `returnUrl`.
  */
 export const routes: Routes = [

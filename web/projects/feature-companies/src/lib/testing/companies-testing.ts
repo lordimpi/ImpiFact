@@ -56,6 +56,10 @@ export interface RenderOptions {
   /** Empresas de `GET /api/v1/me/companies`; `null` simula que la lista no cargó. */
   directory?: MyCompany[] | null;
   confirmLeave?: boolean;
+  /** Id of the signed-in user (`sub` of the token); `user-1` by default. */
+  userId?: string | null;
+  /** Scopes of the token (`scope`); none by default. */
+  scopes?: string[];
 }
 
 /**
@@ -66,10 +70,12 @@ export async function renderCompaniesRoute(url: string, options: RenderOptions =
   const roles = signal(options.roles ?? ['owner']);
   const session = {
     isAuthenticated: signal(true),
+    userId: signal<string | null>(options.userId ?? 'user-1'),
     companyId: signal(options.companyId === undefined ? COMPANY_ID : options.companyId),
     companies: signal([COMPANY_ID, 'company-2']),
     roles,
     hasRole: (...wanted: string[]) => wanted.some((role) => roles().includes(role)),
+    hasScope: (scope: string) => (options.scopes ?? []).includes(scope),
     restore: vi.fn(async () => undefined),
   };
   const items = signal<MyCompany[]>(
@@ -92,6 +98,8 @@ export async function renderCompaniesRoute(url: string, options: RenderOptions =
           // Como en la aplicación, la selección de empresa va antes que `empresas/:id`.
           { path: 'empresas/seleccionar', component: StubPage },
           ...companiesRoutes,
+          // The platform list of companies (feature-platform) that the platform users page links back to.
+          { path: 'plataforma/empresas', component: StubPage },
           { path: '', pathMatch: 'full', component: StubPage },
         ],
         withComponentInputBinding(),

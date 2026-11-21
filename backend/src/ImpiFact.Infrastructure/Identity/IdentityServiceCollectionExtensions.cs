@@ -61,6 +61,7 @@ public static class IdentityServiceCollectionExtensions
         services.TryAddScoped<IRefreshTokenStore, EfRefreshTokenStore>();
         services.TryAddScoped<IUserStore, EfUserStore>();
         services.TryAddScoped<IUserCompanyReads, EfUserCompanyReads>();
+        services.TryAddScoped<ICompanyMemberStore, EfCompanyMemberStore>();
         services.TryAddScoped<IPasswordResetTokenStore, EfPasswordResetTokenStore>();
         services.TryAddScoped<IPasswordResetEmailQueue, PasswordResetEmailQueue>();
         services.TryAddSingleton<IPasswordResetTokenFactory, PasswordResetTokenFactory>();

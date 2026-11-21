@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { DeferBlockBehavior, TestBed } from '@angular/core/testing';
 import { Title } from '@angular/platform-browser';
 import { Router, provideRouter, withComponentInputBinding } from '@angular/router';
 import {
@@ -10,13 +10,20 @@ import {
   NotificationsStore,
   SessionStore,
   ToastStore,
+  UNSAVED_CHANGES_CONFIRM,
 } from '@impifact/core';
-import { Translation, TranslocoLoader, provideTransloco } from '@jsverse/transloco';
+import {
+  Translation,
+  TranslocoLoader,
+  TranslocoService,
+  provideTransloco,
+} from '@jsverse/transloco';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/angular';
-import { of } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
 import authEsCO from '../../../feature-auth/src/i18n/es-CO.json';
 import esCO from '../../public/i18n/es-CO.json';
 import { App } from './app';
+import { unsavedChangesDialog } from './app.config';
 import { routes } from './app.routes';
 
 // Cargador en memoria con los archivos reales de textos es-CO (raíz y scope de feature-auth), sin HTTP.
@@ -57,9 +64,10 @@ function fakes(
     minutesLeft: signal(5),
     stayConnected: vi.fn(() => monitor.warning.set(false)),
   };
-  // Empresas con nombre (`GET /api/v1/me/companies`); el menú de usuario muestra la activa.
+  // Empresas con nombre (`GET /api/v1/me/companies`); la barra superior muestra la activa.
   const directory = {
     active: signal<{ id: string; name: string } | null>(null),
+    byId: () => null,
   };
   // Campana de avisos de core: el shell solo lee el número sin leer.
   const notifications = {
@@ -78,6 +86,8 @@ describe('App shell', () => {
   async function renderShell(options: Parameters<typeof fakes>[0] = {}) {
     const { session, monitor, directory, notifications } = fakes(options);
     const result = await render(App, {
+      // The sidebar and the top bar are deferred blocks: they render as in the app once their trigger fires.
+      deferBlockBehavior: DeferBlockBehavior.Playthrough,
       providers: [
         provideRouter(routes, withComponentInputBinding()),
         provideTransloco({
@@ -95,14 +105,148 @@ describe('App shell', () => {
     return { ...result, session, monitor, directory, notifications };
   }
 
-  it('renders the layout with texts from the es-CO translations', async () => {
+  it('shows only the content, without sidebar or top bar, to an anonymous visitor', async () => {
     await renderShell();
+
+    expect(await screen.findByRole('link', { name: 'Saltar al contenido' })).toBeTruthy();
+    expect(screen.getByRole('main')).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: 'Navegación principal' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Menú de navegación' })).toBeNull();
+  });
+
+  it('renders the sidebar with the brand and the menu from the es-CO translations', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['customer'] });
 
     expect(await screen.findByText('ImpiFact')).toBeTruthy();
     const nav = screen.getByRole('navigation', { name: 'Navegación principal' });
     expect(within(nav).getByRole('link', { name: 'Inicio' })).toBeTruthy();
     expect(screen.getByRole('link', { name: 'Saltar al contenido' })).toBeTruthy();
     expect(screen.getByRole('main')).toBeTruthy();
+  });
+
+  it('groups the menu by section and hides the empty sections', async () => {
+    const view = await renderShell({
+      authenticated: true,
+      companies: ['company-1'],
+      roles: ['owner'],
+      scopes: ['documents:read', 'documents:write'],
+    });
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+
+    const issue = within(nav).getByRole('list', { name: 'Emisión' });
+    expect(within(issue).getByRole('link', { name: 'Nueva factura' }).getAttribute('href')).toBe(
+      '/documentos/nuevo',
+    );
+    expect(within(issue).getByRole('link', { name: 'Nota crédito' }).getAttribute('href')).toBe(
+      '/documentos/nota-credito',
+    );
+    expect(within(issue).getByRole('link', { name: 'Nota débito' }).getAttribute('href')).toBe(
+      '/documentos/nota-debito',
+    );
+    const query = within(nav).getByRole('list', { name: 'Consulta' });
+    expect(within(query).getByRole('link', { name: 'Documentos' })).toBeTruthy();
+    expect(within(nav).getByRole('list', { name: 'Ajustes' })).toBeTruthy();
+    expect(within(nav).queryByRole('list', { name: 'Plataforma' })).toBeNull();
+
+    // Issuing needs the `documents:write` scope, as its routes do.
+    view.session.scopes.set(['documents:read']);
+    await waitFor(() => expect(within(nav).queryByRole('list', { name: 'Emisión' })).toBeNull());
+    expect(within(nav).queryByRole('link', { name: 'Nueva factura' })).toBeNull();
+  });
+
+  it('marks the entry of the current page', async () => {
+    const { navigate } = await renderShell({
+      authenticated: true,
+      companies: ['company-1'],
+      roles: ['customer'],
+    });
+    await navigate('/');
+
+    const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
+    await waitFor(() =>
+      expect(within(nav).getByRole('link', { name: 'Inicio' }).getAttribute('aria-current')).toBe(
+        'page',
+      ),
+    );
+    expect(
+      within(nav).getByRole('link', { name: 'Avisos' }).getAttribute('aria-current'),
+    ).toBeNull();
+  });
+
+  it('opens the menu drawer from the top bar and closes it with Escape', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['customer'] });
+    const toggle = await screen.findByRole('button', { name: 'Menú de navegación' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.getAttribute('aria-controls')).toBe('app-sidebar');
+    const sidebar = document.getElementById('app-sidebar') as HTMLElement;
+    expect(sidebar.classList).not.toContain('is-open');
+
+    const body = toggle.closest('.shell-body') as HTMLElement;
+    expect(body.hasAttribute('inert')).toBe(false);
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(sidebar.classList).toContain('is-open');
+    // The open drawer is modal: the top bar, the content and the skip link are inert.
+    expect(body.hasAttribute('inert')).toBe(true);
+    expect(screen.getByText('Saltar al contenido').hasAttribute('inert')).toBe(true);
+
+    const home = within(sidebar).getByRole('link', { name: 'Inicio' });
+    fireEvent.keyDown(home, { key: 'Escape' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(sidebar.classList).not.toContain('is-open');
+    expect(body.hasAttribute('inert')).toBe(false);
+    await waitFor(() => expect(document.activeElement).toBe(toggle));
+  });
+
+  it('closes the menu drawer with its close button', async () => {
+    await renderShell({ authenticated: true, companies: ['company-1'], roles: ['customer'] });
+    const toggle = await screen.findByRole('button', { name: 'Menú de navegación' });
+    fireEvent.click(toggle);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar el menú' }));
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    await waitFor(() => expect(document.activeElement).toBe(toggle));
+  });
+
+  describe('preferences', () => {
+    afterEach(() => {
+      localStorage.clear();
+      document.documentElement.dataset['theme'] = 'light';
+    });
+
+    it('switches to the dark theme and back from the top bar and remembers it', async () => {
+      await renderShell({ authenticated: true, companies: ['company-1'], roles: ['customer'] });
+      const toDark = await screen.findByRole('button', { name: 'Activar modo oscuro' });
+
+      fireEvent.click(toDark);
+
+      expect(document.documentElement.dataset['theme']).toBe('dark');
+      expect(localStorage.getItem('impifact.theme')).toBe('dark');
+      const toLight = screen.getByRole('button', { name: 'Activar modo claro' });
+
+      fireEvent.click(toLight);
+
+      expect(document.documentElement.dataset['theme']).toBe('light');
+      expect(localStorage.getItem('impifact.theme')).toBe('light');
+      expect(screen.getByRole('button', { name: 'Activar modo oscuro' })).toBeTruthy();
+    });
+  });
+
+  it('shows the company selection without the sidebar', async () => {
+    const { navigate } = await renderShell({
+      authenticated: true,
+      companies: ['company-1', 'company-2'],
+    });
+    expect(await screen.findByRole('navigation', { name: 'Navegación principal' })).toBeTruthy();
+
+    await navigate('/empresas/seleccionar');
+
+    await waitFor(() =>
+      expect(screen.queryByRole('navigation', { name: 'Navegación principal' })).toBeNull(),
+    );
+    expect(screen.queryByRole('button', { name: /Mi cuenta/ })).toBeNull();
   });
 
   it('shows customers and products in the menu to an owner or a seller', async () => {
@@ -117,7 +261,7 @@ describe('App shell', () => {
     );
   });
 
-  it('shows the company configuration and the production wizard only to an owner', async () => {
+  it('shows the company configuration, the production wizard and the users only to an owner', async () => {
     const view = await renderShell({ authenticated: true, companies: ['company-1'] });
     const nav = await screen.findByRole('navigation', { name: 'Navegación principal' });
     expect(within(nav).getByRole('link', { name: 'Empresa' }).getAttribute('href')).toBe(
@@ -126,20 +270,33 @@ describe('App shell', () => {
     expect(within(nav).getByRole('link', { name: 'Paso a producción' }).getAttribute('href')).toBe(
       '/empresa/produccion',
     );
+    expect(within(nav).getByRole('link', { name: 'Usuarios' }).getAttribute('href')).toBe(
+      '/empresa/usuarios',
+    );
 
     view.session.roles.set(['seller']);
     await waitFor(() => expect(within(nav).queryByRole('link', { name: 'Empresa' })).toBeNull());
     expect(within(nav).queryByRole('link', { name: 'Paso a producción' })).toBeNull();
+    expect(within(nav).queryByRole('link', { name: 'Usuarios' })).toBeNull();
   });
 
-  it('shows the name of the active company in the user menu', async () => {
+  it('shows the name of the active company in the top bar', async () => {
     const view = await renderShell({ authenticated: true, companies: ['company-1'] });
-    const toggle = await screen.findByRole('button', { name: /Mi cuenta/ });
-    expect(toggle.textContent).not.toContain('Acme SAS');
+    await screen.findByRole('button', { name: /Mi cuenta/ });
+    expect(screen.queryByText('Acme SAS')).toBeNull();
 
     view.directory.active.set({ id: 'company-1', name: 'Acme SAS' });
 
-    await waitFor(() => expect(toggle.textContent).toContain('Acme SAS'));
+    expect(await screen.findByText('Acme SAS')).toBeTruthy();
+    expect(screen.queryByRole('link', { name: /elegir otra empresa/ })).toBeNull();
+  });
+
+  it('links the active company to the company selection when the user has several', async () => {
+    const view = await renderShell({ authenticated: true, companies: ['company-1', 'company-2'] });
+    view.directory.active.set({ id: 'company-1', name: 'Acme SAS' });
+
+    const link = await screen.findByRole('link', { name: 'Acme SAS, elegir otra empresa activa' });
+    expect(link.getAttribute('href')).toBe('/empresas/seleccionar');
   });
 
   it('hides customers and products from other roles', async () => {
@@ -212,14 +369,14 @@ describe('App shell', () => {
 
   it('sets the document title from the translations', async () => {
     await renderShell();
-    await screen.findByText('ImpiFact');
+    await screen.findByRole('main');
 
     expect(TestBed.inject(Title).getTitle()).toBe('ImpiFact · Panel');
   });
 
   it('renders the core toasts with the support code and lets the user close them', async () => {
     await renderShell();
-    await screen.findByText('ImpiFact');
+    await screen.findByRole('main');
     const toasts = TestBed.inject(ToastStore);
 
     toasts.show({ kind: 'error', text: 'No se pudo guardar', correlationId: 'abc-123' });
@@ -234,7 +391,7 @@ describe('App shell', () => {
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
     await renderShell();
-    await screen.findByText('ImpiFact');
+    await screen.findByRole('main');
 
     TestBed.inject(ToastStore).show({ kind: 'error', text: 'Falló', correlationId: 'abc-123' });
     fireEvent.click(await screen.findByRole('button', { name: 'Copiar código' }));
@@ -280,7 +437,7 @@ describe('App shell', () => {
 
   it('hides the user menu without a session', async () => {
     await renderShell();
-    await screen.findByText('ImpiFact');
+    await screen.findByRole('main');
 
     expect(screen.queryByRole('button', { name: /Mi cuenta/ })).toBeNull();
   });
@@ -333,5 +490,55 @@ describe('App shell', () => {
     ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Seguir conectado' }));
     expect(monitor.stayConnected).toHaveBeenCalledOnce();
+  });
+});
+
+describe('unsavedChangesDialog', () => {
+  async function ask() {
+    TestBed.configureTestingModule({
+      providers: [
+        provideTransloco({
+          config: { availableLangs: ['es-CO'], defaultLang: 'es-CO' },
+          loader: InMemoryLoader,
+        }),
+        unsavedChangesDialog,
+      ],
+    });
+    await firstValueFrom(TestBed.inject(TranslocoService).load('es-CO'));
+    const answer = TestBed.inject(UNSAVED_CHANGES_CONFIRM)(
+      'Hay cambios sin guardar. ¿Desea salir de todos modos?',
+    );
+    const dialog = await screen.findByRole(
+      'alertdialog',
+      { name: 'Cambios sin guardar' },
+      { timeout: 4000 },
+    );
+    return { answer, dialog };
+  }
+
+  afterEach(() =>
+    document.body.querySelectorAll('ui-confirm-dialog').forEach((host) => host.remove()),
+  );
+
+  it('asks with the Optimus confirm dialog instead of the browser one, and stays on «Seguir editando»', async () => {
+    const nativeConfirm = vi.spyOn(window, 'confirm');
+    const { answer, dialog } = await ask();
+
+    expect(
+      within(dialog).getByText('Hay cambios sin guardar. ¿Desea salir de todos modos?'),
+    ).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Seguir editando' }));
+
+    await expect(answer).resolves.toBe(false);
+    expect(nativeConfirm).not.toHaveBeenCalled();
+    nativeConfirm.mockRestore();
+  });
+
+  it('leaves with «Salir sin guardar»', async () => {
+    const { answer, dialog } = await ask();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Salir sin guardar' }));
+
+    await expect(answer).resolves.toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 import { HttpContext } from '@angular/common/http';
 import { computed, effect, inject, untracked } from '@angular/core';
-import { Api, MyCompany, listMyCompanies } from '@impifact/api';
+import { Api, MyCompany, listMyCompanies } from '../api-shell';
 import {
   patchState,
   signalStore,

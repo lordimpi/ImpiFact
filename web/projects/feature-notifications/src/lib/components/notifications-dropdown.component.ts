@@ -25,7 +25,7 @@ import {
       <div class="dropdown-header">
         <h2 class="dropdown-title">{{ 'notifications.dropdown.title' | transloco }}</h2>
         <ui-button
-          variant="text"
+          variant="ghost"
           size="small"
           [label]="'notifications.dropdown.markAll' | transloco"
           [disabled]="store.unreadCount() === 0"
@@ -52,7 +52,7 @@ import {
               <span class="dropdown-item-title">
                 @if (!item.is_read) {
                   <span class="dropdown-dot" aria-hidden="true"></span>
-                  <span class="dropdown-sr-only"
+                  <span class="ui-visually-hidden"
                     >{{ 'notifications.dropdown.unread' | transloco }}:
                   </span>
                 }
@@ -62,7 +62,7 @@ import {
               <span class="dropdown-item-date">{{ formatDate(item.created_at) }}</span>
               @if (!item.is_read) {
                 <ui-button
-                  variant="text"
+                  variant="ghost"
                   size="small"
                   [label]="'notifications.dropdown.markRead' | transloco"
                   [ariaLabel]="markReadLabel(item)"
@@ -84,7 +84,12 @@ import {
     .dropdown {
       display: flex;
       flex-direction: column;
-      gap: var(--if-space-2);
+      overflow: hidden;
+      background: var(--if-color-bg);
+      border-radius: var(--if-radius-md);
+    }
+    .dropdown > ui-loading {
+      display: block;
       padding: var(--if-space-3);
     }
     .dropdown-header {
@@ -93,10 +98,13 @@ import {
       gap: var(--if-space-2);
       align-items: center;
       justify-content: space-between;
+      padding: var(--if-space-2) var(--if-space-3);
+      border-block-end: 1px solid var(--if-color-border);
     }
     .dropdown-title {
       margin: 0;
-      font-size: var(--if-font-size-md);
+      font-size: var(--if-font-size-base);
+      font-weight: var(--if-font-weight-bold);
     }
     .dropdown-list {
       display: flex;
@@ -111,9 +119,18 @@ import {
       display: flex;
       flex-direction: column;
       align-items: flex-start;
-      gap: var(--if-space-1);
-      padding-block: var(--if-space-2);
-      border-block-end: 1px solid var(--if-color-border);
+      gap: 0.125rem;
+      padding: var(--if-space-2) var(--if-space-3);
+      border-block-end: 1px solid var(--if-color-border-subtle);
+    }
+    .dropdown-item:hover {
+      background: var(--if-color-surface);
+    }
+    .dropdown-item--unread {
+      background: var(--if-color-primary-subtle);
+    }
+    .dropdown-item--unread:hover {
+      background: var(--if-color-primary-subtle-strong);
     }
     .dropdown-item-title {
       font-weight: var(--if-font-weight-medium);
@@ -134,21 +151,24 @@ import {
       color: var(--if-color-text-muted);
       font-size: var(--if-font-size-sm);
     }
-    .dropdown-sr-only {
-      position: absolute;
-      inline-size: 1px;
-      block-size: 1px;
-      overflow: hidden;
-      clip-path: inset(50%);
-      white-space: nowrap;
+    .dropdown-item-date {
+      font-size: var(--if-font-size-xs);
     }
     .dropdown-error {
       margin: 0;
+      padding: var(--if-space-3);
       color: var(--if-color-danger);
     }
     .dropdown-all {
-      align-self: flex-start;
+      padding: var(--if-space-2) var(--if-space-3);
+      font-size: var(--if-font-size-sm);
+      font-weight: var(--if-font-weight-medium);
+      text-align: center;
       color: var(--if-color-primary);
+      text-decoration: none;
+    }
+    .dropdown-all:hover {
+      text-decoration: underline;
     }
   `,
 })

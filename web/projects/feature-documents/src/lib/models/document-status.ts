@@ -48,11 +48,3 @@ export function kindKey(kind: string | null | undefined): string {
     ? `kinds.${kind}`
     : 'kinds.unknown';
 }
-
-/** Tono visual del estado: aceptado, rechazado o con error, o en proceso. */
-export function statusTone(status: string | null | undefined): 'success' | 'danger' | 'pending' {
-  if (ACCEPTED_STATUSES.has(status ?? '')) {
-    return 'success';
-  }
-  return status === 'Rejected' || status === 'Failed' ? 'danger' : 'pending';
-}

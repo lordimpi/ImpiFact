@@ -15,7 +15,25 @@ const ROW = {
 
 const isList = (request: { url: string }) => request.url === '/api/v1/documents';
 
+/** The collapsible section that holds the DIAN status checkboxes; its summary reads «Más/Menos filtros». */
+const moreFilters = () => screen.getByText(/^(Más|Menos) filtros$/).closest('details')!;
+
 describe('DocumentListPage', () => {
+  // jsdom has no matchMedia nor scrollIntoView; the Optimus select and date picker overlays use them.
+  beforeAll(() => {
+    window.matchMedia ??= ((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+    Element.prototype.scrollIntoView ??= () => undefined;
+  });
+
   beforeEach(() => {
     URL.createObjectURL = vi.fn(() => 'blob:documents');
     URL.revokeObjectURL = vi.fn();
@@ -41,16 +59,47 @@ describe('DocumentListPage', () => {
       '/documentos/doc-1',
     );
     expect((screen.getByLabelText('Cliente') as HTMLInputElement).value).toBe('golden');
+    expect((screen.getByLabelText('Cliente') as HTMLInputElement).placeholder).toBe('NIT o nombre');
     expect((screen.getByLabelText('Rechazado') as HTMLInputElement).checked).toBe(true);
+    // With DIAN statuses in the URL the collapsible section opens, so the active filter is visible.
+    expect(moreFilters().open).toBe(true);
+    expect(moreFilters().textContent).toContain('Estado DIAN: 2');
+    await waitFor(() => expect(screen.getByText('Menos filtros')).toBeTruthy());
+    // The date filter shows the date of the URL as dd/mm/aaaa.
+    expect((screen.getByRole('combobox', { name: 'Desde' }) as HTMLInputElement).value).toBe(
+      '01/11/2026',
+    );
+  });
+
+  it('reads «Más filtros» while the status section is folded and «Menos filtros» while it is open', async () => {
+    const { http } = await renderDocumentsRoute('/documentos');
+    (await waitFor(() => http.expectOne(isList))).flush({ items: [], next_cursor: null });
+
+    const summary = await screen.findByText('Más filtros');
+    expect(moreFilters().open).toBe(false);
+    fireEvent.click(summary);
+    await waitFor(() => expect(screen.getByText('Menos filtros')).toBeTruthy());
+    expect(moreFilters().open).toBe(true);
+    expect(screen.queryByText('Más filtros')).toBeNull();
+
+    fireEvent.click(screen.getByText('Menos filtros'));
+    await waitFor(() => expect(screen.getByText('Más filtros')).toBeTruthy());
+    expect(moreFilters().open).toBe(false);
   });
 
   it('puts the applied filters in the URL and asks the API again', async () => {
     const { http, router } = await renderDocumentsRoute('/documentos');
     (await waitFor(() => http.expectOne(isList))).flush({ items: [], next_cursor: null });
 
-    fireEvent.change(await screen.findByLabelText('Tipo de documento'), {
-      target: { value: 'credit_note' },
-    });
+    // Without DIAN statuses the long status list stays folded under «Más filtros».
+    expect(moreFilters().open).toBe(false);
+    const kind = await screen.findByRole('combobox', { name: 'Tipo de documento' });
+    expect(kind.textContent?.trim()).toBe('Todos los tipos');
+    fireEvent.click(kind);
+    fireEvent.click(await screen.findByRole('option', { name: 'Nota crédito' }));
+    const from = screen.getByRole('combobox', { name: 'Desde' });
+    fireEvent.keyDown(from, { key: '0' });
+    fireEvent.input(from, { target: { value: '01/11/2026' } });
     fireEvent.click(screen.getByLabelText('En cola'));
     fireEvent.click(screen.getByLabelText('Enviado a la DIAN'));
     fireEvent.input(screen.getByLabelText('Número'), { target: { value: 'NC10' } });
@@ -59,10 +108,11 @@ describe('DocumentListPage', () => {
 
     await waitFor(() =>
       expect(router.url).toBe(
-        '/documentos?tipo=credit_note&estado=Queued,Sent&numero=NC10&total=1',
+        '/documentos?desde=2026-11-01&tipo=credit_note&estado=Queued,Sent&numero=NC10&total=1',
       ),
     );
     const request = await waitFor(() => http.expectOne(isList));
+    expect(request.request.params.get('from')).toBe('2026-11-01');
     expect(request.request.params.get('kind')).toBe('credit_note');
     expect(request.request.params.getAll('status')).toEqual(['Queued', 'Sent']);
     expect(request.request.params.get('number')).toBe('NC10');
@@ -95,11 +145,11 @@ describe('DocumentListPage', () => {
     expect(screen.queryByRole('button', { name: 'Reenviar correo' })).toBeNull();
   });
 
-  it('exports the CSV with the same filters through HttpClient and saves the file', async () => {
+  it('exports the CSV from the Exportar menu with the same filters through HttpClient and saves the file', async () => {
     const { http, toasts } = await renderDocumentsRoute('/documentos?tipo=invoice&estado=Accepted');
     (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Exportar CSV' }));
+    await pickExport('CSV');
 
     const request: TestRequest = await waitFor(() =>
       http.expectOne((r) => r.url === '/api/v1/documents/export.csv'),
@@ -115,6 +165,98 @@ describe('DocumentListPage', () => {
     await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(toasts.toasts().map((toast) => toast.text)).toEqual(['Se descargó el archivo CSV.']),
+    );
+  });
+
+  it('offers Excel first, then CSV and PDF in the Exportar menu button', async () => {
+    const { http } = await renderDocumentsRoute('/documentos');
+    (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
+
+    const button = await screen.findByRole('button', { name: 'Exportar' });
+    expect(button.getAttribute('aria-haspopup')).toBe('menu');
+    expect(screen.queryByRole('button', { name: 'Exportar CSV' })).toBeNull();
+    fireEvent.click(button);
+
+    await screen.findByRole('menu', { name: 'Exportar' });
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent?.trim())).toEqual([
+      'Excel (.xlsx)',
+      'CSV',
+      'PDF',
+    ]);
+  });
+
+  it('exports the PDF report with the same filters and saves it', async () => {
+    const { http, toasts } = await renderDocumentsRoute(
+      '/documentos?tipo=invoice&estado=Accepted,Rejected&desde=2026-11-01&hasta=2026-11-30',
+    );
+    (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
+
+    await pickExport('PDF');
+
+    const request: TestRequest = await waitFor(() =>
+      http.expectOne((r) => r.url === '/api/v1/documents/export.pdf'),
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.responseType).toBe('blob');
+    expect(request.request.params.get('kind')).toBe('invoice');
+    expect(request.request.params.getAll('status')).toEqual(['Accepted', 'Rejected']);
+    expect(request.request.params.get('from')).toBe('2026-11-01');
+    expect(request.request.params.get('to')).toBe('2026-11-30');
+    expect(request.request.params.has('limit')).toBe(false);
+    request.flush(new Blob(['%PDF-1.7'], { type: 'application/pdf' }));
+
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(toasts.toasts().map((toast) => toast.text)).toEqual(['Se descargó el archivo PDF.']),
+    );
+  });
+
+  it('exports to Excel with the same filters and saves the workbook', async () => {
+    const { http, toasts } = await renderDocumentsRoute(
+      '/documentos?tipo=credit_note&desde=2026-11-01',
+    );
+    (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
+
+    await pickExport('Excel (.xlsx)');
+
+    const request: TestRequest = await waitFor(() =>
+      http.expectOne((r) => r.url === '/api/v1/documents/export.xlsx'),
+    );
+    expect(request.request.responseType).toBe('blob');
+    expect(request.request.params.get('kind')).toBe('credit_note');
+    expect(request.request.params.get('from')).toBe('2026-11-01');
+    request.flush(new Blob(['PK']));
+
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(toasts.toasts().map((toast) => toast.text)).toEqual([
+        'Se descargó el archivo de Excel.',
+      ]),
+    );
+  });
+
+  it.each([
+    ['Excel (.xlsx)', '/api/v1/documents/export.xlsx'],
+    ['PDF', '/api/v1/documents/export.pdf'],
+  ])('explains a too large export of any format (%s)', async (label, url) => {
+    const { http, toasts } = await renderDocumentsRoute('/documentos');
+    (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
+
+    await pickExport(label);
+    (await waitFor(() => http.expectOne((r) => r.url === url))).flush(
+      new Blob(
+        [JSON.stringify({ code: 'documents.export_too_large', detail: 'Demasiadas filas.' })],
+        {
+          type: 'application/problem+json',
+        },
+      ),
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+
+    await waitFor(() =>
+      expect(toasts.toasts().map((toast) => toast.text)).toEqual([
+        'La exportación tiene demasiadas filas. Acote el rango de fechas e intente de nuevo.',
+      ]),
     );
   });
 
@@ -139,3 +281,10 @@ describe('DocumentListPage', () => {
     );
   });
 });
+
+/** Opens the «Exportar» menu and picks an option, clicking its text as a pointer does. */
+async function pickExport(label: string): Promise<void> {
+  fireEvent.click(await screen.findByRole('button', { name: 'Exportar' }));
+  const item = await screen.findByRole('menuitem', { name: label });
+  fireEvent.click(within(item).getByText(label));
+}

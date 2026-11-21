@@ -3646,6 +3646,11 @@ namespace ImpiFact.Infrastructure.MySql.Migrations
                         .HasColumnType("char(36)")
                         .HasColumnName("customer_id");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
                     b.Property<Guid>("RoleId")
                         .HasColumnType("char(36)")
                         .HasColumnName("role_id");

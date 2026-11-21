@@ -1,10 +1,11 @@
 import { HttpContext } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
 import { Api, PlanCompanyResponse, PlanResponse, getPlan, listPlanCompanies } from '@impifact/api';
 import { AppError, SKIP_ERROR_TOAST } from '@impifact/core';
 import {
+  BadgeComponent,
+  CardComponent,
   PageTitleComponent,
   TableCellDirective,
   TableComponent,
@@ -32,7 +33,8 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 @Component({
   selector: 'feat-plan-companies-page',
   imports: [
-    RouterLink,
+    BadgeComponent,
+    CardComponent,
     TranslocoPipe,
     PageTitleComponent,
     TableComponent,
@@ -81,7 +83,7 @@ export class PlanCompaniesPage {
 
   protected readonly columns = computed<UiTableColumn[]>(() => [
     { key: 'name', header: this.text('planCompanies.name') },
-    { key: 'identification_number', header: this.text('planCompanies.nit') },
+    { key: 'identification_number', header: this.text('planCompanies.nit'), nowrap: true },
     { key: 'email', header: this.text('planCompanies.email') },
     { key: 'start_plan_date', header: this.text('planCompanies.startDate') },
     { key: 'state', header: this.text('planCompanies.state') },

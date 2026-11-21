@@ -12,6 +12,9 @@ import {
 } from '@impifact/core';
 import {
   ButtonComponent,
+  CardComponent,
+  CardFooterDirective,
+  CheckboxComponent,
   ComboboxComponent,
   ComboboxLabels,
   DigitsOnlyDirective,
@@ -20,7 +23,7 @@ import {
   HelpComponent,
   InputDirective,
   LoadingComponent,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { companiesText, provideCompaniesI18n } from '../companies-i18n';
@@ -44,9 +47,12 @@ import { CompanySetupStore } from '../state/company-setup.store';
 @Component({
   selector: 'feat-company-data-page',
   imports: [
+    CheckboxComponent,
     FormField,
     TranslocoPipe,
     ButtonComponent,
+    CardComponent,
+    CardFooterDirective,
     ComboboxComponent,
     DigitsOnlyDirective,
     ErrorStateComponent,
@@ -54,12 +60,12 @@ import { CompanySetupStore } from '../state/company-setup.store';
     HelpComponent,
     InputDirective,
     LoadingComponent,
-    SelectDirective,
+    SelectComponent,
   ],
   providers: [provideCompaniesI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './company-data.page.html',
-  styleUrl: './companies-page.css',
+  styleUrls: ['./companies-page.css', './companies-checks.css'],
 })
 export class CompanyDataPage implements HasUnsavedChanges {
   protected readonly setup = inject(CompanySetupStore);

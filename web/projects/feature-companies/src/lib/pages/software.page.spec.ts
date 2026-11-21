@@ -30,10 +30,20 @@ async function open(software: object[] = []) {
 }
 
 describe('SoftwarePage', () => {
+  // The first test of the file pays the cold render of the route and of the Optimus controls (about 3 s alone,
+  // more while the other files of the project run in parallel).
   it('writes the PIN in a password field', async () => {
     await open();
 
     expect(field(/^PIN del software/).type).toBe('password');
+    // The PIN placeholder describes the value; it is never a PIN that could look real.
+    expect(field(/^PIN del software/).placeholder).toBe('PIN de cinco dígitos');
+    expect(field(/^Identificador del software/).placeholder).toBe(
+      'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    );
+    expect(field(/^Identificador del set de pruebas/).placeholder).toBe(
+      'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    );
     expect(await screen.findByText('La empresa aún no tiene software registrado.')).toBeTruthy();
   });
 

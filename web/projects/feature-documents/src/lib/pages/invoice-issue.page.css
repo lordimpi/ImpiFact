@@ -1,18 +1,20 @@
-/* Emisión: formulario a la izquierda y totales del servidor a la derecha; en móvil, uno debajo del otro. */
+/* Invoice and notes: form cards on the left and the server totals on the right; stacked on narrow screens. */
 .issue-layout {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--if-space-4);
   align-items: start;
 }
 
 @media (min-width: 64rem) {
   .issue-layout {
-    grid-template-columns: minmax(0, 1fr) 22rem;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
   }
 
+  /* The totals and the issue button stay in sight while the lines scroll. */
   .issue-side {
     position: sticky;
-    inset-block-start: var(--if-space-3);
+    inset-block-start: calc(var(--if-topbar-height) + var(--if-space-3));
   }
 }
 
@@ -26,19 +28,79 @@
 .issue-grid {
   display: grid;
   gap: 0 var(--if-space-3);
-  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
 }
 
-.issue-side {
+.issue-chosen {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--if-space-2);
+  padding: var(--if-space-3);
+  background: var(--if-color-surface);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-md);
+}
+
+.issue-chosen__label {
+  margin: 0;
+  font-size: var(--if-font-size-xs);
+  font-weight: var(--if-font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--if-color-success);
+}
+
+.issue-link {
+  display: inline-block;
+  margin-block-start: var(--if-space-2);
+  font-size: var(--if-font-size-sm);
+}
+
+.issue-lines {
   display: flex;
   flex-direction: column;
   gap: var(--if-space-3);
 }
 
+.issue-lines:not(:first-child) {
+  margin-block-start: var(--if-space-3);
+}
+
+.issue-empty {
+  margin: 0;
+  padding: var(--if-space-4);
+  text-align: center;
+  color: var(--if-color-text-muted);
+  border: 1px dashed var(--if-color-border-strong);
+  border-radius: var(--if-radius-md);
+}
+
 .issue-check {
-  display: flex;
-  gap: var(--if-space-2);
-  align-items: center;
   margin-block-start: var(--if-space-2);
-  cursor: pointer;
+}
+
+/* Under the label text: past the checkbox (1.25rem, the Optimus box) and its gap. */
+.issue-check__hint {
+  margin-block-start: var(--if-space-1);
+  padding-inline-start: calc(1.25rem + var(--if-space-2));
+}
+
+.issue-side__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-3);
+}
+
+.issue-side__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--if-space-2);
+  padding-block-start: var(--if-space-3);
+  border-block-start: 1px solid var(--if-color-border);
+}
+
+.note-total {
+  font-weight: var(--if-font-weight-bold);
+  font-variant-numeric: tabular-nums;
 }

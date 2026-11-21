@@ -35,6 +35,21 @@ function params(request: TestRequest) {
   return Object.fromEntries(query.keys().map((key) => [key, query.get(key)]));
 }
 
+// jsdom has no matchMedia nor scrollIntoView; the Optimus select list uses them.
+beforeAll(() => {
+  window.matchMedia ??= ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
+  Element.prototype.scrollIntoView ??= () => undefined;
+});
+
 describe('CustomerListPage', () => {
   it('asks the server for the first page with the default status and sort', async () => {
     const { http } = await renderMastersRoute('/clientes');
@@ -46,7 +61,9 @@ describe('CustomerListPage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Clientes' })).toBeTruthy();
     const table = screen.getByRole('table', { name: 'Clientes' });
     expect(await within(table).findByText('Ana Comercial SAS')).toBeTruthy();
-    expect(within(table).getByText('NIT 900123456-8')).toBeTruthy();
+    expect(within(table).getByRole('cell', { name: 'NIT 900123456-8' })).toBeTruthy();
+    // The number and its DV never break across lines; the type name may wrap before them.
+    expect(within(table).getByText('900123456-8').classList).toContain('masters-nowrap');
     expect(within(table).getByText('Activo')).toBeTruthy();
     expect(
       screen.getByRole('link', { name: 'Editar a Ana Comercial SAS' }).getAttribute('href'),
@@ -66,7 +83,8 @@ describe('CustomerListPage', () => {
       name: 'Buscar por nombre o número de identificación',
     }) as HTMLInputElement;
     expect(search.value).toBe('ana');
-    expect((screen.getByLabelText('Estado') as HTMLSelectElement).value).toBe('all');
+    expect(search.placeholder).toBe('Buscar por nombre o identificación');
+    expect(screen.getByRole('combobox', { name: 'Estado' }).textContent?.trim()).toBe('Todos');
   });
 
   it('sends the search to the server after a pause and keeps it in the URL', async () => {
@@ -96,7 +114,8 @@ describe('CustomerListPage', () => {
     const { http, router } = await renderMastersRoute('/clientes');
     (await expectRequest(http, (r) => isList(r))).flush({ items: [ANA], next_cursor: null });
 
-    fireEvent.change(await screen.findByLabelText('Estado'), { target: { value: 'inactive' } });
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Estado' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Inactivos' }));
 
     const request = await expectRequest(http, (r) => isList(r));
     expect(params(request)['status']).toBe('inactive');

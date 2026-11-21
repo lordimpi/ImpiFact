@@ -1,7 +1,7 @@
 import { HttpContext } from '@angular/common/http';
 import { computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { Api, PanelSessionTokens, login, logout, refreshSession } from '@impifact/api';
+import { Api, PanelSessionTokens, login, logout, refreshSession } from '../api-shell';
 import {
   patchState,
   signalStore,
@@ -150,7 +150,8 @@ export const SessionStore = signalStore(
         if (generation !== startedIn) {
           return false;
         }
-        apply(tokens, store.email());
+        // The refresh carries the email: after a page reload it is the only source (the JWT has none).
+        apply(tokens, tokens.email ?? store.email());
         store._sync.post({ type: 'session', tokens, email: store.email() });
         return true;
       } catch (error) {
@@ -206,7 +207,8 @@ export const SessionStore = signalStore(
         if (generation !== startedIn) {
           return false;
         }
-        apply(tokens, store.email());
+        // The refresh carries the email: after a page reload it is the only source (the JWT has none).
+        apply(tokens, tokens.email ?? store.email());
         store._sync.post({ type: 'session', tokens, email: store.email() });
         return true;
       } catch (error) {
@@ -262,8 +264,8 @@ export const SessionStore = signalStore(
             store._silent(),
           ),
         );
-        apply(tokens, credentials.email);
-        store._sync.post({ type: 'session', tokens, email: credentials.email });
+        apply(tokens, tokens.email ?? credentials.email);
+        store._sync.post({ type: 'session', tokens, email: store.email() });
       },
 
       /**

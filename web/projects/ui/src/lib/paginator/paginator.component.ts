@@ -1,88 +1,64 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
-import { ButtonDirective, ButtonLabel } from '@openng/optimus-ui/button';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  linkedSignal,
+  output,
+} from '@angular/core';
+import { Optimus } from '@openng/optimus-ui/config';
+import { Paginator, PaginatorState } from '@openng/optimus-ui/paginator';
+import { UI_TEXTS } from '../i18n/ui-texts';
 import { UiPageChange, UiPagination, UiPaginatorLabels } from './pagination';
 
-/** Páginas vecinas que se muestran a cada lado de la actual. */
-const SIBLINGS = 1;
-
-type PageItem = { kind: 'page'; page: number } | { kind: 'gap'; id: string };
+/** Optimus paginator inputs for one state of the pagination. */
+interface PaginatorView {
+  first: number;
+  rows: number;
+  totalRecords: number;
+  pageLinks: boolean;
+}
 
 /**
- * Paginador de servidor: no conoce los datos, solo emite la página pedida.
- * Con cursor muestra «anterior» y «siguiente»; con total muestra además los números de página.
+ * Paginador de servidor sobre el `p-paginator` de Optimus UI: no conoce los datos, solo emite la página pedida.
+ * Con total muestra primera, anterior, los números de página, siguiente y última; con cursor solo anterior y
+ * siguiente.
+ *
+ * The Optimus paginator only knows page indexes, so the cursor mode is mapped onto a virtual list of one row per
+ * page: the current page is the index `position`, there is one page before it when the Api sent a previous cursor
+ * and one after it when it sent a next cursor. Optimus moves its own index as soon as a button is clicked, before the
+ * Api answers; `position` follows that index, so the inputs bound after the answer always match the paginator's own
+ * state (a stale input would not be re-sent and would leave a button wrongly disabled).
  */
 @Component({
   selector: 'ui-paginator',
-  imports: [ButtonDirective, ButtonLabel],
+  imports: [Paginator],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <nav class="ui-paginator" [attr.aria-label]="labels().navigation">
-      <button
-        pButton
-        type="button"
-        severity="secondary"
-        [text]="true"
-        [disabled]="!hasPrevious()"
-        (click)="previous()"
-      >
-        <span pButtonLabel>{{ labels().previous }}</span>
-      </button>
-      @if (pages(); as items) {
-        <ul class="ui-paginator__pages">
-          @for (item of items; track item.kind === 'page' ? item.page : item.id) {
-            <li>
-              @if (item.kind === 'page') {
-                <button
-                  pButton
-                  type="button"
-                  [text]="item.page !== currentPage()"
-                  [attr.aria-label]="pageLabel(item.page)"
-                  [attr.aria-current]="item.page === currentPage() ? 'page' : null"
-                  (click)="goTo(item.page)"
-                >
-                  <span pButtonLabel>{{ item.page }}</span>
-                </button>
-              } @else {
-                <span class="ui-paginator__gap" aria-hidden="true">…</span>
-              }
-            </li>
-          }
-        </ul>
-      }
-      <button
-        pButton
-        type="button"
-        severity="secondary"
-        [text]="true"
-        [disabled]="!hasNext()"
-        (click)="next()"
-      >
-        <span pButtonLabel>{{ labels().next }}</span>
-      </button>
+      <p-paginator
+        [first]="view().first"
+        [rows]="view().rows"
+        [totalRecords]="view().totalRecords"
+        [showPageLinks]="view().pageLinks"
+        [showFirstLastIcon]="view().pageLinks"
+        [pageLinkSize]="5"
+        (onPageChange)="onPageChange($event)"
+      />
     </nav>
   `,
   styles: `
     .ui-paginator {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
       justify-content: flex-end;
-      gap: var(--if-space-1);
-      padding-block: var(--if-space-2);
     }
-    .ui-paginator__pages {
-      display: flex;
-      gap: var(--if-space-1);
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-    .ui-paginator__gap {
-      display: inline-flex;
-      align-items: center;
-      min-block-size: var(--if-control-min-height);
-      padding-inline: var(--if-space-1);
-      color: var(--if-color-text-muted);
+    .ui-paginator .p-paginator {
+      flex-wrap: wrap;
+      padding-inline: 0;
+      background: transparent;
+      font-variant-numeric: tabular-nums;
     }
   `,
 })
@@ -92,77 +68,75 @@ export class PaginatorComponent {
 
   readonly pageChange = output<UiPageChange>();
 
-  /** Número de páginas en modo `pages`; al menos 1 aunque no haya registros. */
-  private readonly pageCount = computed(() => {
-    const pagination = this.pagination();
-    if (pagination.kind !== 'pages') return 0;
-    return Math.max(1, Math.ceil(pagination.total / Math.max(1, pagination.pageSize)));
+  private readonly optimus = inject(Optimus);
+  private readonly texts = inject(UI_TEXTS);
+
+  /**
+   * Index of the current page in cursor mode: 0 without a previous cursor, otherwise at least 1. It keeps the index
+   * Optimus moved to after a click, and only snaps back when the Api answer contradicts it.
+   */
+  private readonly position = linkedSignal<UiPagination, number>({
+    source: this.pagination,
+    computation: (pagination, previous) => {
+      if (pagination.kind !== 'cursor' || pagination.previousCursor === null) return 0;
+      return Math.max(1, previous?.value ?? 0);
+    },
   });
 
-  protected readonly currentPage = computed(() => {
+  protected readonly view = computed<PaginatorView>(() => {
     const pagination = this.pagination();
-    return pagination.kind === 'pages' ? pagination.page : 0;
-  });
-
-  protected readonly hasPrevious = computed(() => {
-    const pagination = this.pagination();
-    return pagination.kind === 'cursor' ? pagination.previousCursor !== null : pagination.page > 1;
-  });
-
-  protected readonly hasNext = computed(() => {
-    const pagination = this.pagination();
-    return pagination.kind === 'cursor'
-      ? pagination.nextCursor !== null
-      : pagination.page < this.pageCount();
-  });
-
-  /** Primera página, ventana alrededor de la actual y última, con huecos entre ellas. */
-  protected readonly pages = computed<PageItem[] | null>(() => {
-    if (this.pagination().kind !== 'pages') return null;
-    const count = this.pageCount();
-    const current = Math.min(Math.max(1, this.currentPage()), count);
-    const start = Math.max(1, current - SIBLINGS);
-    const end = Math.min(count, current + SIBLINGS);
-    const items: PageItem[] = [];
-    if (start > 1) items.push({ kind: 'page', page: 1 });
-    if (start > 2) items.push({ kind: 'gap', id: 'start' });
-    for (let page = start; page <= end; page++) items.push({ kind: 'page', page });
-    if (end < count - 1) items.push({ kind: 'gap', id: 'end' });
-    if (end < count) items.push({ kind: 'page', page: count });
-    return items;
-  });
-
-  protected pageLabel(page: number): string {
-    return this.labels().page.replace('{page}', String(page));
-  }
-
-  protected previous(): void {
-    const pagination = this.pagination();
-    if (pagination.kind === 'cursor') {
-      if (pagination.previousCursor !== null) {
-        this.pageChange.emit({
-          kind: 'cursor',
-          cursor: pagination.previousCursor,
-          direction: 'previous',
-        });
-      }
-    } else if (pagination.page > 1) {
-      this.goTo(pagination.page - 1);
+    if (pagination.kind === 'pages') {
+      const rows = Math.max(1, pagination.pageSize);
+      return {
+        first: (Math.max(1, pagination.page) - 1) * rows,
+        rows,
+        totalRecords: Math.max(0, pagination.total),
+        pageLinks: true,
+      };
     }
+    const position = this.position();
+    return {
+      first: position,
+      rows: 1,
+      totalRecords: position + 1 + (pagination.nextCursor === null ? 0 : 1),
+      pageLinks: false,
+    };
+  });
+
+  constructor() {
+    // Optimus names its buttons from the global translation. This view effect runs before the paginator below is
+    // checked, so its buttons get the Spanish names from the first render.
+    effect(() => {
+      const labels = this.labels();
+      this.optimus.setTranslation({
+        aria: {
+          ...this.optimus.translation.aria,
+          prevPageLabel: labels.previous,
+          nextPageLabel: labels.next,
+          pageLabel: labels.page,
+          firstPageLabel: this.texts.firstPage,
+          lastPageLabel: this.texts.lastPage,
+        },
+      });
+    });
   }
 
-  protected next(): void {
+  protected onPageChange(state: PaginatorState): void {
     const pagination = this.pagination();
-    if (pagination.kind === 'cursor') {
-      if (pagination.nextCursor !== null) {
-        this.pageChange.emit({ kind: 'cursor', cursor: pagination.nextCursor, direction: 'next' });
-      }
-    } else if (pagination.page < this.pageCount()) {
-      this.goTo(pagination.page + 1);
+    const page = state.page ?? 0;
+    if (pagination.kind === 'pages') {
+      if (page + 1 !== pagination.page) this.pageChange.emit({ kind: 'pages', page: page + 1 });
+      return;
     }
-  }
-
-  protected goTo(page: number): void {
-    if (page !== this.currentPage()) this.pageChange.emit({ kind: 'pages', page });
+    const forward = page > this.position();
+    const cursor = forward ? pagination.nextCursor : pagination.previousCursor;
+    this.position.set(page);
+    if (cursor !== null) {
+      this.pageChange.emit({
+        kind: 'cursor',
+        cursor,
+        direction: forward ? 'next' : 'previous',
+      });
+    }
   }
 }

@@ -5,7 +5,7 @@ import {
   CatalogItemResponse,
   CatalogListResponse,
   listCatalog,
-} from '@impifact/api';
+} from '../api-shell';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
 import { SKIP_ERROR_TOAST } from '../http/api-request';

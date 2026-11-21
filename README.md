@@ -65,3 +65,5 @@ Los escenarios de k6 (emisión de facturas y consultas) están en `load-tests/` 
 ## Documentación
 
 Los documentos de `docs/` son la especificación: si el código los contradice, gana el documento. Para leerlos todos juntos, abre `docs/ImpiFact-docs.html` o regenéralo con `python docs/build_docs_html.py`.
+
+Manual de uso para los usuarios del panel: [`docs/manual/Manual de uso.md`](docs/manual/Manual%20de%20uso.md), con su PDF en `/ayuda/manual-de-uso.pdf` del panel (`npm run manual` en `web/` regenera capturas y PDF).

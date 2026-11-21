@@ -2,6 +2,7 @@ import { Page, Route, expect, test } from '@playwright/test';
 import { seriousViolationsInBothThemes } from './support/axe';
 import { CRITICAL } from './support/critical';
 import { COMPANIES, USER, mockApi } from './support/mock-api';
+import { pickOption } from './support/select';
 
 /*
  * Flujo crítico 2 de 5 (docs/Arquitectura frontend.md, secciones 8.2 y 12): alta de una empresa nueva desde el panel,
@@ -249,16 +250,18 @@ test(
     ).toBeVisible();
     await expect(page.getByLabel('Razón social')).toHaveValue('Acme SAS');
     expect(await seriousViolationsInBothThemes(page)).toEqual(noViolations);
-    await page.getByLabel('Tipo de organización').selectOption('1');
-    await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
+    await pickOption(
+      page,
+      page.getByRole('combobox', { name: 'Tipo de organización' }),
+      'Persona Jurídica y asimiladas',
+    );
+    await pickOption(page, page.getByRole('combobox', { name: 'Régimen' }), 'Responsable de IVA');
     await page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }).check();
     // Primero el departamento y luego el municipio, los dos buscando por el nombre.
-    await page.getByRole('combobox', { name: 'Departamento', exact: true }).fill('bogo');
-    await page.getByRole('option', { name: 'Bogotá', exact: true }).click();
+    const department = page.getByRole('combobox', { name: 'Departamento', exact: true });
+    await pickOption(page, department, 'Bogotá', 'bogo');
     const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
-    await municipality.fill('bogo');
-    await page.getByRole('option', { name: 'Bogotá, D.C.' }).click();
-    await expect(municipality).toHaveValue('Bogotá, D.C.');
+    await pickOption(page, municipality, 'Bogotá, D.C.', 'bogo');
     await page.getByLabel('Dirección').fill('Calle 1 # 2-3');
     await page.getByLabel('Teléfono').fill('6011234567');
     await page.getByLabel('Correo electrónico').fill('facturas@acme.test');
@@ -270,7 +273,7 @@ test(
     await openSection(page, 'Certificado');
     await expect(page.getByText('La empresa todavía no tiene certificados.')).toBeVisible();
     expect(await seriousViolationsInBothThemes(page)).toEqual(noViolations);
-    await page.getByLabel('Archivo del certificado').setInputFiles({
+    await page.locator('ui-file-upload input[type="file"]').setInputFiles({
       name: 'acme.p12',
       mimeType: 'application/x-pkcs12',
       buffer: Buffer.from('PFX-BYTES'),
@@ -300,9 +303,9 @@ test(
     await page.getByRole('button', { name: 'Usar el ejemplo de habilitación (SETP)' }).click();
     await expect(page.getByLabel('Prefijo')).toHaveValue('SETP');
     // El ejemplo llena también las fechas de la resolución y de su vigencia.
-    await expect(page.getByLabel('Fecha de la resolución')).toHaveValue('2019-01-19');
-    await expect(page.getByLabel('Vigente desde')).toHaveValue('2019-01-19');
-    await expect(page.getByLabel('Vigente hasta')).toHaveValue('2030-01-19');
+    await expect(page.getByLabel('Fecha de la resolución')).toHaveValue('19/01/2019');
+    await expect(page.getByLabel('Vigente desde')).toHaveValue('19/01/2019');
+    await expect(page.getByLabel('Vigente hasta')).toHaveValue('19/01/2030');
     await page.getByRole('button', { name: 'Guardar resolución' }).click();
     await expect(page.getByRole('cell', { name: '18760000001' })).toBeVisible();
 
@@ -334,6 +337,13 @@ test(
     await expect(
       step('Set de pruebas de la DIAN').getByText('Completo', { exact: true }),
     ).toBeVisible();
+    // Con el set aprobado, el botón da paso a un aviso: la DIAN ya no valida más facturas de prueba.
+    await expect(
+      step('Set de pruebas de la DIAN').getByText('La DIAN ya aprobó el set de pruebas.'),
+    ).toBeVisible();
+    await expect(
+      step('Set de pruebas de la DIAN').getByRole('button', { name: 'Enviar factura de prueba' }),
+    ).toHaveCount(0);
 
     // 7. Producción, con confirmación explícita.
     await page
