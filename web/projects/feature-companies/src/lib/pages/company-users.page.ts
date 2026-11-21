@@ -253,7 +253,10 @@ export class CompanyUsersPage {
     }
   }
 
-  /** Sends the change; on an error explains it in a toast and returns `null` (the row stays as it was). */
+  /**
+   * Sends the change; on an error explains it in a toast and returns `null` (the row stays as it was). When the list
+   * is out of date (another person changed or removed that user: 409 or `user.not_found`), it reloads by itself.
+   */
   private async change(
     row: CompanyUser,
     body: { role?: string; is_active?: boolean },
@@ -270,6 +273,9 @@ export class CompanyUsersPage {
         text: this.errorText(error),
         correlationId: error instanceof AppError ? error.correlationId : null,
       });
+      if (error instanceof AppError && (error.status === 409 || error.code === 'user.not_found')) {
+        this.reload();
+      }
       return null;
     }
   }

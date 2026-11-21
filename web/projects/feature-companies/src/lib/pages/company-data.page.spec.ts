@@ -86,33 +86,27 @@ async function pickDepartment(name: string) {
 describe('CompanyDataPage', () => {
   // The first test of the file pays the cold render of the route (about 2 s alone, more while the other files of
   // the project run in parallel) before driving two Optimus selects.
-  it(
-    'fills the lists from the DIAN catalogs and searches the municipalities of the chosen department',
-    {
-      timeout: 10_000,
-    },
-    async () => {
-      await open();
-      expect(await optionNames(select(/^Régimen/))).toEqual([
-        'Responsable de IVA',
-        'No Responsable de IVA',
-      ]);
-      // The empty select shows what to do instead of an empty option.
-      expect(select(/^Régimen/).textContent?.trim()).toBe('Seleccione una opción');
-      expect(screen.getByRole('checkbox', { name: 'R-99-PN No aplica – Otros' })).toBeTruthy();
-      expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
-      // S9: the municipality is locked until a department is chosen.
-      expect(municipality().getAttribute('aria-disabled')).toBe('true');
+  it('fills the lists from the DIAN catalogs and searches the municipalities of the chosen department', async () => {
+    await open();
+    expect(await optionNames(select(/^Régimen/))).toEqual([
+      'Responsable de IVA',
+      'No Responsable de IVA',
+    ]);
+    // The empty select shows what to do instead of an empty option.
+    expect(select(/^Régimen/).textContent?.trim()).toBe('Seleccione una opción');
+    expect(screen.getByRole('checkbox', { name: 'R-99-PN No aplica – Otros' })).toBeTruthy();
+    expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
+    // S9: the municipality is locked until a department is chosen.
+    expect(municipality().getAttribute('aria-disabled')).toBe('true');
 
-      await pickDepartment('Antioquia');
-      await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2'));
-      expect(municipality().getAttribute('aria-disabled')).toBe('false');
-      await search(municipality(), 'medel');
-      await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('medel'));
-      await waitFor(() => expect(municipalityOptions()).toEqual(['Medellín']));
-      expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
-    },
-  );
+    await pickDepartment('Antioquia');
+    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2'));
+    expect(municipality().getAttribute('aria-disabled')).toBe('false');
+    await search(municipality(), 'medel');
+    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('medel'));
+    await waitFor(() => expect(municipalityOptions()).toEqual(['Medellín']));
+    expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
+  });
 
   it('accepts only digits in the phone and explains every field in a tooltip', async () => {
     await open();

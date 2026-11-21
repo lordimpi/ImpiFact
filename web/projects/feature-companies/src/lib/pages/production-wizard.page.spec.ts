@@ -67,7 +67,7 @@ const sendButton = () =>
 describe('ProductionWizardPage', () => {
   // The first test of the file pays the cold render of the route and of the Optimus controls (about 3 s alone,
   // more while the other files of the project run in parallel).
-  it('derives each step from the setup status the API reports', { timeout: 10_000 }, async () => {
+  it('derives each step from the setup status the API reports', async () => {
     await open();
 
     expect(badge('Datos de la empresa')).toBe('Pendiente');

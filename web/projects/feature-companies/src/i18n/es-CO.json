@@ -337,7 +337,6 @@
     "title": "Usuarios",
     "subtitle": "Las personas que trabajan con esta empresa en el panel, su rol y si pueden entrar.",
     "new": "Nuevo usuario",
-    "reload": "Recargar",
     "platform": {
       "title": "Usuarios de {{ name }}",
       "companies": "Empresas de la plataforma",
@@ -398,8 +397,8 @@
       "lastOwner": "La empresa debe tener al menos un dueño activo: nombre otro dueño antes de hacer este cambio.",
       "cannotDeactivateSelf": "No puede desactivar su propia cuenta.",
       "cannotRemoveOwnOwnerRole": "No puede quitarse a usted mismo el rol de dueño.",
-      "notFound": "Este usuario ya no pertenece a la empresa; recargue la lista.",
-      "conflict": "Otro usuario cambió estos datos; recargue la lista.",
+      "notFound": "Este usuario ya no pertenece a la empresa; la lista se actualizó.",
+      "conflict": "Otra persona cambió estos datos al mismo tiempo; la lista se actualizó.",
       "companyNotFound": "La empresa ya no existe; vuelva a la lista de empresas."
     },
     "form": {
