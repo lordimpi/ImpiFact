@@ -25,6 +25,8 @@ public static class DocumentServiceCollectionExtensions
         services.TryAddSingleton<IDianQrUrls, DianQrUrls>();
         services.TryAddScoped<IDocumentFileReads, EfDocumentFileReads>();
         services.TryAddScoped<IDocumentLookups, EfDocumentLookups>();
+        // Excel workbook of the document export.
+        services.TryAddSingleton<ISpreadsheetWriter, OpenXmlSpreadsheetWriter>();
         return services;
     }
 }

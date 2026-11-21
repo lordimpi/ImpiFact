@@ -94,6 +94,7 @@ public sealed class OpenApiContractTests
     [TestCase("GET /api/v1/documents/current-number/{type}", "getNextDocumentNumber")]
     [TestCase("GET /api/v1/documents", "listDocuments")]
     [TestCase("GET /api/v1/documents/export.csv", "exportDocumentsCsv")]
+    [TestCase("GET /api/v1/documents/export.xlsx", "exportDocumentsXlsx")]
     [TestCase("GET /api/v1/documents/{id}", "getDocument")]
     [TestCase("GET /api/v1/documents/by-cufe/{cufe}", "getDocumentByCufe")]
     [TestCase("POST /api/v1/documents/invoices", "issueInvoice")]

@@ -123,6 +123,19 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
                 "archivo se escribe mientras se lee de la base. Máximo " + ExportMax + " filas: si los filtros dan más, responde " +
                 "422 (`documents.export_too_large`) antes de escribir nada; acote por fechas u otros filtros. Un filtro no " +
                 "válido responde 422.");
+        documents.MapGet("/export.xlsx", ExportXlsx)
+            .Produces(StatusCodes.Status200OK, contentType: DocumentExport.XlsxContentType)
+            .WithOperationId("exportDocumentsXlsx")
+            .WithSummary("Exportar los documentos de la empresa a Excel")
+            .WithDescription(
+                "Los mismos documentos, filtros, orden y columnas de `GET /api/v1/documents/export.csv`, en un libro de " +
+                "Excel (.xlsx) `documentos.xlsx` con una hoja «Documentos»." + ListFilters + " Encabezados en español y en " +
+                "negrita, con ancho de columna ajustado. Los importes (Subtotal, Impuestos y Total) son celdas numéricas con " +
+                "separador de miles y dos decimales; la fecha de emisión es una fecha (dd/mm/aaaa) y la hora de emisión una " +
+                "hora (hh:mm:ss), ambas en hora de Colombia; el estado y el estado del correo van en español. Los textos van " +
+                "como texto, nunca como fórmula. El archivo se escribe mientras se lee de la base. Máximo " + ExportMax +
+                " filas: si los filtros dan más, responde 422 (`documents.export_too_large`) antes de escribir nada; acote " +
+                "por fechas u otros filtros. Un filtro no válido responde 422.");
         documents.MapGet("/{id:guid}", Detail)
             .Produces<DocumentDetailResponse>()
             .WithOperationId("getDocument")
@@ -212,6 +225,23 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
         (await handler.HandleAsync(new ExportDocumentsQuery(documentTypeId, kind, Statuses(status), from, to, customer, number), ct))
         .ToHttpResult(export => TypedResults.Stream(
             stream => export.WriteCsvAsync(stream, ct), "text/csv; charset=utf-8", export.FileName));
+
+    /// <summary>
+    /// The Excel twin of <see cref="Export"/>: the same query and errors, and the workbook written as the rows are read.
+    /// </summary>
+    private static async Task<IResult> ExportXlsx(
+        [FromQuery(Name = "document_type_id")] int? documentTypeId,
+        [FromQuery(Name = "kind")] string? kind,
+        [FromQuery(Name = "status")] string[]? status,
+        [FromQuery(Name = "from")] string? from,
+        [FromQuery(Name = "to")] string? to,
+        [FromQuery(Name = "customer")] string? customer,
+        [FromQuery(Name = "number")] string? number,
+        IHandler<ExportDocumentsQuery, DocumentExport> handler,
+        CancellationToken ct) =>
+        (await handler.HandleAsync(new ExportDocumentsQuery(documentTypeId, kind, Statuses(status), from, to, customer, number), ct))
+        .ToHttpResult(export => TypedResults.Stream(
+            stream => export.WriteXlsxAsync(stream, ct), DocumentExport.XlsxContentType, export.XlsxFileName));
 
     /// <summary>Junta <c>status=A&amp;status=B</c> y <c>status=A,B</c> en una sola lista separada por coma.</summary>
     private static string? Statuses(string[]? status) => status is null || status.Length == 0 ? null : string.Join(',', status);

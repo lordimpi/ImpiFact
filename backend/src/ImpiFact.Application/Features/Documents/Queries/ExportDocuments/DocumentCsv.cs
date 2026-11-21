@@ -32,11 +32,7 @@ public static class DocumentCsv
     public const char Separator = ';';
 
     /// <summary>Encabezados en el orden de las columnas.</summary>
-    public static IReadOnlyList<string> Headers { get; } =
-    [
-        "Tipo", "Número", "Fecha de emisión", "Hora de emisión", "Identificación del cliente", "Cliente", "Subtotal",
-        "Impuestos", "Total", "Estado", "Estado del correo", "CUFE/CUDE",
-    ];
+    public static IReadOnlyList<string> Headers { get; } = [.. DocumentExportColumns.All.Select(column => column.Header)];
 
     /// <summary>Escribe el encabezado y una línea por documento, a medida que llegan.</summary>
     public static async Task WriteAsync(Stream output, IAsyncEnumerable<DocumentSummary> rows, CancellationToken ct)
@@ -56,50 +52,18 @@ public static class DocumentCsv
     }
 
     /// <summary>Una línea del archivo, sin el fin de línea.</summary>
-    public static string Line(DocumentSummary row) => string.Join(Separator, new[]
-    {
-        Cell(KindLabel(row.DocumentTypeId)),
-        Cell(row.FullNumber),
-        row.IssueDate.ToString(ColombiaDates.Format, CultureInfo.InvariantCulture),
-        row.IssueTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
-        Cell(row.Customer.IdentificationNumber),
-        Cell(row.Customer.Name),
-        Amount(row.Totals.LineExtensionAmount),
-        Amount(row.Totals.TaxInclusiveAmount - row.Totals.TaxExclusiveAmount),
-        Amount(row.Totals.PayableAmount),
-        Cell(StatusLabel(row.Status)),
-        Cell(EmailLabel(row.EmailStatus)),
-        Cell(row.Cufe ?? ""),
-    });
+    public static string Line(DocumentSummary row) =>
+        string.Join(Separator, DocumentExportColumns.All.Select(column => Format(column.Kind, column.Value(row))));
 
-    public static string StatusLabel(DocumentStatus status) => status switch
-    {
-        DocumentStatus.Received => "Recibido",
-        DocumentStatus.Queued => "En cola",
-        DocumentStatus.Sent => "Enviado a la DIAN",
-        DocumentStatus.Accepted => "Aceptado",
-        DocumentStatus.AcceptedWithWarnings => "Aceptado con advertencias",
-        DocumentStatus.Rejected => "Rechazado",
-        DocumentStatus.Unconfirmed => "Sin confirmar",
-        DocumentStatus.Failed => "Fallido",
-        DocumentStatus.ContingencyPending => "Contingencia pendiente",
-        DocumentStatus.Draft => "Borrador",
-        _ => status.ToString(),
-    };
+    public static string StatusLabel(DocumentStatus status) => DocumentExportColumns.StatusLabel(status);
 
-    private static string EmailLabel(EmailStatus status) => status switch
+    // CSV text of a typed value: dates and times as in the XML, amounts with a decimal comma, text escaped.
+    private static string Format(SpreadsheetCellKind kind, object value) => kind switch
     {
-        EmailStatus.Sent => "Enviado",
-        EmailStatus.Failed => "Falló",
-        _ => "No enviado",
-    };
-
-    private static string KindLabel(int documentTypeId) => DocumentKinds.NameOf(documentTypeId) switch
-    {
-        DocumentKinds.Invoice => "Factura",
-        DocumentKinds.CreditNote => "Nota crédito",
-        DocumentKinds.DebitNote => "Nota débito",
-        _ => string.Create(CultureInfo.InvariantCulture, $"Tipo {documentTypeId}"),
+        SpreadsheetCellKind.Date => ((DateOnly)value).ToString(ColombiaDates.Format, CultureInfo.InvariantCulture),
+        SpreadsheetCellKind.Time => ((TimeOnly)value).ToString("HH:mm:ss", CultureInfo.InvariantCulture),
+        SpreadsheetCellKind.Amount => Amount((decimal)value),
+        _ => Cell((string)value),
     };
 
     private static string Amount(decimal value) => value.ToString("0.00", Numbers);
