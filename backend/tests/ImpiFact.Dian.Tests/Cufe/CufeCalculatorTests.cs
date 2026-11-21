@@ -17,8 +17,24 @@ public class CufeCalculatorTests
     private static readonly XNamespace Cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
     private static readonly XNamespace Cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
 
+    /// <summary>
+    /// Golden folders of the documents ImpiFact issues today, with the secret of their code: the technical key (CUFE) for
+    /// the invoice and its AIU, mandate and transport variants, the software PIN (CUDE) for the notes. The phase 7a
+    /// variants still pending use other formulas; GoldenCodeTests (Golden.Tests) recomputes every golden case.
+    /// </summary>
+    private static readonly Dictionary<string, bool> IssuedTypes = new(StringComparer.Ordinal)
+    {
+        ["invoice"] = true,
+        ["invoice-aiu"] = true,
+        ["invoice-mandate"] = true,
+        ["invoice-transport"] = true,
+        ["credit-note"] = false,
+        ["debit-note"] = false,
+    };
+
     public static IEnumerable<TestCaseData> GoldenCases() =>
-        GoldenFixtures.All().Select(c => new TestCaseData(c).SetArgDisplayNames($"{c.DocumentType}/{c.Name}"));
+        GoldenFixtures.All().Where(c => IssuedTypes.ContainsKey(c.DocumentType))
+            .Select(c => new TestCaseData(c).SetArgDisplayNames($"{c.DocumentType}/{c.Name}"));
 
     [TestCaseSource(nameof(GoldenCases))]
     public void Matches_the_code_ApiDian_produced(GoldenFixture fixture)
@@ -26,7 +42,7 @@ public class CufeCalculatorTests
         var xml = XDocument.Parse(fixture.ExpectedXml).Root!;
         var input = ReadInput(xml, fixture.DocumentType);
 
-        var code = fixture.DocumentType == "invoice"
+        var code = IssuedTypes[fixture.DocumentType]
             ? CufeCalculator.ComputeCufe(input, TechnicalKey)
             : CufeCalculator.ComputeCude(input, SoftwarePin);
 

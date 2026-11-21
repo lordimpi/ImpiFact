@@ -45,7 +45,12 @@ public class XmlSignerTests
         Assert.That(signed.Remove(start, end - start), Is.EqualTo(fixture.ExpectedXml));
     }
 
-    [TestCaseSource(nameof(GoldenCases))]
+    // RADIAN events (ApplicationResponse) have no amount; the verification test above still signs them.
+    public static IEnumerable<TestCaseData> GoldenCasesWithAmounts() =>
+        GoldenFixtures.All().Where(c => c.ExpectedXml.Contains("<cbc:PayableAmount", StringComparison.Ordinal))
+            .Select(c => new TestCaseData(c).SetArgDisplayNames($"{c.DocumentType}/{c.Name}"));
+
+    [TestCaseSource(nameof(GoldenCasesWithAmounts))]
     public void Tampering_with_an_amount_breaks_the_signature(GoldenFixture fixture)
     {
         var signed = Sign(fixture.ExpectedXml);
