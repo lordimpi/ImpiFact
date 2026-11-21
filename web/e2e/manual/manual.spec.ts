@@ -225,6 +225,16 @@ test.describe('administración de la plataforma', () => {
     await pickOption(page, assign.getByRole('combobox', { name: 'Plan' }), 'Pyme 300');
     await shot(page, '16-plataforma-asignar-plan');
   });
+
+  test('usuarios de una empresa', async ({ page }) => {
+    await signIn(page, '/plataforma/empresas', asPlatformAdmin);
+    await page.getByRole('link', { name: 'Usuarios de Café La Montaña SAS' }).click();
+    await expect(page).toHaveURL('/plataforma/empresas/901458321/usuarios');
+    await expect(
+      page.getByRole('table', { name: 'Usuarios de la empresa' }).getByText('Diana Peña Ospina'),
+    ).toBeVisible();
+    await shot(page, '17-plataforma-usuarios-empresa');
+  });
 });
 
 test.describe('configuración de la empresa', () => {
@@ -298,6 +308,29 @@ test.describe('configuración de la empresa', () => {
     const dialog = page.getByRole('dialog', { name: 'Confirmar el paso a producción' });
     await expect(dialog).toBeVisible();
     await shot(page, '28-paso-produccion-confirmar', { from: step('Producción') });
+  });
+
+  test('usuarios de la empresa', async ({ page }) => {
+    await signIn(page, '/');
+    await mainNav(page).getByRole('link', { name: 'Usuarios' }).click();
+    await expect(page).toHaveURL('/empresa/usuarios');
+    await expect(
+      page.getByRole('table', { name: 'Usuarios de la empresa' }).getByText('Diana Peña Ospina'),
+    ).toBeVisible();
+    await shot(page, '29-usuarios-empresa');
+
+    await page.getByRole('button', { name: 'Nuevo usuario' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Nuevo usuario' });
+    await dialog.getByLabel('Correo electrónico').fill('julian.mejia@cafelamontana.example');
+    await dialog.getByLabel('Nombre').fill('Julián Mejía Restrepo');
+    await dialog.getByLabel('Teléfono').fill('3158765432');
+    await dialog.getByLabel('Contraseña').fill('Clave-temporal-2026');
+    // El rol viene en «Vendedor»: elegirlo de nuevo dejaría la lista con el anillo de foco. Se desplaza el diálogo
+    // (no la página) hasta que el rol se vea entero.
+    const role = dialog.getByRole('combobox', { name: 'Rol' });
+    await expect(role).toHaveText('Vendedor');
+    await role.scrollIntoViewIfNeeded();
+    await shot(page, '29-usuarios-nuevo');
   });
 });
 
@@ -407,6 +440,14 @@ test.describe('consulta de documentos', () => {
     await expect(page.getByLabel('Enviado a la DIAN')).toBeVisible();
     await shot(page, '51-documentos-filtros');
     await page.getByText('Menos filtros').click();
+
+    await page.getByRole('button', { name: 'Exportar' }).click();
+    await expect(
+      page.getByRole('menu', { name: 'Exportar' }).getByRole('menuitem', { name: 'PDF' }),
+    ).toBeVisible();
+    await shot(page, '56-documentos-exportar');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu', { name: 'Exportar' })).toBeHidden();
 
     await page.getByLabel('Más acciones de CLM1024').click();
     await expect(page.getByRole('button', { name: 'Reenviar correo', exact: true })).toBeVisible();
