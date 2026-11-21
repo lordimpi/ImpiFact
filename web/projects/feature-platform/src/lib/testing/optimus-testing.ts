@@ -27,6 +27,16 @@ export async function pickOption(combobox: HTMLElement, name: string): Promise<v
   await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
 }
 
+/**
+ * Opens a `ui-menu-button` by its accessible name and clicks one of its menu items. The Optimus menu listens for
+ * clicks on the content inside the `menuitem`, so the click goes to its label, as a pointer would.
+ */
+export async function pickMenuItem(menuButton: string, item: string): Promise<void> {
+  fireEvent.click(screen.getByRole('button', { name: menuButton }));
+  const menuitem = await screen.findByRole('menuitem', { name: item });
+  fireEvent.click(within(menuitem).getByText(item));
+}
+
 /** Names of the options of a `ui-select`: opens its list, reads them and closes it again. */
 export async function optionNames(combobox: HTMLElement): Promise<string[]> {
   fireEvent.click(combobox);

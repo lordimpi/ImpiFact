@@ -32,7 +32,8 @@ let nextId = 0;
  * Tab closes the menu. Focus goes back to the button when the menu closes. Adding an option is one more entry in
  * `items`.
  *
- * Usage: `<ui-menu-button [label]="'Exportar'" [items]="formats" (selected)="export($event)" />`
+ * Usage: `<ui-menu-button [label]="'Exportar'" [items]="formats" (selected)="export($event)" />`; in a table row,
+ * `<ui-menu-button size="small" label="Acciones" [ariaLabel]="'Acciones de ' + row.name" ... />`.
  */
 @Component({
   selector: 'ui-menu-button',
@@ -44,6 +45,8 @@ let nextId = 0;
       pButton
       type="button"
       [severity]="variant() === 'secondary' ? 'secondary' : undefined"
+      [size]="size() === 'small' ? 'small' : undefined"
+      [attr.aria-label]="ariaLabel() || null"
       [disabled]="disabled() || loading()"
       aria-haspopup="menu"
       [attr.aria-expanded]="open()"
@@ -68,7 +71,7 @@ let nextId = 0;
       [model]="model()"
       [popup]="true"
       appendTo="body"
-      [ariaLabel]="label()"
+      [ariaLabel]="ariaLabel() || label()"
       (onShow)="open.set(true)"
       (onHide)="closed()"
     />
@@ -111,7 +114,14 @@ export class MenuButtonComponent {
   readonly label = input.required<string>();
   /** Options, in order; each one is a single line here. */
   readonly items = input.required<readonly UiMenuItem[]>();
+  /**
+   * Accessible name of the button and of its menu when the visible label is not enough on its own, for example one
+   * «Acciones» menu per table row named «Acciones de <row>». It should start with the visible label (WCAG 2.5.3).
+   */
+  readonly ariaLabel = input<string>();
   readonly variant = input<'primary' | 'secondary'>('secondary');
+  /** `small` inside tables and toolbars, like `ui-button`. */
+  readonly size = input<'normal' | 'small'>('normal');
   readonly disabled = input(false, { transform: booleanAttribute });
   /** While loading the button is disabled, with a spinner and `aria-busy`. */
   readonly loading = input(false, { transform: booleanAttribute });

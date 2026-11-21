@@ -89,12 +89,19 @@ export class CustomerListPage {
 
   protected readonly trackById = (_: number, row: CustomerResponse) => row.id;
 
-  /** «NIT 900123456-8» o «Cédula de ciudadanía 1020304050». */
-  protected identification(row: CustomerResponse): string {
+  /** Name of the identification type of the customer: «NIT», «Cédula de ciudadanía»; empty if it is unknown. */
+  protected identificationType(row: CustomerResponse): string {
     const type = Number(row.type_document_identification_id);
-    const name = this.identificationTypes().find((item) => item.id === type)?.name ?? '';
-    const dv = type === NIT_IDENTIFICATION_TYPE && row.dv ? `-${row.dv}` : '';
-    return `${name} ${row.identification_number ?? ''}${dv}`.trim();
+    return this.identificationTypes().find((item) => item.id === type)?.name ?? '';
+  }
+
+  /** «900123456-8» for a NIT with its DV, «1020304050» otherwise; the cell keeps it on one line. */
+  protected identificationNumber(row: CustomerResponse): string {
+    const dv =
+      Number(row.type_document_identification_id) === NIT_IDENTIFICATION_TYPE && row.dv
+        ? `-${row.dv}`
+        : '';
+    return `${row.identification_number ?? ''}${dv}`;
   }
 
   protected rowText(key: string, row: CustomerResponse): string {

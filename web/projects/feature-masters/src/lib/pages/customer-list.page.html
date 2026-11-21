@@ -32,9 +32,12 @@
       (pageChange)="store.changePage($event)"
       (retry)="store.refresh()"
     >
-      <ng-template uiTableCell="identification_number" let-row>{{
-        identification(row)
-      }}</ng-template>
+      <ng-template uiTableCell="identification_number" let-row>
+        @if (identificationType(row); as type) {
+          {{ type }}
+        }
+        <span class="masters-nowrap">{{ identificationNumber(row) }}</span>
+      </ng-template>
       <ng-template uiTableCell="is_active" let-row>
         <ui-badge [tone]="row.is_active ? 'success' : 'neutral'">{{
           (row.is_active ? 'masters.common.status.isActive' : 'masters.common.status.isInactive')

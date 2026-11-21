@@ -61,7 +61,9 @@ describe('CustomerListPage', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Clientes' })).toBeTruthy();
     const table = screen.getByRole('table', { name: 'Clientes' });
     expect(await within(table).findByText('Ana Comercial SAS')).toBeTruthy();
-    expect(within(table).getByText('NIT 900123456-8')).toBeTruthy();
+    expect(within(table).getByRole('cell', { name: 'NIT 900123456-8' })).toBeTruthy();
+    // The number and its DV never break across lines; the type name may wrap before them.
+    expect(within(table).getByText('900123456-8').classList).toContain('masters-nowrap');
     expect(within(table).getByText('Activo')).toBeTruthy();
     expect(
       screen.getByRole('link', { name: 'Editar a Ana Comercial SAS' }).getAttribute('href'),
