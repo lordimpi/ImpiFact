@@ -306,7 +306,7 @@
         "dian": "Respuesta de la DIAN: {{ code }} {{ description }}",
         "accepted": "La DIAN aceptó la factura de prueba.",
         "noResult": "Sin resultado de la DIAN todavía.",
-        "setAccepted": "La DIAN aceptó el set de pruebas.",
+        "setAccepted": "La DIAN ya aprobó el set de pruebas.",
         "setRejected": "La DIAN rechazó el set de pruebas. Revise la respuesta de cada documento y vuelva a enviar.",
         "needsTestSet": "Falta el identificador del set de pruebas.",
         "statuses": {

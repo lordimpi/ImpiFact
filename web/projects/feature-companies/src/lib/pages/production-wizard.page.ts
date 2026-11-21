@@ -237,15 +237,15 @@ export class ProductionWizardPage {
               ? 'inProgress'
               : 'missing',
         detail: this.text(locked ? 'wizard.lockedHint' : 'wizard.steps.testSet.description'),
-        note: locked
-          ? undefined
-          : this.text(
-              accepted === null
-                ? 'wizard.steps.testSet.noResult'
-                : accepted
-                  ? 'wizard.steps.testSet.setAccepted'
+        // With the set approved, the template shows a badge in place of the button (like the production step).
+        note:
+          locked || accepted === true
+            ? undefined
+            : this.text(
+                accepted === null
+                  ? 'wizard.steps.testSet.noResult'
                   : 'wizard.steps.testSet.setRejected',
-            ),
+              ),
       },
       {
         id: 'production',

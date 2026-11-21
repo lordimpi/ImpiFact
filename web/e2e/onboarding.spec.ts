@@ -337,6 +337,13 @@ test(
     await expect(
       step('Set de pruebas de la DIAN').getByText('Completo', { exact: true }),
     ).toBeVisible();
+    // Con el set aprobado, el botón da paso a un aviso: la DIAN ya no valida más facturas de prueba.
+    await expect(
+      step('Set de pruebas de la DIAN').getByText('La DIAN ya aprobó el set de pruebas.'),
+    ).toBeVisible();
+    await expect(
+      step('Set de pruebas de la DIAN').getByRole('button', { name: 'Enviar factura de prueba' }),
+    ).toHaveCount(0);
 
     // 7. Producción, con confirmación explícita.
     await page

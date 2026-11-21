@@ -98,15 +98,32 @@
   color: var(--if-color-text-muted);
 }
 
-/* The production switch has a real fiscal effect at the DIAN and cannot be undone: the warning stands out. */
+/*
+ * The production switch has a real fiscal effect at the DIAN: the notice stands out with the warning tone and an icon.
+ * Danger stays for the irreversible confirmation inside the dialog.
+ */
 .wizard-warning {
+  display: flex;
+  gap: var(--if-space-2);
+  align-items: flex-start;
   padding: var(--if-space-3);
   font-weight: var(--if-font-weight-medium);
-  color: var(--if-color-danger);
-  background: var(--if-color-danger-subtle);
-  border: 1px solid var(--if-color-danger);
+  color: var(--if-color-warning);
+  background: var(--if-color-warning-subtle);
+  border: 1px solid var(--if-color-warning);
   border-inline-start-width: 4px;
   border-radius: var(--if-radius-sm);
+}
+
+.wizard-warning__icon {
+  flex: none;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .wizard-kinds {

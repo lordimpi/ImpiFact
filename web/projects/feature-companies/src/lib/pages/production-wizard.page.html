@@ -25,15 +25,22 @@
                   {{ 'companies.wizard.status.' + step.status | transloco }}
                 </ui-badge>
               </div>
-              <p
-                [class]="
-                  step.id === 'production' && step.status !== 'locked'
-                    ? 'wizard-warning'
-                    : 'companies-lead'
-                "
-              >
-                {{ step.detail }}
-              </p>
+              @if (step.id === 'production' && step.status !== 'locked') {
+                <p class="wizard-warning">
+                  <svg
+                    class="wizard-warning__icon"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d="M12 3 2 21h20L12 3Z" />
+                    <path d="M12 10v5M12 18h.01" />
+                  </svg>
+                  <span>{{ step.detail }}</span>
+                </p>
+              } @else {
+                <p class="companies-lead">{{ step.detail }}</p>
+              }
               @if (step.note; as note) {
                 <p>{{ note }}</p>
               }
@@ -60,12 +67,18 @@
                 @case ('testSet') {
                   @if (step.status !== 'locked') {
                     <div class="companies-actions companies-actions--start">
-                      <ui-button
-                        [label]="'companies.wizard.steps.testSet.send' | transloco"
-                        [disabled]="!canSendTest()"
-                        [loading]="sending()"
-                        (pressed)="sendTestInvoice()"
-                      />
+                      @if (step.status === 'done') {
+                        <ui-badge tone="success">{{
+                          'companies.wizard.steps.testSet.setAccepted' | transloco
+                        }}</ui-badge>
+                      } @else {
+                        <ui-button
+                          [label]="'companies.wizard.steps.testSet.send' | transloco"
+                          [disabled]="!canSendTest()"
+                          [loading]="sending()"
+                          (pressed)="sendTestInvoice()"
+                        />
+                      }
                     </div>
                     <div role="status" aria-live="polite">
                       @if (sending() && !testDocument()) {
@@ -97,7 +110,7 @@
                             }}</ui-badge>
                           } @else {
                             <ui-button
-                              variant="danger"
+                              variant="secondary"
                               [label]="
                                 'companies.wizard.steps.production.switch'
                                   | transloco: { kind: entry.label }
