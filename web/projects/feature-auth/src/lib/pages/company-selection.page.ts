@@ -1,12 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AppError, CORE_ROUTE_PATHS, MyCompaniesStore, SessionStore } from '@impifact/core';
-import {
-  BadgeComponent,
-  ButtonComponent,
-  EmptyStateComponent,
-  PageTitleComponent,
-} from '@impifact/ui';
+import { BadgeComponent, EmptyStateComponent, PageTitleComponent } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { AUTH_I18N_SCOPE, provideAuthI18n } from '../auth-i18n';
 import { AuthBrandComponent } from '../components/auth-brand.component';
@@ -27,7 +22,6 @@ const FORBIDDEN = 403;
   imports: [
     AuthBrandComponent,
     BadgeComponent,
-    ButtonComponent,
     EmptyStateComponent,
     PageTitleComponent,
     RouterLink,
@@ -59,49 +53,66 @@ const FORBIDDEN = 403;
           }
           <ul class="auth-list" [attr.aria-label]="'auth.selectCompany.listLabel' | transloco">
             @for (company of companies(); track company.id) {
-              <li class="auth-company" [class.auth-company--active]="company.active">
-                <div class="auth-company__info">
-                  <span class="auth-company__avatar" aria-hidden="true">{{ company.initial }}</span>
-                  <div class="auth-company__text">
+              <!--
+                Card with a stretched button: the button is the company name (its accessible name, «Trabajar con …»,
+                contains the visible name) and its ::after covers the whole card, so a click anywhere chooses it.
+              -->
+              <li
+                class="company-card"
+                [class.company-card--active]="company.active"
+                [class.company-card--disabled]="pending() !== null || company.inactive"
+              >
+                <span class="company-card__avatar" aria-hidden="true">{{ company.initial }}</span>
+                <span class="company-card__text">
+                  <button
+                    type="button"
+                    class="company-card__select"
+                    [attr.aria-describedby]="'company-details-' + company.id"
+                    [attr.aria-busy]="pending() === company.id || null"
+                    [disabled]="pending() !== null || company.inactive"
+                    (click)="choose(company.id)"
+                  >
+                    <span class="ui-visually-hidden"
+                      >{{ 'auth.selectCompany.selectPrefix' | transloco }}
+                    </span>
                     @if (company.name; as name) {
-                      <p class="auth-company__name">{{ name }}</p>
-                      <p class="auth-company__id">
+                      {{ name }}
+                    } @else {
+                      {{ 'auth.selectCompany.company' | transloco: { number: company.number } }}
+                    }
+                  </button>
+                  <span class="company-card__details" [id]="'company-details-' + company.id">
+                    <span class="company-card__id">
+                      @if (company.name) {
                         {{
                           'auth.selectCompany.nit' | transloco: { nit: company.nit, dv: company.dv }
                         }}
-                      </p>
-                    } @else {
-                      <p class="auth-company__name">
-                        {{ 'auth.selectCompany.company' | transloco: { number: company.number } }}
-                      </p>
-                      <p class="auth-company__id">
+                      } @else {
                         {{ 'auth.selectCompany.companyId' | transloco: { id: company.id } }}
-                      </p>
+                      }
+                    </span>
+                    @if (company.active) {
+                      <ui-badge tone="success">{{
+                        'auth.selectCompany.active' | transloco
+                      }}</ui-badge>
                     }
-                    <div class="auth-company__badges">
-                      @if (company.active) {
-                        <ui-badge tone="success">{{
-                          'auth.selectCompany.active' | transloco
-                        }}</ui-badge>
-                      }
-                      @if (company.inactive) {
-                        <ui-badge>{{ 'auth.selectCompany.inactive' | transloco }}</ui-badge>
-                      }
-                    </div>
-                  </div>
-                </div>
-                <ui-button
-                  size="small"
-                  [variant]="company.active ? 'secondary' : 'primary'"
-                  [label]="
-                    company.name
-                      ? ('auth.selectCompany.selectNamed' | transloco: { name: company.name })
-                      : ('auth.selectCompany.select' | transloco: { number: company.number })
-                  "
-                  [loading]="pending() === company.id"
-                  [disabled]="pending() !== null || company.inactive"
-                  (pressed)="choose(company.id)"
-                />
+                    @if (company.inactive) {
+                      <ui-badge>{{ 'auth.selectCompany.inactive' | transloco }}</ui-badge>
+                    }
+                  </span>
+                </span>
+                @if (pending() === company.id) {
+                  <span class="company-card__spinner" aria-hidden="true"></span>
+                } @else {
+                  <svg
+                    class="company-card__chevron"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                }
               </li>
             }
           </ul>
@@ -109,7 +120,7 @@ const FORBIDDEN = 403;
       </div>
     </section>
   `,
-  styleUrl: './auth-page.css',
+  styleUrls: ['./auth-page.css', './company-selection.page.css'],
 })
 export class CompanySelectionPage {
   private readonly session = inject(SessionStore);

@@ -1,0 +1,133 @@
+/* Company selection: each company is one card-shaped button with the same layout, whatever the name length. */
+.company-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--if-space-3);
+  padding: var(--if-space-3);
+  background: var(--if-color-bg);
+  border: 1px solid var(--if-color-border);
+  border-radius: var(--if-radius-md);
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.company-card:hover:not(.company-card--disabled) {
+  border-color: var(--if-color-primary);
+  background: var(--if-color-primary-subtle);
+}
+
+.company-card:has(.company-card__select:focus-visible) {
+  outline: var(--if-focus-ring-width) solid var(--if-color-focus);
+  outline-offset: var(--if-focus-ring-offset);
+}
+
+.company-card--disabled {
+  opacity: 0.6;
+}
+
+.company-card--active {
+  border-color: var(--if-color-primary);
+}
+
+/* The company name is the button; its ::after stretches the click area over the whole card. */
+.company-card__select {
+  padding: 0;
+  font: inherit;
+  font-weight: var(--if-font-weight-bold);
+  color: inherit;
+  text-align: start;
+  overflow-wrap: anywhere;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.company-card__select::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.company-card__select:focus-visible {
+  outline: none;
+}
+
+.company-card__select:disabled {
+  cursor: not-allowed;
+}
+
+.company-card__avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  font-weight: var(--if-font-weight-bold);
+  color: var(--if-color-primary);
+  background: var(--if-color-primary-subtle-strong);
+  border-radius: var(--if-radius-md);
+}
+
+.company-card__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-inline-size: 0;
+}
+
+.company-card__details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--if-space-2);
+}
+
+.company-card__id {
+  font-family: var(--if-font-family-mono);
+  font-size: var(--if-font-size-sm);
+  color: var(--if-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.company-card__chevron {
+  flex: none;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  fill: none;
+  stroke: var(--if-color-text-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.company-card:hover:not(.company-card--disabled) .company-card__chevron {
+  stroke: var(--if-color-primary);
+}
+
+.company-card__spinner {
+  flex: none;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  border: 2px solid var(--if-color-primary-subtle-strong);
+  border-block-start-color: var(--if-color-primary);
+  border-radius: 50%;
+  animation: company-card-spin 0.8s linear infinite;
+}
+
+@keyframes company-card-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .company-card,
+  .company-card__spinner {
+    transition: none;
+    animation-duration: 2.4s;
+  }
+}
