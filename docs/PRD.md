@@ -4,7 +4,7 @@ Nov 13, 2026 · @Santiago
 
 ## 1. Resumen ejecutivo
 
-Se reescribirá la edición Community de [ApiDian](https://github.com/facturalatam/apidian) (PHP 8.1 + Laravel 10; el archivo `LICENSE` dice MIT, pero `composer.json` declara LGPL-3.0: ver sección 13) en .NET 10 y Angular, como monolito modular con Clean Architecture. La fase 7, la última, completa Community y construye las funciones Enterprise; el piloto con una empresa real empieza cuando todo esté terminado (decisión del 21-nov).
+Se reescribirá la edición Community de [ApiDian](https://github.com/facturalatam/apidian) (PHP 8.1 + Laravel 10; el archivo `LICENSE` dice MIT, pero `composer.json` declara LGPL-3.0: ver sección 13) en .NET 10 y Angular, como monolito modular con Clean Architecture. La fase 7, la última, completa Community, construye las funciones Enterprise y cierra con un piloto con una empresa real, cuando todo lo demás esté terminado (decisión del 21-nov).
 
 No se escribe código hasta que este PRD, la arquitectura y el modelo de datos estén aprobados.
 
@@ -20,7 +20,7 @@ No se escribe código hasta que este PRD, la arquitectura y el modelo de datos e
 | AttachedDocument | XML contenedor que se envía al comprador con la factura y la respuesta de validación de la DIAN. |
 | Clave técnica | Valor que la DIAN entrega con la resolución de numeración; entra en el cálculo del CUFE. |
 | Código 98 «En proceso» | Respuesta de la DIAN cuando aún no decide; el documento queda `Unconfirmed` y se reconsulta. |
-| Community / Enterprise | Las dos ediciones de ApiDian. Las dos se completan en la fase 7, la última: primero el resto de Community (7a) y después Enterprise (7b). |
+| Community / Enterprise | Las dos ediciones de ApiDian. Las dos se completan en la fase 7, la última: primero el resto de Community (7a), después Enterprise (7b) y al final el piloto (7c). |
 | Contingencia | Emisión cuando la DIAN o los sistemas propios no están disponibles; se transmite después. Fase 7. |
 | Contract test | Prueba que ejecuta la colección Postman oficial contra .NET y compara las respuestas con el contrato. |
 | CUDE | Código Único de Documento Electrónico: el equivalente del CUFE para notas, documento soporte y eventos. |
@@ -58,7 +58,7 @@ No se escribe código hasta que este PRD, la arquitectura y el modelo de datos e
 | Bases de datos | PostgreSQL (principal), SQL Server, MySQL |
 | Nubes objetivo | Azure, AWS, GCP |
 | Fases 0 a 6 | Primera entrega de Community, panel y endurecimiento (sección 12) |
-| Fase 7 (última) | Resto de Community (7a) y Enterprise (7b): nómina, POS, RIPS, roles avanzados, extractor de compras, app móvil y WhatsApp. Al terminarla empieza el piloto |
+| Fase 7 (última) | Resto de Community (7a); Enterprise (7b): nómina, POS, RIPS, roles avanzados, extractor de compras, app móvil y WhatsApp; y, para cerrar, el piloto con una empresa real (7c) |
 
 La firma XAdES y el SOAP con la DIAN dependen de la librería externa `ubl21dian/torresoftware`, que no está en el repo y debe portarse. Es el mayor riesgo técnico (sección 13).
 
@@ -485,7 +485,7 @@ Cada fase termina en una puerta de salida medible. No se pasa a la siguiente sin
 | 4. Operación | Estados, Worker con reintentos, PDF, correo, almacenamiento, planes y consumo | Peticiones Postman de la primera entrega en verde (sección 13, revisión #9) |
 | 5. Panel Angular | Propietario, vendedor y cliente; configuración; paso a producción | Un flujo completo de alta de empresa y emisión sin usar el panel PHP |
 | 6. Endurecimiento | SQL Server, MySQL, Key Vault, Secrets Manager y Secret Manager, observabilidad, pruebas de carga, plantillas de despliegue | Plantillas de despliegue listas para Azure, AWS y GCP, validadas sin conexión, y almacenes de secretos probados con emuladores locales en Docker; el despliegue real, al elegir la nube (decisión del 19-nov, ver abajo) |
-| 7. Paridad completa (última) | 7a. Resto de Community: exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes y eventos RADIAN; cierre de la referencia PHP y borrado de las rutas heredadas (`/api/ubl2.1/...` y demás). 7b. Enterprise: nómina, POS, RIPS, extractor de compras, roles avanzados, app móvil y WhatsApp; se especifica en detalle al empezar la 7b, porque de Enterprise no hay código fuente de referencia, solo el manual y la colección Postman | Golden de cada variante, colección Postman completa (Community y Enterprise) en verde y pruebas de punta a punta en habilitación con la DIAN real. El piloto con una empresa real en producción empieza después, cuando el dueño del producto lo decida (decisión del 21-nov) |
+| 7. Paridad completa (última) | 7a. Resto de Community: exportación, contingencia, AIU, mandato, transporte, documento soporte, lotes y eventos RADIAN; cierre de la referencia PHP y borrado de las rutas heredadas (`/api/ubl2.1/...` y demás). 7b. Enterprise: nómina, POS, RIPS, extractor de compras, roles avanzados, app móvil y WhatsApp; se especifica en detalle al empezar la 7b, porque de Enterprise no hay código fuente de referencia, solo el manual y la colección Postman. 7c. Piloto con una empresa real, lo último de la fase y del plan: empieza solo con la 7a y la 7b terminadas y probadas en habilitación, en la fecha que decida el dueño del producto | 7a y 7b: golden de cada variante, colección Postman completa (Community y Enterprise) en verde y pruebas de punta a punta en habilitación con la DIAN real. 7c (cierre): una empresa real emite en producción con ImpiFact |
 
 ```mermaid
 flowchart LR
@@ -493,7 +493,7 @@ flowchart LR
   F1a --> F2["2. Base"] --> F3["3. Documentos"] --> F4["4. Operación"]
   F1a -.->|"con certificado<br/>y testSetId"| F1b["1b. Prototipo<br/>con DIAN"]
   F1b --> F4
-  F4 --> F5["5. Panel Angular"] --> F6["6. Endurecimiento"] --> F7["7. Paridad completa<br/>(Community y Enterprise)"] -.->|"cuando el dueño<br/>lo decida"| P["Piloto en<br/>producción"]
+  F4 --> F5["5. Panel Angular"] --> F6["6. Endurecimiento"] --> F7a["7a. Resto de<br/>Community"] --> F7b["7b. Enterprise"] --> F7c["7c. Piloto con una<br/>empresa real (cierre)"]
 ```
 
 **Estado al 15-nov-2026.** Fase 0 cerrada (los pendientes de licencia, consulta regulatoria y reglas de totales no bloquean el desarrollo). Fase 1a cerrada: `ImpiFact.Dian` genera el XML de factura idéntico byte a byte a los 11 golden, calcula los 14 CUFE/CUDE y firma con XAdES-EPES; la firma la validan .NET y `xmlsec1`. Siguen la fase 1b (espera certificado y `testSetId`) y la fase 2.
@@ -628,7 +628,7 @@ El diseño visual del panel y el manual de uso con capturas (Playwright) siguen 
 - **Equipo:** una sola persona → la primera entrega se recorta a factura, notas crédito/débito, resoluciones, certificado, ambiente y consultas, contra habilitación DIAN. Confirmado el 14-nov: son las fases 3 y 4; el resto de Community pasa a la fase 7.
 - **Licencia del repositorio ImpiFact (14-nov):** se creó con Apache 2.0 de forma provisional. Hay que cambiarla por una licencia propia antes de vender o de publicar el código, porque Apache 2.0 permite a cualquiera usarlo y revenderlo.
 - **WhatsApp (14-nov):** Enterprise (fase 7b). Sale de la fase 4, de los contract tests y de la migración inicial.
-- **Alcance final y piloto (21-nov):** la fase 7 es la última y trae todo: el resto de Community (7a) y Enterprise (7b). No hay fase 8. El piloto con una empresa real en producción no empieza hasta tener las dos partes terminadas y probadas en habilitación; la fecha la decide el dueño del producto.
+- **Alcance final y piloto (21-nov):** la fase 7 es la última y trae todo: el resto de Community (7a), Enterprise (7b) y, para cerrar, el piloto con una empresa real en producción (7c). No hay fase 8. El piloto es lo último del plan: no empieza hasta tener la 7a y la 7b terminadas y probadas en habilitación, y la fecha la decide el dueño del producto.
 - **Credenciales DIAN:** aún sin certificado ni testSetId. La fase 1a (XML, CUFE, firma con certificado de prueba propio) avanza sin DIAN; el envío real a habilitación (fase 1b) queda bloqueado hasta tenerlos. Riesgo registrado.
 - **Pendiente:** ninguno. Proyecto personal sin fecha límite; las fases se miden por criterios de salida, no por calendario.
 
