@@ -14,6 +14,7 @@ export * from './lib/dialog/dialog.component';
 export * from './lib/field/digits-only.directive';
 export * from './lib/field/field.component';
 export * from './lib/field/input.directive';
+export * from './lib/field/keep-field-focus';
 export * from './lib/field/non-negative.directive';
 export * from './lib/field/password-toggle.directive';
 export * from './lib/field/select.component';

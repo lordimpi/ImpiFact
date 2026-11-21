@@ -8,14 +8,13 @@ import {
   output,
 } from '@angular/core';
 import { Dialog } from '@openng/optimus-ui/dialog';
+import { FIELD_CONTROLS } from '../field/keep-field-focus';
 
 /**
  * Diálogo modal sobre el de Optimus UI: título como nombre accesible, foco atrapado, cierre con Escape
  * y con el botón de cerrar. El contenido se proyecta; las acciones van en un elemento `uiDialogFooter`.
  * Al abrirse, el foco va al primer campo del formulario y no al primer elemento enfocable: ese suele ser el botón de
- * ayuda de la primera etiqueta, y su tooltip se abriría solo. Presionar con el mouse un botón del diálogo no le quita
- * el foco al campo que lo tiene: si lo hiciera, el campo vacío se marcaría como tocado, mostraría «Este campo es obligatorio» y el botón se correría
- * antes de soltar el clic (por ejemplo, «Cancelar» no cerraría el diálogo).
+ * ayuda de la primera etiqueta, y su tooltip se abriría solo.
  *
  * Uso: `<ui-dialog [header]="..." [closeLabel]="..." [(visible)]="open">…<div uiDialogFooter>…</div></ui-dialog>`
  */
@@ -41,20 +40,11 @@ import { Dialog } from '@openng/optimus-ui/dialog';
       [style]="{ width: width() }"
       [breakpoints]="{ '640px': '95vw' }"
     >
-      <div class="ui-dialog__part" (mousedown)="keepFieldFocus($event)">
-        <ng-content />
-      </div>
+      <ng-content />
       <ng-template #footer>
-        <div class="ui-dialog__part" (mousedown)="keepFieldFocus($event)">
-          <ng-content select="[uiDialogFooter]" />
-        </div>
+        <ng-content select="[uiDialogFooter]" />
       </ng-template>
     </p-dialog>
-  `,
-  styles: `
-    .ui-dialog__part {
-      display: contents;
-    }
   `,
 })
 export class DialogComponent {
@@ -75,18 +65,6 @@ export class DialogComponent {
   private readonly dialog = viewChild.required(Dialog);
 
   /**
-   * Pressing a button of the dialog with the mouse keeps the focus in the field that has it, so the press does not blur
-   * (and validate) the field; the click still runs. Keyboard use is unchanged.
-   */
-  protected keepFieldFocus(event: MouseEvent): void {
-    const active = document.activeElement;
-    const inField = active instanceof Element && active.matches(FIELDS);
-    if (inField && (event.target as Element | null)?.closest('button, a[href]')) {
-      event.preventDefault();
-    }
-  }
-
-  /**
    * Focuses the first enabled field of the content; without fields, the first focusable element that is not a help
    * button, then the footer actions, then the close button. Runs after the opening transition, like Optimus does.
    */
@@ -99,7 +77,7 @@ export class DialogComponent {
       const content = dialog.querySelector<HTMLElement>('.p-dialog-content');
       const notHelp = (element: HTMLElement) => !element.closest('.ui-help');
       const target =
-        first(content, FIELDS, notHelp) ??
+        first(content, FIELD_CONTROLS, notHelp) ??
         first(content, FOCUSABLE, notHelp) ??
         first(dialog.querySelector('.p-dialog-footer'), FOCUSABLE) ??
         first(dialog, FOCUSABLE);
@@ -116,12 +94,6 @@ function first(
   return root ? [...root.querySelectorAll<HTMLElement>(selector)].find(accept) : undefined;
 }
 
-/** Form fields that can take the initial focus (Optimus selects and date pickers render a combobox). */
-const FIELDS = [
-  'input:not([type="hidden"]):not([disabled]):not([readonly])',
-  'textarea:not([disabled]):not([readonly])',
-  '[role="combobox"]:not([aria-disabled="true"])',
-].join(', ');
 const FOCUSABLE = ['a[href]', 'button:not([disabled])', '[tabindex]:not([tabindex="-1"])'].join(
   ', ',
 );

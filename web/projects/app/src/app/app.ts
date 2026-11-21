@@ -18,7 +18,7 @@ import { Title } from '@angular/platform-browser';
 import { RouterOutlet } from '@angular/router';
 import { InactivityMonitor, SessionStore, ToastStore } from '@impifact/core';
 import { loadAuthTexts, loadInactivityWarning } from '@impifact/feature-auth';
-import { ToastRegionComponent, UiToast } from '@impifact/ui';
+import { ToastRegionComponent, UiToast, keepFieldFocusOnPress } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { injectCurrentPath } from './shell/current-path';
 import { SidebarComponent } from './shell/sidebar.component';
@@ -56,10 +56,14 @@ const FULL_BLEED_PATHS: readonly string[] = ['/login'];
     TopbarComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Pressing a button must not blur (and validate) the field being edited: see keepFieldFocusOnPress.
+  host: { '(document:mousedown)': 'keepFieldFocus($event)' },
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
 export class App {
+  protected readonly keepFieldFocus = keepFieldFocusOnPress;
+
   private readonly transloco = inject(TranslocoService);
   protected readonly toastStore = inject(ToastStore);
   private readonly inactivity = inject(InactivityMonitor);

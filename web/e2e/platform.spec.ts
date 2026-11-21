@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { seriousViolations } from './support/axe';
+import { pressLikeAPerson } from './support/press';
 import { signInAt } from './support/sign-in';
 
 // Plataforma (feature-platform) contra la Api simulada: un administrador sin empresa activa trae `platform:*`.
@@ -106,13 +107,8 @@ test('cancels a new plan without showing required errors', async ({ page }) => {
   const dialog = page.getByRole('dialog', { name: 'Nuevo plan' });
   await expect(dialog.getByLabel('Nombre')).toBeFocused();
 
-  // Leaving the focused empty field to press Cancelar must not validate it: the dialog just closes. A person holds
-  // the button for a moment, so the press and the release are apart.
-  const cancel = await dialog.getByRole('button', { name: 'Cancelar' }).boundingBox();
-  await page.mouse.move(cancel!.x + cancel!.width / 2, cancel!.y + cancel!.height / 2);
-  await page.mouse.down();
-  await page.waitForTimeout(150);
-  await page.mouse.up();
+  // Leaving the focused empty field to press Cancelar must not validate it: the dialog just closes.
+  await pressLikeAPerson(page, dialog.getByRole('button', { name: 'Cancelar' }));
 
   await expect(dialog).toBeHidden();
   await expect(page.getByText('Este campo es obligatorio.')).toHaveCount(0);

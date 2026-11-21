@@ -3,6 +3,7 @@ import { seriousViolations, seriousViolationsInBothThemes } from './support/axe'
 import { CRITICAL } from './support/critical';
 import { CUSTOMER, PRODUCT, mockMasters, problem } from './support/mock-masters';
 import { COMPANIES, USER, mockApi } from './support/mock-api';
+import { pressLikeAPerson } from './support/press';
 import { pickOption } from './support/select';
 
 // Clientes y productos (feature-masters) contra la Api simulada: con una sola empresa, queda activa al entrar.
@@ -354,6 +355,18 @@ test('the product unit measure comes from the DIAN catalog, page by page', async
   await search.press('ArrowDown');
   await search.press('Enter');
   await expect(unit).toHaveText('kilogramo (KGM)');
+});
+
+test('cancels a new product from an empty field without showing required errors', async ({
+  page,
+}) => {
+  await signInAt(page, '/productos/nuevo');
+  await page.getByRole('textbox', { name: 'Código', exact: true }).click();
+
+  // The press must not blur the empty field into an error that pushes «Cancelar» away before the release.
+  await pressLikeAPerson(page, page.getByRole('link', { name: 'Cancelar' }));
+
+  await expect(page).toHaveURL('/productos');
 });
 
 test('leaving a product form with unsaved changes asks with the Optimus dialog, not the browser one', async ({
