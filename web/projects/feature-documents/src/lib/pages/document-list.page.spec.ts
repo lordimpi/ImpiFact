@@ -60,7 +60,7 @@ describe('DocumentListPage', () => {
     );
     expect((screen.getByLabelText('Cliente') as HTMLInputElement).value).toBe('golden');
     expect((screen.getByLabelText('Cliente') as HTMLInputElement).placeholder).toBe(
-      'Buscar por identificación o nombre',
+      'NIT o nombre',
     );
     expect((screen.getByLabelText('Rechazado') as HTMLInputElement).checked).toBe(true);
     // With DIAN statuses in the URL the collapsible section opens, so the active filter is visible.

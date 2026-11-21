@@ -77,7 +77,7 @@
     "statusCount": "Estado DIAN: {{ count }}",
     "customer": "Cliente",
     "customerHint": "Identificación o nombre.",
-    "customerPlaceholder": "Buscar por identificación o nombre",
+    "customerPlaceholder": "NIT o nombre",
     "number": "Número",
     "numberHint": "Con prefijo (SETP990000001) o solo los dígitos.",
     "numberPlaceholder": "Buscar por número",
