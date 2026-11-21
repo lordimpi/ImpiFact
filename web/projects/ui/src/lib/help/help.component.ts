@@ -22,8 +22,8 @@ let nextId = 0;
  * Uso: `<legend>Responsabilidades <ui-help [text]="..." [label]="..." tooltipId="liabilities-help" /></legend>`
  *
  * The bubble is ours and not Optimus `pTooltip`: that directive creates its element on show and removes it on hide,
- * so the control's `aria-describedby` would point at nothing while it is closed. It is styled like the Optimus
- * tooltip (inverted surface, small text) with the same tokens the Optimus preset maps.
+ * so the control's `aria-describedby` would point at nothing while it is closed. It looks like a small card (card
+ * background, border and overlay shadow) instead of a dark bubble, so it fits the light and the dark theme.
  */
 @Component({
   selector: 'ui-help',
@@ -108,8 +108,9 @@ let nextId = 0;
       font-size: var(--if-font-size-sm);
       font-weight: var(--if-font-weight-normal);
       line-height: var(--if-line-height);
-      color: var(--if-color-bg);
-      background: var(--if-color-text);
+      color: var(--if-color-text);
+      background: var(--if-color-bg);
+      border: 1px solid var(--if-color-border-emphasis);
       border-radius: var(--if-radius-md);
       box-shadow: var(--if-shadow-overlay);
     }

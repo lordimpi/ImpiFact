@@ -117,6 +117,9 @@ test('lists the plans with the platform menu', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Nuevo plan' }).click();
   const dialog = page.getByRole('dialog', { name: 'Nuevo plan' });
+  // On open the focus goes to the first field, not to its help button: no tooltip opens by itself.
+  await expect(dialog.getByLabel('Nombre')).toBeFocused();
+  await expect(dialog.locator('.ui-help__tooltip--open')).toHaveCount(0);
   // El id lo asigna el Api: no se pide al crear. Cada campo trae un ejemplo y su explicación.
   await expect(dialog.getByLabel(/Id del plan/)).toHaveCount(0);
   await expect(dialog.getByLabel('Nombre')).toHaveAttribute(
