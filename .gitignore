@@ -13,6 +13,7 @@ odd/
 .DS_Store
 Thumbs.db
 .vs/
+*.slnLaunch
 *.user
 .vscode/
 .idea/
