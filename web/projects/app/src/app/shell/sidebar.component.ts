@@ -21,7 +21,6 @@ const FOCUSABLE = 'a[href], button:not([disabled])';
  * below that it is an off-canvas drawer (`open`) that the top bar toggles. Escape, the close button and choosing a
  * link ask the shell to close it (`closed`). A closed drawer is hidden with `visibility`, so its links leave the tab
  * order. An open drawer is modal: the shell makes the page behind it inert and Tab and Shift+Tab cycle inside it.
- * From 1024px the user can hide the fixed column (`collapsed`); it slides out and leaves the tab order the same way.
  */
 @Component({
   selector: 'app-sidebar',
@@ -31,7 +30,6 @@ const FOCUSABLE = 'a[href], button:not([disabled])';
     id: 'app-sidebar',
     class: 'sidebar',
     '[class.is-open]': 'open()',
-    '[class.is-collapsed]': 'collapsed()',
     '(keydown.escape)': 'open() && closed.emit(true)',
     '(keydown.tab)': 'trapFocus($event)',
     '(keydown.shift.tab)': 'trapFocus($event)',
@@ -46,8 +44,6 @@ export class SidebarComponent {
 
   /** Drawer state on narrow screens; ignored from 1024px. */
   readonly open = input(false);
-  /** Fixed sidebar hidden by the user from 1024px; ignored below (the drawer). */
-  readonly collapsed = input(false);
   /** Asks to close the drawer; `true` when the focus should go back to the menu button. */
   readonly closed = output<boolean>();
 

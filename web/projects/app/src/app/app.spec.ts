@@ -225,50 +225,6 @@ describe('App shell', () => {
       expect(localStorage.getItem('impifact.theme')).toBe('light');
       expect(screen.getByRole('button', { name: 'Activar modo oscuro' })).toBeTruthy();
     });
-
-    // The test viewport is narrow, where CSS hides this desktop button from the accessibility tree, so it is found
-    // by its class; the E2E suite finds it by role and name on a desktop.
-    const desktopMenuButton = () =>
-      waitFor(() => {
-        const button = document.querySelector<HTMLButtonElement>('.topbar__menu--wide');
-        expect(button).toBeTruthy();
-        return button as HTMLButtonElement;
-      });
-
-    it('hides and shows the sidebar on a desktop and remembers it', async () => {
-      await renderShell({ authenticated: true, companies: ['company-1'], roles: ['customer'] });
-      const hide = await desktopMenuButton();
-      expect(hide.getAttribute('aria-label')).toBe('Ocultar el menú');
-      expect(hide.getAttribute('aria-expanded')).toBe('true');
-      expect(hide.getAttribute('aria-controls')).toBe('app-sidebar');
-      const sidebar = document.getElementById('app-sidebar') as HTMLElement;
-      const body = hide.closest('.shell-body') as HTMLElement;
-
-      fireEvent.click(hide);
-
-      expect(hide.getAttribute('aria-label')).toBe('Mostrar el menú');
-      expect(hide.getAttribute('aria-expanded')).toBe('false');
-      expect(sidebar.classList).toContain('is-collapsed');
-      expect(body.classList).toContain('sidebar-hidden');
-      // Hiding the fixed sidebar is not a modal drawer: nothing becomes inert.
-      expect(body.hasAttribute('inert')).toBe(false);
-      expect(localStorage.getItem('impifact.sidebar')).toBe('hidden');
-
-      fireEvent.click(hide);
-
-      expect(sidebar.classList).not.toContain('is-collapsed');
-      expect(body.classList).not.toContain('sidebar-hidden');
-      expect(localStorage.getItem('impifact.sidebar')).toBe('shown');
-    });
-
-    it('starts with the sidebar hidden when the user hid it before', async () => {
-      localStorage.setItem('impifact.sidebar', 'hidden');
-
-      await renderShell({ authenticated: true, companies: ['company-1'], roles: ['customer'] });
-
-      expect((await desktopMenuButton()).getAttribute('aria-label')).toBe('Mostrar el menú');
-      expect(document.getElementById('app-sidebar')?.classList).toContain('is-collapsed');
-    });
   });
 
   it('shows the company selection without the sidebar', async () => {

@@ -173,51 +173,8 @@ test.describe('theme', () => {
   });
 });
 
-test('hides and shows the sidebar on a desktop and remembers it', async ({ page }) => {
-  await signInAt(page, '/');
-  const nav = mainNav(page);
-  const hide = page.getByRole('banner').getByRole('button', { name: 'Ocultar el menú' });
-  const contentLeft = () =>
-    page.locator('#main-content').evaluate((main) => main.getBoundingClientRect().left);
-  await expect(hide).toHaveAttribute('aria-expanded', 'true');
-  await expect(hide).toHaveAttribute('aria-controls', 'app-sidebar');
-  await expect(nav).toBeVisible();
-
-  await hide.click();
-
-  const show = page.getByRole('banner').getByRole('button', { name: 'Mostrar el menú' });
-  await expect(show).toHaveAttribute('aria-expanded', 'false');
-  await expect(nav).toBeHidden();
-  // The content takes the whole width and stays usable: a hidden sidebar is not a modal drawer.
-  await expect.poll(contentLeft).toBe(0);
-  await expect(page.locator('.shell-body')).toHaveJSProperty('inert', false);
-  await expect(show).toBeFocused();
-
-  await page.reload();
-  await expect(show).toBeVisible();
-  await expect(nav).toBeHidden();
-
-  await show.click();
-  await expect(nav).toBeVisible();
-  await expect.poll(contentLeft).toBeGreaterThan(200);
-  await page.reload();
-  await expect(nav).toBeVisible();
-});
-
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } });
-
-  test('keeps the drawer when the sidebar was hidden on a desktop', async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem('impifact.sidebar', 'hidden'));
-    await signInAt(page, '/');
-    const nav = mainNav(page);
-
-    await expect(page.getByRole('button', { name: 'Mostrar el menú' })).toBeHidden();
-    await page.getByRole('button', { name: 'Menú de navegación' }).click();
-
-    await expect(nav).toBeVisible();
-    await expect(page.locator('.shell-body')).toHaveJSProperty('inert', true);
-  });
 
   test('opens the menu drawer with the keyboard and closes it', async ({ page }) => {
     await signInAt(page, '/');

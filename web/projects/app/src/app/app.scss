@@ -41,17 +41,7 @@
   &.has-layout {
     @media (min-width: 64rem) {
       margin-inline-start: var(--if-sidebar-width);
-      transition: margin-inline-start 0.2s ease;
     }
-
-    @media (min-width: 64rem) and (prefers-reduced-motion: reduce) {
-      transition: none;
-    }
-  }
-
-  // Sidebar hidden by the user on a desktop: the content takes the whole width.
-  &.has-layout.sidebar-hidden {
-    margin-inline-start: 0;
   }
 }
 

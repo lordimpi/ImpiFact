@@ -17,8 +17,7 @@ import { ThemeStore } from './theme.store';
 import { UserMenuComponent } from './user-menu.component';
 
 /**
- * Top bar of the panel: menu button (below 1024px it opens the sidebar drawer; from 1024px a second one hides and
- * shows the fixed sidebar), the active company (a link to the company selection when the user has several), the
+ * Top bar of the panel: menu button (below 1024px, it opens the sidebar drawer), the active company (a link to the company selection when the user has several), the
  * light/dark theme switch, the manual, the notification bell and the user menu.
  */
 @Component({
@@ -35,18 +34,6 @@ import { UserMenuComponent } from './user-menu.component';
       [attr.aria-expanded]="menuOpen()"
       [attr.aria-label]="'app.openMenu' | transloco"
       (click)="toggleMenu.emit()"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M4 6h16M4 12h16M4 18h16" />
-      </svg>
-    </button>
-    <button
-      type="button"
-      class="topbar__menu topbar__menu--wide"
-      aria-controls="app-sidebar"
-      [attr.aria-expanded]="!sidebarHidden()"
-      [attr.aria-label]="(sidebarHidden() ? 'app.showMenu' : 'app.hideMenu') | transloco"
-      (click)="toggleSidebar.emit()"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M4 6h16M4 12h16M4 18h16" />
@@ -119,9 +106,6 @@ export class TopbarComponent {
 
   readonly menuOpen = input(false);
   readonly toggleMenu = output<void>();
-  /** Fixed sidebar hidden by the user (1024px and wider). */
-  readonly sidebarHidden = input(false);
-  readonly toggleSidebar = output<void>();
 
   protected readonly dark = computed(() => this.themeStore.theme() === 'dark');
 

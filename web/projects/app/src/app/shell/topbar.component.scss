@@ -39,18 +39,10 @@ svg {
   }
 }
 
-// One menu button per layout: the drawer below 1024px, hiding the fixed sidebar from 1024px.
+// The menu button opens the drawer, which only exists below 1024px.
 .topbar__menu {
   @media (min-width: 64rem) {
     display: none;
-  }
-}
-
-.topbar__menu--wide {
-  display: none;
-
-  @media (min-width: 64rem) {
-    display: inline-grid;
   }
 }
 

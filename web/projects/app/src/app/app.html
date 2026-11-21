@@ -5,33 +5,17 @@
 <!-- The shell pieces load once, the first time a page with the layout shows; prefetched while idle. -->
 @defer (when layout(); prefetch on idle) {
   @if (layout()) {
-    <app-sidebar
-      #sidebar
-      [open]="drawerOpen()"
-      [collapsed]="sidebarHidden()"
-      (closed)="closeDrawer($event)"
-    />
+    <app-sidebar #sidebar [open]="drawerOpen()" (closed)="closeDrawer($event)" />
     @if (drawerOpen()) {
       <div class="shell-backdrop" aria-hidden="true" (click)="closeDrawer(true)"></div>
     }
   }
 }
 
-<div
-  class="shell-body"
-  [class.has-layout]="layout()"
-  [class.sidebar-hidden]="sidebarHidden()"
-  [attr.inert]="drawerOpen() ? '' : null"
->
+<div class="shell-body" [class.has-layout]="layout()" [attr.inert]="drawerOpen() ? '' : null">
   @defer (when layout(); prefetch on idle) {
     @if (layout()) {
-      <app-topbar
-        #topbar
-        [menuOpen]="drawerOpen()"
-        [sidebarHidden]="sidebarHidden()"
-        (toggleMenu)="toggleDrawer()"
-        (toggleSidebar)="toggleSidebar()"
-      />
+      <app-topbar #topbar [menuOpen]="drawerOpen()" (toggleMenu)="toggleDrawer()" />
     }
   } @placeholder {
     @if (layout()) {

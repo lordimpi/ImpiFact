@@ -35,27 +35,9 @@
   }
 }
 
-// Hidden by the user on a desktop: slides out and leaves the tab order once the slide ends.
-@media (min-width: 64rem) {
-  :host {
-    transition:
-      transform 0.2s ease,
-      visibility 0s;
-  }
-
-  :host(.is-collapsed) {
-    transform: translateX(-100%);
-    visibility: hidden;
-    transition:
-      transform 0.2s ease,
-      visibility 0s linear 0.2s;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   :host,
-  :host(.is-open),
-  :host(.is-collapsed) {
+  :host(.is-open) {
     transition: none;
   }
 }

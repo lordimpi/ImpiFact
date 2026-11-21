@@ -1,11 +1,4 @@
-import {
-  SIDEBAR_KEY,
-  THEME_KEY,
-  applyTheme,
-  readPreference,
-  storedTheme,
-  writePreference,
-} from './preferences';
+import { THEME_KEY, applyTheme, readPreference, storedTheme, writePreference } from './preferences';
 
 // Blocked storage (private mode, site data disabled): every access throws.
 function blockStorage() {
@@ -44,15 +37,15 @@ describe('panel preferences', () => {
     blockStorage();
 
     expect(storedTheme()).toBe('light');
-    expect(readPreference(SIDEBAR_KEY)).toBeNull();
+    expect(readPreference(THEME_KEY)).toBeNull();
   });
 
   it('stores a preference and survives a blocked storage', () => {
-    writePreference(SIDEBAR_KEY, 'hidden');
-    expect(localStorage.getItem(SIDEBAR_KEY)).toBe('hidden');
+    writePreference(THEME_KEY, 'dark');
+    expect(localStorage.getItem(THEME_KEY)).toBe('dark');
 
     blockStorage();
-    expect(() => writePreference(SIDEBAR_KEY, 'shown')).not.toThrow();
+    expect(() => writePreference(THEME_KEY, 'light')).not.toThrow();
   });
 
   it('applies the theme on the root element', () => {

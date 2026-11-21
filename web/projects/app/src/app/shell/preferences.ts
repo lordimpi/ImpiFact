@@ -7,7 +7,6 @@
 export type Theme = 'light' | 'dark';
 
 export const THEME_KEY = 'impifact.theme';
-export const SIDEBAR_KEY = 'impifact.sidebar';
 
 export function readPreference(key: string): string | null {
   try {
