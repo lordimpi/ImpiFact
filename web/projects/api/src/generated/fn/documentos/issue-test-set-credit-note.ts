@@ -66,6 +66,11 @@ export interface IssueTestSetCreditNote$Params {
 /**
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
  */
+'noteAIU'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
 'idcurrency'?: (boolean | number | string | null);
 
 /**
@@ -535,6 +540,46 @@ export interface IssueTestSetCreditNote$Params {
  */
 'base_unit_measure'?: (boolean | number | string | null);
 }> | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'agentparty'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'agentparty_dv'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'is_RNDC'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'RNDC_consignment_number'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'internal_consignment_number'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'value_consignment'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'unit_measure_consignment_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'quantity_consignment'?: (boolean | number | string | null);
 }> | null);
 'credit_note_lines'?: (Array<{
 
@@ -594,6 +639,46 @@ export interface IssueTestSetCreditNote$Params {
 'base_quantity'?: (boolean | number | string | null);
 'allowance_charges'?: (Array<any> | null);
 'tax_totals'?: (Array<any> | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'agentparty'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'agentparty_dv'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'is_RNDC'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'RNDC_consignment_number'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'internal_consignment_number'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'value_consignment'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'unit_measure_consignment_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'quantity_consignment'?: (boolean | number | string | null);
 }> | null);
 'debit_note_lines'?: (Array<{
 
@@ -653,6 +738,46 @@ export interface IssueTestSetCreditNote$Params {
 'base_quantity'?: (boolean | number | string | null);
 'allowance_charges'?: (Array<any> | null);
 'tax_totals'?: (Array<any> | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'agentparty'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'agentparty_dv'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'is_RNDC'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'RNDC_consignment_number'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'internal_consignment_number'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'value_consignment'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'unit_measure_consignment_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'quantity_consignment'?: (boolean | number | string | null);
 }> | null);
 
 /**

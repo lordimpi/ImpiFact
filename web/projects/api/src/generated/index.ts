@@ -232,6 +232,18 @@ export type { IssueInvoice$Params as IssueInvoice$Params } from './fn/documentos
 export { issueInvoice as issueInvoice } from './fn/documentos/issue-invoice';
 export type { IssueTestSetInvoice$Params as IssueTestSetInvoice$Params } from './fn/documentos/issue-test-set-invoice';
 export { issueTestSetInvoice as issueTestSetInvoice } from './fn/documentos/issue-test-set-invoice';
+export type { IssueAiuInvoice$Params as IssueAiuInvoice$Params } from './fn/documentos/issue-aiu-invoice';
+export { issueAiuInvoice as issueAiuInvoice } from './fn/documentos/issue-aiu-invoice';
+export type { IssueTestSetAiuInvoice$Params as IssueTestSetAiuInvoice$Params } from './fn/documentos/issue-test-set-aiu-invoice';
+export { issueTestSetAiuInvoice as issueTestSetAiuInvoice } from './fn/documentos/issue-test-set-aiu-invoice';
+export type { IssueMandateInvoice$Params as IssueMandateInvoice$Params } from './fn/documentos/issue-mandate-invoice';
+export { issueMandateInvoice as issueMandateInvoice } from './fn/documentos/issue-mandate-invoice';
+export type { IssueTestSetMandateInvoice$Params as IssueTestSetMandateInvoice$Params } from './fn/documentos/issue-test-set-mandate-invoice';
+export { issueTestSetMandateInvoice as issueTestSetMandateInvoice } from './fn/documentos/issue-test-set-mandate-invoice';
+export type { IssueTransportInvoice$Params as IssueTransportInvoice$Params } from './fn/documentos/issue-transport-invoice';
+export { issueTransportInvoice as issueTransportInvoice } from './fn/documentos/issue-transport-invoice';
+export type { IssueTestSetTransportInvoice$Params as IssueTestSetTransportInvoice$Params } from './fn/documentos/issue-test-set-transport-invoice';
+export { issueTestSetTransportInvoice as issueTestSetTransportInvoice } from './fn/documentos/issue-test-set-transport-invoice';
 export type { IssueCreditNote$Params as IssueCreditNote$Params } from './fn/documentos/issue-credit-note';
 export { issueCreditNote as issueCreditNote } from './fn/documentos/issue-credit-note';
 export type { IssueTestSetCreditNote$Params as IssueTestSetCreditNote$Params } from './fn/documentos/issue-test-set-credit-note';
