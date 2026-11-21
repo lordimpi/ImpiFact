@@ -36,6 +36,8 @@ const ICONS = {
   products: 'M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8',
   company: 'M4 20V6l8-3v17M12 9h8v11M8 9v.01M8 13v.01M16 13v.01M16 17v.01M2 20h20',
   production: 'M5 13l4 4L19 7',
+  users:
+    'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   apiKeys: 'M15 7a4 4 0 1 1-3.9 5H3v3h3v3h3v-3h2.1A4 4 0 0 1 15 7',
   plan: 'M4 6h16v12H4zM4 10h16',
   notifications: 'M18 16V11a6 6 0 0 0-12 0v5l-2 2h16zM10 21h4',
@@ -91,6 +93,12 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         path: '/empresa/produccion',
         label: 'nav.production',
         icon: ICONS.production,
+        roles: COMPANY_ROLES,
+      },
+      {
+        path: '/empresa/usuarios',
+        label: 'nav.companyUsers',
+        icon: ICONS.users,
         roles: COMPANY_ROLES,
       },
       { path: '/llaves-api', label: 'nav.apiKeys', icon: ICONS.apiKeys, roles: API_KEYS_ROLES },

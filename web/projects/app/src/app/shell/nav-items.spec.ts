@@ -10,6 +10,7 @@ describe('activeNavPath', () => {
   it('marks the most specific entry of a nested path', () => {
     expect(activeNavPath(ITEMS, '/documentos/nuevo')).toBe('/documentos/nuevo');
     expect(activeNavPath(ITEMS, '/empresa/produccion')).toBe('/empresa/produccion');
+    expect(activeNavPath(ITEMS, '/empresa/usuarios')).toBe('/empresa/usuarios');
   });
 
   it('marks the parent entry of a page without its own entry', () => {

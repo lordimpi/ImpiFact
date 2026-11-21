@@ -14,6 +14,7 @@
     "errors": {
       "required": "Este campo es obligatorio.",
       "maxLength": "Escriba como máximo {{ max }} caracteres.",
+      "minLength": "Escriba al menos {{ min }} caracteres.",
       "email": "Escriba un correo electrónico válido.",
       "pattern": "El formato no es válido.",
       "unexpected": "No se pudo completar la operación. Intente de nuevo.",
@@ -331,5 +332,83 @@
       }
     },
     "loadError": "No se pudo consultar el estado del paso a producción."
+  },
+  "users": {
+    "title": "Usuarios",
+    "subtitle": "Las personas que trabajan con esta empresa en el panel, su rol y si pueden entrar.",
+    "new": "Nuevo usuario",
+    "reload": "Recargar",
+    "roles": {
+      "owner": "Dueño",
+      "seller": "Vendedor"
+    },
+    "roleNames": {
+      "owner": "dueño",
+      "seller": "vendedor"
+    },
+    "list": {
+      "caption": "Usuarios de la empresa",
+      "name": "Nombre",
+      "email": "Correo",
+      "phone": "Teléfono",
+      "role": "Rol",
+      "status": "Estado",
+      "actions": "Acciones",
+      "you": "(usted)",
+      "noPhone": "Sin teléfono",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "selfHint": "Es su cuenta: no puede cambiar su rol ni desactivarla.",
+      "loading": "Cargando los usuarios…",
+      "emptyTitle": "La empresa aún no tiene usuarios",
+      "emptyDescription": "Cree el primero con «Nuevo usuario».",
+      "errorTitle": "No se pudieron consultar los usuarios",
+      "errorDescription": "Revise su conexión e intente de nuevo."
+    },
+    "actions": {
+      "makeOwner": "Cambiar a dueño",
+      "makeSeller": "Cambiar a vendedor",
+      "deactivate": "Desactivar",
+      "reactivate": "Reactivar",
+      "makeOwnerRow": "Cambiar a dueño: {{ name }}",
+      "makeSellerRow": "Cambiar a vendedor: {{ name }}",
+      "deactivateRow": "Desactivar a {{ name }}",
+      "reactivateRow": "Reactivar a {{ name }}"
+    },
+    "deactivate": {
+      "title": "Desactivar a {{ name }}",
+      "body": "{{ name }} perderá el acceso a esta empresa y se cerrarán sus sesiones abiertas. Lo que emitió conserva su autor, y usted puede reactivarlo cuando quiera.",
+      "confirm": "Desactivar"
+    },
+    "done": {
+      "role": "{{ name }} ahora es {{ role }}.",
+      "deactivated": "{{ name }} quedó inactivo y se cerraron sus sesiones.",
+      "reactivated": "{{ name }} puede volver a entrar a la empresa."
+    },
+    "errors": {
+      "lastOwner": "La empresa debe tener al menos un dueño activo: nombre otro dueño antes de hacer este cambio.",
+      "cannotDeactivateSelf": "No puede desactivar su propia cuenta.",
+      "cannotRemoveOwnOwnerRole": "No puede quitarse a usted mismo el rol de dueño.",
+      "notFound": "Este usuario ya no pertenece a la empresa; recargue la lista.",
+      "conflict": "Otro usuario cambió estos datos; recargue la lista."
+    },
+    "form": {
+      "title": "Nuevo usuario",
+      "description": "Cree un dueño o un vendedor de esta empresa. El dueño configura la empresa y administra los usuarios; el vendedor emite y consulta documentos.",
+      "email": "Correo electrónico",
+      "name": "Nombre",
+      "phone": "Teléfono",
+      "password": "Contraseña",
+      "passwordHint": "Al menos {{ min }} caracteres. El panel no la guarda: entréguela a la persona por un medio seguro.",
+      "role": "Rol",
+      "submit": "Crear usuario",
+      "done": "Se creó el usuario {{ email }} como {{ role }}; ya puede iniciar sesión.",
+      "roleNotAllowed": "Su sesión no puede crear usuarios con ese rol.",
+      "placeholders": {
+        "email": "nombre@empresa.com",
+        "name": "Ana Gómez",
+        "phone": "3001234567"
+      }
+    }
   }
 }

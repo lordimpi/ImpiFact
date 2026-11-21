@@ -56,6 +56,8 @@ export interface RenderOptions {
   /** Empresas de `GET /api/v1/me/companies`; `null` simula que la lista no cargó. */
   directory?: MyCompany[] | null;
   confirmLeave?: boolean;
+  /** Id of the signed-in user (`sub` of the token); `user-1` by default. */
+  userId?: string | null;
 }
 
 /**
@@ -66,6 +68,7 @@ export async function renderCompaniesRoute(url: string, options: RenderOptions =
   const roles = signal(options.roles ?? ['owner']);
   const session = {
     isAuthenticated: signal(true),
+    userId: signal<string | null>(options.userId ?? 'user-1'),
     companyId: signal(options.companyId === undefined ? COMPANY_ID : options.companyId),
     companies: signal([COMPANY_ID, 'company-2']),
     roles,
