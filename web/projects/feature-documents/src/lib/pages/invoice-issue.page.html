@@ -48,22 +48,10 @@
       <ui-card [title]="'documents.issue.payment' | transloco">
         <div class="issue-grid">
           <ui-field [label]="'documents.issue.paymentForm' | transloco" required>
-            <select uiSelect [formField]="invoiceForm.paymentFormId">
-              @for (option of paymentForms; track option) {
-                <option [value]="option">
-                  {{ 'documents.issue.paymentForms.' + option | transloco }}
-                </option>
-              }
-            </select>
+            <ui-select [options]="paymentForms()" [formField]="invoiceForm.paymentFormId" />
           </ui-field>
           <ui-field [label]="'documents.issue.paymentMethod' | transloco" required>
-            <select uiSelect [formField]="invoiceForm.paymentMethodId">
-              @for (option of paymentMethods; track option) {
-                <option [value]="option">
-                  {{ 'documents.issue.paymentMethods.' + option | transloco }}
-                </option>
-              }
-            </select>
+            <ui-select [options]="paymentMethods()" [formField]="invoiceForm.paymentMethodId" />
           </ui-field>
           @if (onCredit()) {
             <ui-field
@@ -71,7 +59,10 @@
               [error]="fieldError('paymentDueDate')"
               required
             >
-              <input uiInput type="date" [formField]="invoiceForm.paymentDueDate" />
+              <ui-date-picker
+                [placeholder]="'documents.filters.datePlaceholder' | transloco"
+                [formField]="invoiceForm.paymentDueDate"
+              />
             </ui-field>
             <ui-field
               [label]="'documents.issue.durationDays' | transloco"
@@ -83,6 +74,7 @@
                 uiNonNegative
                 type="number"
                 step="1"
+                [placeholder]="'documents.issue.durationPlaceholder' | transloco"
                 [formField]="invoiceForm.durationDays"
               />
             </ui-field>
@@ -127,7 +119,12 @@
           [label]="'documents.issue.notes' | transloco"
           [hint]="'documents.issue.notesHint' | transloco"
         >
-          <textarea uiInput rows="3" [formField]="invoiceForm.notes"></textarea>
+          <textarea
+            uiInput
+            rows="3"
+            [placeholder]="'documents.issue.notesPlaceholder' | transloco"
+            [formField]="invoiceForm.notes"
+          ></textarea>
         </ui-field>
         <label class="issue-check">
           <input type="checkbox" [formField]="invoiceForm.sendEmail" />

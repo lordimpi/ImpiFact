@@ -13,10 +13,11 @@
   <ui-card padding="none">
     <div class="notifications-toolbar">
       <ui-field class="notifications-filter" [label]="'notifications.list.filter' | transloco">
-        <select uiSelect [value]="onlyUnread() ? 'unread' : 'all'" (change)="changeFilter($event)">
-          <option value="all">{{ 'notifications.list.filters.all' | transloco }}</option>
-          <option value="unread">{{ 'notifications.list.filters.unread' | transloco }}</option>
-        </select>
+        <ui-select
+          [options]="filterOptions()"
+          [value]="onlyUnread() ? 'unread' : 'all'"
+          (valueChange)="changeFilter($event)"
+        />
       </ui-field>
     </div>
 

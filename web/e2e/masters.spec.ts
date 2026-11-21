@@ -3,6 +3,7 @@ import { seriousViolations, seriousViolationsInBothThemes } from './support/axe'
 import { CRITICAL } from './support/critical';
 import { CUSTOMER, PRODUCT, mockMasters, problem } from './support/mock-masters';
 import { COMPANIES, USER, mockApi } from './support/mock-api';
+import { pickOption } from './support/select';
 
 // Clientes y productos (feature-masters) contra la Api simulada: con una sola empresa, queda activa al entrar.
 
@@ -83,7 +84,7 @@ test('the customer list pages, sorts and searches on the server', async ({ page 
     .poll(() => masters.calls('GET', '/api/v1/customers').at(-1)!.params)
     .toEqual({ search: 'acme', status: 'active', sort: 'identification_number', limit: '20' });
 
-  await page.getByRole('combobox', { name: 'Estado' }).selectOption('all');
+  await pickOption(page, page.getByRole('combobox', { name: 'Estado' }), 'Todos');
   await expect(page).toHaveURL('/clientes?q=acme&estado=all');
   expect(await seriousViolations(page)).toEqual([]);
 });
@@ -116,7 +117,7 @@ test('creates a customer after fixing the NIT whose check digit the server rejec
   });
 
   await expect(page.getByRole('heading', { level: 1, name: 'Nuevo cliente' })).toBeVisible();
-  await page.getByRole('combobox', { name: 'Tipo de identificación' }).selectOption('6');
+  await pickOption(page, page.getByRole('combobox', { name: 'Tipo de identificación' }), 'NIT');
   const number = page.getByRole('textbox', { name: 'Número de identificación' });
   const dv = page.getByRole('textbox', { name: 'Dígito de verificación (DV)' });
   // Con NIT el número solo admite dígitos y el DV se calcula solo.
@@ -158,7 +159,7 @@ test('prefills the customer from the DIAN acquirer lookup', async ({ page }) => 
     route.fulfill({ json: { found: true, name: 'ANA COMERCIAL SAS', email: 'fe@ana.test' } }),
   );
 
-  await page.getByRole('combobox', { name: 'Tipo de identificación' }).selectOption('6');
+  await pickOption(page, page.getByRole('combobox', { name: 'Tipo de identificación' }), 'NIT');
   await page.getByRole('textbox', { name: 'Número de identificación' }).fill('900123456');
   await page.getByRole('button', { name: 'Buscar en la DIAN' }).click();
 
@@ -248,7 +249,7 @@ test(
     expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
     await page.getByRole('link', { name: 'Nuevo cliente' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Nuevo cliente' })).toBeVisible();
-    await page.getByRole('combobox', { name: 'Tipo de identificación' }).selectOption('6');
+    await pickOption(page, page.getByRole('combobox', { name: 'Tipo de identificación' }), 'NIT');
     await page.getByRole('textbox', { name: 'Número de identificación' }).fill('901555777');
     await page.getByRole('button', { name: 'Buscar en la DIAN' }).click();
     await expect(page.getByRole('status')).toContainText(
@@ -323,7 +324,13 @@ test('the product unit measure comes from the DIAN catalog, page by page', async
 
   const unit = page.getByRole('combobox', { name: 'Unidad de medida', exact: true });
   await expect(unit).toHaveText('unidad (94)');
-  await expect(page.getByRole('combobox', { name: 'Impuesto' })).not.toContainText('ReteIVA');
+  // The tax list leaves the withholdings (ReteIVA) out.
+  await page.getByRole('combobox', { name: 'Impuesto' }).click();
+  const taxes = page.getByRole('listbox', { name: 'Impuesto' });
+  await expect(taxes.getByRole('option', { name: 'IVA (Impuesto sobre la Ventas)' })).toBeVisible();
+  await expect(taxes).not.toContainText('ReteIVA');
+  await page.keyboard.press('Escape');
+  await expect(taxes).toBeHidden();
   expect(await seriousViolations(page)).toEqual([]);
 
   // La simulación da dos filas por página: al abrir la lista, el final queda a la vista y la página siguiente

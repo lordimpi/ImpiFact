@@ -6,15 +6,29 @@ import { expectRequest, problem, renderMastersRoute } from '../testing/masters-t
 
 const field = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement;
 const type = (label: RegExp, value: string) => fireEvent.input(field(label), { target: { value } });
-const choose = (label: RegExp, value: string) => {
-  const select = screen.getByLabelText(label) as HTMLSelectElement;
-  fireEvent.change(select, { target: { value } });
-  fireEvent.input(select, { target: { value } });
-};
-const optionTexts = (label: RegExp) =>
-  Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((option) =>
-    option.textContent?.trim(),
-  );
+/** Opens the Optimus select named `label`, clicks its option `option` and waits until the list closes. */
+async function choose(label: RegExp, option: string): Promise<void> {
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+  fireEvent.click(screen.getByRole('combobox', { name: label }));
+  fireEvent.click(await screen.findByRole('option', { name: option }));
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+}
+/**
+ * Labels of the options of an Optimus select: opens its list, waits for the option `until` (the catalog arrived),
+ * reads them and closes it again.
+ */
+async function optionTexts(label: RegExp, until: string): Promise<(string | undefined)[]> {
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+  const combobox = screen.getByRole('combobox', { name: label });
+  fireEvent.click(combobox);
+  await screen.findByRole('option', { name: until });
+  const texts = within(screen.getByRole('listbox'))
+    .queryAllByRole('option')
+    .map((option) => option.textContent?.trim());
+  fireEvent.click(combobox);
+  await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
+  return texts;
+}
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 const unitMeasure = () => screen.getByRole('combobox', { name: /^Unidad de medida/ });
 const unitText = () => unitMeasure().textContent?.trim();
@@ -48,24 +62,34 @@ beforeAll(() => {
   Element.prototype.scrollIntoView ??= () => undefined;
 });
 
-describe('ProductFormPage', () => {
-  it('lists the catalog taxes without withholdings and searches unit measures on the server', async () => {
-    await openNew();
-    await waitFor(() =>
-      expect(optionTexts(/^Impuesto/)).toContain('IVA (Impuesto sobre la Ventas)'),
-    );
-    expect(optionTexts(/^Impuesto/).join()).not.toContain('ReteIVA');
-    await waitFor(() => expect(unitText()).toBe('unidad (94)'));
+/** Opening and closing the Optimus lists in jsdom is slow; with the suite in parallel it passes 5 s. */
+const LIST_FLOW_MS = 15_000;
 
-    fireEvent.click(unitMeasure());
-    fireEvent.input(await screen.findByRole('searchbox'), { target: { value: 'kgm' } });
-    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('kgm'));
-    // La unidad elegida sigue en la lista aunque la búsqueda no la traiga.
-    await waitFor(() => expect(unitOptions()).toEqual(['kilogramo (KGM)', 'unidad (94)']));
-    fireEvent.click(screen.getByRole('option', { name: 'kilogramo (KGM)' }));
-    await waitFor(() => expect(unitText()).toBe('kilogramo (KGM)'));
-    expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
-  });
+describe('ProductFormPage', () => {
+  it(
+    'lists the catalog taxes without withholdings and searches unit measures on the server',
+    async () => {
+      await openNew();
+      // Without withholdings (ReteIVA) and with «Sin impuesto» first.
+      expect(await optionTexts(/^Impuesto/, 'IVA (Impuesto sobre la Ventas)')).toEqual([
+        'Sin impuesto',
+        'IVA (Impuesto sobre la Ventas)',
+        'IC (Impuesto al Consumo Departamental)',
+        'INC Bolsas (Impuesto Nacional al Consumo de Bolsa)',
+      ]);
+      await waitFor(() => expect(unitText()).toBe('unidad (94)'));
+
+      fireEvent.click(unitMeasure());
+      fireEvent.input(await screen.findByRole('searchbox'), { target: { value: 'kgm' } });
+      await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('kgm'));
+      // La unidad elegida sigue en la lista aunque la búsqueda no la traiga.
+      await waitFor(() => expect(unitOptions()).toEqual(['kilogramo (KGM)', 'unidad (94)']));
+      fireEvent.click(screen.getByRole('option', { name: 'kilogramo (KGM)' }));
+      await waitFor(() => expect(unitText()).toBe('kilogramo (KGM)'));
+      expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
+    },
+    LIST_FLOW_MS,
+  );
 
   it('starts with the unit measure and marks the required fields', async () => {
     const { http } = await openNew();
@@ -83,14 +107,14 @@ describe('ProductFormPage', () => {
     expect(screen.queryByLabelText(/^Tarifa/)).toBeNull();
     expect(screen.queryByLabelText(/^Valor por unidad/)).toBeNull();
 
-    choose(/^Impuesto/, '1');
+    await choose(/^Impuesto/, 'IVA (Impuesto sobre la Ventas)');
     expect(await screen.findByLabelText(/^Tarifa/)).toBeTruthy();
 
-    choose(/^Impuesto/, '10');
+    await choose(/^Impuesto/, 'INC Bolsas (Impuesto Nacional al Consumo de Bolsa)');
     await waitFor(() => expect(screen.queryByLabelText(/^Tarifa/)).toBeNull());
     expect(screen.getByLabelText(/^Valor por unidad/)).toBeTruthy();
 
-    choose(/^Impuesto/, '');
+    await choose(/^Impuesto/, 'Sin impuesto');
     await waitFor(() => expect(screen.queryByLabelText(/^Valor por unidad/)).toBeNull());
   });
 
@@ -115,7 +139,7 @@ describe('ProductFormPage', () => {
     type(/^Código/, 'CAF-500');
     type(/^Nombre/, 'Café molido 500 g');
     type(/^Precio unitario/, '12500.50');
-    choose(/^Impuesto/, '1');
+    await choose(/^Impuesto/, 'IVA (Impuesto sobre la Ventas)');
     type(/^Tarifa/, '190');
 
     save();

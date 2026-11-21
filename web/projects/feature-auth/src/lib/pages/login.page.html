@@ -18,7 +18,13 @@
         }
 
         <ui-field [label]="'auth.login.email' | transloco" [error]="emailError()" required>
-          <input uiInput type="email" autocomplete="username" [formField]="loginForm.email" />
+          <input
+            uiInput
+            type="email"
+            autocomplete="username"
+            [placeholder]="'auth.login.emailPlaceholder' | transloco"
+            [formField]="loginForm.email"
+          />
         </ui-field>
 
         <ui-field [label]="'auth.login.password' | transloco" [error]="passwordError()" required>

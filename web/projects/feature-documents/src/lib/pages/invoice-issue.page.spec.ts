@@ -68,7 +68,28 @@ async function addProduct(http: Awaited<ReturnType<typeof renderDocumentsRoute>>
   fireEvent.click(await screen.findByRole('button', { name: /Agregar Servicio de consultoría/ }));
 }
 
+/** Opens the Optimus select named `label` and clicks its option `option`. */
+async function choose(label: RegExp, option: string): Promise<void> {
+  fireEvent.click(screen.getByRole('combobox', { name: label }));
+  fireEvent.click(await screen.findByRole('option', { name: option }));
+}
+
 describe('InvoiceIssuePage', () => {
+  // jsdom has no matchMedia nor scrollIntoView; the Optimus select and date picker overlays use them.
+  beforeAll(() => {
+    window.matchMedia ??= ((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+    Element.prototype.scrollIntoView ??= () => undefined;
+  });
+
   it(
     'takes the totals from the server and issues with them and an Idempotency-Key',
     async () => {
@@ -117,6 +138,43 @@ describe('InvoiceIssuePage', () => {
       });
 
       await waitFor(() => expect(router.url).toBe('/documentos/doc-9'));
+    },
+    LONG_FLOW_MS,
+  );
+
+  it(
+    'issues on credit with the payment method, the due date of the date picker and the duration',
+    async () => {
+      const { http } = await renderDocumentsRoute('/documentos/nuevo');
+      await chooseCustomer(http);
+      await addProduct(http);
+      (await waitFor(() => http.expectOne(isCalculate))).flush(CALCULATION);
+      await screen.findByTestId('payable');
+
+      expect(screen.getByRole('combobox', { name: /^Forma de pago/ }).textContent?.trim()).toBe(
+        'Contado',
+      );
+      await choose(/^Forma de pago/, 'Crédito');
+      await choose(/^Medio de pago/, 'Transferencia débito bancaria');
+      const dueDate = await screen.findByRole('combobox', { name: /^Fecha de vencimiento/ });
+      expect(dueDate.getAttribute('placeholder')).toBe('dd/mm/aaaa');
+      fireEvent.keyDown(dueDate, { key: '1' });
+      fireEvent.input(dueDate, { target: { value: '15/12/2026' } });
+      fireEvent.input(screen.getByLabelText(/Plazo en días/), { target: { value: '30' } });
+      http.match(isCalculate).forEach((request) => request.flush(CALCULATION));
+
+      const submit = screen.getByRole('button', { name: 'Emitir factura' }) as HTMLButtonElement;
+      await waitFor(() => expect(submit.disabled).toBe(false));
+      fireEvent.click(submit);
+      const issue = await waitFor(() => http.expectOne('/api/v1/documents/invoices'));
+      expect(issue.request.body.payment_form).toEqual([
+        {
+          payment_form_id: 2,
+          payment_method_id: 47,
+          payment_due_date: '2026-12-15',
+          duration_measure: 30,
+        },
+      ]);
     },
     LONG_FLOW_MS,
   );

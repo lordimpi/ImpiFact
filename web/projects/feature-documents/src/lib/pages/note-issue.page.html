@@ -71,12 +71,11 @@
           [error]="conceptError()"
           required
         >
-          <select uiSelect [formField]="noteForm.discrepancyCode">
-            <option value="">{{ 'documents.note.conceptNone' | transloco }}</option>
-            @for (option of concepts(); track option.id) {
-              <option [value]="'' + option.id">{{ option.name }}</option>
-            }
-          </select>
+          <ui-select
+            [options]="concepts()"
+            [placeholder]="'documents.note.conceptNone' | transloco"
+            [formField]="noteForm.discrepancyCode"
+          />
         </ui-field>
       </ui-card>
 
@@ -117,7 +116,12 @@
           [label]="'documents.issue.notes' | transloco"
           [hint]="'documents.note.notesHint' | transloco"
         >
-          <textarea uiInput rows="3" [formField]="noteForm.notes"></textarea>
+          <textarea
+            uiInput
+            rows="3"
+            [placeholder]="'documents.note.notesPlaceholder' | transloco"
+            [formField]="noteForm.notes"
+          ></textarea>
         </ui-field>
         <label class="issue-check">
           <input type="checkbox" [formField]="noteForm.sendEmail" />

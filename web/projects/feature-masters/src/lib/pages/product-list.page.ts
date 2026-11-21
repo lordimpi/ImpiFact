@@ -78,7 +78,7 @@ export class ProductListPage {
 
   protected readonly tableLabels = computed(() => listLabels(this.transloco, 'products.list'));
   protected readonly toolbarLabels = computed(() =>
-    toolbarLabels(this.transloco, 'products.list.searchLabel'),
+    toolbarLabels(this.transloco, 'products.list.searchLabel', 'products.list.searchPlaceholder'),
   );
   protected readonly confirmLabels = computed(() => ({
     header: this.text('products.list.confirmTitle'),

@@ -4,6 +4,7 @@
     "title": "Iniciar sesión",
     "description": "Ingrese con el correo y la contraseña de su cuenta de ImpiFact.",
     "email": "Correo electrónico",
+    "emailPlaceholder": "nombre@empresa.com",
     "password": "Contraseña",
     "submit": "Ingresar",
     "forgotPassword": "¿Olvidó su contraseña?",

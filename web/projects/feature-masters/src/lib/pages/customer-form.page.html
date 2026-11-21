@@ -47,12 +47,12 @@
               [error]="errors().type_document_identification_id"
               required
             >
-              <select uiSelect [formField]="customerForm.type_document_identification_id">
-                <option value="">{{ 'masters.common.noneOption' | transloco }}</option>
-                @for (option of identificationTypes(); track option.id) {
-                  <option [value]="'' + option.id">{{ option.name }}</option>
-                }
-              </select>
+              <ui-select
+                [options]="identificationTypes()"
+                [placeholder]="'masters.common.noneOption' | transloco"
+                filter
+                [formField]="customerForm.type_document_identification_id"
+              />
             </ui-field>
 
             <ui-field
@@ -67,6 +67,7 @@
                 type="text"
                 autocomplete="off"
                 [uiDigitsOnly]="numericIdentification()"
+                [placeholder]="'masters.customers.form.placeholders.identification' | transloco"
                 [formField]="customerForm.identification_number"
               />
             </ui-field>
@@ -83,6 +84,7 @@
                   type="text"
                   autocomplete="off"
                   tabindex="-1"
+                  [placeholder]="'masters.customers.form.placeholders.dv' | transloco"
                   [formField]="customerForm.dv"
                 />
               </ui-field>
@@ -118,6 +120,7 @@
                 uiInput
                 type="text"
                 autocomplete="organization"
+                [placeholder]="'masters.customers.form.placeholders.name' | transloco"
                 [formField]="customerForm.name"
               />
             </ui-field>
@@ -131,12 +134,11 @@
               [help]="'masters.customers.form.help.organization' | transloco"
               [error]="errors().type_organization_id"
             >
-              <select uiSelect [formField]="customerForm.type_organization_id">
-                <option value="">{{ 'masters.common.noneOption' | transloco }}</option>
-                @for (option of organizationTypes(); track option.id) {
-                  <option [value]="'' + option.id">{{ option.name }}</option>
-                }
-              </select>
+              <ui-select
+                [options]="organizationTypes()"
+                [placeholder]="'masters.common.noneOption' | transloco"
+                [formField]="customerForm.type_organization_id"
+              />
             </ui-field>
 
             <ui-field
@@ -144,12 +146,11 @@
               [help]="'masters.customers.form.help.regime' | transloco"
               [error]="errors().type_regime_id"
             >
-              <select uiSelect [formField]="customerForm.type_regime_id">
-                <option value="">{{ 'masters.common.noneOption' | transloco }}</option>
-                @for (option of regimes(); track option.id) {
-                  <option [value]="'' + option.id">{{ option.name }}</option>
-                }
-              </select>
+              <ui-select
+                [options]="regimes()"
+                [placeholder]="'masters.common.noneOption' | transloco"
+                [formField]="customerForm.type_regime_id"
+              />
             </ui-field>
 
             <ui-field
@@ -157,12 +158,11 @@
               [help]="'masters.customers.form.help.liability' | transloco"
               [error]="errors().type_liability_id"
             >
-              <select uiSelect [formField]="customerForm.type_liability_id">
-                <option value="">{{ 'masters.common.noneOption' | transloco }}</option>
-                @for (option of liabilities(); track option.id) {
-                  <option [value]="'' + option.id">{{ option.name }}</option>
-                }
-              </select>
+              <ui-select
+                [options]="liabilities()"
+                [placeholder]="'masters.common.noneOption' | transloco"
+                [formField]="customerForm.type_liability_id"
+              />
             </ui-field>
           </div>
         </ui-card>
@@ -209,6 +209,7 @@
                 uiInput
                 type="text"
                 autocomplete="street-address"
+                [placeholder]="'masters.customers.form.placeholders.address' | transloco"
                 [formField]="customerForm.address"
               />
             </ui-field>
@@ -218,7 +219,13 @@
               [help]="'masters.customers.form.help.email' | transloco"
               [error]="errors().email"
             >
-              <input uiInput type="email" autocomplete="email" [formField]="customerForm.email" />
+              <input
+                uiInput
+                type="email"
+                autocomplete="email"
+                [placeholder]="'masters.customers.form.placeholders.email' | transloco"
+                [formField]="customerForm.email"
+              />
             </ui-field>
 
             <ui-field
@@ -231,6 +238,7 @@
                 uiDigitsOnly
                 type="tel"
                 autocomplete="tel"
+                [placeholder]="'masters.customers.form.placeholders.phone' | transloco"
                 [formField]="customerForm.phone"
               />
             </ui-field>
@@ -244,6 +252,9 @@
                 uiInput
                 type="text"
                 autocomplete="off"
+                [placeholder]="
+                  'masters.customers.form.placeholders.merchantRegistration' | transloco
+                "
                 [formField]="customerForm.merchant_registration"
               />
             </ui-field>

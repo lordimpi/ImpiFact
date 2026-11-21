@@ -56,6 +56,7 @@ import {
                 uiInput
                 type="email"
                 autocomplete="username"
+                [placeholder]="'auth.login.emailPlaceholder' | transloco"
                 [formField]="recoveryForm.email"
               />
             </ui-field>

@@ -1,7 +1,9 @@
 import { Page, Request, expect, test } from '@playwright/test';
 import { seriousViolations, seriousViolationsInBothThemes } from './support/axe';
 import { CRITICAL } from './support/critical';
+import { typeDate } from './support/date-picker';
 import { COMPANIES, USER, mockApi } from './support/mock-api';
+import { pickOption } from './support/select';
 
 // Lista, detalle con seguimiento del estado, emisión de factura con vista previa y notas crédito y débito
 // (feature-documents) contra la Api simulada.
@@ -259,11 +261,12 @@ test('keeps the list filters in the URL and sends them to the API', async ({ pag
   await expect(page.getByRole('heading', { level: 1, name: 'Documentos' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'SETP990000001', exact: true })).toBeVisible();
 
-  await page.getByLabel('Desde').fill('2026-11-01');
-  await page.getByLabel('Tipo de documento').selectOption('invoice');
-  // The DIAN statuses are folded under «Más filtros» until someone opens it.
+  await typeDate(page.getByRole('combobox', { name: 'Desde' }), '2026-11-01');
+  await pickOption(page, page.getByRole('combobox', { name: 'Tipo de documento' }), 'Factura');
+  // The DIAN statuses are folded under «Más filtros» until someone opens it; open, it reads «Menos filtros».
   await expect(page.getByLabel('En cola')).toBeHidden();
   await page.getByText('Más filtros').click();
+  await expect(page.getByText('Menos filtros')).toBeVisible();
   await page.getByLabel('En cola').check();
   await page.getByLabel('Enviado a la DIAN').check();
   await page.getByLabel('Cliente', { exact: true }).fill('golden');
@@ -284,6 +287,8 @@ test('keeps the list filters in the URL and sends them to the API', async ({ pag
   // La misma URL, recargada, consulta lo mismo y muestra los filtros.
   await page.reload();
   await expect(page.getByLabel('Cliente', { exact: true })).toHaveValue('golden');
+  await expect(page.getByRole('combobox', { name: 'Desde' })).toHaveValue('01/11/2026');
+  await expect(page.getByRole('combobox', { name: 'Tipo de documento' })).toHaveText('Factura');
   // With statuses in the URL the section opens by itself, so the active filter is in sight.
   await expect(page.getByLabel('Enviado a la DIAN')).toBeVisible();
   await expect(page.getByLabel('Enviado a la DIAN')).toBeChecked();
@@ -461,9 +466,11 @@ test('issues a credit note from an accepted invoice with its lines', CRITICAL, a
   await expect(line.getByLabel('Código')).toHaveValue('SERV01');
   await expect(page.getByTestId('payable')).toContainText('1.785.000,00');
   await expect(page.getByRole('button', { name: 'Vista previa' })).toBeVisible();
-  await page
-    .getByLabel('Concepto de la corrección')
-    .selectOption({ label: 'Anulación de factura electrónica' });
+  await pickOption(
+    page,
+    page.getByRole('combobox', { name: /^Concepto de la corrección/ }),
+    'Anulación de factura electrónica',
+  );
   expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
   await page.getByRole('button', { name: 'Emitir nota crédito' }).click();
@@ -502,7 +509,11 @@ test('a debit note found from the list shows why the API rejects it', async ({ p
   await line.getByLabel('Descripción').fill('Intereses de mora');
   await line.getByLabel('Precio unitario').fill('50000');
   await expect(page.getByTestId('payable')).toBeVisible();
-  await page.getByLabel('Concepto de la corrección').selectOption({ label: 'Intereses' });
+  await pickOption(
+    page,
+    page.getByRole('combobox', { name: /^Concepto de la corrección/ }),
+    'Intereses',
+  );
   await page.getByRole('button', { name: 'Emitir nota débito' }).click();
 
   await expect(page.getByRole('alert')).toContainText(

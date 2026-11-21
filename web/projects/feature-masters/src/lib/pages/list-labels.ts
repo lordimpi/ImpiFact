@@ -22,14 +22,16 @@ export function listLabels(transloco: TranslocoService, prefix: string): UiTable
   };
 }
 
-/** Textos de la barra de búsqueda y estado. */
+/** Textos de la barra de búsqueda y estado; `searchPlaceholderKey` is the example inside the search box. */
 export function toolbarLabels(
   transloco: TranslocoService,
   searchKey: string,
+  searchPlaceholderKey: string,
 ): MasterListToolbarLabels {
   const text = (key: string) => mastersText(transloco, key);
   return {
     search: text(searchKey),
+    searchPlaceholder: text(searchPlaceholderKey),
     status: text('common.status.label'),
     statuses: {
       active: text('common.status.active'),
