@@ -85,7 +85,7 @@ const DETAIL = {
 
 interface DocumentsApi {
   listRequests: URL[];
-  /** URLs of the Excel exports, to check their filters. */
+  /** URLs of the Excel and PDF exports, to check their filters. */
   exportRequests: URL[];
   calculateBodies: unknown[];
   issueRequests: Request[];
@@ -151,6 +151,18 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
           'Access-Control-Expose-Headers': 'Content-Disposition',
         },
         body: 'PK',
+      });
+    }
+    if (url.pathname === '/api/v1/documents/export.pdf') {
+      api.exportRequests.push(url);
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        headers: {
+          'Content-Disposition': 'attachment; filename="documentos.pdf"',
+          'Access-Control-Expose-Headers': 'Content-Disposition',
+        },
+        body: '%PDF-1.7\n%%EOF\n',
       });
     }
     if (url.pathname === '/api/v1/documents/export.csv') {
@@ -346,7 +358,7 @@ test('exports to Excel from the accessible Exportar menu with the current filter
   const menu = page.getByRole('menu', { name: 'Exportar' });
   await expect(menu).toBeVisible();
   await expect(button).toHaveAttribute('aria-expanded', 'true');
-  await expect(menu.getByRole('menuitem')).toHaveText(['Excel (.xlsx)', 'CSV']);
+  await expect(menu.getByRole('menuitem')).toHaveText(['Excel (.xlsx)', 'CSV', 'PDF']);
   expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
   // Escape closes the menu and focus goes back to the button.
@@ -372,6 +384,34 @@ test('exports to Excel from the accessible Exportar menu with the current filter
   await expect(menu).toBeHidden();
   await expect(button).toBeFocused();
   await expect(page.getByText('Se descargó el archivo de Excel.')).toBeVisible();
+});
+
+test('exports the PDF report from the Exportar menu with the current filters', async ({ page }) => {
+  const api = await mockDocuments(page);
+  await logIn(page);
+  await page.goto(
+    '/documentos?tipo=invoice&estado=Accepted&desde=2026-11-01&hasta=2026-11-30&cliente=golden',
+  );
+  await expect(page.getByRole('link', { name: 'SETP990000001', exact: true })).toBeVisible();
+
+  const exportRequest = page.waitForRequest('**/api/v1/documents/export.pdf**');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Exportar' }).click();
+  await page.getByRole('menuitem', { name: 'PDF' }).click();
+
+  const request = await exportRequest;
+  expect(request.method()).toBe('GET');
+  expect(request.headers()['authorization']).toMatch(/^Bearer /);
+  expect((await download).suggestedFilename()).toBe('documentos.pdf');
+  const url = api.exportRequests.at(-1)!;
+  expect(url.pathname).toBe('/api/v1/documents/export.pdf');
+  expect(url.searchParams.get('kind')).toBe('invoice');
+  expect(url.searchParams.getAll('status')).toEqual(['Accepted']);
+  expect(url.searchParams.get('from')).toBe('2026-11-01');
+  expect(url.searchParams.get('to')).toBe('2026-11-30');
+  expect(url.searchParams.get('customer')).toBe('golden');
+  expect(url.searchParams.has('limit')).toBe(false);
+  await expect(page.getByText('Se descargó el archivo PDF.')).toBeVisible();
 });
 
 // Flujo crítico 3 de 5: emisión con totales del servidor, seguimiento del estado hasta Aceptado y descarga del PDF.

@@ -215,6 +215,8 @@ export type { ExportDocumentsCsv$Params as ExportDocumentsCsv$Params } from './f
 export { exportDocumentsCsv as exportDocumentsCsv } from './fn/documentos/export-documents-csv';
 export type { ExportDocumentsXlsx$Params as ExportDocumentsXlsx$Params } from './fn/documentos/export-documents-xlsx';
 export { exportDocumentsXlsx as exportDocumentsXlsx } from './fn/documentos/export-documents-xlsx';
+export type { ExportDocumentsPdf$Params as ExportDocumentsPdf$Params } from './fn/documentos/export-documents-pdf';
+export { exportDocumentsPdf as exportDocumentsPdf } from './fn/documentos/export-documents-pdf';
 export type { GetDocument$Params as GetDocument$Params } from './fn/documentos/get-document';
 export { getDocument as getDocument } from './fn/documentos/get-document';
 export type { GetDocumentByCufe$Params as GetDocumentByCufe$Params } from './fn/documentos/get-document-by-cufe';

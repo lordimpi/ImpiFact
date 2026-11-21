@@ -168,7 +168,7 @@ describe('DocumentListPage', () => {
     );
   });
 
-  it('offers Excel first and CSV in the Exportar menu button', async () => {
+  it('offers Excel first, then CSV and PDF in the Exportar menu button', async () => {
     const { http } = await renderDocumentsRoute('/documentos');
     (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
 
@@ -181,7 +181,34 @@ describe('DocumentListPage', () => {
     expect(screen.getAllByRole('menuitem').map((item) => item.textContent?.trim())).toEqual([
       'Excel (.xlsx)',
       'CSV',
+      'PDF',
     ]);
+  });
+
+  it('exports the PDF report with the same filters and saves it', async () => {
+    const { http, toasts } = await renderDocumentsRoute(
+      '/documentos?tipo=invoice&estado=Accepted,Rejected&desde=2026-11-01&hasta=2026-11-30',
+    );
+    (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
+
+    await pickExport('PDF');
+
+    const request: TestRequest = await waitFor(() =>
+      http.expectOne((r) => r.url === '/api/v1/documents/export.pdf'),
+    );
+    expect(request.request.method).toBe('GET');
+    expect(request.request.responseType).toBe('blob');
+    expect(request.request.params.get('kind')).toBe('invoice');
+    expect(request.request.params.getAll('status')).toEqual(['Accepted', 'Rejected']);
+    expect(request.request.params.get('from')).toBe('2026-11-01');
+    expect(request.request.params.get('to')).toBe('2026-11-30');
+    expect(request.request.params.has('limit')).toBe(false);
+    request.flush(new Blob(['%PDF-1.7'], { type: 'application/pdf' }));
+
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(toasts.toasts().map((toast) => toast.text)).toEqual(['Se descargó el archivo PDF.']),
+    );
   });
 
   it('exports to Excel with the same filters and saves the workbook', async () => {
@@ -208,12 +235,15 @@ describe('DocumentListPage', () => {
     );
   });
 
-  it('explains a too large export of any format', async () => {
+  it.each([
+    ['Excel (.xlsx)', '/api/v1/documents/export.xlsx'],
+    ['PDF', '/api/v1/documents/export.pdf'],
+  ])('explains a too large export of any format (%s)', async (label, url) => {
     const { http, toasts } = await renderDocumentsRoute('/documentos');
     (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
 
-    await pickExport('Excel (.xlsx)');
-    (await waitFor(() => http.expectOne((r) => r.url === '/api/v1/documents/export.xlsx'))).flush(
+    await pickExport(label);
+    (await waitFor(() => http.expectOne((r) => r.url === url))).flush(
       new Blob(
         [JSON.stringify({ code: 'documents.export_too_large', detail: 'Demasiadas filas.' })],
         {

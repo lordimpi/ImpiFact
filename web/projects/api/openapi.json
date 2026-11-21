@@ -2212,6 +2212,90 @@
         ]
       }
     },
+    "/api/v1/documents/export.pdf": {
+      "get": {
+        "tags": [
+          "Documentos"
+        ],
+        "summary": "Exportar los documentos de la empresa a PDF",
+        "description": "Los mismos documentos, filtros y orden de \u0060GET /api/v1/documents/export.csv\u0060, en un reporte PDF \u0060documentos.pdf\u0060 para imprimir o compartir. Filtros opcionales, que se combinan entre s\u00ED: \u0060kind\u0060 (\u0060invoice\u0060, \u0060credit_note\u0060 o \u0060debit_note\u0060) o \u0060document_type_id\u0060 (1 factura, 4 nota cr\u00E9dito, 5 nota d\u00E9bito\u2026; si llegan los dos deben coincidir); \u0060status\u0060, uno o varios estados por su nombre sin distinguir may\u00FAsculas, separados por coma o repitiendo el par\u00E1metro (\u0060status=Accepted,Rejected\u0060); \u0060from\u0060 y \u0060to\u0060, d\u00EDas de emisi\u00F3n \u0060yyyy-MM-dd\u0060 en hora de Colombia, ambos incluidos; \u0060customer\u0060, texto (hasta 100 caracteres) que aparece en el n\u00FAmero de identificaci\u00F3n o en el nombre del adquiriente, sin distinguir may\u00FAsculas; \u0060number\u0060, el n\u00FAmero completo con prefijo (\u0060SETP990000001\u0060) o solo los d\u00EDgitos, que coinciden con ese n\u00FAmero en cualquier prefijo. Un \u0060customer\u0060 o \u0060number\u0060 vac\u00EDo no filtra. Hoja A4 horizontal. El encabezado lleva la raz\u00F3n social y el NIT de la empresa, el t\u00EDtulo \u00ABDocumentos\u00BB, los filtros aplicados en espa\u00F1ol (fechas dd/mm/aaaa; \u00ABTodos\u00BB si un filtro no llega) y la fecha y hora de generaci\u00F3n en hora de Colombia. La tabla lleva las columnas del CSV salvo CUFE/CUDE, que no cabe en la hoja (el CSV y el Excel s\u00ED lo traen): Tipo, N\u00FAmero, Fecha de emisi\u00F3n, Hora de emisi\u00F3n, Identificaci\u00F3n del cliente, Cliente, Subtotal, Impuestos, Total, Estado y Estado del correo. Los importes van con separador de miles y coma decimal (\u00601.234.567,89\u0060), alineados a la derecha; la fila de encabezados se repite en cada p\u00E1gina, el pie dice \u00ABP\u00E1gina X de Y\u00BB y la \u00FAltima l\u00EDnea da la cantidad de documentos. M\u00E1ximo 5.000 filas, menos que el CSV y el Excel porque el reporte se arma completo antes de convertirlo: si los filtros dan m\u00E1s, responde 422 (\u0060documents.export_too_large\u0060) sin generar nada; descargue en Excel o acote por fechas u otros filtros. Si el conversor de PDF no responde: 503 (\u0060pdf.unavailable\u0060, reintente despu\u00E9s de \u0060Retry-After\u0060). Un filtro no v\u00E1lido responde 422.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "exportDocumentsPdf",
+        "parameters": [
+          {
+            "name": "document_type_id",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "invoice"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-30"
+          },
+          {
+            "name": "customer",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Consumidor final"
+          },
+          {
+            "name": "number",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "example": "SETP990000001"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/documents/{id}": {
       "get": {
         "tags": [

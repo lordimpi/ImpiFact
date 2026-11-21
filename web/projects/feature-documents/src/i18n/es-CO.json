@@ -32,11 +32,13 @@
     "exporting": "Exportando",
     "exportFormats": {
       "xlsx": "Excel (.xlsx)",
-      "csv": "CSV"
+      "csv": "CSV",
+      "pdf": "PDF"
     },
     "exported": {
       "xlsx": "Se descargó el archivo de Excel.",
-      "csv": "Se descargó el archivo CSV."
+      "csv": "Se descargó el archivo CSV.",
+      "pdf": "Se descargó el archivo PDF."
     },
     "exportTooLarge": "La exportación tiene demasiadas filas. Acote el rango de fechas e intente de nuevo.",
     "caption": "Documentos emitidos",
