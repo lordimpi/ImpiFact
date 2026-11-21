@@ -144,8 +144,9 @@ public sealed record CompanySetupStatusResponse
     public bool TestSetIdConfigured { get; init; }
 
     /// <summary>
-    /// Verdadero si la DIAN validó un documento del set de pruebas, falso si respondió sin validar ninguno, nulo si no
-    /// hay respuestas guardadas. La aceptación final del set la muestra el portal de la DIAN.
+    /// Verdadero si la DIAN validó un documento del set de pruebas o respondió que el set ya está aceptado («Set de
+    /// prueba con identificador … se encuentra Aceptado»), falso si respondió sin validar ninguno, nulo si no hay
+    /// respuestas guardadas. La aceptación final del set la muestra el portal de la DIAN.
     /// </summary>
     [JsonPropertyName("test_set_accepted")]
     public bool? TestSetAccepted { get; init; }

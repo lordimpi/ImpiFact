@@ -110,11 +110,21 @@ describe('ProductionWizardPage', () => {
   });
 
   it('tells whether the DIAN accepted or rejected the test set', async () => {
-    const { http } = await open({ readiness: { ...READY, test_set_accepted: true } });
+    const { http } = await open({
+      readiness: { ...READY, test_set_accepted: true },
+      software: [{ ...INVOICE_SOFTWARE, test_set_id: TEST_SET }],
+    });
     expect(badge('Set de pruebas de la DIAN')).toBe('Completo');
+    // Approved set: the DIAN no longer validates test invoices, so the button gives way to a badge.
+    const accepted = within(step('Set de pruebas de la DIAN')).getByText(
+      'La DIAN ya aprobó el set de pruebas.',
+    );
+    expect(accepted.closest('ui-badge')).toBeTruthy();
     expect(
-      within(step('Set de pruebas de la DIAN')).getByText('La DIAN aceptó el set de pruebas.'),
-    ).toBeTruthy();
+      within(step('Set de pruebas de la DIAN')).queryByRole('button', {
+        name: 'Enviar factura de prueba',
+      }),
+    ).toBeNull();
 
     const store = TestBed.inject(CompanySetupStore);
     fireEvent.click(screen.getByRole('button', { name: 'Volver a revisar' }));
@@ -127,6 +137,7 @@ describe('ProductionWizardPage', () => {
     expect(
       within(step('Set de pruebas de la DIAN')).getByText(/La DIAN rechazó el set de pruebas/),
     ).toBeTruthy();
+    expect(sendButton().disabled).toBe(false);
   });
 
   it('locks the following steps while there is no valid certificate', async () => {
