@@ -1,7 +1,6 @@
 import { HttpContext } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
 import { Api, PlanCompanyResponse, PlanResponse, getPlan, listPlanCompanies } from '@impifact/api';
 import { AppError, SKIP_ERROR_TOAST } from '@impifact/core';
 import {
@@ -36,7 +35,6 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
   imports: [
     BadgeComponent,
     CardComponent,
-    RouterLink,
     TranslocoPipe,
     PageTitleComponent,
     TableComponent,

@@ -1,9 +1,12 @@
 <section class="platform-page">
   <header>
-    <ui-page-title [subtitle]="'platform.newCompany.description' | transloco">
-      <a uiPageTitleBreadcrumb class="platform-back" routerLink="/plataforma/empresas">{{
-        'platform.newCompany.back' | transloco
-      }}</a>
+    <ui-page-title
+      [subtitle]="'platform.newCompany.description' | transloco"
+      [breadcrumb]="[
+        { label: 'platform.companies.title' | transloco, link: '/plataforma/empresas' },
+        { label: 'platform.newCompany.title' | transloco },
+      ]"
+    >
       {{ 'platform.newCompany.title' | transloco }}
     </ui-page-title>
     <feat-platform-nav />
@@ -197,6 +200,7 @@
               (termChange)="municipalities.search($event)"
               (loadMore)="municipalities.loadMore()"
               (retry)="municipalities.retry()"
+              [locked]="location.municipalityLocked()"
             />
           </ui-field>
 

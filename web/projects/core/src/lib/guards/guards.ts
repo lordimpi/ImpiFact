@@ -74,7 +74,8 @@ export interface HasUnsavedChanges {
 
 /**
  * Pregunta de confirmación antes de salir con cambios sin guardar. Por defecto, el diálogo del navegador con el
- * texto `core.unsavedChanges`; un feature puede darle uno propio (por ejemplo, con `ui-dialog`).
+ * texto `core.unsavedChanges`. The app replaces it with the Optimus UI confirm dialog of ui (`unsavedChangesDialog`
+ * in `app.config.ts`): core cannot import ui. Tests give their own answer.
  */
 export const UNSAVED_CHANGES_CONFIRM = new InjectionToken<
   (message: string) => boolean | Promise<boolean>

@@ -30,15 +30,6 @@ h3 {
   gap: var(--if-space-3);
 }
 
-.showcase-breadcrumb {
-  display: flex;
-  gap: var(--if-space-2);
-
-  a {
-    text-decoration: none;
-  }
-}
-
 .showcase-log {
   margin: 0;
   font-size: var(--if-font-size-sm);

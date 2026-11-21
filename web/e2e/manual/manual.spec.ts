@@ -2,6 +2,7 @@ import { Locator, Page, expect, test } from '@playwright/test';
 import path from 'node:path';
 import { USER } from '../support/mock-api';
 import { COMPANY_ID, OTHER_COMPANY_ID, mockManualApi } from './manual-api';
+import { pickOption } from '../support/select';
 
 /*
  * Capturas del manual de uso (docs/manual/Manual de uso.md). Cada prueba recorre una parte del panel contra la Api
@@ -176,10 +177,10 @@ test.describe('administración de la plataforma', () => {
     await page.getByLabel('Tipo de organización').selectOption('1');
     await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
     await page.getByRole('checkbox', { name: 'R-99-PN No aplica – Otros' }).check();
-    await page.getByRole('combobox', { name: 'Departamento', exact: true }).fill('antio');
-    await page.getByRole('option', { name: 'Antioquia', exact: true }).click();
-    await page.getByRole('combobox', { name: 'Municipio', exact: true }).fill('mede');
-    await page.getByRole('option', { name: 'Medellín' }).click();
+    const department = page.getByRole('combobox', { name: 'Departamento', exact: true });
+    await pickOption(page, department, 'Antioquia', 'antio');
+    const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
+    await pickOption(page, municipality, 'Medellín', 'mede');
     await page.getByLabel('Dirección').fill('Carrera 70 # 44-12');
     await page.getByLabel('Teléfono').fill('6044123456');
     await page.getByLabel('Correo electrónico').fill('contabilidad@vidasana.example');
@@ -237,7 +238,7 @@ test.describe('configuración de la empresa', () => {
     test.slow();
     await signIn(page, '/empresa', {}, `/empresas/${COMPANY_ID}/datos`);
     await expect(page.getByLabel('Razón social')).toHaveValue('Café La Montaña SAS');
-    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+    await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveText(
       'Medellín',
     );
     await shot(page, '20-empresa-datos');

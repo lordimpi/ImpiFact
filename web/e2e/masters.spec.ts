@@ -322,7 +322,7 @@ test('the product unit measure comes from the DIAN catalog, page by page', async
   await signInAt(page, '/productos/nuevo');
 
   const unit = page.getByRole('combobox', { name: 'Unidad de medida', exact: true });
-  await expect(unit).toHaveValue('unidad (94)');
+  await expect(unit).toHaveText('unidad (94)');
   await expect(page.getByRole('combobox', { name: 'Impuesto' })).not.toContainText('ReteIVA');
   expect(await seriousViolations(page)).toEqual([]);
 
@@ -337,14 +337,62 @@ test('the product unit measure comes from the DIAN catalog, page by page', async
   ]);
   await expect(page.getByRole('button', { name: /Cargar más/ })).toHaveCount(0);
   await list.getByRole('option', { name: 'litro (LTR)' }).click();
-  await expect(unit).toHaveValue('litro (LTR)');
+  await expect(unit).toHaveText('litro (LTR)');
 
-  // También se busca escribiendo y se elige con el teclado.
-  await unit.fill('kilo');
+  // También se busca escribiendo en la caja de la lista y se elige con el teclado.
+  await unit.click();
+  const search = page.getByRole('searchbox');
+  await search.fill('kilo');
   await expect(list.getByRole('option')).toHaveText(['kilogramo (KGM)', 'litro (LTR)']);
-  await unit.press('ArrowDown');
-  await unit.press('Enter');
-  await expect(unit).toHaveValue('kilogramo (KGM)');
+  await search.press('ArrowDown');
+  await search.press('Enter');
+  await expect(unit).toHaveText('kilogramo (KGM)');
+});
+
+test('leaving a product form with unsaved changes asks with the Optimus dialog, not the browser one', async ({
+  page,
+}) => {
+  const nativeDialogs: string[] = [];
+  page.on('dialog', (dialog) => {
+    nativeDialogs.push(dialog.message());
+    void dialog.dismiss();
+  });
+  await signInAt(page, '/productos/nuevo');
+  await page.getByRole('textbox', { name: 'Nombre', exact: true }).fill('Bolsa reutilizable');
+  const customers = page
+    .getByRole('navigation', { name: 'Navegación principal' })
+    .getByRole('link', { name: 'Clientes' });
+  const dialog = page.getByRole('alertdialog', { name: 'Cambios sin guardar' });
+
+  // «Seguir editando» is the focused, safe choice: the form stays with what was typed.
+  await customers.click();
+  // The first question downloads the dialog chunk, which can be slow on a busy dev server.
+  await expect(dialog).toBeVisible({ timeout: 15_000 });
+  await expect(
+    dialog.getByText('Hay cambios sin guardar. ¿Desea salir de todos modos?'),
+  ).toBeVisible();
+  const stay = dialog.getByRole('button', { name: 'Seguir editando' });
+  await expect(stay).toBeFocused();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+  await stay.click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL('/productos/nuevo');
+  await expect(page.getByRole('textbox', { name: 'Nombre', exact: true })).toHaveValue(
+    'Bolsa reutilizable',
+  );
+
+  // Escape also stays.
+  await customers.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL('/productos/nuevo');
+
+  // «Salir sin guardar» leaves.
+  await customers.click();
+  await dialog.getByRole('button', { name: 'Salir sin guardar' }).click();
+  await expect(page).toHaveURL('/clientes');
+  expect(nativeDialogs).toEqual([]);
 });
 
 for (const theme of ['light', 'dark'] as const) {
@@ -364,7 +412,10 @@ for (const theme of ['light', 'dark'] as const) {
     await expect(page.getByRole('textbox', { name: 'Tarifa (%)' })).toHaveValue('19');
     expect(await seriousViolations(page)).toEqual([]);
 
-    await page.getByRole('link', { name: 'Volver al listado' }).click();
+    await page
+      .getByRole('navigation', { name: 'Ruta de navegación' })
+      .getByRole('link', { name: 'Productos y servicios' })
+      .click();
     await page.getByRole('link', { name: 'Nuevo producto' }).click();
     await page.getByRole('button', { name: 'Guardar' }).click();
     await expect(page.getByText('Este campo es obligatorio.').first()).toBeVisible();

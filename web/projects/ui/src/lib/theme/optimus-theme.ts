@@ -164,6 +164,11 @@ export const impifactPreset = definePreset(
       },
     },
     components: {
+      // The page breadcrumb sits on the page background, flush with the title; ui-page-title styles its links.
+      breadcrumb: {
+        root: { padding: '0', background: 'transparent', gap: v('space-2') },
+        separator: { color: v('color-text-muted') },
+      },
       button: {
         root: { label: { fontWeight: v('font-weight-bold') } },
         colorScheme: {
@@ -240,6 +245,8 @@ export function applyUiTheme(options: UiThemeOptions): void {
   const nonce = options.nonce ?? inject(CSP_NONCE, { optional: true }) ?? undefined;
   inject(Optimus).setConfig({
     ripple: false,
+    // Lists and calendars open over the page, so a card (overflow hidden) never cuts them.
+    overlayAppendTo: 'body',
     theme: { preset: impifactPreset, options: { darkModeSelector: 'none', cssLayer: false } },
     ...(nonce ? { csp: { nonce } } : {}),
   });

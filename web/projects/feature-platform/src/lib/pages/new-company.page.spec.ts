@@ -20,17 +20,45 @@ const optionTexts = (label: RegExp) =>
     option.textContent?.trim(),
   );
 const create = () => fireEvent.click(screen.getByRole('button', { name: 'Crear empresa' }));
-const municipality = () => screen.getByRole('combobox', { name: /^Municipio/ }) as HTMLInputElement;
+const municipality = () => screen.getByRole('combobox', { name: /^Municipio/ });
+const department = () => screen.getByRole('combobox', { name: /^Departamento/ });
 const municipalityOptions = () =>
   within(screen.getByRole('listbox'))
     .queryAllByRole('option')
     .map((option) => option.textContent?.trim());
 
-/** Elige el municipio en el combobox: escribe para buscar y hace clic en la opción. */
-async function pickMunicipality(search: string, name: string) {
-  fireEvent.input(municipality(), { target: { value: search } });
-  fireEvent.click(await screen.findByRole('option', { name }));
+/** Abre la lista del combobox, escribe en su caja de búsqueda y deja la lista abierta. */
+async function search(combobox: HTMLElement, text: string) {
+  fireEvent.click(combobox);
+  fireEvent.input(await screen.findByRole('searchbox'), { target: { value: text } });
 }
+
+/** Elige en la lista abierta y espera a que se cierre. */
+async function chooseOption(name: string) {
+  fireEvent.click(await screen.findByRole('option', { name }));
+  await waitFor(() => expect(screen.queryByRole('searchbox')).toBeNull());
+}
+
+/** Elige el municipio en el combobox: busca escribiendo y hace clic en la opción. */
+async function pickMunicipality(text: string, name: string) {
+  await search(municipality(), text);
+  await chooseOption(name);
+}
+
+// jsdom has no matchMedia nor scrollIntoView; the Optimus select list uses them.
+beforeAll(() => {
+  window.matchMedia ??= ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
+  Element.prototype.scrollIntoView ??= () => undefined;
+});
 
 async function open() {
   const rendered = await renderPlatformRoute('/plataforma/empresas/nueva');
@@ -71,11 +99,8 @@ const CREATED = {
 
 /** Elige el departamento en su combobox: escribe parte del nombre (sin tildes) y hace clic en la opción. */
 async function pickDepartment(name: string) {
-  const input = screen.getByRole('combobox', { name: /^Departamento/ });
-  fireEvent.input(input, {
-    target: { value: name.slice(0, 4).normalize('NFD').replace(/[̀-ͯ]/g, '') },
-  });
-  fireEvent.click(await screen.findByRole('option', { name }));
+  await search(department(), name.slice(0, 4).normalize('NFD').replace(/[̀-ͯ]/g, ''));
+  await chooseOption(name);
 }
 
 describe('NewCompanyPage', () => {
@@ -86,10 +111,13 @@ describe('NewCompanyPage', () => {
     expect(optionTexts(/^Régimen/)).toContain('Responsable de IVA');
     expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
     expect(catalogRequests.some((request) => request.url.endsWith('/municipalities'))).toBe(false);
+    // S9: the municipality is locked until a department is chosen.
+    expect(municipality().getAttribute('aria-disabled')).toBe('true');
 
     await pickDepartment('Antioquia');
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2'));
-    fireEvent.input(municipality(), { target: { value: 'medel' } });
+    expect(municipality().getAttribute('aria-disabled')).toBe('false');
+    await search(municipality(), 'medel');
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('medel'));
     expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2');
     await waitFor(() => expect(municipalityOptions()).toEqual(['Medellín']));
@@ -98,19 +126,19 @@ describe('NewCompanyPage', () => {
 
   it('searches the departments by name, ignoring accents and case', async () => {
     await open();
-    const department = screen.getByRole('combobox', { name: /^Departamento/ });
-    expect(department.getAttribute('placeholder')).toBe('Escriba para buscar el departamento…');
-    expect(municipality().getAttribute('placeholder')).toBe('Escriba para buscar el municipio…');
-    fireEvent.input(department, { target: { value: 'BOGO' } });
-    await waitFor(() =>
-      expect(
-        within(screen.getByRole('listbox'))
-          .getAllByRole('option')
-          .map((o) => o.textContent?.trim()),
-      ).toEqual(['Bogotá']),
+    expect(municipality().textContent?.trim()).toBe('Escriba para buscar el municipio…');
+    await search(department(), 'BOGO');
+    expect(screen.getByRole('searchbox').getAttribute('placeholder')).toBe(
+      'Escriba para buscar el departamento…',
     );
-    fireEvent.input(department, { target: { value: 'zzz' } });
-    await screen.findByText('Ningún departamento coincide con lo que escribió.');
+    await waitFor(() => expect(municipalityOptions()).toEqual(['Bogotá']));
+    fireEvent.input(screen.getByRole('searchbox'), { target: { value: 'zzz' } });
+    // Said below the field and inside the open list.
+    await waitFor(() =>
+      expect(screen.getAllByText('Ningún departamento coincide con lo que escribió.')).toHaveLength(
+        2,
+      ),
+    );
   });
 
   it('accepts only digits in the NIT and the phone and computes the check digit', async () => {
@@ -285,10 +313,12 @@ describe('NewCompanyPage', () => {
     expect(screen.getByRole('button', { name: 'Crear usuario de Acme SAS' })).toBeTruthy();
   });
 
-  it('goes back to the list of companies', async () => {
+  it('goes back to the list of companies from the breadcrumb', async () => {
     await open();
 
-    fireEvent.click(screen.getByRole('link', { name: 'Volver a las empresas' }));
+    const breadcrumb = screen.getByRole('navigation', { name: 'Ruta de navegación' });
+    expect(within(breadcrumb).getByText('Nueva empresa').getAttribute('aria-current')).toBe('page');
+    fireEvent.click(within(breadcrumb).getByRole('link', { name: 'Empresas de la plataforma' }));
 
     await waitFor(() => expect(TestBed.inject(Router).url).toBe('/plataforma/empresas'));
   });

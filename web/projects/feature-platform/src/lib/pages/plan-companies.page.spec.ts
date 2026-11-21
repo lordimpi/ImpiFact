@@ -31,9 +31,15 @@ describe('PlanCompaniesPage', () => {
     expect(await within(table).findByText('ACME SAS')).toBeTruthy();
     expect(within(table).getByText('900123456-8')).toBeTruthy();
     expect(within(table).getByText('1 de noviembre de 2026')).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Volver a los planes' }).getAttribute('href')).toBe(
-      '/plataforma/planes',
-    );
+    const breadcrumb = screen.getByRole('navigation', { name: 'Ruta de navegación' });
+    expect(
+      within(breadcrumb)
+        .getByRole('link', { name: 'Planes de la plataforma' })
+        .getAttribute('href'),
+    ).toBe('/plataforma/planes');
+    expect(
+      within(breadcrumb).getByText('Empresas del plan Pyme 300').getAttribute('aria-current'),
+    ).toBe('page');
   });
 
   it('says when the plan does not exist', async () => {

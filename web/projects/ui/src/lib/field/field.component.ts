@@ -110,6 +110,11 @@ let nextId = 0;
       background: var(--if-color-surface-raised);
       cursor: not-allowed;
     }
+    /* Optimus controls (ui-select, ui-combobox, ui-date-picker) take the whole width of the field. */
+    .ui-field .p-select,
+    .ui-field .p-datepicker {
+      inline-size: 100%;
+    }
     /* Campo de contraseña con el botón para mostrarla (uiPasswordToggle). */
     .ui-password {
       position: relative;

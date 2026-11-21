@@ -1,5 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { Page, expect, test } from '@playwright/test';
+import { seriousViolationsInBothThemes } from './support/axe';
+import { pickOption } from './support/select';
 
 // Vitrina de ui (/dev/ui, solo en desarrollo): accesibilidad con axe y eventos de los componentes.
 // WCAG = pautas de accesibilidad web; se revisan los niveles A y AA hasta la versión 2.2.
@@ -60,13 +62,30 @@ test('the page title shows its subtitle, breadcrumb and action', async ({ page }
   await expect(
     page.getByText('Página solo para desarrollo: cada componente de ui en cada estado.'),
   ).toBeVisible();
-  await expect(
-    page
-      .getByRole('navigation', { name: 'Ruta de navegación' })
-      .getByRole('link', { name: 'Inicio' }),
-  ).toBeVisible();
+  const breadcrumb = page.getByRole('navigation', { name: 'Ruta de navegación' });
+  await expect(breadcrumb.getByRole('link', { name: 'Inicio' })).toBeVisible();
+  await expect(breadcrumb.getByText('Vitrina')).toHaveAttribute('aria-current', 'page');
   await page.getByRole('button', { name: 'Nueva factura' }).click();
   await expect(page.getByTestId('last-event')).toHaveText('pressed page action');
+});
+
+test('the field help is a small Optimus info icon with a 24px target and a tooltip', async ({
+  page,
+}) => {
+  await openShowcase(page);
+  const help = page.getByRole('button', { name: 'Ayuda sobre NIT' });
+
+  const target = await help.boundingBox();
+  expect(target?.width).toBeGreaterThanOrEqual(24);
+  expect(target?.height).toBeGreaterThanOrEqual(24);
+  const icon = await help.locator('svg[data-p-icon="info-circle"]').boundingBox();
+  expect(icon?.width).toBeLessThanOrEqual(17);
+
+  await help.hover();
+  await expect(page.getByRole('tooltip')).toBeVisible();
+  await help.focus();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toBeHidden();
 });
 
 test('the stats pair each label with its value', async ({ page }) => {
@@ -175,4 +194,65 @@ test('the error state retries', async ({ page }) => {
     .click();
 
   await expect(page.getByTestId('last-event')).toHaveText('retry table');
+});
+
+test('the Optimus select, the locked combobox, the date picker and the file chooser work and pass axe', async ({
+  page,
+}) => {
+  await openShowcase(page);
+  const lastEvent = page.getByTestId('last-event');
+  const department = page.getByRole('combobox', { name: 'Departamento' });
+  const municipality = page.getByRole('combobox', { name: 'Municipio' });
+
+  // S9: the municipality stays locked (out of the tab order) until a department is chosen.
+  await expect(municipality).toHaveAttribute('aria-disabled', 'true');
+  await expect(municipality).toHaveAttribute('tabindex', '-1');
+  await expect(page.getByText('Seleccione primero el departamento.')).toBeVisible();
+
+  // The select works with the keyboard: Enter opens, the arrows move and Enter chooses.
+  await department.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('listbox', { name: 'Departamento' })).toBeVisible();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(department).toHaveText('Antioquia');
+  await expect(lastEvent).toHaveText('department "5"');
+
+  await expect(municipality).toHaveAttribute('aria-disabled', 'false');
+  await pickOption(page, municipality, 'Medellín', 'mede');
+  await expect(lastEvent).toHaveText('municipality "5001"');
+
+  // The date picker takes a typed date and gives the ISO date; its calendar is in Spanish.
+  const expiresAt = page.getByRole('combobox', { name: 'Vence el' });
+  await expiresAt.pressSequentially('15/12/2026');
+  await expect(lastEvent).toHaveText('expiresAt "2026-12-15"');
+  await page.getByRole('button', { name: 'Elegir la fecha' }).click();
+  await expect(page.getByText('diciembre', { exact: true })).toBeVisible();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+  await page.keyboard.press('Escape');
+
+  // The file chooser names the chosen file and rejects other types in Spanish.
+  const choose = page.getByRole('button', { name: 'Certificado digital Seleccionar archivo' });
+  await expect(choose).toBeVisible();
+  const chooser = page.waitForEvent('filechooser');
+  await choose.click();
+  await (
+    await chooser
+  ).setFiles({ name: 'notas.txt', mimeType: 'text/plain', buffer: Buffer.from('x') });
+  await expect(page.locator('ui-file-upload').getByRole('alert')).toHaveText(
+    '«notas.txt» no es de un tipo permitido. Use un archivo .p12, .pfx.',
+  );
+  await page.locator('ui-file-upload input[type="file"]').setInputFiles({
+    name: 'empresa.p12',
+    mimeType: 'application/x-pkcs12',
+    buffer: Buffer.from('x'),
+  });
+  await expect(page.getByText('empresa.p12', { exact: true })).toBeVisible();
+  await expect(lastEvent).toHaveText('file "empresa.p12"');
+
+  // Open list over the page, in both themes.
+  await department.click();
+  await expect(page.getByRole('listbox', { name: 'Departamento' })).toBeVisible();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 });

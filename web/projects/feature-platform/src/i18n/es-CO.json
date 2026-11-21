@@ -96,7 +96,6 @@
     "title": "Empresas del plan {{ name }}",
     "titleLoading": "Empresas del plan",
     "description": "Empresas que tienen este plan activo.",
-    "back": "Volver a los planes",
     "caption": "Empresas con el plan",
     "name": "Razón social",
     "nit": "NIT",
@@ -146,7 +145,6 @@
   "newCompany": {
     "title": "Nueva empresa",
     "description": "Registre una empresa en la plataforma. Queda en habilitación (pruebas) para todos sus documentos y recibe una llave de API inicial para su integración.",
-    "back": "Volver a las empresas",
     "nit": "NIT",
     "nitHint": "Solo dígitos, sin puntos ni dígito de verificación.",
     "nitFormat": "Escriba solo dígitos, máximo 15.",

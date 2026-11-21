@@ -16,8 +16,8 @@ const optionTexts = (label: RegExp) =>
     option.textContent?.trim(),
   );
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
-const unitMeasure = () =>
-  screen.getByRole('combobox', { name: /^Unidad de medida/ }) as HTMLInputElement;
+const unitMeasure = () => screen.getByRole('combobox', { name: /^Unidad de medida/ });
+const unitText = () => unitMeasure().textContent?.trim();
 const unitOptions = () =>
   within(screen.getByRole('listbox'))
     .queryAllByRole('option')
@@ -33,6 +33,21 @@ async function openNew() {
   return rendered;
 }
 
+// jsdom has no matchMedia nor scrollIntoView; the Optimus select list uses them.
+beforeAll(() => {
+  window.matchMedia ??= ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
+  Element.prototype.scrollIntoView ??= () => undefined;
+});
+
 describe('ProductFormPage', () => {
   it('lists the catalog taxes without withholdings and searches unit measures on the server', async () => {
     await openNew();
@@ -40,20 +55,21 @@ describe('ProductFormPage', () => {
       expect(optionTexts(/^Impuesto/)).toContain('IVA (Impuesto sobre la Ventas)'),
     );
     expect(optionTexts(/^Impuesto/).join()).not.toContain('ReteIVA');
-    await waitFor(() => expect(unitMeasure().value).toBe('unidad (94)'));
+    await waitFor(() => expect(unitText()).toBe('unidad (94)'));
 
-    fireEvent.input(unitMeasure(), { target: { value: 'kgm' } });
+    fireEvent.click(unitMeasure());
+    fireEvent.input(await screen.findByRole('searchbox'), { target: { value: 'kgm' } });
     await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('kgm'));
     // La unidad elegida sigue en la lista aunque la búsqueda no la traiga.
     await waitFor(() => expect(unitOptions()).toEqual(['kilogramo (KGM)', 'unidad (94)']));
     fireEvent.click(screen.getByRole('option', { name: 'kilogramo (KGM)' }));
-    expect(unitMeasure().value).toBe('kilogramo (KGM)');
+    await waitFor(() => expect(unitText()).toBe('kilogramo (KGM)'));
     expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
   });
 
   it('starts with the unit measure and marks the required fields', async () => {
     const { http } = await openNew();
-    await waitFor(() => expect(unitMeasure().value).toBe('unidad (94)'));
+    await waitFor(() => expect(unitText()).toBe('unidad (94)'));
     expect(screen.queryByLabelText(/Producto activo/)).toBeNull();
 
     save();
@@ -188,5 +204,17 @@ describe('ProductFormPage', () => {
     });
     update.flush({ id: 'p-1' });
     await waitFor(() => expect(router.url).toBe('/productos'));
+  });
+
+  it('shows the way back to the list in the breadcrumb', async () => {
+    await openNew();
+
+    const breadcrumb = screen.getByRole('navigation', { name: 'Ruta de navegación' });
+    expect(
+      within(breadcrumb).getByRole('link', { name: 'Productos y servicios' }).getAttribute('href'),
+    ).toBe('/productos');
+    expect(within(breadcrumb).getByText('Nuevo producto').getAttribute('aria-current')).toBe(
+      'page',
+    );
   });
 });

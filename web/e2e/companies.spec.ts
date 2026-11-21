@@ -1,6 +1,7 @@
 import { Page, Request, expect, test } from '@playwright/test';
 import { seriousViolations } from './support/axe';
 import { COMPANIES, EMPTY_SETUP_STATUS, USER, mockApi } from './support/mock-api';
+import { pickOption } from './support/select';
 
 // Configuración de la empresa y asistente de paso a producción (feature-companies) contra la Api simulada. Con una
 // sola empresa, queda activa al entrar. Nada de esto llama a la DIAN: todas las respuestas son simuladas.
@@ -73,19 +74,20 @@ test('the company data form shows a server field error and then saves', async ({
   // Primero el departamento; luego el municipio se busca en el Api entre los de ese departamento.
   const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
   await expect(page.getByText('Seleccione primero el departamento.')).toBeVisible();
+  // S9: el municipio está bloqueado hasta que se elige el departamento.
+  await expect(municipality).toHaveAttribute('aria-disabled', 'true');
   // El departamento también se busca escribiendo, sin importar tildes ni mayúsculas.
   const department = page.getByRole('combobox', { name: 'Departamento', exact: true });
-  await department.fill('cauca');
+  await department.click();
+  await page.getByRole('searchbox').fill('cauca');
   await expect(page.getByRole('listbox').getByRole('option')).toHaveText([
     'Cauca',
     'Valle del Cauca',
   ]);
   await page.getByRole('option', { name: 'Cauca', exact: true }).click();
-  await expect(department).toHaveValue('Cauca');
-  await municipality.fill('popa');
-  await expect(page.getByRole('listbox').getByRole('option')).toHaveText(['Popayán']);
-  await page.getByRole('option', { name: 'Popayán' }).click();
-  await expect(municipality).toHaveValue('Popayán');
+  await expect(department).toHaveText('Cauca');
+  await expect(municipality).toHaveAttribute('aria-disabled', 'false');
+  await pickOption(page, municipality, 'Popayán', 'popa');
   await page.getByLabel('Dirección').fill('Calle 1 # 2-3');
   // El teléfono solo admite dígitos.
   await page.getByLabel('Teléfono').pressSequentially('601-123 4567');
@@ -130,10 +132,10 @@ test('the company data form starts with the data the API has saved', async ({ pa
   await expect(page.getByLabel('Correo electrónico')).toHaveValue('facturas@acme.test');
   await expect(page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' })).toBeChecked();
   // El departamento sale del municipio guardado.
-  await expect(page.getByRole('combobox', { name: 'Departamento', exact: true })).toHaveValue(
+  await expect(page.getByRole('combobox', { name: 'Departamento', exact: true })).toHaveText(
     'Bogotá',
   );
-  await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveValue(
+  await expect(page.getByRole('combobox', { name: 'Municipio', exact: true })).toHaveText(
     'Bogotá, D.C.',
   );
 });

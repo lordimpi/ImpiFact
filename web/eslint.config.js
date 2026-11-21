@@ -107,6 +107,25 @@ module.exports = defineConfig([
       ],
     },
   },
+  // Features use Optimus UI only through the ui wrappers (ui-select, ui-combobox, ui-date-picker, ui-file-upload…), so
+  // the library can be replaced without touching them (docs/Arquitectura frontend.md, ADR-17).
+  {
+    files: ['projects/feature-*/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@openng/*'],
+              message:
+                'Features use the ui wrappers of Optimus UI (@impifact/ui), not Optimus UI itself.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // core is in the initial bundle: importing the api barrel pulls every generated function used by a lazy feature
   // into the initial chunk (esbuild assigns a file to every entry point whose imports reach it). core imports
   // `@impifact/api/shell` (through core's api-shell.ts) instead.

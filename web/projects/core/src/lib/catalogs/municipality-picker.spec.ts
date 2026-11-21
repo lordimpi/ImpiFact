@@ -73,9 +73,12 @@ describe('municipalityPicker', () => {
     expect(picker.departments().map((option) => option.name)).toEqual(['Bogotá', 'Cauca']);
     expect(municipalityRequests()).toEqual([]);
     expect(picker.municipalities.state().status).toBe('idle');
+    // S9: the municipality stays locked until a department is chosen.
+    expect(picker.municipalityLocked()).toBe(true);
 
     picker.selectDepartment('11');
     await settle();
+    expect(picker.municipalityLocked()).toBe(false);
     const [cauca] = municipalityRequests();
     expect(cauca!.request.params.get('department_id')).toBe('11');
     cauca!.flush({

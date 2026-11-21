@@ -1,8 +1,15 @@
 <section class="masters-page">
-  <ui-page-title [subtitle]="'masters.products.form.description' | transloco">
-    <a uiPageTitleBreadcrumb class="masters-back" routerLink="/productos"
-      ><span aria-hidden="true">← </span>{{ 'masters.common.back' | transloco }}</a
-    >
+  <ui-page-title
+    [subtitle]="'masters.products.form.description' | transloco"
+    [breadcrumb]="[
+      { label: 'masters.products.list.title' | transloco, link: '/productos' },
+      {
+        label:
+          (isEdit() ? 'masters.products.form.editTitle' : 'masters.products.form.newTitle')
+          | transloco,
+      },
+    ]"
+  >
     {{
       (isEdit() ? 'masters.products.form.editTitle' : 'masters.products.form.newTitle') | transloco
     }}

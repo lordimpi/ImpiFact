@@ -1,7 +1,6 @@
 import { HttpContext } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormField, submit } from '@angular/forms/signals';
-import { RouterLink } from '@angular/router';
 import { Api, createCompany } from '@impifact/api';
 import {
   AppError,
@@ -73,7 +72,6 @@ const FORMAT_KEYS: Partial<Record<keyof NewCompanyModel, string>> = {
     CardComponent,
     CardFooterDirective,
     FormField,
-    RouterLink,
     TranslocoPipe,
     ButtonComponent,
     DialogComponent,

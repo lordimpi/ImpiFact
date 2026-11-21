@@ -2,6 +2,7 @@ import { Page, Route, expect, test } from '@playwright/test';
 import { seriousViolationsInBothThemes } from './support/axe';
 import { CRITICAL } from './support/critical';
 import { COMPANIES, USER, mockApi } from './support/mock-api';
+import { pickOption } from './support/select';
 
 /*
  * Flujo crítico 2 de 5 (docs/Arquitectura frontend.md, secciones 8.2 y 12): alta de una empresa nueva desde el panel,
@@ -253,12 +254,10 @@ test(
     await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
     await page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }).check();
     // Primero el departamento y luego el municipio, los dos buscando por el nombre.
-    await page.getByRole('combobox', { name: 'Departamento', exact: true }).fill('bogo');
-    await page.getByRole('option', { name: 'Bogotá', exact: true }).click();
+    const department = page.getByRole('combobox', { name: 'Departamento', exact: true });
+    await pickOption(page, department, 'Bogotá', 'bogo');
     const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
-    await municipality.fill('bogo');
-    await page.getByRole('option', { name: 'Bogotá, D.C.' }).click();
-    await expect(municipality).toHaveValue('Bogotá, D.C.');
+    await pickOption(page, municipality, 'Bogotá, D.C.', 'bogo');
     await page.getByLabel('Dirección').fill('Calle 1 # 2-3');
     await page.getByLabel('Teléfono').fill('6011234567');
     await page.getByLabel('Correo electrónico').fill('facturas@acme.test');

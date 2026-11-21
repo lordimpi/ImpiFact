@@ -25,17 +25,45 @@ const optionTexts = (label: RegExp) =>
     option.textContent?.trim(),
   );
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
-const municipality = () => screen.getByRole('combobox', { name: /^Municipio/ }) as HTMLInputElement;
+const municipality = () => screen.getByRole('combobox', { name: /^Municipio/ });
+const department = () => screen.getByRole('combobox', { name: /^Departamento/ });
 const municipalityOptions = () =>
   within(screen.getByRole('listbox'))
     .queryAllByRole('option')
     .map((option) => option.textContent?.trim());
 
-/** Elige el municipio en el combobox: escribe para buscar y hace clic en la opción. */
-async function pickMunicipality(search: string, name: string) {
-  fireEvent.input(municipality(), { target: { value: search } });
-  fireEvent.click(await screen.findByRole('option', { name }));
+/** Abre la lista del combobox, escribe en su caja de búsqueda y deja la lista abierta. */
+async function search(combobox: HTMLElement, text: string) {
+  fireEvent.click(combobox);
+  fireEvent.input(await screen.findByRole('searchbox'), { target: { value: text } });
 }
+
+/** Elige en la lista abierta y espera a que se cierre. */
+async function chooseOption(name: string) {
+  fireEvent.click(await screen.findByRole('option', { name }));
+  await waitFor(() => expect(screen.queryByRole('searchbox')).toBeNull());
+}
+
+/** Elige el municipio en el combobox: busca escribiendo y hace clic en la opción. */
+async function pickMunicipality(text: string, name: string) {
+  await search(municipality(), text);
+  await chooseOption(name);
+}
+
+// jsdom has no matchMedia nor scrollIntoView; the Optimus select list uses them.
+beforeAll(() => {
+  window.matchMedia ??= ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
+  Element.prototype.scrollIntoView ??= () => undefined;
+});
 
 /** Empresa recién creada: solo la razón social y el tipo de identificación. */
 const NEW_COMPANY = {
@@ -70,27 +98,35 @@ async function fillAll() {
 
 /** Elige el departamento en su combobox: escribe parte del nombre (sin tildes) y hace clic en la opción. */
 async function pickDepartment(name: string) {
-  const input = screen.getByRole('combobox', { name: /^Departamento/ });
-  fireEvent.input(input, {
-    target: { value: name.slice(0, 4).normalize('NFD').replace(/[̀-ͯ]/g, '') },
-  });
-  fireEvent.click(await screen.findByRole('option', { name }));
+  await search(department(), name.slice(0, 4).normalize('NFD').replace(/[̀-ͯ]/g, ''));
+  await chooseOption(name);
 }
 
 describe('CompanyDataPage', () => {
-  it('fills the lists from the DIAN catalogs and searches the municipalities of the chosen department', async () => {
-    await open();
-    expect(optionTexts(/^Régimen/)).toContain('Responsable de IVA');
-    expect(screen.getByRole('checkbox', { name: 'R-99-PN No aplica – Otros' })).toBeTruthy();
-    expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
+  // The first test of the file pays the cold render of the route (about 2 s alone, more while the other files of
+  // the project run in parallel) before driving two Optimus selects.
+  it(
+    'fills the lists from the DIAN catalogs and searches the municipalities of the chosen department',
+    {
+      timeout: 10_000,
+    },
+    async () => {
+      await open();
+      expect(optionTexts(/^Régimen/)).toContain('Responsable de IVA');
+      expect(screen.getByRole('checkbox', { name: 'R-99-PN No aplica – Otros' })).toBeTruthy();
+      expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
+      // S9: the municipality is locked until a department is chosen.
+      expect(municipality().getAttribute('aria-disabled')).toBe('true');
 
-    await pickDepartment('Antioquia');
-    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2'));
-    fireEvent.input(municipality(), { target: { value: 'medel' } });
-    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('medel'));
-    await waitFor(() => expect(municipalityOptions()).toEqual(['Medellín']));
-    expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
-  });
+      await pickDepartment('Antioquia');
+      await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2'));
+      expect(municipality().getAttribute('aria-disabled')).toBe('false');
+      await search(municipality(), 'medel');
+      await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('medel'));
+      await waitFor(() => expect(municipalityOptions()).toEqual(['Medellín']));
+      expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
+    },
+  );
 
   it('accepts only digits in the phone and explains every field in a tooltip', async () => {
     await open();
@@ -116,8 +152,8 @@ describe('CompanyDataPage', () => {
     expect(field(/^Tipo de organización/).value).toBe('1');
     expect(field(/^Régimen/).value).toBe('1');
     // El departamento sale del municipio guardado.
-    await waitFor(() => expect(field(/^Departamento/).value).toBe('Bogotá'));
-    await waitFor(() => expect(municipality().value).toBe('Bogotá, D.C.'));
+    await waitFor(() => expect(department().textContent?.trim()).toBe('Bogotá'));
+    await waitFor(() => expect(municipality().textContent?.trim()).toBe('Bogotá, D.C.'));
     expect(field(/^Dirección/).value).toBe('Calle 1 # 2-3');
     expect(field(/^Teléfono/).value).toBe('6011234567');
     expect(field(/^Correo electrónico/).value).toBe('facturas@acme.test');

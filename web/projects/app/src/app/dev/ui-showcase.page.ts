@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import {
   BadgeComponent,
@@ -10,15 +9,18 @@ import {
   CardFooterDirective,
   ComboboxComponent,
   ComboboxLabels,
+  DatePickerComponent,
   DialogComponent,
   EmptyStateComponent,
   ErrorStateComponent,
   FieldComponent,
+  FileUploadComponent,
   InputDirective,
   LoadingComponent,
   MeterComponent,
   PageTitleComponent,
   PaginatorComponent,
+  SelectComponent,
   SelectDirective,
   StatComponent,
   TableCellDirective,
@@ -37,7 +39,12 @@ import {
   UiToast,
   UiToastLabels,
 } from '@impifact/ui';
-import { SAMPLE_MUNICIPALITIES, SHOWCASE_TEXTS } from './ui-showcase.texts';
+import {
+  SAMPLE_DEPARTMENTS,
+  SAMPLE_MUNICIPALITIES,
+  SAMPLE_REGIMES,
+  SHOWCASE_TEXTS,
+} from './ui-showcase.texts';
 
 interface DocumentRow {
   id: number;
@@ -85,7 +92,6 @@ const SAMPLE_ROWS: DocumentRow[] = [
   selector: 'app-ui-showcase-page',
   imports: [
     TranslocoPipe,
-    RouterLink,
     PageTitleComponent,
     ButtonComponent,
     BadgeComponent,
@@ -98,6 +104,9 @@ const SAMPLE_ROWS: DocumentRow[] = [
     InputDirective,
     SelectDirective,
     ComboboxComponent,
+    SelectComponent,
+    DatePickerComponent,
+    FileUploadComponent,
     MeterComponent,
     EmptyStateComponent,
     LoadingComponent,
@@ -135,6 +144,13 @@ export class UiShowcasePage {
   protected readonly dialogOpen = signal(false);
   protected readonly municipality = signal('');
   protected readonly term = signal('');
+  protected readonly departments = SAMPLE_DEPARTMENTS;
+  protected readonly department = signal('');
+  protected readonly regimes = SAMPLE_REGIMES;
+  protected readonly regime = signal('');
+  protected readonly expiresAt = signal('');
+  /** Largest certificate the example accepts: 2 MB. */
+  protected readonly maxCertificateSize = 2 * 1024 * 1024;
   protected readonly toasts = signal<readonly UiToast[]>([]);
   private nextToastId = 1;
 
@@ -152,18 +168,31 @@ export class UiShowcasePage {
     }));
   });
 
-  /** The showcase plays the server: it filters the sample municipalities with the typed term. */
+  /**
+   * The showcase plays the server: it lists the sample municipalities of the chosen department that match the typed
+   * term. Without a department the search is idle and the municipality stays locked.
+   */
   protected readonly municipalities = computed(() => {
+    const department = Number(this.department());
     const term = this.term().trim().toLocaleLowerCase('es-CO');
-    return SAMPLE_MUNICIPALITIES.filter((option) =>
-      option.name.toLocaleLowerCase('es-CO').includes(term),
+    return SAMPLE_MUNICIPALITIES.filter(
+      (option) =>
+        Math.floor(option.id / 1000) === department &&
+        option.name.toLocaleLowerCase('es-CO').includes(term),
     );
   });
+
+  protected chooseDepartment(id: string): void {
+    this.department.set(id);
+    this.municipality.set('');
+    this.log('department', id);
+  }
 
   protected readonly comboboxLabels = computed<ComboboxLabels>(() => {
     const t = this.translator();
     return {
       placeholder: t('devUi.fields.municipalityPlaceholder'),
+      idle: t('devUi.fields.municipalityIdle'),
       loading: t('devUi.fields.municipalityLoading'),
       error: t('devUi.fields.municipalityError'),
       empty: t('devUi.fields.municipalityEmpty'),

@@ -129,6 +129,7 @@
               (termChange)="municipalities.search($event)"
               (loadMore)="municipalities.loadMore()"
               (retry)="municipalities.retry()"
+              [locked]="location.municipalityLocked()"
             />
           </ui-field>
 

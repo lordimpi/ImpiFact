@@ -5,7 +5,6 @@
  * They follow the same `devUi.*` naming, so moving them into public/i18n/es-CO.json later is a copy and paste.
  */
 export const SHOWCASE_TEXTS: Readonly<Record<string, string>> = {
-  'devUi.breadcrumb.label': 'Ruta de navegación',
   'devUi.breadcrumb.home': 'Inicio',
   'devUi.breadcrumb.current': 'Vitrina',
   'devUi.pageAction': 'Nueva factura',
@@ -62,6 +61,17 @@ export const SHOWCASE_TEXTS: Readonly<Record<string, string>> = {
   'devUi.fields.municipalityLoading': 'Buscando municipios',
   'devUi.fields.municipalityError': 'No se pudieron cargar los municipios',
   'devUi.fields.municipalityEmpty': 'Ningún municipio coincide',
+  'devUi.fields.municipalityIdle': 'Seleccione primero el departamento.',
+  'devUi.fields.department': 'Departamento',
+  'devUi.fields.departmentPlaceholder': 'Seleccione el departamento',
+  'devUi.fields.regime': 'Régimen',
+  'devUi.fields.regimePlaceholder': 'Seleccione el régimen',
+  'devUi.fields.regimeError': 'Seleccione el régimen de la empresa.',
+  'devUi.fields.expiresAt': 'Vence el',
+  'devUi.fields.expiresAtHint':
+    'Del 20 de noviembre de 2026 al 31 de diciembre de 2027; vacía si no vence.',
+  'devUi.fields.certificate': 'Certificado digital',
+  'devUi.fields.certificateHint': 'Archivo .p12 o .pfx de máximo 2 MB.',
   'devUi.meter.title': 'Consumo del plan',
   'devUi.meter.label': 'Documentos del plan',
   'devUi.meter.value': '820 de 1.000 documentos',
@@ -71,6 +81,22 @@ export const SHOWCASE_TEXTS: Readonly<Record<string, string>> = {
   'devUi.toasts.success': 'La factura SETP990000004 se envió a la DIAN.',
   'devUi.toasts.error': 'No se pudo enviar la factura. Intente de nuevo.',
 };
+
+/** Departments of the select example (sample data); a municipality belongs to `Math.floor(id / 1000)`. */
+export const SAMPLE_DEPARTMENTS = [
+  { id: 11, name: 'Bogotá, D.C.' },
+  { id: 5, name: 'Antioquia' },
+  { id: 76, name: 'Valle del Cauca' },
+  { id: 8, name: 'Atlántico' },
+  { id: 13, name: 'Bolívar' },
+  { id: 68, name: 'Santander' },
+] as const;
+
+/** Regimes of the select example (sample data). */
+export const SAMPLE_REGIMES = [
+  { id: 48, name: 'Responsable de IVA' },
+  { id: 49, name: 'No responsable de IVA' },
+] as const;
 
 /** Municipalities of the combobox example (sample data, like the table rows). */
 export const SAMPLE_MUNICIPALITIES = [

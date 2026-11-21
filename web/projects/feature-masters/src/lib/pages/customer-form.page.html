@@ -1,8 +1,15 @@
 <section class="masters-page">
-  <ui-page-title [subtitle]="'masters.customers.form.description' | transloco">
-    <a uiPageTitleBreadcrumb class="masters-back" routerLink="/clientes"
-      ><span aria-hidden="true">← </span>{{ 'masters.common.back' | transloco }}</a
-    >
+  <ui-page-title
+    [subtitle]="'masters.customers.form.description' | transloco"
+    [breadcrumb]="[
+      { label: 'masters.customers.list.title' | transloco, link: '/clientes' },
+      {
+        label:
+          (isEdit() ? 'masters.customers.form.editTitle' : 'masters.customers.form.newTitle')
+          | transloco,
+      },
+    ]"
+  >
     {{
       (isEdit() ? 'masters.customers.form.editTitle' : 'masters.customers.form.newTitle')
         | transloco
@@ -189,6 +196,7 @@
                 (termChange)="municipalities.search($event)"
                 (loadMore)="municipalities.loadMore()"
                 (retry)="municipalities.retry()"
+                [locked]="location.municipalityLocked()"
               />
             </ui-field>
 
