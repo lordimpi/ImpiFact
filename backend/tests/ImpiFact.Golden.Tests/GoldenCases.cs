@@ -26,6 +26,17 @@ public static class GoldenCases
 
     public const string AttachedDocumentExpectedFile = "expected-attached-document.xml";
 
+    /// <summary>Carpetas de casos de un tipo de documento (tests/golden/&lt;tipo&gt;) que tienen entrada y XML esperado.</summary>
+    public static IReadOnlyList<string> OfType(string documentType) => Of(documentType);
+
+    /// <summary>Nombres de las carpetas de tipo de documento que hay en tests/golden.</summary>
+    public static IReadOnlyList<string> TypeFolders() =>
+        Directory.EnumerateDirectories(FindGoldenRoot())
+            .Select(Path.GetFileName)
+            .OfType<string>()
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToList();
+
     private static List<string> Of(string documentType, string expectedFile = "expected.xml")
     {
         var typeRoot = Path.Combine(FindGoldenRoot(), documentType);

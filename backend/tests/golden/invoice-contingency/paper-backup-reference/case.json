@@ -1,0 +1,12 @@
+{
+  "variant": "Contingency invoice type 03 referencing the paper backup document",
+  "source_request": "Postman apidian-v2.1 / 07 - Otros tipos de Facturas / Factura de contingencia (tipo 03)",
+  "task": "T5",
+  "derived": "Fictitious issuer, customer and dates; lines, totals and variant fields as in the Postman request",
+  "code_check": {
+    "scheme_name": "CUDE-SHA384",
+    "formula": "CUDE",
+    "secret": "software PIN",
+    "matches": true
+  }
+}

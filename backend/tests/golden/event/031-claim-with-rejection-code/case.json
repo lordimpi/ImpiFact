@@ -1,0 +1,15 @@
+{
+  "variant": "RADIAN event 031: claim with rejection reason 02 and no issuer_party",
+  "source_request": "Postman apidian-v2.1 / 08 - Generador de Eventos / Enviar un evento indicando el CUFE",
+  "task": "T6",
+  "derived": "Fictitious received invoice, issuer and person. The script receives the data that sendeventdata would read from the invoice XML downloaded from the DIAN; event_id changed to 2 and type_rejection_id added",
+  "php_bugs": [
+    "sts:QRCode always points to the production catalog (https://catalogo-vpfe.dian.gov.co), even though the company is in habilitacion (ProfileExecutionID 2): DocumentTrait::createXML (lines 276-277) hardcodes that URL for type 88. The documentkey of the QR is the CUFE of the referenced invoice (SignInvoice::ConsultarCUFEEVENT returns the second cbc:UUID), not the CUDE of the event. Suspected PHP bug for T6 to confirm against the RADIAN annex; the CUDE itself is correct."
+  ],
+  "code_check": {
+    "scheme_name": "CUDE-SHA384",
+    "formula": "EVENT",
+    "secret": "software PIN",
+    "matches": true
+  }
+}

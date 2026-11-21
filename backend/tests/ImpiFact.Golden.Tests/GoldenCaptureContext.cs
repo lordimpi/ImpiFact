@@ -16,6 +16,14 @@ public static class GoldenCaptureContext
     public const string SoftwarePin = "12345";
     public const string TechnicalKey = "fc8eac422eba16e22ffd8c6f94b3f40a6e38162c";
 
+    /// <summary>
+    /// Software del documento soporte y de su nota de ajuste (SD_SOFTWARE_ID y SD_SOFTWARE_PIN de capture.py). Su PIN
+    /// es el secreto del CUDS (código único del documento soporte).
+    /// </summary>
+    public const string SupportDocumentSoftwareId = "7c1e5a90-2b4d-4f3a-8e6c-1d9b0a2f3c58";
+
+    public const string SupportDocumentSoftwarePin = "54321";
+
     public const int CompanyIdentificationTypeId = 6;
     public const int CompanyOrganizationTypeId = 1;
     public const int CompanyRegimeId = 1;

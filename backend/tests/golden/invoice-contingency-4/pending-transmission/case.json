@@ -1,0 +1,17 @@
+{
+  "variant": "Contingency invoice type 04, stored as pending and transmitted later",
+  "source_request": "Postman apidian-v2.1 / 02 - Primeros Envios / Contingencia tipo 4 / Enviar una factura de contingencia tipo 4",
+  "task": "T5",
+  "derived": "Fictitious issuer, customer and dates; lines, totals and variant fields as in the Postman request",
+  "php_bugs": [
+    "cbc:UUID has schemeName CUFE-SHA384 (cufe_algorithm of type_documents id 12), but its value is computed with the software PIN instead of the technical key of the numbering resolution. InvoiceContingencyController::store_type_4 (lines 830-832) sets only softwareID and pin on SignInvoice, so SignInvoice::setUUID falls back to the CUDE formula. The DIAN computes a CUFE with the technical key, so this code would not validate. The golden keeps the PHP value; T5 decides whether ImpiFact reproduces it."
+  ],
+  "code_check": {
+    "scheme_name": "CUFE-SHA384",
+    "formula": "CUFE",
+    "secret": "technical key",
+    "matches": false,
+    "php_formula": "CUDE",
+    "php_secret": "software PIN"
+  }
+}
