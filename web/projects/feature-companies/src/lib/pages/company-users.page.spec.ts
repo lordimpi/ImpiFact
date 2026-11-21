@@ -74,34 +74,30 @@ async function expectPatch(http: HttpTestingController, userId: string) {
 }
 
 describe('CompanyUsersPage', () => {
-  it(
-    'lists the users of the active company with role, status and the current user marked',
-    { timeout: 10_000 },
-    async () => {
-      const { http, table } = await open();
+  it('lists the users of the active company with role, status and the current user marked', async () => {
+    const { http, table } = await open();
 
-      const headers = within(table)
-        .getAllByRole('columnheader')
-        .map((header) => header.textContent?.trim());
-      expect(headers).toEqual(['Nombre', 'Correo', 'Teléfono', 'Rol', 'Estado', 'Acciones']);
+    const headers = within(table)
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent?.trim());
+    expect(headers).toEqual(['Nombre', 'Correo', 'Teléfono', 'Rol', 'Estado', 'Acciones']);
 
-      const mine = row(table, ME.email);
-      expect(within(mine).getByText('Ana Gómez')).toBeTruthy();
-      expect(within(mine).getByText('(usted)')).toBeTruthy();
-      expect(within(mine).getByText('Dueño')).toBeTruthy();
-      expect(within(mine).getByText('Activo')).toBeTruthy();
+    const mine = row(table, ME.email);
+    expect(within(mine).getByText('Ana Gómez')).toBeTruthy();
+    expect(within(mine).getByText('(usted)')).toBeTruthy();
+    expect(within(mine).getByText('Dueño')).toBeTruthy();
+    expect(within(mine).getByText('Activo')).toBeTruthy();
 
-      const carlos = row(table, CARLOS.email);
-      expect(within(carlos).queryByText('(usted)')).toBeNull();
-      expect(within(carlos).getByText('Vendedor')).toBeTruthy();
-      expect(within(carlos).getByText('Sin teléfono')).toBeTruthy();
+    const carlos = row(table, CARLOS.email);
+    expect(within(carlos).queryByText('(usted)')).toBeNull();
+    expect(within(carlos).getByText('Vendedor')).toBeTruthy();
+    expect(within(carlos).getByText('Sin teléfono')).toBeTruthy();
 
-      expect(within(row(table, DIANA.email)).getByText('Inactivo')).toBeTruthy();
-      // The owner's page has no breadcrumb and never looks the company up among the platform companies.
-      expect(screen.queryByRole('navigation', { name: 'Ruta de navegación' })).toBeNull();
-      http.expectNone((candidate) => candidate.url === '/api/v1/platform/companies');
-    },
-  );
+    expect(within(row(table, DIANA.email)).getByText('Inactivo')).toBeTruthy();
+    // The owner's page has no breadcrumb and never looks the company up among the platform companies.
+    expect(screen.queryByRole('navigation', { name: 'Ruta de navegación' })).toBeNull();
+    http.expectNone((candidate) => candidate.url === '/api/v1/platform/companies');
+  });
 
   it('shows an empty state when the company has no users', async () => {
     const { http } = await renderCompaniesRoute('/empresa/usuarios');
@@ -229,8 +225,6 @@ describe('CompanyUsersPage', () => {
     ],
     [422, 'user.cannot_deactivate_self', 'No puede desactivar su propia cuenta.'],
     [422, 'user.cannot_remove_own_owner_role', 'No puede quitarse a usted mismo el rol de dueño.'],
-    [404, 'user.not_found', 'Este usuario ya no pertenece a la empresa; recargue la lista.'],
-    [409, 'concurrency.conflict', 'Otro usuario cambió estos datos; recargue la lista.'],
   ])('explains a %s %s from the API in a toast and keeps the row', async (status, code, text) => {
     const { http, table } = await open();
 
@@ -245,15 +239,27 @@ describe('CompanyUsersPage', () => {
     expect(within(row(table, CARLOS.email)).getByText('Vendedor')).toBeTruthy();
   });
 
-  it('reloads the list on request', async () => {
-    const { http } = await open();
+  it.each([
+    [404, 'user.not_found', 'Este usuario ya no pertenece a la empresa; la lista se actualizó.'],
+    [
+      409,
+      'concurrency.conflict',
+      'Otra persona cambió estos datos al mismo tiempo; la lista se actualizó.',
+    ],
+  ])('refreshes the list by itself after a %s %s', async (status, code, text) => {
+    const { http, table } = await open();
+    // No manual reload: the page keeps the list current by itself.
+    expect(screen.queryByRole('button', { name: 'Recargar' })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Recargar' }));
+    fireEvent.click(
+      within(row(table, CARLOS.email)).getByRole('button', { name: /^Cambiar a dueño/ }),
+    );
+    const error = problem(status, code, 'Mensaje del Api.');
+    (await expectPatch(http, CARLOS.id)).flush(error.body, error.options);
 
-    await respond(http, USERS_URL, {
-      items: [...USERS, { ...CARLOS, id: 'user-4', email: 'eva@acme.test', name: 'Eva' }],
-    });
-    expect(await screen.findByText('eva@acme.test')).toBeTruthy();
+    await waitFor(() => expect(toastTexts()).toContain(text));
+    await respond(http, USERS_URL, { items: [...USERS.filter((user) => user.id !== CARLOS.id)] });
+    await waitFor(() => expect(screen.queryByText(CARLOS.email)).toBeNull());
   });
 
   describe('create dialog', () => {

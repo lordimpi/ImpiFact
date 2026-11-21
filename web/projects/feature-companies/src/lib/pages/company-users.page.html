@@ -3,12 +3,6 @@
     {{ title() }}
     @if (company() && !notFound()) {
       <div uiPageTitleActions class="users-title-actions">
-        <ui-button
-          variant="secondary"
-          [label]="'companies.users.reload' | transloco"
-          [disabled]="store.status() === 'loading'"
-          (pressed)="reload()"
-        />
         <ui-button [label]="'companies.users.new' | transloco" (pressed)="createOpen.set(true)" />
       </div>
     }

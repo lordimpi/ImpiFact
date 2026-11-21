@@ -166,7 +166,9 @@ test('the owner creates a seller, changes a role and deactivates a user after co
   expect(sent.patch).toEqual([{ role: 'owner' }, { is_active: false }]);
 });
 
-test('explains a conflict with another change in a toast', async ({ page }) => {
+test('explains a conflict with another change in a toast and refreshes the list by itself', async ({
+  page,
+}) => {
   await mockUsers(page);
   await page.route(`${USERS_PATH}/*`, (route) =>
     route.fulfill({
@@ -182,11 +184,25 @@ test('explains a conflict with another change in a toast', async ({ page }) => {
   );
   await signInAt(page, '/empresa/usuarios');
 
+  // After the conflict the page asks for the list again by itself (no «Recargar» button).
+  let listsAfterConflict = 0;
+  page.on('request', (request) => {
+    if (
+      request.method() === 'GET' &&
+      new URL(request.url()).pathname.endsWith(`/api/v1/companies/${NIT}/users`)
+    ) {
+      listsAfterConflict++;
+    }
+  });
   await userRow(page, 'carlos@example.test')
     .getByRole('button', { name: 'Cambiar a dueño: Carlos Ruiz' })
     .click();
 
-  await expect(page.getByText('Otro usuario cambió estos datos; recargue la lista.')).toBeVisible();
+  await expect(
+    page.getByText('Otra persona cambió estos datos al mismo tiempo; la lista se actualizó.'),
+  ).toBeVisible();
+  await expect.poll(() => listsAfterConflict).toBeGreaterThan(0);
+  await expect(page.getByRole('button', { name: 'Recargar' })).toHaveCount(0);
   await expect(userRow(page, 'carlos@example.test')).toContainText('Vendedor');
 });
 
