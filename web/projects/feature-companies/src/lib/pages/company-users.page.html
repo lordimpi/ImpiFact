@@ -1,7 +1,7 @@
 <section class="users-page">
-  <ui-page-title [subtitle]="'companies.users.subtitle' | transloco">
-    {{ 'companies.users.title' | transloco }}
-    @if (company()) {
+  <ui-page-title [subtitle]="'companies.users.subtitle' | transloco" [breadcrumb]="breadcrumb()">
+    {{ title() }}
+    @if (company() && !notFound()) {
       <div uiPageTitleActions class="users-title-actions">
         <ui-button
           variant="secondary"
@@ -14,7 +14,19 @@
     }
   </ui-page-title>
 
-  @if (company(); as company) {
+  @if (notFound()) {
+    <ui-card>
+      <ui-error-state
+        [title]="'companies.users.platform.notFoundTitle' | transloco"
+        [description]="'companies.users.platform.notFoundDescription' | transloco: { nit: nit() }"
+      />
+      <p class="users-back">
+        <a [routerLink]="platformCompaniesPath">{{
+          'companies.users.platform.back' | transloco
+        }}</a>
+      </p>
+    </ui-card>
+  } @else if (company(); as company) {
     <ui-card padding="none">
       <ui-table
         flush
@@ -107,14 +119,21 @@
       [(visible)]="createOpen"
       (created)="onCreated($event)"
     />
-  } @else if (directory.status() === 'loading' || directory.status() === 'idle') {
+  } @else if (companyLoading()) {
     <ui-loading [label]="'companies.common.loading' | transloco" />
+  } @else if (platform()) {
+    <ui-error-state
+      [title]="'companies.users.platform.loadErrorTitle' | transloco"
+      [description]="'companies.users.platform.loadErrorDescription' | transloco"
+      [retryLabel]="'companies.common.retry' | transloco"
+      (retry)="retryCompany()"
+    />
   } @else {
     <ui-error-state
       [title]="'companies.layout.notFoundTitle' | transloco"
       [description]="'companies.layout.notFoundDescription' | transloco"
       [retryLabel]="'companies.common.retry' | transloco"
-      (retry)="directory.reload()"
+      (retry)="retryCompany()"
     />
   }
 

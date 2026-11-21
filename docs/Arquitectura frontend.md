@@ -112,11 +112,12 @@ Cambio en el backend, hecho el 17-nov (fase 5, B1): el refresh acepta y emite la
 | `/empresas/:id/{datos,ambientes,software,certificado,resoluciones}` (`/empresa` lleva a la activa); `correo`, `logo` y `plantilla` esperan su endpoint | `feature-companies` | owner |
 | `/empresas/:id/produccion` (`/empresa/produccion`) | `feature-companies`, chunk `feature-production-wizard` | owner |
 | `/empresa/usuarios` (entrada «Usuarios» de Ajustes, no es una pestaña de la configuración) | `feature-companies`, chunk `feature-company-users` | owner |
+| `/plataforma/empresas/:nit/usuarios` (acción «Usuarios» de cada fila de «Empresas de la plataforma»; la misma página que `/empresa/usuarios` para la empresa del NIT, con ruta de navegación de vuelta y sin fila «(usted)») | `feature-companies`, chunk `feature-company-users` (la ruta vive en `companies.routes.ts`, junto a su chunk, con los guards de `/plataforma/*`; `app` la pone antes que `platformRoutes`) | platform\_admin con `platform:*` |
 | `/documentos`, `/documentos/nuevo`, `/documentos/:id` | `feature-documents` | owner, seller (`nuevo`: con alcance de emisión) |
 | `/clientes`, `/productos` | `feature-masters` | owner, seller |
 | `/llaves-api` | `feature-api-keys` | owner |
 | `/plan` | `feature-plans` | owner |
-| `/plataforma/{empresas,planes,revendedores}` | `feature-platform` (hoy `planes`, `planes/:id`, `empresas` y `empresas/nueva`; el dueño o vendedor de una empresa se crea desde su fila) | platform\_admin con `platform:*` (reseller cuando el Api le dé alcances) |
+| `/plataforma/{empresas,planes,revendedores}` | `feature-platform` (hoy `planes`, `planes/:id`, `empresas` y `empresas/nueva`; el dueño o vendedor de una empresa se crea desde su fila, y «Usuarios» abre los de la empresa) | platform\_admin con `platform:*` (reseller cuando el Api le dé alcances) |
 | `/notificaciones` | `feature-notifications` | todos |
 | `/portal` (documentos del cliente) | `feature-documents` (vista restringida) | customer |
 

@@ -70,6 +70,14 @@
             [ariaLabel]="rowText('user.title', row)"
             (pressed)="openUser(row)"
           />
+          <a
+            uiButtonLink
+            variant="ghost"
+            size="small"
+            [routerLink]="['/plataforma/empresas', row.nit, 'usuarios']"
+            [attr.aria-label]="rowText('companies.usersOf', row)"
+            >{{ 'platform.companies.users' | transloco }}</a
+          >
         </div>
       </ng-template>
     </ui-table>

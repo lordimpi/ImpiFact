@@ -185,6 +185,22 @@ describe('PlatformCompaniesPage', () => {
 
     expect(await within(dialog).findByText('La empresa ya no existe.')).toBeTruthy();
   });
+  it('links every row to the users of its company', async () => {
+    await open();
+
+    const link = screen.getByRole('link', { name: 'Usuarios de Beta Ltda' });
+    expect(link.textContent?.trim()).toBe('Usuarios');
+    expect(link.getAttribute('href')).toBe('/plataforma/empresas/800111222/usuarios');
+    expect(screen.getByRole('link', { name: 'Usuarios de Acme SAS' })).toBeTruthy();
+    // «Crear usuario» stays as the one-step way to create the first owner.
+    expect(screen.getByRole('button', { name: 'Crear usuario de Beta Ltda' })).toBeTruthy();
+
+    fireEvent.click(link);
+    await waitFor(() =>
+      expect(TestBed.inject(Router).url).toBe('/plataforma/empresas/800111222/usuarios'),
+    );
+  });
+
   it('opens the form of a new company', async () => {
     await open();
 
