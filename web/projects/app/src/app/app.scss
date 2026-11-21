@@ -69,3 +69,16 @@
   max-width: var(--shell-content-max-width);
   margin-inline: auto;
 }
+
+// A page with its own full-screen layout (the login) gets the whole window.
+.shell-main--full {
+  padding: 0;
+
+  @media (min-width: 48rem) {
+    padding: 0;
+  }
+
+  .shell-content {
+    max-width: none;
+  }
+}

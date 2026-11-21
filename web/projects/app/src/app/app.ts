@@ -35,6 +35,9 @@ const BARE_PATHS: readonly string[] = [
   '/empresas/seleccionar',
 ];
 
+/** Pages that draw their own full-screen layout: the content area loses its padding and width limit. */
+const FULL_BLEED_PATHS: readonly string[] = ['/login'];
+
 /**
  * Panel shell: with a session, sidebar (menu grouped by section and filtered by role) and top bar (company, notices
  * and user menu) around the content; access pages and the company selection show only the content. It also hosts
@@ -73,6 +76,8 @@ export class App {
   protected readonly layout = computed(
     () => this.session.isAuthenticated() && !BARE_PATHS.includes(this.path()),
   );
+
+  protected readonly fullBleed = computed(() => FULL_BLEED_PATHS.includes(this.path()));
 
   /** Sidebar drawer on narrow screens; it closes after every navigation. */
   protected readonly drawerOpen = signal(false);

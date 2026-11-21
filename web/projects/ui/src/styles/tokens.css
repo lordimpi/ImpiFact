@@ -115,6 +115,15 @@
   --if-topbar-height: 3.5rem;
   --if-topbar-bg: #ffffff;
 
+  /*
+   * Brand panel of the login: a blue gradient from primary to primary-active. Text 6.0:1 on the lighter end,
+   * muted text 4.8:1.
+   */
+  --if-brand-panel-bg-start: #1d5bd6;
+  --if-brand-panel-bg-end: #163f94;
+  --if-brand-panel-fg: #ffffff;
+  --if-brand-panel-fg-muted: #dbe6fd;
+
   /* Light shimmer of the loading skeleton (Optimus UI skeleton animation). */
   --if-color-shimmer: rgb(255 255 255 / 60%);
 
@@ -203,6 +212,12 @@
   --if-sidebar-hover-bg: #343f51;
   --if-sidebar-active-bg: #33456b;
   --if-sidebar-active-fg: #b0c9ff;
+
+  /* Brand panel of the login: a muted navy, not the lightened blue. Text 7.2:1 on the lighter end, muted 5.7:1. */
+  --if-brand-panel-bg-start: #2c4a85;
+  --if-brand-panel-bg-end: #23396a;
+  --if-brand-panel-fg: #e6ebf2;
+  --if-brand-panel-fg-muted: #c9d3e3;
   --if-topbar-bg: #2a3343;
 
   --if-color-shimmer: rgb(255 255 255 / 8%);
