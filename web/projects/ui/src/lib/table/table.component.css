@@ -75,6 +75,10 @@ th {
   white-space: nowrap;
 }
 
+.ui-table__cell--nowrap {
+  white-space: nowrap;
+}
+
 .ui-table__sort {
   display: inline-flex;
   align-items: center;
@@ -204,6 +208,10 @@ tbody tr:not(.ui-table__state):hover {
     flex: 1;
     min-inline-size: 0;
     overflow-wrap: anywhere;
+  }
+
+  .ui-table__cell--nowrap .ui-table__value {
+    overflow-wrap: normal;
   }
 
   .ui-table__state td {

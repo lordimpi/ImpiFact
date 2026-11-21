@@ -45,6 +45,7 @@ interface Options {
   sort?: UiSort | null;
   filters?: UiFilters;
   pagination?: UiPagination | null;
+  columns?: UiTableColumn[];
 }
 
 async function renderTable(options: Options = {}) {
@@ -192,6 +193,21 @@ describe('TableComponent', () => {
     );
 
     expect(screen.getByText('Aceptado!').tagName).toBe('STRONG');
+  });
+
+  it('keeps the cells of a nowrap column on one line and leaves the others alone', async () => {
+    const { table } = await renderTable({
+      columns: [{ ...columns[0]!, nowrap: true }, ...columns.slice(1)],
+    });
+
+    const [, body] = within(table).getAllByRole('rowgroup');
+    const [first] = within(body!).getAllByRole('row');
+    const cells = within(first!).getAllByRole('cell');
+    expect(cells.map((cell) => cell.classList.contains('ui-table__cell--nowrap'))).toEqual([
+      true,
+      false,
+      false,
+    ]);
   });
 
   it('can drop its own frame to sit flush inside a card, and stripe its rows', async () => {

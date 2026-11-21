@@ -88,6 +88,7 @@
                 role="cell"
                 [attr.data-label]="column.header"
                 [class.ui-table__cell--end]="column.align === 'end'"
+                [class.ui-table__cell--nowrap]="column.nowrap"
               >
                 <!-- One box for the value, so a stacked cell lays out as label and value. -->
                 <div class="ui-table__value">

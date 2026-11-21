@@ -2,7 +2,7 @@ import { HttpTestingController, TestRequest } from '@angular/common/http/testing
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
-import { pickOption, stubOptimusDom } from '../testing/optimus-testing';
+import { pickMenuItem, pickOption, stubOptimusDom } from '../testing/optimus-testing';
 import { expectRequest, problem, renderPlatformRoute } from '../testing/platform-testing';
 
 const PLANS = [
@@ -141,7 +141,7 @@ describe('PlatformCompaniesPage', () => {
   it('assigns a plan to the company picked from the list', async () => {
     const { http } = await open();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Asignar plan a Beta Ltda' }));
+    await pickMenuItem('Acciones de Beta Ltda', 'Asignar plan');
     const dialog = await screen.findByRole('dialog', { name: 'Asignar plan a Beta Ltda' });
     await choosePlan(dialog, 'Anual 5000');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Asignar plan' }));
@@ -165,7 +165,7 @@ describe('PlatformCompaniesPage', () => {
   it('asks for the plan before calling the API', async () => {
     const { http } = await open();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Asignar plan a Acme SAS' }));
+    await pickMenuItem('Acciones de Acme SAS', 'Asignar plan');
     const dialog = await screen.findByRole('dialog', { name: 'Asignar plan a Acme SAS' });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Asignar plan' }));
 
@@ -175,7 +175,7 @@ describe('PlatformCompaniesPage', () => {
 
   it('explains a company that no longer exists', async () => {
     const { http } = await open();
-    fireEvent.click(screen.getByRole('button', { name: 'Asignar plan a Acme SAS' }));
+    await pickMenuItem('Acciones de Acme SAS', 'Asignar plan');
     const dialog = await screen.findByRole('dialog', { name: 'Asignar plan a Acme SAS' });
     await choosePlan(dialog, 'Anual 5000');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Asignar plan' }));
@@ -185,20 +185,51 @@ describe('PlatformCompaniesPage', () => {
 
     expect(await within(dialog).findByText('La empresa ya no existe.')).toBeTruthy();
   });
-  it('links every row to the users of its company', async () => {
+  it('gathers the actions of every row in one «Acciones» menu', async () => {
     await open();
 
-    const link = screen.getByRole('link', { name: 'Usuarios de Beta Ltda' });
-    expect(link.textContent?.trim()).toBe('Usuarios');
-    expect(link.getAttribute('href')).toBe('/plataforma/empresas/800111222/usuarios');
-    expect(screen.getByRole('link', { name: 'Usuarios de Acme SAS' })).toBeTruthy();
-    // «Crear usuario» stays as the one-step way to create the first owner.
-    expect(screen.getByRole('button', { name: 'Crear usuario de Beta Ltda' })).toBeTruthy();
+    const rows = within(screen.getByRole('table', { name: 'Empresas de la plataforma' }))
+      .getAllByRole('row')
+      .slice(1);
+    expect(
+      rows.map((row) =>
+        within(row)
+          .getAllByRole('button')
+          .map((b) => b.textContent?.trim()),
+      ),
+    ).toEqual([['Acciones'], ['Acciones']]);
+    const button = within(rows[1]!).getByRole('button', { name: 'Acciones de Beta Ltda' });
+    expect(button.getAttribute('aria-haspopup')).toBe('menu');
+    expect(screen.queryByRole('link', { name: /^Usuarios de/ })).toBeNull();
 
-    fireEvent.click(link);
+    fireEvent.click(button);
+
+    const menu = await screen.findByRole('menu', { name: 'Acciones de Beta Ltda' });
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent?.trim()),
+    ).toEqual(['Asignar plan', 'Crear usuario', 'Usuarios']);
+  });
+
+  it('opens the users of the company from its row menu', async () => {
+    await open();
+
+    await pickMenuItem('Acciones de Beta Ltda', 'Usuarios');
+
     await waitFor(() =>
       expect(TestBed.inject(Router).url).toBe('/plataforma/empresas/800111222/usuarios'),
     );
+  });
+
+  it('keeps the NIT with its DV on one line', async () => {
+    await open();
+
+    const cell = within(screen.getByRole('table', { name: 'Empresas de la plataforma' })).getByRole(
+      'cell',
+      { name: '900123456-7' },
+    );
+    expect(cell.classList).toContain('ui-table__cell--nowrap');
   });
 
   it('opens the form of a new company', async () => {
@@ -217,7 +248,7 @@ describe('PlatformCompaniesPage', () => {
 
     async function openUserDialog(company = 'Beta Ltda') {
       const result = await open();
-      fireEvent.click(screen.getByRole('button', { name: `Crear usuario de ${company}` }));
+      await pickMenuItem(`Acciones de ${company}`, 'Crear usuario');
       const dialog = await screen.findByRole('dialog', { name: `Crear usuario de ${company}` });
       return { ...result, dialog };
     }
@@ -275,7 +306,7 @@ describe('PlatformCompaniesPage', () => {
       await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
       // Al abrirlo otra vez, el formulario empieza vacío.
-      fireEvent.click(screen.getByRole('button', { name: 'Crear usuario de Beta Ltda' }));
+      await pickMenuItem('Acciones de Beta Ltda', 'Crear usuario');
       const again = await screen.findByRole('dialog', { name: 'Crear usuario de Beta Ltda' });
       expect(input(again, /^Correo electrónico/).value).toBe('');
       expect(input(again, /^Contraseña/).value).toBe('');
