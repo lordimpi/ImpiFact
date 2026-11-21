@@ -22,6 +22,7 @@ export * from './lib/field/select.component';
 export * from './lib/file-upload/file-upload.component';
 export * from './lib/help/help.component';
 export * from './lib/i18n/ui-texts';
+export * from './lib/menu/menu-button.component';
 export * from './lib/meter/meter.component';
 export * from './lib/page-title/breadcrumb';
 export * from './lib/page-title/page-title.component';

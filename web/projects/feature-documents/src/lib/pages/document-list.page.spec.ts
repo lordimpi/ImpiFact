@@ -145,11 +145,11 @@ describe('DocumentListPage', () => {
     expect(screen.queryByRole('button', { name: 'Reenviar correo' })).toBeNull();
   });
 
-  it('exports the CSV with the same filters through HttpClient and saves the file', async () => {
+  it('exports the CSV from the Exportar menu with the same filters through HttpClient and saves the file', async () => {
     const { http, toasts } = await renderDocumentsRoute('/documentos?tipo=invoice&estado=Accepted');
     (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Exportar CSV' }));
+    await pickExport('CSV');
 
     const request: TestRequest = await waitFor(() =>
       http.expectOne((r) => r.url === '/api/v1/documents/export.csv'),
@@ -165,6 +165,68 @@ describe('DocumentListPage', () => {
     await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(toasts.toasts().map((toast) => toast.text)).toEqual(['Se descargó el archivo CSV.']),
+    );
+  });
+
+  it('offers Excel first and CSV in the Exportar menu button', async () => {
+    const { http } = await renderDocumentsRoute('/documentos');
+    (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
+
+    const button = await screen.findByRole('button', { name: 'Exportar' });
+    expect(button.getAttribute('aria-haspopup')).toBe('menu');
+    expect(screen.queryByRole('button', { name: 'Exportar CSV' })).toBeNull();
+    fireEvent.click(button);
+
+    await screen.findByRole('menu', { name: 'Exportar' });
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent?.trim())).toEqual([
+      'Excel (.xlsx)',
+      'CSV',
+    ]);
+  });
+
+  it('exports to Excel with the same filters and saves the workbook', async () => {
+    const { http, toasts } = await renderDocumentsRoute(
+      '/documentos?tipo=credit_note&desde=2026-11-01',
+    );
+    (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
+
+    await pickExport('Excel (.xlsx)');
+
+    const request: TestRequest = await waitFor(() =>
+      http.expectOne((r) => r.url === '/api/v1/documents/export.xlsx'),
+    );
+    expect(request.request.responseType).toBe('blob');
+    expect(request.request.params.get('kind')).toBe('credit_note');
+    expect(request.request.params.get('from')).toBe('2026-11-01');
+    request.flush(new Blob(['PK']));
+
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(toasts.toasts().map((toast) => toast.text)).toEqual([
+        'Se descargó el archivo de Excel.',
+      ]),
+    );
+  });
+
+  it('explains a too large export of any format', async () => {
+    const { http, toasts } = await renderDocumentsRoute('/documentos');
+    (await waitFor(() => http.expectOne(isList))).flush({ items: [ROW], next_cursor: null });
+
+    await pickExport('Excel (.xlsx)');
+    (await waitFor(() => http.expectOne((r) => r.url === '/api/v1/documents/export.xlsx'))).flush(
+      new Blob(
+        [JSON.stringify({ code: 'documents.export_too_large', detail: 'Demasiadas filas.' })],
+        {
+          type: 'application/problem+json',
+        },
+      ),
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+
+    await waitFor(() =>
+      expect(toasts.toasts().map((toast) => toast.text)).toEqual([
+        'La exportación tiene demasiadas filas. Acote el rango de fechas e intente de nuevo.',
+      ]),
     );
   });
 
@@ -189,3 +251,10 @@ describe('DocumentListPage', () => {
     );
   });
 });
+
+/** Opens the «Exportar» menu and picks an option, clicking its text as a pointer does. */
+async function pickExport(label: string): Promise<void> {
+  fireEvent.click(await screen.findByRole('button', { name: 'Exportar' }));
+  const item = await screen.findByRole('menuitem', { name: label });
+  fireEvent.click(within(item).getByText(label));
+}

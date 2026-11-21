@@ -2,11 +2,11 @@
   <ui-page-title [subtitle]="'documents.list.description' | transloco">
     {{ 'documents.list.title' | transloco }}
     <div uiPageTitleActions class="doc-actions">
-      <ui-button
-        variant="secondary"
+      <ui-menu-button
         [label]="'documents.list.export' | transloco"
+        [items]="exportFormats()"
         [loading]="exporting()"
-        (pressed)="exportCsv()"
+        (selected)="exportDocuments($event)"
       />
       @if (canIssue()) {
         <a uiButtonLink variant="secondary" routerLink="/documentos/nota-credito">{{

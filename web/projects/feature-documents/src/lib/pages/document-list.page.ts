@@ -4,13 +4,14 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DocumentSummaryResponse } from '@impifact/api';
 import { SessionStore } from '@impifact/core';
 import {
-  ButtonComponent,
   ButtonLinkDirective,
   CardActionsDirective,
   CardComponent,
+  MenuButtonComponent,
   PageTitleComponent,
   TableCellDirective,
   TableComponent,
+  UiMenuItem,
   UiTableColumn,
   UiTableLabels,
 } from '@impifact/ui';
@@ -22,13 +23,18 @@ import { StatusBadgeComponent } from '../components/status-badge.component';
 import { DOCUMENTS_I18N_SCOPE, provideDocumentsI18n } from '../documents-i18n';
 import { ISSUE_SCOPE } from '../documents.routes';
 import { filesAvailable, kindKey } from '../models/document-status';
-import { DocumentActions, DocumentFileKind } from '../state/document-actions';
+import {
+  DocumentActions,
+  DocumentFileKind,
+  EXPORT_FORMATS,
+  ExportFormat,
+} from '../state/document-actions';
 import { DocumentsListStore } from '../state/documents-list.store';
 import { DocumentFilters, filtersFromParams, filtersToQueryParams } from '../state/list-filters';
 
 /**
  * Lista de documentos (`/documentos`, sección 8.3): paginación por cursor en el servidor, filtros guardados en la
- * URL (se pueden compartir y sobreviven a una recarga), exportación CSV y acciones por fila.
+ * URL (se pueden compartir y sobreviven a una recarga), exportación (menú «Exportar»: Excel o CSV) y acciones por fila.
  */
 @Component({
   selector: 'feat-document-list-page',
@@ -36,9 +42,9 @@ import { DocumentFilters, filtersFromParams, filtersToQueryParams } from '../sta
     ButtonLinkDirective,
     RouterLink,
     TranslocoPipe,
-    ButtonComponent,
     CardComponent,
     CardActionsDirective,
+    MenuButtonComponent,
     PageTitleComponent,
     TableComponent,
     TableCellDirective,
@@ -67,6 +73,13 @@ export class DocumentListPage {
 
   protected readonly canIssue = computed(() => this.session.hasScope(ISSUE_SCOPE));
   protected readonly exporting = signal(false);
+  /** Options of the «Exportar» menu, one per export format. */
+  protected readonly exportFormats = computed<UiMenuItem[]>(() =>
+    EXPORT_FORMATS.map((format) => ({
+      id: format,
+      label: this.text(`list.exportFormats.${format}`),
+    })),
+  );
   /** Fila con una acción en curso (para deshabilitar sus botones). */
   protected readonly busyRow = signal<string | null>(null);
 
@@ -119,10 +132,10 @@ export class DocumentListPage {
     });
   }
 
-  protected async exportCsv(): Promise<void> {
+  protected async exportDocuments(format: string): Promise<void> {
     this.exporting.set(true);
     try {
-      await this.actions.exportCsv(this.filters());
+      await this.actions.exportDocuments(format as ExportFormat, this.filters());
     } finally {
       this.exporting.set(false);
     }
