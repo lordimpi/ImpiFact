@@ -68,8 +68,15 @@ test('the company data form shows a server field error and then saves', async ({
   await expect(page.getByLabel('Razón social')).toHaveValue('Acme SAS');
   expect(await seriousViolations(page)).toEqual([]);
 
-  await page.getByLabel('Tipo de organización').selectOption('1');
-  await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
+  // Las listas cortas son ui-select de Optimus: el vacío muestra «Seleccione una opción».
+  const regime = page.getByRole('combobox', { name: 'Régimen' });
+  await expect(regime).toHaveText('Seleccione una opción');
+  await pickOption(
+    page,
+    page.getByRole('combobox', { name: 'Tipo de organización' }),
+    'Persona Jurídica y asimiladas',
+  );
+  await pickOption(page, regime, 'Responsable de IVA');
   await page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }).check();
   // Primero el departamento; luego el municipio se busca en el Api entre los de ese departamento.
   const municipality = page.getByRole('combobox', { name: 'Municipio', exact: true });
@@ -130,6 +137,8 @@ test('the company data form starts with the data the API has saved', async ({ pa
 
   await expect(page.getByLabel('Dirección')).toHaveValue('Calle 1 # 2-3');
   await expect(page.getByLabel('Correo electrónico')).toHaveValue('facturas@acme.test');
+  await expect(page.getByRole('combobox', { name: 'Tipo de identificación' })).toHaveText('NIT');
+  await expect(page.getByRole('combobox', { name: 'Régimen' })).toHaveText('Responsable de IVA');
   await expect(page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' })).toBeChecked();
   // El departamento sale del municipio guardado.
   await expect(page.getByRole('combobox', { name: 'Departamento', exact: true })).toHaveText(
@@ -211,7 +220,11 @@ test('the certificate upload sends the password once and never shows it', async 
   expect(await seriousViolations(page)).toEqual([]);
   const password = page.getByLabel('Contraseña del certificado');
   await expect(password).toHaveAttribute('type', 'password');
-  await page.getByLabel('Archivo del certificado').setInputFiles({
+  // ui-file-upload: el botón «Seleccionar archivo» abre el diálogo; su input oculto recibe el archivo.
+  await expect(
+    page.getByRole('button', { name: 'Archivo del certificado Seleccionar archivo' }),
+  ).toBeVisible();
+  await page.locator('ui-file-upload input[type="file"]').setInputFiles({
     name: 'acme.p12',
     mimeType: 'application/x-pkcs12',
     buffer: Buffer.from('PFX-BYTES'),
@@ -221,6 +234,7 @@ test('the certificate upload sends the password once and never shows it', async 
 
   await expect(page.getByText('El certificado se cargó. Vence en 365 días.')).toBeVisible();
   await expect(password).toHaveValue('');
+  await expect(page.getByText('Ningún archivo seleccionado')).toBeVisible();
   expect(await page.content()).not.toContain(SECRET);
   expect(logs.join('\n')).not.toContain(SECRET);
   const withSecret = requests.filter((request) => request.postData()?.includes(SECRET));

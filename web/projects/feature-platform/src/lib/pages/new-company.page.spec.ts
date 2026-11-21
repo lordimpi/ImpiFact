@@ -2,23 +2,18 @@ import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
 import { catalogRequests } from '../testing/catalog-fixtures';
+import { optionNames, pickOption, stubOptimusDom } from '../testing/optimus-testing';
 import { expectRequest, problem, renderPlatformRoute } from '../testing/platform-testing';
 
 const SECRET = 'ifk_live_0a1b2c3d4e5f60718293a4b5c6d7e8f9';
 const CREATE_URL = '/api/v1/companies/900123456/8';
 
-const field = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement;
+// The chosen option of a ui-select also names its combobox («NIT»): the fields are the inputs.
+const field = (label: RegExp) =>
+  screen.getAllByLabelText(label).find((element) => element instanceof HTMLInputElement)!;
 const type = (label: RegExp, value: string) => fireEvent.input(field(label), { target: { value } });
-const choose = (label: RegExp, value: string) => {
-  // Signal Forms lee el evento `input` del <select>; el navegador manda también `change`.
-  const select = screen.getByLabelText(label) as HTMLSelectElement;
-  fireEvent.change(select, { target: { value } });
-  fireEvent.input(select, { target: { value } });
-};
-const optionTexts = (label: RegExp) =>
-  Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((option) =>
-    option.textContent?.trim(),
-  );
+/** A `ui-select` by the label of its field. */
+const select = (label: RegExp) => screen.getByRole('combobox', { name: label });
 const create = () => fireEvent.click(screen.getByRole('button', { name: 'Crear empresa' }));
 const municipality = () => screen.getByRole('combobox', { name: /^Municipio/ });
 const department = () => screen.getByRole('combobox', { name: /^Departamento/ });
@@ -45,20 +40,7 @@ async function pickMunicipality(text: string, name: string) {
   await chooseOption(name);
 }
 
-// jsdom has no matchMedia nor scrollIntoView; the Optimus select list uses them.
-beforeAll(() => {
-  window.matchMedia ??= ((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => false,
-  })) as typeof window.matchMedia;
-  Element.prototype.scrollIntoView ??= () => undefined;
-});
+beforeAll(stubOptimusDom);
 
 async function open() {
   const rendered = await renderPlatformRoute('/plataforma/empresas/nueva');
@@ -72,8 +54,8 @@ async function open() {
 async function fillAll() {
   type(/^NIT/, '900123456');
   type(/^Razón social/, 'Acme SAS');
-  choose(/^Tipo de organización/, '1');
-  choose(/^Régimen/, '1');
+  await pickOption(select(/^Tipo de organización/), 'Persona Jurídica y asimiladas');
+  await pickOption(select(/^Régimen/), 'Responsable de IVA');
   fireEvent.click(screen.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }));
   await pickDepartment('Bogotá');
   await pickMunicipality('bogo', 'Bogotá, D.C.');
@@ -104,25 +86,33 @@ async function pickDepartment(name: string) {
 }
 
 describe('NewCompanyPage', () => {
-  it('fills the lists from the DIAN catalogs and searches the municipalities of the chosen department', async () => {
-    await open();
-    expect(optionTexts(/^Tipo de identificación/)).toContain('NIT');
-    expect((screen.getByLabelText(/^Tipo de identificación/) as HTMLSelectElement).value).toBe('6');
-    expect(optionTexts(/^Régimen/)).toContain('Responsable de IVA');
-    expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
-    expect(catalogRequests.some((request) => request.url.endsWith('/municipalities'))).toBe(false);
-    // S9: the municipality is locked until a department is chosen.
-    expect(municipality().getAttribute('aria-disabled')).toBe('true');
+  // The first test of the file pays the cold render of the route before driving four Optimus selects.
+  it(
+    'fills the lists from the DIAN catalogs and searches the municipalities of the chosen department',
+    { timeout: 10_000 },
+    async () => {
+      await open();
+      expect(await optionNames(select(/^Tipo de identificación/))).toContain('NIT');
+      expect(select(/^Tipo de identificación/).textContent?.trim()).toBe('NIT');
+      expect(await optionNames(select(/^Régimen/))).toContain('Responsable de IVA');
+      expect(select(/^Régimen/).textContent?.trim()).toBe('Seleccione una opción');
+      expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
+      expect(catalogRequests.some((request) => request.url.endsWith('/municipalities'))).toBe(
+        false,
+      );
+      // S9: the municipality is locked until a department is chosen.
+      expect(municipality().getAttribute('aria-disabled')).toBe('true');
 
-    await pickDepartment('Antioquia');
-    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2'));
-    expect(municipality().getAttribute('aria-disabled')).toBe('false');
-    await search(municipality(), 'medel');
-    await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('medel'));
-    expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2');
-    await waitFor(() => expect(municipalityOptions()).toEqual(['Medellín']));
-    expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
-  });
+      await pickDepartment('Antioquia');
+      await waitFor(() => expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2'));
+      expect(municipality().getAttribute('aria-disabled')).toBe('false');
+      await search(municipality(), 'medel');
+      await waitFor(() => expect(catalogRequests.at(-1)?.params.get('q')).toBe('medel'));
+      expect(catalogRequests.at(-1)?.params.get('department_id')).toBe('2');
+      await waitFor(() => expect(municipalityOptions()).toEqual(['Medellín']));
+      expect(screen.queryByRole('button', { name: /Cargar más/ })).toBeNull();
+    },
+  );
 
   it('searches the departments by name, ignoring accents and case', async () => {
     await open();
@@ -155,6 +145,17 @@ describe('NewCompanyPage', () => {
     expect(field(/^Teléfono/).value).toBe('6011234567');
     type(/^NIT/, '800197268');
     expect(dv.value).toBe('4');
+  });
+
+  it('shows an example in every text field', async () => {
+    await open();
+
+    expect(field(/^NIT/).placeholder).toBe('900123456');
+    expect(field(/^Razón social/).placeholder).toBe('Mi Empresa S.A.S.');
+    expect(field(/^Dirección/).placeholder).toBe('Calle 10 # 20-30');
+    expect(field(/^Teléfono/).placeholder).toBe('3001234567');
+    expect(field(/^Correo electrónico/).placeholder).toBe('nombre@empresa.com');
+    expect(field(/^Matrícula mercantil/).placeholder).toBe('123456');
   });
 
   it('explains every field in a tooltip', async () => {

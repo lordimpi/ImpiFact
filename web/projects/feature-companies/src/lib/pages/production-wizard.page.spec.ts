@@ -65,7 +65,9 @@ const sendButton = () =>
   }) as HTMLButtonElement;
 
 describe('ProductionWizardPage', () => {
-  it('derives each step from the setup status the API reports', async () => {
+  // The first test of the file pays the cold render of the route and of the Optimus controls (about 3 s alone,
+  // more while the other files of the project run in parallel).
+  it('derives each step from the setup status the API reports', { timeout: 10_000 }, async () => {
     await open();
 
     expect(badge('Datos de la empresa')).toBe('Pendiente');
@@ -163,9 +165,11 @@ describe('ProductionWizardPage', () => {
   it('sends the test invoice, follows its DIAN status and reads the setup status again', async () => {
     const { http } = await open();
     const testSet = step('Software y set de pruebas');
-    fireEvent.input(within(testSet).getByLabelText(/Identificador del set de pruebas/), {
-      target: { value: TEST_SET },
-    });
+    const testSetInput = within(testSet).getByLabelText(
+      /Identificador del set de pruebas/,
+    ) as HTMLInputElement;
+    expect(testSetInput.placeholder).toBe('a1b2c3d4-e5f6-7890-abcd-ef1234567890');
+    fireEvent.input(testSetInput, { target: { value: TEST_SET } });
 
     fireEvent.click(sendButton());
 

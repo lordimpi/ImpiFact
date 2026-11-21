@@ -25,7 +25,7 @@ import {
   HelpComponent,
   InputDirective,
   PageTitleComponent,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -81,7 +81,7 @@ const FORMAT_KEYS: Partial<Record<keyof NewCompanyModel, string>> = {
     PageTitleComponent,
     ComboboxComponent,
     DigitsOnlyDirective,
-    SelectDirective,
+    SelectComponent,
     CompanyUserDialogComponent,
     PlatformNavComponent,
   ],

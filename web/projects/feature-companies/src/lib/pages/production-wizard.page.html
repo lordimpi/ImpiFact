@@ -49,6 +49,9 @@
                       uiInput
                       type="text"
                       autocomplete="off"
+                      [placeholder]="
+                        'companies.wizard.steps.software.testSetIdPlaceholder' | transloco
+                      "
                       [value]="setup.effectiveTestSetId()"
                       (input)="setTestSetId($any($event.target).value)"
                     />

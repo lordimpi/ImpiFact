@@ -24,7 +24,9 @@
     "catalog": {
       "loading": "Cargando la lista…",
       "error": "No se pudo cargar la lista."
-    }
+    },
+    "filterPlaceholder": "Buscar por nombre",
+    "datePlaceholder": "dd/mm/aaaa"
   },
   "layout": {
     "title": "Configuración de la empresa",
@@ -83,6 +85,13 @@
     "groups": {
       "identity": "Identificación tributaria",
       "location": "Ubicación y contacto"
+    },
+    "placeholders": {
+      "businessName": "Mi Empresa S.A.S.",
+      "address": "Calle 10 # 20-30",
+      "phone": "3001234567",
+      "email": "nombre@empresa.com",
+      "merchantRegistration": "123456"
     }
   },
   "environments": {
@@ -139,6 +148,11 @@
       "identifier": "Identificador",
       "testSet": "Set de pruebas",
       "pin": "PIN"
+    },
+    "placeholders": {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "pin": "PIN de cinco dígitos",
+      "testSetId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
     }
   },
   "certificate": {
@@ -167,7 +181,8 @@
       "passwordRequired": "Escriba la contraseña del certificado."
     },
     "uploadTitle": "Cargar un certificado",
-    "uploadHint": "El certificado nuevo reemplaza al activo."
+    "uploadHint": "El certificado nuevo reemplaza al activo.",
+    "passwordPlaceholder": "Contraseña del archivo .p12"
   },
   "resolutions": {
     "title": "Resoluciones de numeración",
@@ -233,6 +248,14 @@
         "validity": "Vigencia",
         "actions": "Acciones"
       }
+    },
+    "placeholders": {
+      "prefix": "SETP",
+      "resolution": "18760000001",
+      "technicalKey": "fc8eac422eba16e22ffd8c6f94b3f40a6e38162c",
+      "from": "990000000",
+      "to": "995000000",
+      "softwareId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
     }
   },
   "wizard": {
@@ -271,7 +294,8 @@
         "missing": "La empresa no tiene software en el ambiente actual: guárdelo en la sección Software.",
         "missingTestSet": "Falta el identificador del set de pruebas (TestSetId): guárdelo en la sección Software o escríbalo aquí para enviar la factura de prueba.",
         "testSetId": "Identificador del set de pruebas (TestSetId)",
-        "use": "Usar este set de pruebas"
+        "use": "Usar este set de pruebas",
+        "testSetIdPlaceholder": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
       },
       "testSet": {
         "title": "Set de pruebas de la DIAN",

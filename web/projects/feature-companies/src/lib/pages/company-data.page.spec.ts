@@ -12,18 +12,12 @@ import {
   renderCompaniesRoute,
   respond,
 } from '../testing/companies-testing';
+import { optionNames, pickOption, stubOptimusDom } from '../testing/optimus-testing';
 
 const field = (label: RegExp) => screen.getByLabelText(label) as HTMLInputElement;
 const type = (label: RegExp, value: string) => fireEvent.input(field(label), { target: { value } });
-const choose = (label: RegExp, value: string) => {
-  const select = screen.getByLabelText(label) as HTMLSelectElement;
-  fireEvent.change(select, { target: { value } });
-  fireEvent.input(select, { target: { value } });
-};
-const optionTexts = (label: RegExp) =>
-  Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((option) =>
-    option.textContent?.trim(),
-  );
+/** A `ui-select` by the label of its field. */
+const select = (label: RegExp) => screen.getByRole('combobox', { name: label });
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 const municipality = () => screen.getByRole('combobox', { name: /^Municipio/ });
 const department = () => screen.getByRole('combobox', { name: /^Departamento/ });
@@ -50,20 +44,7 @@ async function pickMunicipality(text: string, name: string) {
   await chooseOption(name);
 }
 
-// jsdom has no matchMedia nor scrollIntoView; the Optimus select list uses them.
-beforeAll(() => {
-  window.matchMedia ??= ((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => false,
-  })) as typeof window.matchMedia;
-  Element.prototype.scrollIntoView ??= () => undefined;
-});
+beforeAll(stubOptimusDom);
 
 /** Empresa recién creada: solo la razón social y el tipo de identificación. */
 const NEW_COMPANY = {
@@ -85,8 +66,8 @@ async function open(company: object = NEW_COMPANY) {
 }
 
 async function fillAll() {
-  choose(/^Tipo de organización/, '1');
-  choose(/^Régimen/, '1');
+  await pickOption(select(/^Tipo de organización/), 'Persona Jurídica y asimiladas');
+  await pickOption(select(/^Régimen/), 'Responsable de IVA');
   fireEvent.click(screen.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }));
   await pickDepartment('Bogotá');
   await pickMunicipality('bogo', 'Bogotá, D.C.');
@@ -112,7 +93,12 @@ describe('CompanyDataPage', () => {
     },
     async () => {
       await open();
-      expect(optionTexts(/^Régimen/)).toContain('Responsable de IVA');
+      expect(await optionNames(select(/^Régimen/))).toEqual([
+        'Responsable de IVA',
+        'No Responsable de IVA',
+      ]);
+      // The empty select shows what to do instead of an empty option.
+      expect(select(/^Régimen/).textContent?.trim()).toBe('Seleccione una opción');
       expect(screen.getByRole('checkbox', { name: 'R-99-PN No aplica – Otros' })).toBeTruthy();
       expect(screen.getByText('Seleccione primero el departamento.')).toBeTruthy();
       // S9: the municipality is locked until a department is chosen.
@@ -144,13 +130,25 @@ describe('CompanyDataPage', () => {
     expect(screen.getByText(/registro mercantil de la Cámara de Comercio/)).toBeTruthy();
   });
 
+  it('shows an example in every text field', async () => {
+    await open();
+
+    expect(field(/^Razón social/).placeholder).toBe('Mi Empresa S.A.S.');
+    expect(field(/^Dirección/).placeholder).toBe('Calle 10 # 20-30');
+    expect(field(/^Teléfono/).placeholder).toBe('3001234567');
+    expect(field(/^Correo electrónico/).placeholder).toBe('nombre@empresa.com');
+    expect(field(/^Matrícula mercantil/).placeholder).toBe('123456');
+  });
+
   it('fills the form with the data the API has saved', async () => {
     await open(COMPANY_DATA);
 
     expect(field(/^Razón social/).value).toBe('Acme SAS');
-    expect(field(/^Tipo de identificación/).value).toBe('6');
-    expect(field(/^Tipo de organización/).value).toBe('1');
-    expect(field(/^Régimen/).value).toBe('1');
+    expect(select(/^Tipo de identificación/).textContent?.trim()).toBe('NIT');
+    expect(select(/^Tipo de organización/).textContent?.trim()).toBe(
+      'Persona Jurídica y asimiladas',
+    );
+    expect(select(/^Régimen/).textContent?.trim()).toBe('Responsable de IVA');
     // El departamento sale del municipio guardado.
     await waitFor(() => expect(department().textContent?.trim()).toBe('Bogotá'));
     await waitFor(() => expect(municipality().textContent?.trim()).toBe('Bogotá, D.C.'));

@@ -8,7 +8,7 @@ import {
   CardComponent,
   CardFooterDirective,
   FieldComponent,
-  SelectDirective,
+  SelectComponent,
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { companiesText, provideCompaniesI18n } from '../companies-i18n';
@@ -20,6 +20,9 @@ import { ENVIRONMENT_KINDS, HABILITATION, PRODUCTION, kindKey } from '../models/
 import { CompanySetupStore } from '../state/company-setup.store';
 
 type Choice = '' | `${typeof PRODUCTION}` | `${typeof HABILITATION}`;
+
+/** Value of the «Sin cambios» option: `ui-select` shows '' as empty, so no change needs its own value. */
+const NO_CHANGE = 'none';
 
 /**
  * Ambientes (`/empresas/:id/ambientes`): habilitación o producción por familia de documentos. Al abrir se lee el
@@ -35,7 +38,7 @@ type Choice = '' | `${typeof PRODUCTION}` | `${typeof HABILITATION}`;
     CardComponent,
     CardFooterDirective,
     FieldComponent,
-    SelectDirective,
+    SelectComponent,
     ProductionConfirmDialogComponent,
   ],
   providers: [provideCompaniesI18n()],
@@ -69,19 +72,11 @@ type Choice = '' | `${typeof PRODUCTION}` | `${typeof HABILITATION}`;
             }
             @for (row of rows(); track row.kind) {
               <ui-field [label]="row.label" [hint]="row.current">
-                <select
-                  uiSelect
-                  [value]="row.choice"
-                  (change)="choose(row.kind, $any($event.target).value)"
-                >
-                  <option value="">{{ 'companies.common.noChange' | transloco }}</option>
-                  <option [value]="'' + habilitation">
-                    {{ 'companies.environments.habilitation' | transloco }}
-                  </option>
-                  <option [value]="'' + production">
-                    {{ 'companies.environments.production' | transloco }}
-                  </option>
-                </select>
+                <ui-select
+                  [options]="environmentOptions()"
+                  [value]="row.choice || noChange"
+                  (valueChange)="choose(row.kind, $event)"
+                />
               </ui-field>
             }
           </div>
@@ -110,8 +105,12 @@ export class EnvironmentsPage {
   private readonly toasts = inject(ToastStore);
   private readonly transloco = inject(TranslocoService);
 
-  protected readonly production = PRODUCTION;
-  protected readonly habilitation = HABILITATION;
+  protected readonly noChange = NO_CHANGE;
+  protected readonly environmentOptions = computed(() => [
+    { id: NO_CHANGE, name: this.text('common.noChange') },
+    { id: `${HABILITATION}`, name: this.text('environments.habilitation') },
+    { id: `${PRODUCTION}`, name: this.text('environments.production') },
+  ]);
 
   private readonly choices = signal<Record<number, Choice>>({});
   protected readonly saving = signal(false);
@@ -175,8 +174,9 @@ export class EnvironmentsPage {
     }
   }
 
-  protected choose(kind: number, value: Choice): void {
-    this.choices.update((current) => ({ ...current, [kind]: value }));
+  protected choose(kind: number, value: string): void {
+    const choice = (value === NO_CHANGE ? '' : value) as Choice;
+    this.choices.update((current) => ({ ...current, [kind]: choice }));
   }
 
   protected onSubmit(event: Event): void {

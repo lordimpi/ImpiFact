@@ -8,7 +8,7 @@ import { CreateApiKeyBody } from '@impifact/api';
  */
 export interface ApiKeyModel {
   name: string;
-  /** Fecha `YYYY-MM-DD` del `<input type="date">`; vacía si no vence. */
+  /** Fecha `YYYY-MM-DD` del `ui-date-picker`; vacía si no vence. */
   expires_at: string;
 }
 

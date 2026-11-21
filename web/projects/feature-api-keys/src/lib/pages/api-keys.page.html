@@ -16,14 +16,23 @@
           [error]="nameError()"
           required
         >
-          <input uiInput type="text" autocomplete="off" [formField]="keyForm.name" />
+          <input
+            uiInput
+            type="text"
+            autocomplete="off"
+            [placeholder]="'apiKeys.form.namePlaceholder' | transloco"
+            [formField]="keyForm.name"
+          />
         </ui-field>
 
         <ui-field
           [label]="'apiKeys.form.expiresAt' | transloco"
           [hint]="'apiKeys.form.expiresAtHint' | transloco"
         >
-          <input uiInput type="date" [formField]="keyForm.expires_at" />
+          <ui-date-picker
+            [placeholder]="'apiKeys.form.datePlaceholder' | transloco"
+            [formField]="keyForm.expires_at"
+          />
         </ui-field>
 
         <fieldset

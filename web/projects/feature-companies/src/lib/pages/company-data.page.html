@@ -23,6 +23,7 @@
               uiInput
               type="text"
               autocomplete="organization"
+              [placeholder]="'companies.data.placeholders.businessName' | transloco"
               [formField]="companyForm.business_name"
             />
           </ui-field>
@@ -33,11 +34,13 @@
             [error]="errors().type_document_identification_id"
             required
           >
-            <select uiSelect [formField]="companyForm.type_document_identification_id">
-              @for (option of identificationTypes(); track option.id) {
-                <option [value]="'' + option.id">{{ option.name }}</option>
-              }
-            </select>
+            <ui-select
+              filter
+              [options]="identificationTypes()"
+              [placeholder]="'companies.common.noneOption' | transloco"
+              [filterPlaceholder]="'companies.common.filterPlaceholder' | transloco"
+              [formField]="companyForm.type_document_identification_id"
+            />
           </ui-field>
 
           <ui-field
@@ -46,12 +49,11 @@
             [error]="errors().type_organization_id"
             required
           >
-            <select uiSelect [formField]="companyForm.type_organization_id">
-              <option value="">{{ 'companies.common.noneOption' | transloco }}</option>
-              @for (option of organizationTypes(); track option.id) {
-                <option [value]="'' + option.id">{{ option.name }}</option>
-              }
-            </select>
+            <ui-select
+              [options]="organizationTypes()"
+              [placeholder]="'companies.common.noneOption' | transloco"
+              [formField]="companyForm.type_organization_id"
+            />
           </ui-field>
 
           <ui-field
@@ -60,12 +62,11 @@
             [error]="errors().type_regime_id"
             required
           >
-            <select uiSelect [formField]="companyForm.type_regime_id">
-              <option value="">{{ 'companies.common.noneOption' | transloco }}</option>
-              @for (option of regimes(); track option.id) {
-                <option [value]="'' + option.id">{{ option.name }}</option>
-              }
-            </select>
+            <ui-select
+              [options]="regimes()"
+              [placeholder]="'companies.common.noneOption' | transloco"
+              [formField]="companyForm.type_regime_id"
+            />
           </ui-field>
 
           <fieldset
@@ -143,6 +144,7 @@
               uiInput
               type="text"
               autocomplete="street-address"
+              [placeholder]="'companies.data.placeholders.address' | transloco"
               [formField]="companyForm.address"
             />
           </ui-field>
@@ -159,6 +161,7 @@
               uiDigitsOnly
               type="tel"
               autocomplete="tel"
+              [placeholder]="'companies.data.placeholders.phone' | transloco"
               [formField]="companyForm.phone"
             />
           </ui-field>
@@ -169,7 +172,13 @@
             [error]="errors().email"
             required
           >
-            <input uiInput type="email" autocomplete="email" [formField]="companyForm.email" />
+            <input
+              uiInput
+              type="email"
+              autocomplete="email"
+              [placeholder]="'companies.data.placeholders.email' | transloco"
+              [formField]="companyForm.email"
+            />
           </ui-field>
 
           <ui-field
@@ -183,6 +192,7 @@
               uiInput
               type="text"
               autocomplete="off"
+              [placeholder]="'companies.data.placeholders.merchantRegistration' | transloco"
               [formField]="companyForm.merchant_registration"
             />
           </ui-field>

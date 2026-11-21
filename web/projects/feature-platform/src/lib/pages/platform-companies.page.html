@@ -27,6 +27,7 @@
           uiInput
           type="search"
           autocomplete="off"
+          [placeholder]="'platform.companies.searchPlaceholder' | transloco"
           [value]="query()"
           (input)="onSearch($any($event.target).value)"
         />
@@ -107,12 +108,11 @@
         [error]="store.error() ? ('platform.assign.plansError' | transloco) : errors().plan_id"
         required
       >
-        <select uiSelect [formField]="assignForm.plan_id">
-          <option value="">{{ 'platform.assign.choosePlan' | transloco }}</option>
-          @for (plan of store.plans(); track plan.id) {
-            <option [value]="'' + plan.id">{{ plan.name }}</option>
-          }
-        </select>
+        <ui-select
+          [options]="store.plans()"
+          [placeholder]="'platform.assign.choosePlan' | transloco"
+          [formField]="assignForm.plan_id"
+        />
       </ui-field>
       <div class="platform-actions">
         <ui-button

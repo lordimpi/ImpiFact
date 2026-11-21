@@ -74,9 +74,16 @@ test('assigns a plan to a company picked from the searchable list', async ({ pag
 
   await page.getByRole('button', { name: 'Asignar plan a Beta Ltda' }).click();
   const dialog = page.getByRole('dialog', { name: 'Asignar plan a Beta Ltda' });
-  await expect(dialog.getByRole('option', { name: 'Anual 5000' })).toBeAttached();
+  const plan = dialog.getByRole('combobox', { name: 'Plan' });
+  await expect(plan).toHaveText('Elija un plan');
   expect(await seriousViolations(page)).toEqual([]);
-  await dialog.getByRole('combobox', { name: 'Plan' }).selectOption('2');
+  // The ui-select list opens over the page, outside the dialog; axe checks it open too.
+  await plan.click();
+  const option = page.getByRole('option', { name: 'Anual 5000', exact: true });
+  await expect(option).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+  await option.click();
+  await expect(plan).toHaveText('Anual 5000');
   await dialog.getByRole('button', { name: 'Asignar plan' }).click();
 
   await expect(

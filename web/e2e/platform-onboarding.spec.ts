@@ -109,8 +109,12 @@ test('creates a company, shows its key once, creates its owner and the owner sig
   await expect(page.getByRole('textbox', { name: /^NIT/ })).toHaveValue('901234567');
   await expect(page.getByLabel('Dígito de verificación')).toHaveValue('7');
   await page.getByLabel('Razón social').fill('Nueva Empresa SAS');
-  await page.getByLabel('Tipo de organización').selectOption('1');
-  await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
+  await pickOption(
+    page,
+    page.getByRole('combobox', { name: 'Tipo de organización' }),
+    'Persona Jurídica y asimiladas',
+  );
+  await pickOption(page, page.getByRole('combobox', { name: 'Régimen' }), 'Responsable de IVA');
   await page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }).check();
   // Primero el departamento; el municipio se busca entre los suyos y se elige en la lista.
   // El departamento también se busca escribiendo, sin importar tildes ni mayúsculas.
@@ -161,7 +165,7 @@ test('creates a company, shows its key once, creates its owner and the owner sig
   await userDialog.getByLabel('Correo electrónico').fill(OWNER.email);
   await userDialog.getByLabel('Nombre').fill('Ana Dueña');
   await userDialog.getByLabel('Contraseña').fill(OWNER.password);
-  await expect(userDialog.getByRole('combobox', { name: 'Rol' })).toHaveValue('owner');
+  await expect(userDialog.getByRole('combobox', { name: 'Rol' })).toHaveText('Dueño');
   await userDialog.getByRole('button', { name: 'Crear usuario' }).click();
   await expect(userDialog).toHaveCount(0);
   await expect(

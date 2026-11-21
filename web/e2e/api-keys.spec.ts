@@ -49,13 +49,22 @@ test('creates a key, shows it once and forgets it after closing the dialog', asy
   expect(await seriousViolations(page)).toEqual([]);
 
   await page.getByLabel(/Nombre de la llave/).fill('Tienda en línea');
+  // The ui-date-picker takes the date typed as dd/mm/aaaa (key by key) and sends the end of that day in Colombia.
+  const expiresAt = page.getByRole('combobox', { name: /Vence el/ });
+  await expect(expiresAt).toHaveAttribute('placeholder', 'dd/mm/aaaa');
+  await expiresAt.pressSequentially('31/01/2027');
+  await expect(expiresAt).toHaveValue('31/01/2027');
   await page.getByRole('checkbox', { name: /Consultar documentos/ }).check();
   await page.getByRole('button', { name: 'Crear llave' }).click();
 
   const dialog = page.getByRole('dialog', { name: 'Copie su llave ahora' });
   await expect(dialog.getByText(SECRET)).toBeVisible();
   expect(bodies).toEqual([
-    { name: 'Tienda en línea', scopes: ['documents:read'], expires_at: null },
+    {
+      name: 'Tienda en línea',
+      scopes: ['documents:read'],
+      expires_at: '2027-01-31T23:59:59-05:00',
+    },
   ]);
   expect(await seriousViolations(page)).toEqual([]);
 

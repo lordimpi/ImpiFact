@@ -250,8 +250,12 @@ test(
     ).toBeVisible();
     await expect(page.getByLabel('Razón social')).toHaveValue('Acme SAS');
     expect(await seriousViolationsInBothThemes(page)).toEqual(noViolations);
-    await page.getByLabel('Tipo de organización').selectOption('1');
-    await page.getByRole('combobox', { name: 'Régimen' }).selectOption('1');
+    await pickOption(
+      page,
+      page.getByRole('combobox', { name: 'Tipo de organización' }),
+      'Persona Jurídica y asimiladas',
+    );
+    await pickOption(page, page.getByRole('combobox', { name: 'Régimen' }), 'Responsable de IVA');
     await page.getByRole('checkbox', { name: 'O-13 Gran contribuyente' }).check();
     // Primero el departamento y luego el municipio, los dos buscando por el nombre.
     const department = page.getByRole('combobox', { name: 'Departamento', exact: true });
@@ -269,7 +273,7 @@ test(
     await openSection(page, 'Certificado');
     await expect(page.getByText('La empresa todavía no tiene certificados.')).toBeVisible();
     expect(await seriousViolationsInBothThemes(page)).toEqual(noViolations);
-    await page.getByLabel('Archivo del certificado').setInputFiles({
+    await page.locator('ui-file-upload input[type="file"]').setInputFiles({
       name: 'acme.p12',
       mimeType: 'application/x-pkcs12',
       buffer: Buffer.from('PFX-BYTES'),
@@ -299,9 +303,9 @@ test(
     await page.getByRole('button', { name: 'Usar el ejemplo de habilitación (SETP)' }).click();
     await expect(page.getByLabel('Prefijo')).toHaveValue('SETP');
     // El ejemplo llena también las fechas de la resolución y de su vigencia.
-    await expect(page.getByLabel('Fecha de la resolución')).toHaveValue('2019-01-19');
-    await expect(page.getByLabel('Vigente desde')).toHaveValue('2019-01-19');
-    await expect(page.getByLabel('Vigente hasta')).toHaveValue('2030-01-19');
+    await expect(page.getByLabel('Fecha de la resolución')).toHaveValue('19/01/2019');
+    await expect(page.getByLabel('Vigente desde')).toHaveValue('19/01/2019');
+    await expect(page.getByLabel('Vigente hasta')).toHaveValue('19/01/2030');
     await page.getByRole('button', { name: 'Guardar resolución' }).click();
     await expect(page.getByRole('cell', { name: '18760000001' })).toBeVisible();
 

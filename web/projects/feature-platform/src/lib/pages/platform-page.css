@@ -104,8 +104,7 @@
   align-items: center;
 }
 
-.platform-row-actions a,
-.platform-back {
+.platform-row-actions a {
   color: var(--if-color-primary);
   font-weight: var(--if-font-weight-medium);
 }
