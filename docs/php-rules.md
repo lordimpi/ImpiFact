@@ -112,7 +112,7 @@ Detalles que cambian el resultado:
 ### 3.5 Ambiente y set de pruebas
 
 1. `store` usa siempre `SendBillSync`, en habilitación y en producción; el ambiente solo cambia `ProfileExecutionID`, `UUID@schemeID`, la URL del QR y `software.url` (IC:475; DT:239-246).
-2. `invoice/{testSetId}` usa `SendTestSetAsync`, se salta las validaciones de plan y de empresa activa, no genera AttachedDocument ni correo, no lee el `ZipKey` y deja el documento en estado 0 (IC:802-829, 1024-1031). **Conservar** el contrato; **Mejora:** ImpiFact guarda el `ZipKey` y consulta el estado.
+2. `invoice/{testSetId}` usa `SendTestSetAsync`, se salta las validaciones de plan y de empresa activa, no genera AttachedDocument ni correo, no lee el `ZipKey` y deja el documento en estado 0 (IC:802-829, 1024-1031). **Conservar** el contrato; **Mejora:** ImpiFact guarda el `ZipKey` y consulta el estado. Si GetStatusZip responde «Set de prueba con identificador … se encuentra Aceptado» (código 2, sin validar el documento: la DIAN ya aprobó el set y no valida más envíos), la respuesta es final: el documento pasa a `Rejected` con esa descripción y se dejan de hacer consultas (20-nov). «Batch en proceso de validación.» y el código 2 con otra descripción siguen en proceso.
 3. Antes de enviar hace un GET a `software.url` (10 s, sin verificar TLS). Si no responde 200: «El servicio de la DIAN no está disponible en este momento. Por favor, inténtelo más tarde.» (DT:1668-1699).
 
 ### 3.6 Firma, ZIP y envío

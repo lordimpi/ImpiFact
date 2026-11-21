@@ -16,8 +16,9 @@ public interface ICompanyConfigurationReads
 
     /// <summary>
     /// Resultado del set de pruebas de habilitación según las respuestas de la DIAN guardadas (consultas
-    /// GetStatusZip): verdadero si la DIAN validó al menos un documento enviado con el set, falso si respondió y no
-    /// validó ninguno, nulo si todavía no hay respuesta guardada.
+    /// GetStatusZip): verdadero si la DIAN validó al menos un documento enviado con el set o respondió que el set ya
+    /// está aceptado (<see cref="Dian.DianTestSetAnswers.IsAlreadyAccepted"/>), falso si respondió y no validó
+    /// ninguno, nulo si todavía no hay respuesta guardada.
     /// </summary>
     Task<bool?> FindTestSetResultAsync(Guid companyId, CancellationToken ct);
 }

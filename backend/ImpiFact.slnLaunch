@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "Nuevo perfil",
+    "Projects": [
+      {
+        "Path": "src\\ImpiFact.Api\\ImpiFact.Api.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "src\\ImpiFact.Worker\\ImpiFact.Worker.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
