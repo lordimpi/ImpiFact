@@ -1,7 +1,6 @@
 import { Locator, Page, expect, test } from '@playwright/test';
 import path from 'node:path';
 import { USER } from '../support/mock-api';
-import { pickOption } from '../support/select';
 import { COMPANY_ID, OTHER_COMPANY_ID, mockManualApi } from './manual-api';
 import { pickOption } from '../support/select';
 
