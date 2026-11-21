@@ -18,12 +18,27 @@ public interface ICompanyMemberStore
 
     /// <summary>
     /// Leaves the user with exactly <paramref name="role"/> as staff role in the company and sets whether the
-    /// membership is active. When the change takes an active owner away, the other active owners' rows are written
-    /// too, so that two simultaneous changes cannot both remove an owner (the second fails with a concurrency
-    /// conflict). It is saved when the use case transaction commits.
+    /// membership is active. It is saved when the use case transaction commits.
+    /// When the change takes an active owner away (demotes or deactivates one), the store itself decides the
+    /// last-owner rule on what it reads now, not on an earlier snapshot of the caller: with no other active owner it
+    /// changes nothing and answers <see cref="CompanyMemberChange.LastOwner"/>. Otherwise the other active owners'
+    /// rows are written too, so that if a simultaneous change removes one of them, one of the two saves fails with a
+    /// concurrency conflict instead of leaving the company without an active owner.
     /// </summary>
-    /// <returns><see langword="false"/> if the user is not staff of the company.</returns>
-    Task<bool> ChangeAsync(Guid companyId, Guid userId, string role, bool isActive, CancellationToken ct);
+    Task<CompanyMemberChange> ChangeAsync(Guid companyId, Guid userId, string role, bool isActive, CancellationToken ct);
+}
+
+/// <summary>Outcome of <see cref="ICompanyMemberStore.ChangeAsync"/>.</summary>
+public enum CompanyMemberChange
+{
+    /// <summary>The change is applied, pending the commit of the use case transaction.</summary>
+    Changed,
+
+    /// <summary>The user is not staff of the company; nothing changed.</summary>
+    NotFound,
+
+    /// <summary>The change would leave the company without an active owner; nothing changed.</summary>
+    LastOwner,
 }
 
 /// <summary>A staff member of a company, without any credential.</summary>

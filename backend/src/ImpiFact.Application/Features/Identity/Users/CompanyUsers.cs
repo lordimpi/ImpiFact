@@ -53,7 +53,7 @@ internal static class CompanyUserRules
 {
     public static readonly string[] StaffRoles = [RoleNames.Owner, RoleNames.Seller];
 
-    /// <param name="actingUserId">The panel user making the change; <see langword="null"/> for an API key or the platform key.</param>
+    /// <param name="actingUserId">The panel user making the change; <see langword="null"/> for the platform key (company API keys never get here).</param>
     /// <param name="target">The membership as it is now.</param>
     /// <param name="activeOwners">Active owners of the company now, <paramref name="target"/> included.</param>
     /// <returns>The broken rule, or <see langword="null"/> if the change is allowed.</returns>
@@ -80,10 +80,11 @@ internal static class CompanyUserRules
 
 /// <summary>
 /// Decides on which company a request for its users acts, following the company routes: with a company credential the
-/// <c>{nit}</c> must be that company's and, for a panel user, the caller must be one of its active owners; otherwise the
-/// answer is <see cref="IdentityErrors.ForeignCompany"/>, the same whether the NIT exists or not. Acting for the
-/// platform (platform key or <c>platform_admin</c> without an active company) any company can be named, and an unknown
-/// NIT is <see cref="IdentityErrors.CompanyNotFound"/>.
+/// <c>{nit}</c> must be that company's and the caller must be a panel session of one of its active owners (checked in
+/// the database); otherwise the answer is <see cref="IdentityErrors.ForeignCompany"/>, the same whether the NIT exists
+/// or not. A company API key always gets that answer, whatever its scopes: API keys are for integrations and never
+/// manage people (decision of 21-nov). Acting for the platform (platform key or <c>platform_admin</c> without an active
+/// company) any company can be named, and an unknown NIT is <see cref="IdentityErrors.CompanyNotFound"/>.
 /// </summary>
 internal static class CompanyUserAccess
 {
@@ -93,9 +94,10 @@ internal static class CompanyUserAccess
         if (tenant.CompanyId is { } companyId)
         {
             var own = await companies.ByIdAsync(companyId, ct);
+            // IsCompanyOwnerAsync is true only for a panel session (ActorType.User): a company API key is refused here.
             var allowed = own is not null
                 && string.Equals(own.Nit, nit, StringComparison.Ordinal)
-                && (tenant.Actor != ActorType.User || await IdentityAccess.IsCompanyOwnerAsync(tenant, users, ct));
+                && await IdentityAccess.IsCompanyOwnerAsync(tenant, users, ct);
             return allowed ? companyId : IdentityErrors.ForeignCompany;
         }
 
@@ -126,11 +128,13 @@ internal sealed class ListCompanyUsersHandler(
 }
 
 /// <summary>
-/// Applies <see cref="CompanyUserRules"/> and saves the change. Deactivating a membership revokes every refresh token
-/// of the user with the existing mechanism (<see cref="IRefreshTokenStore.RevokeAllActiveForUserAsync"/>, saved at
-/// once): refresh tokens do not record a company, so the user signs in again everywhere, but only this membership is
-/// refused afterwards. Access tokens already issued keep working until they expire (15 minutes at most), except for
-/// the operations that check the role in the database.
+/// Applies <see cref="CompanyUserRules"/> as a fast path and saves the change; <see cref="ICompanyMemberStore.ChangeAsync"/>
+/// decides the last-owner rule again on what it reads, so two owners removing each other at once never leave the company
+/// without an active owner. Deactivating a membership revokes every refresh token of the user in the same unit of work
+/// (<see cref="IRefreshTokenStore.RevokeAllActiveForUserWithChangesAsync"/>): if the change fails (409, last owner) no
+/// session is closed. Refresh tokens do not record a company, so the user signs in again everywhere, but only this
+/// membership is refused afterwards. Access tokens already issued keep working until they expire (15 minutes at most),
+/// except for the operations that check the role in the database.
 /// </summary>
 internal sealed class UpdateCompanyUserHandler(
     ITenantContext tenant,
@@ -164,14 +168,18 @@ internal sealed class UpdateCompanyUserHandler(
             return broken;
         }
 
-        if (!await members.ChangeAsync(company.Value, target.UserId, role, isActive, ct))
+        // The check above is the fast path; the store decides the last-owner rule again on what it reads now.
+        switch (await members.ChangeAsync(company.Value, target.UserId, role, isActive, ct))
         {
-            return IdentityErrors.UserNotFound;
+            case CompanyMemberChange.NotFound:
+                return IdentityErrors.UserNotFound;
+            case CompanyMemberChange.LastOwner:
+                return IdentityErrors.LastOwner;
         }
 
         if (target.IsActive && !isActive)
         {
-            await refreshTokens.RevokeAllActiveForUserAsync(target.UserId, clock.UtcNow, ct);
+            await refreshTokens.RevokeAllActiveForUserWithChangesAsync(target.UserId, clock.UtcNow, ct);
         }
 
         logger.LogInformation(

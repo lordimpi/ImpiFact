@@ -357,6 +357,66 @@ public sealed class CompanyUsersTests
         });
     }
 
+    [Test]
+    public async Task A_company_api_key_with_config_write_cannot_list_or_change_the_company_users()
+    {
+        var company = await AddCompanyAsync();
+        var owner = await AddUserAsync(company.Id, RoleNames.Owner, "Dueña");
+        var seller = await AddUserAsync(company.Id, RoleNames.Seller, "Vendedor");
+        using var byOwner = await ClientAsync(owner.Email, company.Id);
+        using var created = await byOwner.PostAsJsonAsync("/api/v1/api-keys", new { name = "integracion", scopes = new[] { "config:write" } });
+        var createdBody = await ReadAsync(created);
+        Assert.That(created.StatusCode, Is.EqualTo(HttpStatusCode.Created), createdBody.GetRawText());
+        using var byKey = _factory.CreateClient(createdBody.GetProperty("key").GetString()!);
+        var path = $"/api/v1/companies/{company.Nit}/users";
+
+        using var list = await byKey.GetAsync(path);
+        using var promote = await byKey.PatchAsJsonAsync($"{path}/{seller.Id}", new { role = "owner" });
+        using var deactivate = await byKey.PatchAsJsonAsync($"{path}/{owner.Id}", new { is_active = false });
+        using var missing = await byKey.GetAsync($"/api/v1/companies/{MissingNit()}/users");
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(list.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden), "API keys are for integrations and never manage people.");
+            Assert.That(await CodeAsync(list), Is.EqualTo("company.forbidden"));
+            Assert.That(await CodeAndDetailAsync(list), Is.EqualTo(await CodeAndDetailAsync(missing)), "The same answer as a NIT that does not exist.");
+            Assert.That(promote.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(await CodeAsync(promote), Is.EqualTo("company.forbidden"));
+            Assert.That(deactivate.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+            Assert.That(await CodeAsync(deactivate), Is.EqualTo("company.forbidden"));
+            Assert.That(await CountAsync(
+                "select count(*) from user_companies where user_id = @id and company_id = @company and role_id = @owner",
+                new { id = seller.Id, company = company.Id, owner = PlatformSeed.OwnerRoleId }), Is.Zero, "The seller was not promoted.");
+            Assert.That(await IsActiveAsync(owner.Id, company.Id), Is.True, "The owner was not deactivated.");
+            Assert.That(await IsActiveAsync(seller.Id, company.Id), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task A_platform_key_lists_and_changes_the_users_of_any_company()
+    {
+        var company = await AddCompanyAsync();
+        await AddUserAsync(company.Id, RoleNames.Owner, "Dueña");
+        var seller = await AddUserAsync(company.Id, RoleNames.Seller, "Vendedor");
+        using var admin = await PlatformAdminAsync();
+        using var created = await admin.PostAsJsonAsync("/api/v1/api-keys", new { name = "Plataforma", scopes = new[] { ApiScopes.Platform } });
+        var createdBody = await ReadAsync(created);
+        Assert.That(created.StatusCode, Is.EqualTo(HttpStatusCode.Created), createdBody.GetRawText());
+        using var byKey = _factory.CreateClient(createdBody.GetProperty("key").GetString()!);
+        var path = $"/api/v1/companies/{company.Nit}/users";
+
+        using var list = await byKey.GetAsync(path);
+        using var promote = await byKey.PatchAsJsonAsync($"{path}/{seller.Id}", new { role = "owner" });
+
+        Assert.Multiple(async () =>
+        {
+            Assert.That(list.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(Items(await list.Content.ReadAsStringAsync()), Has.Count.EqualTo(2));
+            Assert.That(promote.StatusCode, Is.EqualTo(HttpStatusCode.OK), await promote.Content.ReadAsStringAsync());
+            Assert.That((await ReadAsync(promote)).GetProperty("role").GetString(), Is.EqualTo("owner"));
+        });
+    }
+
     private static string MissingNit() => Random.Shared.NextInt64(100_000_000, 999_999_999).ToString(System.Globalization.CultureInfo.InvariantCulture) + "9";
 
     private static async Task<(Guid Id, string Nit)> AddCompanyAsync()

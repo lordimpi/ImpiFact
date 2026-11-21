@@ -56,7 +56,7 @@ internal sealed class EfCompanyMemberStore(ImpiFactDbContext db, CredentialStore
                 .ThenBy(member => member.Email, StringComparer.Ordinal)];
         });
 
-    public Task<bool> ChangeAsync(Guid companyId, Guid userId, string role, bool isActive, CancellationToken ct) =>
+    public Task<CompanyMemberChange> ChangeAsync(Guid companyId, Guid userId, string role, bool isActive, CancellationToken ct) =>
         guard.RunAsync(async () =>
         {
             var links = await db.Set<UserCompany>()
@@ -66,11 +66,32 @@ internal sealed class EfCompanyMemberStore(ImpiFactDbContext db, CredentialStore
             var staff = links.Where(link => link.RoleId == OwnerRoleId || link.RoleId == SellerRoleId).ToList();
             if (staff.Count == 0)
             {
-                return false;
+                return CompanyMemberChange.NotFound;
             }
 
             var wasActiveOwner = staff.Any(link => link is { IsActive: true } && link.RoleId == OwnerRoleId);
             var roleId = role == RoleNames.Owner ? OwnerRoleId : SellerRoleId;
+            if (wasActiveOwner && !(isActive && roleId == OwnerRoleId))
+            {
+                // The use case checked the last-owner rule on an earlier read; another request may have removed an
+                // owner and committed since. Decide again on what the database holds now, before changing anything.
+                // Writing the other active owners' rows bumps their row_version: if a simultaneous change removes one
+                // of them, one of the two saves fails with a concurrency conflict instead of leaving no active owner.
+                var otherOwners = await db.Set<UserCompany>()
+                    .IgnoreQueryFilters([QueryFilters.Tenant])
+                    .Where(link => link.CompanyId == companyId && link.UserId != userId && link.RoleId == OwnerRoleId && link.IsActive)
+                    .ToListAsync(ct);
+                if (otherOwners.Count == 0)
+                {
+                    return CompanyMemberChange.LastOwner;
+                }
+
+                foreach (var owner in otherOwners)
+                {
+                    db.Entry(owner).State = EntityState.Modified;
+                }
+            }
+
             var kept = staff.FirstOrDefault(link => link.RoleId == roleId) ?? staff[0];
             kept.RoleId = roleId;
             foreach (var extra in staff.Where(link => !ReferenceEquals(link, kept)))
@@ -84,20 +105,6 @@ internal sealed class EfCompanyMemberStore(ImpiFactDbContext db, CredentialStore
                 link.IsActive = isActive;
             }
 
-            if (wasActiveOwner && !(isActive && roleId == OwnerRoleId))
-            {
-                // Writing the other active owners' rows bumps their row_version: if a simultaneous change removes one
-                // of them, one of the two saves fails with a concurrency conflict instead of leaving no active owner.
-                var otherOwners = await db.Set<UserCompany>()
-                    .IgnoreQueryFilters([QueryFilters.Tenant])
-                    .Where(link => link.CompanyId == companyId && link.UserId != userId && link.RoleId == OwnerRoleId && link.IsActive)
-                    .ToListAsync(ct);
-                foreach (var owner in otherOwners)
-                {
-                    db.Entry(owner).State = EntityState.Modified;
-                }
-            }
-
-            return true;
+            return CompanyMemberChange.Changed;
         });
 }

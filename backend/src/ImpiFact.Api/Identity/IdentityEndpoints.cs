@@ -184,8 +184,8 @@ internal sealed class IdentityEndpoints : IEndpointModule
                 "no, ordenados por nombre y luego por correo: `id`, `email`, `name`, `phone`, `role` (`owner` o `seller`) e " +
                 "`is_active` (si la pertenencia a esta empresa está activa). Nunca trae contraseñas ni tokens. Los clientes " +
                 "del portal no aparecen. No se pagina: una empresa tiene pocos usuarios. Lo usa el dueño (`owner`) de la " +
-                "empresa con su sesión del panel, o una credencial de la empresa con `config:write`; la plataforma puede " +
-                "consultar cualquier empresa (NIT inexistente: 404, `user.company_not_found`)." + CompanyUsersNit);
+                "empresa con su sesión del panel; la plataforma puede consultar cualquier empresa (NIT inexistente: 404, " +
+                "`user.company_not_found`)." + CompanyUsersNit);
         companyUsers.MapPatch("/{userId:guid}", UpdateCompanyUserAsync)
             .Produces<CompanyUser>()
             .WithRequestExamples(CompanyUserExamples)
@@ -219,9 +219,10 @@ internal sealed class IdentityEndpoints : IEndpointModule
 
     /// <summary>Reminder of the company user routes: another company's NIT answers like one that does not exist.</summary>
     private const string CompanyUsersNit =
-        " Con una credencial de empresa, el `{nit}` debe ser el de esa empresa y un usuario del panel debe ser uno de sus " +
-        "dueños activos; si no, responde 403 (`company.forbidden`), exista o no el NIT. Sin `config:write` (por ejemplo, " +
-        "un vendedor) también responde 403, para cualquier NIT.";
+        " Con una credencial de empresa, el `{nit}` debe ser el de esa empresa y quien llama debe ser uno de sus dueños " +
+        "activos con su sesión del panel; si no, responde 403 (`company.forbidden`), exista o no el NIT. Las API keys de " +
+        "empresa no administran usuarios: responden ese mismo 403, tengan los alcances que tengan. Sin `config:write` " +
+        "(por ejemplo, un vendedor) también responde 403, para cualquier NIT.";
 
     private const string ExampleUserId = "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8c";
 

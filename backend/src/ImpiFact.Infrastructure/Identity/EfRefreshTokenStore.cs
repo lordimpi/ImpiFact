@@ -89,6 +89,22 @@ internal sealed class EfRefreshTokenStore(ImpiFactDbContext db, CredentialStoreG
             await independent.SaveChangesAsync(ct);
         });
 
+    /// <summary>
+    /// Lee las filas con seguimiento en el contexto de la solicitud: se guardan con el resto del caso de uso, y si otra
+    /// solicitud rota uno de estos tokens a la vez, <c>row_version</c> hace fallar uno de los dos guardados (409).
+    /// </summary>
+    public Task RevokeAllActiveForUserWithChangesAsync(Guid userId, DateTimeOffset revokedAt, CancellationToken ct) =>
+        guard.RunAsync(async () =>
+        {
+            var active = await db.Set<RefreshToken>()
+                .Where(token => token.UserId == userId && token.RevokedAt == null)
+                .ToListAsync(ct);
+            foreach (var token in active)
+            {
+                token.RevokedAt = revokedAt;
+            }
+        });
+
     private static string? Truncate(string? value, int length) =>
         value is { Length: var actual } && actual > length ? value[..length] : value;
 }
