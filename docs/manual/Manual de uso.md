@@ -36,8 +36,8 @@ Lo que usted ve en el panel depende de su rol:
 
 ### Iniciar sesión
 
-1. Abra la dirección del panel que le entregó su proveedor de ImpiFact.
-2. Escriba su **Correo electrónico** y su **Contraseña**.
+1. Abra la dirección del panel que le entregó su proveedor de ImpiFact. A la izquierda está el formulario de ingreso y a la derecha un resumen de lo que hace ImpiFact (en el celular, debajo del formulario).
+2. Escriba su **Correo electrónico** y su **Contraseña**. El ojo del campo de la contraseña la muestra u oculta.
 3. Haga clic en «Ingresar».
 
 ![Pantalla «Iniciar sesión».](img/01-inicio-sesion.png)
@@ -71,7 +71,7 @@ Todo lo que haga después (emitir, consultar, configurar) se hace sobre esa empr
 La pantalla tiene tres partes:
 
 1. **La barra lateral**, a la izquierda, con las secciones agrupadas: «Inicio»; **Emisión** («Nueva factura», «Nota crédito», «Nota débito»); **Consulta** («Documentos», «Clientes», «Productos»), y **Ajustes** («Empresa», «Paso a producción», «Llaves de API», «Mi plan», «Avisos»). Solo aparecen las secciones que su rol permite.
-2. **La barra superior**, con el nombre de la empresa activa, «Ayuda» (abre este manual en PDF en otra pestaña), la campana de avisos (con el número de avisos sin leer) y el menú de su cuenta.
+2. **La barra superior**, con el nombre de la empresa activa, el botón de la luna o el sol (cambia entre el modo claro y el oscuro), «Ayuda» (abre este manual en PDF en otra pestaña), la campana de avisos (con el número de avisos sin leer) y el menú de su cuenta.
 3. **El contenido** de la sección elegida.
 
 ![Estructura de la pantalla: barra lateral, barra superior y contenido (aquí, el tablero).](img/04-estructura-pantalla.png)
@@ -86,6 +86,20 @@ En pantallas angostas la barra lateral se oculta. Toque el botón de menú (las 
 
 ![Menú de navegación abierto en un celular.](img/06-celular-menu.png)
 
+### Modo claro y oscuro
+
+El panel abre en modo claro. Para trabajar con colores oscuros, haga clic en la luna de la barra superior; para volver al modo claro, haga clic en el sol. El panel recuerda su elección en ese navegador, también en la pantalla de inicio de sesión.
+
+### Campos, listas y fechas
+
+- **Ayuda de cada campo:** el ícono de información (una «i» en un círculo) junto al nombre del campo explica qué escribir. Pase el puntero sobre él, selecciónelo con el teclado o tóquelo en el celular.
+- **Ejemplos:** los campos vacíos muestran en gris un ejemplo de lo que se espera (por ejemplo, «Calle 10 # 20-30» en la dirección). El ejemplo no se guarda: escriba el dato real.
+- **Listas:** haga clic en la lista y elija una opción. Las listas largas traen un buscador arriba: escriba parte del nombre y elija en los resultados.
+- **Fechas:** escriba la fecha como dd/mm/aaaa o haga clic en el calendario y elija el día.
+- **Ruta de la página:** arriba del título de algunas páginas aparece la ruta, por ejemplo «Clientes › Nuevo cliente». Haga clic en «Clientes» para volver a la lista.
+- **Cambios sin guardar:** si sale de un formulario sin guardar lo que escribió, el panel pregunta en el diálogo **Cambios sin guardar**. «Seguir editando» lo deja en el formulario con lo que escribió; «Salir sin guardar» descarta los cambios.
+- **Campos obligatorios:** llevan un asterisco rojo (*). Si falta uno al guardar, el panel lo marca en rojo con el mensaje «Este campo es obligatorio.».
+
 ## Administración de la plataforma
 
 Esta sección es solo para el administrador de la plataforma. Su barra lateral muestra el grupo **Plataforma**, con «Planes» y «Empresas», y la barra superior dice «Administración de la plataforma».
@@ -98,13 +112,13 @@ Esta sección es solo para el administrador de la plataforma. Su barra lateral m
    - **NIT**: solo dígitos, sin puntos ni dígito de verificación. El **Dígito de verificación** se calcula solo.
    - **Razón social**, **Tipo de identificación**, **Tipo de organización** y **Régimen**.
    - **Responsabilidades fiscales**: marque al menos una.
-   - **Departamento** y **Municipio**: escriba parte del nombre y elíjalo en la lista. Elija primero el departamento.
+   - **Departamento** y **Municipio**: abra la lista, escriba parte del nombre en el buscador y elíjalo. El municipio queda bloqueado hasta que elija el departamento.
    - **Dirección**, **Teléfono** (entre 7 y 10 dígitos), **Correo electrónico** y **Matrícula mercantil** (si no tiene, escriba 0000000-00).
 4. Haga clic en «Crear empresa».
 
 ![Formulario «Nueva empresa» con los datos de una empresa de ejemplo.](img/11-plataforma-nueva-empresa.png)
 
-> **Consejo:** cada campo tiene un ícono «i» con una explicación de qué escribir. Pase el puntero sobre él o selecciónelo con el teclado.
+> **Consejo:** cada campo tiene un ícono de información (una «i» en un círculo) con una explicación de qué escribir. Pase el puntero sobre él o selecciónelo con el teclado.
 
 La empresa nueva queda en habilitación (pruebas) para todos sus documentos y recibe una llave de API inicial para su integración.
 
@@ -196,7 +210,7 @@ En la pestaña «Software» registre los datos que la DIAN le asignó a la empre
 Los documentos se firman con el certificado de firma digital de la empresa (archivo .p12 o .pfx).
 
 1. Abra la pestaña «Certificado». Verá los certificados de la empresa, con su titular, emisor, fecha de vencimiento y días restantes.
-2. En **Cargar un certificado**, elija el **Archivo del certificado** (máximo 1 MB).
+2. En **Cargar un certificado**, haga clic en «Seleccionar archivo» y elija el **Archivo del certificado** (.p12 o .pfx, máximo 1 MB). Si el archivo no es de ese tipo o pesa más, el panel lo avisa enseguida.
 3. Escriba la **Contraseña del certificado**.
 4. Haga clic en «Cargar certificado». El panel confirma cuántos días le quedan de vigencia.
 
@@ -282,7 +296,7 @@ Para cambiar los datos de un cliente, haga clic en «Editar» en su fila. «Desa
 1. En la barra lateral, haga clic en «Productos». Verá la lista **Productos y servicios** con el código, el nombre, el precio unitario y el estado.
 2. Para crear uno, haga clic en «Nuevo producto».
 3. Escriba el **Código**, el **Nombre** y, si quiere, la **Descripción**.
-4. Elija la **Unidad de medida** (escriba el nombre o el código, por ejemplo KGM, y elíjala en la lista).
+4. Elija la **Unidad de medida**: abra la lista, escriba en el buscador el nombre o el código (por ejemplo KGM) y elíjala en los resultados.
 5. Escriba el **Precio unitario sin impuestos**, con punto para los decimales (por ejemplo 12500.50).
 6. Elija el **Impuesto** y su tarifa, o «Sin impuesto».
 7. Haga clic en «Guardar».
@@ -347,12 +361,12 @@ La nota débito suma cargos (intereses, gastos) a una factura aceptada por la DI
 
 ### Lista de documentos y filtros
 
-En la barra lateral, haga clic en «Documentos». La lista muestra las facturas y notas de la empresa activa, de la más reciente a la más antigua, con su número, tipo, fecha, cliente, total y **Estado DIAN**.
+En la barra lateral, haga clic en «Documentos». La lista muestra las facturas y notas de la empresa activa, de la más reciente a la más antigua, con su número, tipo, fecha, cliente, total y **Estado DIAN**. Use las flechas al pie de la lista para ver la página anterior o la siguiente.
 
 Para filtrar:
 
 1. Use **Desde** y **Hasta** (fechas), **Tipo de documento**, **Cliente** (identificación o nombre) y **Número** (con prefijo o solo los dígitos).
-2. Para filtrar por estado, haga clic en «Más filtros» y marque uno o varios estados en **Estado DIAN**.
+2. Para filtrar por estado, haga clic en «Más filtros» y marque uno o varios estados en **Estado DIAN**. Para ocultarlos de nuevo, haga clic en «Menos filtros».
 3. Si quiere saber cuántos documentos cumplen los filtros, marque «Mostrar cuántos documentos hay».
 4. Haga clic en «Aplicar filtros». «Limpiar filtros» los quita.
 
@@ -440,7 +454,7 @@ Las llaves de API permiten que sus otros sistemas (tienda en línea, ERP) emitan
 1. En la barra lateral, haga clic en «Llaves de API».
 2. En **Nueva llave**, escriba el **Nombre de la llave** (para reconocerla después, por ejemplo «Tienda en línea»).
 3. Marque los **Permisos**: «Consultar documentos y descargar sus archivos», «Emitir documentos (facturas y notas)» o «Cambiar la configuración de la empresa». Solo puede dar los permisos que usted tiene.
-4. Si quiere que venza, elija la fecha en **Vence el (opcional)**.
+4. Si quiere que venza, escriba o elija en el calendario la fecha en **Vence el (opcional)**.
 5. Haga clic en «Crear llave».
 6. En el diálogo **Copie su llave ahora**, haga clic en «Copiar llave», guárdela en un lugar seguro y haga clic en «Ya la copié».
 
