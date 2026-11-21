@@ -147,13 +147,17 @@ Enseguida el panel abre **Crear usuario** para la empresa nueva. El dueño es qu
 
 ![Diálogo para crear el usuario dueño de la empresa.](img/13-plataforma-crear-dueno.png)
 
-> **Nota:** el panel no guarda la contraseña. Entréguela a la persona por un medio seguro. Para crear más usuarios de una empresa ya creada, use «Crear usuario» en su fila de la lista de empresas.
+> **Nota:** el panel no guarda la contraseña. Entréguela a la persona por un medio seguro. Para crear más usuarios de una empresa ya creada, abra «Acciones» en su fila de la lista de empresas y elija «Crear usuario».
 
-![Lista «Empresas de la plataforma» con las acciones «Asignar plan», «Crear usuario» y «Usuarios».](img/10-plataforma-empresas.png)
+![Lista «Empresas de la plataforma», con el botón «Acciones» de cada fila.](img/10-plataforma-empresas.png)
+
+Cada fila tiene un botón «Acciones» con «Asignar plan», «Crear usuario» y «Usuarios».
+
+![Menú «Acciones» de una empresa abierto.](img/10-plataforma-empresas-acciones.png)
 
 ### Administrar los usuarios de una empresa
 
-1. En «Empresas», busque la empresa y haga clic en «Usuarios» en su fila.
+1. En «Empresas», busque la empresa, abra «Acciones» en su fila y elija «Usuarios».
 2. Se abre la página de usuarios de esa empresa, por ejemplo **Usuarios de Café La Montaña SAS**, con la ruta «Empresas de la plataforma › Usuarios de Café La Montaña SAS». Haga clic en «Empresas de la plataforma» para volver a la lista.
 3. Desde ahí cree usuarios con «Nuevo usuario», cambie su rol, desactívelos o reactívelos, igual que el dueño de la empresa (vea «Usuarios de la empresa»).
 
@@ -178,7 +182,7 @@ Un plan define cuántos documentos de cada familia puede emitir una empresa en c
 
 ### Asignar un plan a una empresa
 
-1. En «Empresas», busque la empresa y haga clic en «Asignar plan» en su fila.
+1. En «Empresas», busque la empresa, abra «Acciones» en su fila y elija «Asignar plan».
 2. Elija el **Plan** y haga clic en «Asignar plan».
 
 ![Diálogo «Asignar plan».](img/16-plataforma-asignar-plan.png)

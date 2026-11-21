@@ -2,6 +2,7 @@ import { Locator, Page, expect, test } from '@playwright/test';
 import path from 'node:path';
 import { USER } from '../support/mock-api';
 import { COMPANY_ID, OTHER_COMPANY_ID, mockManualApi } from './manual-api';
+import { pickMenuItem, openMenu } from '../support/menu';
 import { pickOption } from '../support/select';
 
 /*
@@ -168,6 +169,10 @@ test.describe('administración de la plataforma', () => {
     ).toBeVisible();
     await expect(page.getByText('Ferretería El Tornillo SAS')).toBeVisible();
     await shot(page, '10-plataforma-empresas');
+    const actions = await openMenu(page, 'Acciones de Café La Montaña SAS');
+    await shot(page, '10-plataforma-empresas-acciones');
+    await page.keyboard.press('Escape');
+    await expect(actions).toBeHidden();
 
     await page.getByRole('button', { name: 'Nueva empresa' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Nueva empresa' })).toBeVisible();
@@ -220,7 +225,7 @@ test.describe('administración de la plataforma', () => {
     await planDialog.getByRole('button', { name: 'Cancelar' }).click();
 
     await mainNav(page).getByRole('link', { name: 'Empresas', exact: true }).click();
-    await page.getByRole('button', { name: 'Asignar plan a Ferretería El Tornillo SAS' }).click();
+    await pickMenuItem(page, 'Acciones de Ferretería El Tornillo SAS', 'Asignar plan');
     const assign = page.getByRole('dialog', { name: 'Asignar plan a Ferretería El Tornillo SAS' });
     await pickOption(page, assign.getByRole('combobox', { name: 'Plan' }), 'Pyme 300');
     await shot(page, '16-plataforma-asignar-plan');
@@ -228,7 +233,7 @@ test.describe('administración de la plataforma', () => {
 
   test('usuarios de una empresa', async ({ page }) => {
     await signIn(page, '/plataforma/empresas', asPlatformAdmin);
-    await page.getByRole('link', { name: 'Usuarios de Café La Montaña SAS' }).click();
+    await pickMenuItem(page, 'Acciones de Café La Montaña SAS', 'Usuarios');
     await expect(page).toHaveURL('/plataforma/empresas/901458321/usuarios');
     await expect(
       page.getByRole('table', { name: 'Usuarios de la empresa' }).getByText('Diana Peña Ospina'),
