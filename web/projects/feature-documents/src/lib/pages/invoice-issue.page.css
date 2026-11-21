@@ -77,16 +77,13 @@
 }
 
 .issue-check {
-  display: flex;
-  gap: var(--if-space-2);
-  align-items: center;
   margin-block-start: var(--if-space-2);
-  cursor: pointer;
 }
 
+/* Under the label text: past the checkbox (1.25rem, the Optimus box) and its gap. */
 .issue-check__hint {
   margin-block-start: var(--if-space-1);
-  padding-inline-start: calc(1rem + var(--if-space-2));
+  padding-inline-start: calc(1.25rem + var(--if-space-2));
 }
 
 .issue-side__body {

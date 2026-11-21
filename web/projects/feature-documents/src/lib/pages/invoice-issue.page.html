@@ -126,10 +126,11 @@
             [formField]="invoiceForm.notes"
           ></textarea>
         </ui-field>
-        <label class="issue-check">
-          <input type="checkbox" [formField]="invoiceForm.sendEmail" />
-          <span>{{ 'documents.issue.sendEmail' | transloco }}</span>
-        </label>
+        <ui-checkbox
+          class="issue-check"
+          [formField]="invoiceForm.sendEmail"
+          [label]="'documents.issue.sendEmail' | transloco"
+        />
         <p class="doc-muted doc-small issue-check__hint">
           @if (customerEmail(); as email) {
             {{ 'documents.issue.sendEmailHint' | transloco: { email } }}

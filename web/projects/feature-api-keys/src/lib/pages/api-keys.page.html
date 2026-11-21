@@ -43,20 +43,17 @@
           <p id="keys-scopes-hint" class="keys-hint">{{ 'apiKeys.form.scopesHint' | transloco }}</p>
           <div class="keys-scope-list">
             @for (scope of availableScopes(); track scope) {
-              <label
+              <ui-checkbox
                 class="keys-scope"
                 [class.keys-scope--checked]="selectedScopes().includes(scope)"
+                [checked]="selectedScopes().includes(scope)"
+                (checkedChange)="toggleScope(scope, $event)"
               >
-                <input
-                  type="checkbox"
-                  [checked]="selectedScopes().includes(scope)"
-                  (change)="toggleScope(scope, $event)"
-                />
                 <span class="keys-scope-text">
                   <span>{{ scopeLabel(scope) }}</span>
                   <code class="keys-scope-code">{{ scope }}</code>
                 </span>
-              </label>
+              </ui-checkbox>
             }
           </div>
           @if (scopesError(); as message) {

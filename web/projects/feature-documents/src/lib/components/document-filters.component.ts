@@ -11,6 +11,7 @@ import {
 import {
   BadgeComponent,
   ButtonComponent,
+  CheckboxComponent,
   DatePickerComponent,
   FieldComponent,
   InputDirective,
@@ -31,6 +32,7 @@ import { DocumentFilters } from '../state/list-filters';
     TranslocoPipe,
     BadgeComponent,
     ButtonComponent,
+    CheckboxComponent,
     DatePickerComponent,
     FieldComponent,
     InputDirective,
@@ -116,28 +118,24 @@ import { DocumentFilters } from '../state/list-filters';
             <p class="filters__hint">{{ 'documents.filters.statusHint' | transloco }}</p>
             <div class="filters__checks">
               @for (option of statuses; track option) {
-                <label class="filters__chip">
-                  <input
-                    type="checkbox"
-                    [checked]="status().includes(option)"
-                    (change)="toggleStatus(option, $event)"
-                  />
-                  {{ 'documents.' + statusKey(option) | transloco }}
-                </label>
+                <ui-checkbox
+                  class="filters__chip"
+                  [class.filters__chip--checked]="status().includes(option)"
+                  [checked]="status().includes(option)"
+                  (checkedChange)="toggleStatus(option, $event)"
+                  [label]="'documents.' + statusKey(option) | transloco"
+                />
               }
             </div>
           </fieldset>
         </details>
 
         <div class="filters__actions">
-          <label class="filters__check">
-            <input
-              type="checkbox"
-              [checked]="withTotal()"
-              (change)="withTotal.set(checked($event))"
-            />
-            {{ 'documents.filters.withTotal' | transloco }}
-          </label>
+          <ui-checkbox
+            [checked]="withTotal()"
+            (checkedChange)="withTotal.set($event)"
+            [label]="'documents.filters.withTotal' | transloco"
+          />
           <div class="filters__buttons">
             <ui-button
               variant="ghost"
@@ -197,13 +195,9 @@ export class DocumentFiltersComponent {
     return (event.target as HTMLInputElement).value;
   }
 
-  protected checked(event: Event): boolean {
-    return (event.target as HTMLInputElement).checked;
-  }
-
-  protected toggleStatus(option: string, event: Event): void {
+  protected toggleStatus(option: string, checked: boolean): void {
     const others = this.status().filter((value) => value !== option);
-    this.status.set(this.checked(event) ? [...others, option] : others);
+    this.status.set(checked ? [...others, option] : others);
   }
 
   protected submit(event: Event): void {

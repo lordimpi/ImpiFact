@@ -183,10 +183,11 @@
       </ui-field>
 
       <div class="platform-check platform-check--help">
-        <label class="platform-check">
-          <input type="checkbox" aria-describedby="plan-state-help" [formField]="planForm.state" />
-          {{ 'platform.planForm.state' | transloco }}
-        </label>
+        <ui-checkbox
+          ariaDescribedBy="plan-state-help"
+          [formField]="planForm.state"
+          [label]="'platform.planForm.state' | transloco"
+        />
         <ui-help
           tooltipId="plan-state-help"
           [label]="'platform.planForm.state' | transloco"

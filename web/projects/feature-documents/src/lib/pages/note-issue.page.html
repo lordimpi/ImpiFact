@@ -123,10 +123,11 @@
             [formField]="noteForm.notes"
           ></textarea>
         </ui-field>
-        <label class="issue-check">
-          <input type="checkbox" [formField]="noteForm.sendEmail" />
-          <span>{{ 'documents.note.sendEmail' | transloco }}</span>
-        </label>
+        <ui-checkbox
+          class="issue-check"
+          [formField]="noteForm.sendEmail"
+          [label]="'documents.note.sendEmail' | transloco"
+        />
         <p class="doc-muted doc-small issue-check__hint">
           @if (customerEmail(); as email) {
             {{ 'documents.issue.sendEmailHint' | transloco: { email } }}

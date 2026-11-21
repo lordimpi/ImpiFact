@@ -26,6 +26,7 @@ import {
   ButtonComponent,
   CardComponent,
   CardFooterDirective,
+  CheckboxComponent,
   ComboboxComponent,
   ComboboxLabels,
   ErrorStateComponent,
@@ -69,6 +70,7 @@ const AMOUNT_FIELDS: readonly (keyof ProductModel)[] = [
 @Component({
   selector: 'feat-product-form-page',
   imports: [
+    CheckboxComponent,
     FormField,
     RouterLink,
     TranslocoPipe,

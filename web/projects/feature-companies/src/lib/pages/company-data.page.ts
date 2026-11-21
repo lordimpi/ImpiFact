@@ -14,6 +14,7 @@ import {
   ButtonComponent,
   CardComponent,
   CardFooterDirective,
+  CheckboxComponent,
   ComboboxComponent,
   ComboboxLabels,
   DigitsOnlyDirective,
@@ -46,6 +47,7 @@ import { CompanySetupStore } from '../state/company-setup.store';
 @Component({
   selector: 'feat-company-data-page',
   imports: [
+    CheckboxComponent,
     FormField,
     TranslocoPipe,
     ButtonComponent,

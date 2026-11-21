@@ -163,10 +163,11 @@
             }
 
             @if (isEdit()) {
-              <label class="masters-check masters-form__wide">
-                <input type="checkbox" [formField]="productForm.is_active" />
-                {{ 'masters.products.form.isActive' | transloco }}
-              </label>
+              <ui-checkbox
+                class="masters-check masters-form__wide"
+                [formField]="productForm.is_active"
+                [label]="'masters.products.form.isActive' | transloco"
+              />
             }
           </div>
           <div uiCardFooter class="masters-form__actions">
