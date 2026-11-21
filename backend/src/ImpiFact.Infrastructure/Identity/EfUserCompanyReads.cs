@@ -19,10 +19,11 @@ internal sealed class EfUserCompanyReads(ImpiFactDbContext db, CredentialStoreGu
     public Task<IReadOnlyList<AccessibleCompany>> ForUserAsync(Guid userId, CancellationToken ct) =>
         guard.RunAsync<IReadOnlyList<AccessibleCompany>>(async () =>
         {
-            // A propósito sin el filtro de empresa: son todas las empresas del usuario, antes de elegir una.
+            // A propósito sin el filtro de empresa: son todas las empresas del usuario, antes de elegir una. Una
+            // pertenencia desactivada no aparece: el usuario ya no puede elegir esa empresa.
             var rows = await db.Set<UserCompany>().AsNoTracking()
                 .IgnoreQueryFilters([QueryFilters.Tenant])
-                .Where(link => link.UserId == userId)
+                .Where(link => link.UserId == userId && link.IsActive)
                 .Join(db.Set<Role>(), link => link.RoleId, role => role.Id, (link, role) => new { link.CompanyId, Role = role.Name })
                 .Join(
                     db.Set<Company>(),

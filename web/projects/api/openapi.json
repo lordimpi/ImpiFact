@@ -123,7 +123,7 @@
           "Identidad"
         ],
         "summary": "Iniciar sesi\u00F3n en el panel",
-        "description": "Recibe \u0060email\u0060 y \u0060password\u0060 (y, si quiere, \u0060company_id\u0060, la empresa con la que va a trabajar) y entrega un \u0060access_token\u0060 (JWT de vida corta), un \u0060refresh_token\u0060 y el \u0060email\u0060 del usuario tal como est\u00E1 guardado. El \u0060access_token\u0060 se usa como credencial Bearer. Un correo desconocido, una contrase\u00F1a equivocada o un usuario inactivo o bloqueado responden el mismo 401 (\u0060identity.invalid_credentials\u0060); una empresa a la que el usuario no pertenece responde 403 (\u0060identity.company_not_allowed\u0060). Tiene un l\u00EDmite estricto de intentos por minuto y por IP (429).\n\n**Panel web:** con el encabezado \u0060X-Client: panel\u0060, el \u0060refresh_token\u0060 no va en el cuerpo sino en la cookie \u0060impifact_refresh\u0060 (\u0060HttpOnly\u0060, \u0060Secure\u0060, \u0060SameSite=Strict\u0060, solo para \u0060/api/v1/auth\u0060, con el vencimiento del token). Esa cookie solo se acepta con el mismo encabezado; sin \u00E9l responde 403 (\u0060identity.client_header_required\u0060), para que otra p\u00E1gina no pueda usarla.\n\n**Permiso:** no pide credencial.",
+        "description": "Recibe \u0060email\u0060 y \u0060password\u0060 (y, si quiere, \u0060company_id\u0060, la empresa con la que va a trabajar) y entrega un \u0060access_token\u0060 (JWT de vida corta), un \u0060refresh_token\u0060 y el \u0060email\u0060 del usuario tal como est\u00E1 guardado. El \u0060access_token\u0060 se usa como credencial Bearer. Un correo desconocido, una contrase\u00F1a equivocada o un usuario inactivo o bloqueado responden el mismo 401 (\u0060identity.invalid_credentials\u0060); una empresa a la que el usuario no pertenece, o donde su pertenencia est\u00E1 desactivada, responde 403 (\u0060identity.company_not_allowed\u0060). Tiene un l\u00EDmite estricto de intentos por minuto y por IP (429).\n\n**Panel web:** con el encabezado \u0060X-Client: panel\u0060, el \u0060refresh_token\u0060 no va en el cuerpo sino en la cookie \u0060impifact_refresh\u0060 (\u0060HttpOnly\u0060, \u0060Secure\u0060, \u0060SameSite=Strict\u0060, solo para \u0060/api/v1/auth\u0060, con el vencimiento del token). Esa cookie solo se acepta con el mismo encabezado; sin \u00E9l responde 403 (\u0060identity.client_header_required\u0060), para que otra p\u00E1gina no pueda usarla.\n\n**Permiso:** no pide credencial.",
         "operationId": "login",
         "parameters": [
           {
@@ -521,7 +521,7 @@
           "Identidad"
         ],
         "summary": "Listar mis empresas",
-        "description": "Devuelve en \u0060items\u0060 las empresas a las que puede entrar quien llama, ordenadas por raz\u00F3n social: \u0060id\u0060, \u0060name\u0060 (raz\u00F3n social), \u0060nit\u0060, \u0060dv\u0060, \u0060roles\u0060 (los roles de quien llama en esa empresa, por ejemplo \u0060owner\u0060 o \u0060seller\u0060) e \u0060is_active\u0060. Es lo que muestra el selector de empresa del panel antes de renovar la sesi\u00F3n con \u0060company_id\u0060; no necesita empresa activa y la empresa activa no reduce la lista. Un usuario del panel ve las empresas donde tiene un rol (un \u0060platform_admin\u0060 sin empresas recibe la lista vac\u00EDa); una API key de empresa ve solo su empresa, sin roles; una de plataforma, la lista vac\u00EDa. No se pagina: un usuario pertenece a pocas empresas.\n\n**Permiso:** cualquier credencial v\u00E1lida.",
+        "description": "Devuelve en \u0060items\u0060 las empresas a las que puede entrar quien llama, ordenadas por raz\u00F3n social: \u0060id\u0060, \u0060name\u0060 (raz\u00F3n social), \u0060nit\u0060, \u0060dv\u0060, \u0060roles\u0060 (los roles de quien llama en esa empresa, por ejemplo \u0060owner\u0060 o \u0060seller\u0060) e \u0060is_active\u0060. Es lo que muestra el selector de empresa del panel antes de renovar la sesi\u00F3n con \u0060company_id\u0060; no necesita empresa activa y la empresa activa no reduce la lista. Un usuario del panel ve las empresas donde tiene un rol con la pertenencia activa (un \u0060platform_admin\u0060 sin empresas recibe la lista vac\u00EDa); una API key de empresa ve solo su empresa, sin roles; una de plataforma, la lista vac\u00EDa. No se pagina: un usuario pertenece a pocas empresas.\n\n**Permiso:** cualquier credencial v\u00E1lida.",
         "operationId": "listMyCompanies",
         "responses": {
           "200": {
@@ -590,6 +590,128 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CreatedUser"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/companies/{nit}/users": {
+      "get": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Listar los usuarios de la empresa",
+        "description": "Devuelve en \u0060items\u0060 los usuarios del panel de la empresa, due\u00F1os y vendedores, con su pertenencia activa o no, ordenados por nombre y luego por correo: \u0060id\u0060, \u0060email\u0060, \u0060name\u0060, \u0060phone\u0060, \u0060role\u0060 (\u0060owner\u0060 o \u0060seller\u0060) e \u0060is_active\u0060 (si la pertenencia a esta empresa est\u00E1 activa). Nunca trae contrase\u00F1as ni tokens. Los clientes del portal no aparecen. No se pagina: una empresa tiene pocos usuarios. Lo usa el due\u00F1o (\u0060owner\u0060) de la empresa con su sesi\u00F3n del panel, o una credencial de la empresa con \u0060config:write\u0060; la plataforma puede consultar cualquier empresa (NIT inexistente: 404, \u0060user.company_not_found\u0060). Con una credencial de empresa, el \u0060{nit}\u0060 debe ser el de esa empresa y un usuario del panel debe ser uno de sus due\u00F1os activos; si no, responde 403 (\u0060company.forbidden\u0060), exista o no el NIT. Sin \u0060config:write\u0060 (por ejemplo, un vendedor) tambi\u00E9n responde 403, para cualquier NIT.\n\n**Permiso:** \u0060config:write\u0060 con una credencial de empresa, o \u0060platform:*\u0060 con una credencial de plataforma.",
+        "operationId": "listCompanyUsers",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyUserList"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/companies/{nit}/users/{userId}": {
+      "patch": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Cambiar el rol o el estado de un usuario de la empresa",
+        "description": "Cambia el rol (\u0060role\u0060: \u0060owner\u0060 o \u0060seller\u0060) del usuario \u0060{userId}\u0060 en la empresa, o activa o desactiva su pertenencia a ella (\u0060is_active\u0060); el campo que no llega queda como estaba. Responde el usuario como lo lista \u0060GET /api/v1/companies/{nit}/users\u0060. Desactivar no borra la cuenta ni lo que el usuario emiti\u00F3: solo le cierra esta empresa. Ya no puede entrar a ella al iniciar sesi\u00F3n, elegirla ni renovar la sesi\u00F3n hacia ella, y sus sesiones se cierran (se revocan todos sus \u0060refresh_token\u0060; el \u0060access_token\u0060 ya entregado vale hasta vencer, 15 minutos como m\u00E1ximo). Sus dem\u00E1s empresas no cambian. Reactivar le devuelve el acceso. Errores: usuario que no existe o no es de la empresa, 404 (\u0060user.not_found\u0060); desactivarse a s\u00ED mismo, 422 (\u0060user.cannot_deactivate_self\u0060); quitarse a s\u00ED mismo el rol de due\u00F1o, 422 (\u0060user.cannot_remove_own_owner_role\u0060); dejar la empresa sin ning\u00FAn due\u00F1o activo, 422 (\u0060user.last_owner\u0060); rol desconocido o cuerpo sin \u0060role\u0060 ni \u0060is_active\u0060, 422 con el detalle en \u0060errors.role\u0060; otro cambio simult\u00E1neo sobre los due\u00F1os, 409 (\u0060persistence.conflict\u0060). Con una credencial de empresa, el \u0060{nit}\u0060 debe ser el de esa empresa y un usuario del panel debe ser uno de sus due\u00F1os activos; si no, responde 403 (\u0060company.forbidden\u0060), exista o no el NIT. Sin \u0060config:write\u0060 (por ejemplo, un vendedor) tambi\u00E9n responde 403, para cualquier NIT.\n\n**Permiso:** \u0060config:write\u0060 con una credencial de empresa, o \u0060platform:*\u0060 con una credencial de plataforma.",
+        "operationId": "updateCompanyUser",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8c"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCompanyUserBody"
+              },
+              "examples": {
+                "desactivar": {
+                  "summary": "Desactivar la pertenencia del usuario a la empresa",
+                  "value": {
+                    "is_active": false
+                  }
+                },
+                "reactivar": {
+                  "summary": "Reactivar la pertenencia del usuario a la empresa",
+                  "value": {
+                    "is_active": true
+                  }
+                },
+                "hacer-dueno": {
+                  "summary": "Dar el rol de due\u00F1o",
+                  "value": {
+                    "role": "owner"
+                  }
+                },
+                "hacer-vendedor": {
+                  "summary": "Dar el rol de vendedor",
+                  "value": {
+                    "role": "seller"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyUser"
                 }
               }
             }
@@ -19170,6 +19292,55 @@
           }
         }
       },
+      "CompanyUser": {
+        "required": [
+          "id",
+          "email",
+          "name",
+          "phone",
+          "role",
+          "is_active"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "role": {
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CompanyUserList": {
+        "required": [
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompanyUser"
+            }
+          }
+        }
+      },
       "ConfiguredSoftwareResponse": {
         "type": "object",
         "properties": {
@@ -23005,6 +23176,23 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "UpdateCompanyUserBody": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "is_active": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },

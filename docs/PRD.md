@@ -102,7 +102,7 @@ El sistema original tiene cuatro tipos de usuario, y cada uno tiene su propio in
 | Rol | Quién es | Qué hace |
 | --- | --- | --- |
 | Propietario / Administrador | Dueño de la instalación o revendedor | Crea empresas, asigna planes, consulta resúmenes y administra usuarios |
-| Empresa emisora (Seller) | La empresa que factura | Configura software, certificado y resoluciones; consulta documentos y eventos; recibe documentos |
+| Empresa emisora (Seller) | La empresa que factura | Configura software, certificado y resoluciones; consulta documentos y eventos; recibe documentos. Su dueño administra los usuarios de su empresa: los crea con rol de dueño o vendedor, les cambia el rol y desactiva o reactiva su acceso a la empresa, sin dejarla nunca sin un dueño activo (decidido el 21-nov) |
 | Cliente (Customer) | Adquirente de la factura | Descarga sus documentos y acepta o rechaza facturas (RADIAN) |
 | Integrador (API) | ERP o aplicación externa | Envía documentos por API con Bearer token |
 

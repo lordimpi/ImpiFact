@@ -8,7 +8,8 @@ namespace ImpiFact.Application.Abstractions.Identity;
 public interface IUserCompanyReads
 {
     /// <summary>
-    /// Empresas en las que el usuario tiene al menos un rol (<c>user_companies</c>), activas o no, con todos sus roles
+    /// Empresas en las que el usuario tiene al menos un rol con la pertenencia activa (<c>user_companies.is_active</c>),
+    /// activas o no, con todos sus roles
     /// en cada una, ordenadas por razón social y luego por id. Se leen sin el filtro de empresa a propósito: son las
     /// que el usuario puede elegir antes de trabajar en una.
     /// </summary>
