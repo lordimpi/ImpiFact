@@ -22,6 +22,18 @@ public static partial class DianTestSetAnswers
     public static bool IsAlreadyAccepted(string? description) =>
         description is not null && AcceptedPattern().IsMatch(description);
 
+    /// <summary>
+    /// Si la descripción de una respuesta de GetStatusZip dice que la DIAN todavía procesa: «Batch en proceso de
+    /// validación.» o «Set de prueba con identificador {TestSetId} se encuentra en proceso». La DIAN las manda con
+    /// <c>IsValid</c> falso, pero no son un rechazo: el set todavía no tiene resultado. La comparación no distingue
+    /// mayúsculas. Los nulos no cuentan.
+    /// </summary>
+    public static bool IsInProcess(string? description) =>
+        description is not null && InProcessPattern().IsMatch(description);
+
+    [GeneratedRegex(@"\ben\s+proceso\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex InProcessPattern();
+
     [GeneratedRegex(@"\bSet\s+de\s+pruebas?\b.*\bse\s+encuentra\s+aceptad[oa]\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Singleline)]
     private static partial Regex AcceptedPattern();
