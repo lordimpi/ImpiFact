@@ -55,30 +55,13 @@
         }}</ui-badge>
       </ng-template>
       <ng-template uiTableCell="actions" let-row>
-        <div class="platform-row-actions">
-          <ui-button
-            variant="ghost"
-            size="small"
-            [label]="'platform.assign.submit' | transloco"
-            [ariaLabel]="rowText('assign.title', row)"
-            (pressed)="openAssign(row)"
-          />
-          <ui-button
-            variant="ghost"
-            size="small"
-            [label]="'platform.user.open' | transloco"
-            [ariaLabel]="rowText('user.title', row)"
-            (pressed)="openUser(row)"
-          />
-          <a
-            uiButtonLink
-            variant="ghost"
-            size="small"
-            [routerLink]="['/plataforma/empresas', row.nit, 'usuarios']"
-            [attr.aria-label]="rowText('companies.usersOf', row)"
-            >{{ 'platform.companies.users' | transloco }}</a
-          >
-        </div>
+        <ui-menu-button
+          size="small"
+          [label]="'platform.common.actions' | transloco"
+          [ariaLabel]="rowText('companies.actionsOf', row)"
+          [items]="rowActions()"
+          (selected)="onRowAction($event, row)"
+        />
       </ng-template>
     </ui-table>
 

@@ -1,6 +1,7 @@
 import { Page, Route, expect, test } from '@playwright/test';
 import { seriousViolationsInBothThemes } from './support/axe';
 import { COMPANIES } from './support/mock-api';
+import { openMenu, pickMenuItem } from './support/menu';
 import { pickOption } from './support/select';
 import { signInAt } from './support/sign-in';
 
@@ -268,7 +269,7 @@ test('the platform admin opens the users of a company, creates a seller and deac
 }) => {
   const sent = await signInAsPlatformAdmin(page);
 
-  await page.getByRole('link', { name: 'Usuarios de Beta Ltda' }).click();
+  await pickMenuItem(page, 'Acciones de Beta Ltda', 'Usuarios');
 
   await expect(page).toHaveURL(`/plataforma/empresas/${BETA.nit}/usuarios`);
   await expect(
@@ -323,12 +324,39 @@ test('the platform admin opens the users of a company, creates a seller and deac
 test('the platform users page has no serious accessibility violations, in both themes', async ({
   page,
 }) => {
+  // Four axe runs in both themes, one with a row menu open.
+  test.slow();
   await signInAsPlatformAdmin(page);
-  await expect(page.getByRole('link', { name: 'Usuarios de Beta Ltda' })).toBeVisible();
+  const button = page.getByRole('button', { name: 'Acciones de Beta Ltda', exact: true });
+  await expect(button).toBeVisible();
+  await expect(button).toHaveAttribute('aria-haspopup', 'menu');
+  await expect(button).toHaveAttribute('aria-expanded', 'false');
 
   expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
-  await page.goto(`/plataforma/empresas/${BETA.nit}/usuarios`);
+  // The row menu is styled by its Optimus theme: a card with a background and a shadow.
+  const menu = await openMenu(page, 'Acciones de Beta Ltda');
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  const popup = await menu.evaluate((list) => {
+    const panel = (list.closest('.p-menu') ?? list) as HTMLElement;
+    const style = getComputedStyle(panel);
+    return { background: style.backgroundColor, shadow: style.boxShadow };
+  });
+  expect(popup.background).not.toBe('rgba(0, 0, 0, 0)');
+  expect(popup.shadow).not.toBe('none');
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+
+  // Same keyboard as the Exportar menu: Escape closes it back on the button; Enter opens it, the arrows move and
+  // Enter picks «Usuarios».
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  await expect(button).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(menu).toBeVisible();
+  await page.keyboard.press('End');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(`/plataforma/empresas/${BETA.nit}/usuarios`);
+
   await expect(userRow(page, 'diana@example.test')).toContainText('Inactivo');
 
   expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });

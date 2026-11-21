@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { seriousViolations } from './support/axe';
+import { openMenu, pickMenuItem } from './support/menu';
 import { pressLikeAPerson } from './support/press';
 import { signInAt } from './support/sign-in';
 
@@ -73,7 +74,18 @@ test('assigns a plan to a company picked from the searchable list', async ({ pag
   await expect(table.getByText('Acme SAS')).toHaveCount(0);
   expect(searches.at(-1)).toBe('beta');
 
-  await page.getByRole('button', { name: 'Asignar plan a Beta Ltda' }).click();
+  // One «Acciones» menu per row; axe checks it open too.
+  const menu = await openMenu(page, 'Acciones de Beta Ltda');
+  await expect(menu.getByRole('menuitem')).toHaveText([
+    'Asignar plan',
+    'Crear usuario',
+    'Usuarios',
+  ]);
+  expect(await seriousViolations(page)).toEqual([]);
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+
+  await pickMenuItem(page, 'Acciones de Beta Ltda', 'Asignar plan');
   const dialog = page.getByRole('dialog', { name: 'Asignar plan a Beta Ltda' });
   const plan = dialog.getByRole('combobox', { name: 'Plan' });
   await expect(plan).toHaveText('Elija un plan');
@@ -94,6 +106,63 @@ test('assigns a plan to a company picked from the searchable list', async ({ pag
   expect(assigned).toHaveLength(1);
   expect(assigned[0]!.url).toContain('/api/v1/companies/800111222/plan');
   expect(assigned[0]!.body).toEqual({ plan_id: 2 });
+});
+
+test('fits every company on one line at 1366×768, with its NIT and its actions menu', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await signInAt(page, '/plataforma/empresas', asPlatformAdmin);
+  const companies = [
+    ['Café La Montaña SAS', '901458321', '4', 'facturacion@cafelamontana.example', 'Pyme 300'],
+    ['Distribuidora El Roble Ltda', '900874512', '4', 'contabilidad@elroble.example', 'Anual 5000'],
+    ['Ferretería El Tornillo SAS', '901236547', '9', 'ventas@eltornillo.example', null],
+  ].map(([name, nit, dv, email, plan], index) => ({
+    id: `c-${index}`,
+    name,
+    nit,
+    dv,
+    email,
+    is_active: true,
+    plan_id: plan ? 1 : null,
+    plan_name: plan,
+  }));
+  await page.route('**/api/v1/plans', (route) =>
+    route.fulfill({ json: { success: true, data: PLANS } }),
+  );
+  await page.route(/\/api\/v1\/platform\/companies(\?|$)/, (route) =>
+    route.fulfill({ json: { items: companies, next_cursor: null } }),
+  );
+  await page.reload();
+
+  const table = page.getByRole('table', { name: 'Empresas de la plataforma' });
+  await expect(table.getByRole('button', { name: /^Acciones de/ })).toHaveCount(3);
+  // A cell is on one line when every box of its text starts at about the same height (a second line is ~20 px lower).
+  const oneLine = await table.evaluate((element) =>
+    Array.from(element.querySelectorAll('tbody tr'), (row) =>
+      Array.from(row.querySelectorAll('td'), (cell) => {
+        const tops: number[] = [];
+        const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          if (node.textContent?.trim()) {
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            tops.push(...Array.from(range.getClientRects(), (rect) => rect.top));
+          }
+        }
+        return Math.max(...tops) - Math.min(...tops) < 10;
+      }),
+    ),
+  );
+  expect(oneLine).toEqual([
+    [true, true, true, true, true, true],
+    [true, true, true, true, true, true],
+    [true, true, true, true, true, true],
+  ]);
+  await expect(table.getByRole('cell', { name: '901458321-4', exact: true })).toHaveCSS(
+    'white-space',
+    'nowrap',
+  );
 });
 
 test('cancels a new plan without showing required errors', async ({ page }) => {

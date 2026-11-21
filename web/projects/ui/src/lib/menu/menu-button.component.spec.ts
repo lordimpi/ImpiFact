@@ -73,6 +73,29 @@ describe('MenuButtonComponent', () => {
     expect(selected).toHaveBeenCalledExactlyOnceWith('xlsx');
   });
 
+  it('can carry an accessible name of its own, for one menu per table row', async () => {
+    await render(MenuButtonComponent, {
+      inputs: { label: 'Acciones', ariaLabel: 'Acciones de Acme SAS', items: ITEMS },
+    });
+    const button = screen.getByRole('button', { name: 'Acciones de Acme SAS' });
+    expect(button.textContent?.trim()).toBe('Acciones');
+
+    fireEvent.click(button);
+
+    expect(await screen.findByRole('menu', { name: 'Acciones de Acme SAS' })).toBeTruthy();
+  });
+
+  it('is normal size by default and can be small', async () => {
+    await render(
+      `<ui-menu-button label="Exportar" [items]="items" />
+       <ui-menu-button label="Acciones" size="small" [items]="items" />`,
+      { imports: [MenuButtonComponent], componentProperties: { items: ITEMS } },
+    );
+
+    expect(screen.getByRole('button', { name: 'Exportar' }).classList).not.toContain('p-button-sm');
+    expect(screen.getByRole('button', { name: 'Acciones' }).classList).toContain('p-button-sm');
+  });
+
   it('is disabled and busy while loading', async () => {
     const { button } = await renderMenu({ loading: true });
 

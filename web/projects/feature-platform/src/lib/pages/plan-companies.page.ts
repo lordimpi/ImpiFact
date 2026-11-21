@@ -83,7 +83,7 @@ export class PlanCompaniesPage {
 
   protected readonly columns = computed<UiTableColumn[]>(() => [
     { key: 'name', header: this.text('planCompanies.name') },
-    { key: 'identification_number', header: this.text('planCompanies.nit') },
+    { key: 'identification_number', header: this.text('planCompanies.nit'), nowrap: true },
     { key: 'email', header: this.text('planCompanies.email') },
     { key: 'start_plan_date', header: this.text('planCompanies.startDate') },
     { key: 'state', header: this.text('planCompanies.state') },
