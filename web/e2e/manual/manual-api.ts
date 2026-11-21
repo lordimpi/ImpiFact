@@ -1,5 +1,5 @@
 import { Page, Route } from '@playwright/test';
-import { COMPANIES, MockApiOptions, mockApi } from '../support/mock-api';
+import { COMPANIES, MockApiOptions, USER, mockApi } from '../support/mock-api';
 
 /*
  * Api simulada para las capturas del manual de uso (docs/manual). Se monta sobre `mockApi` (sesión, catálogos y
@@ -962,13 +962,95 @@ export async function mockPlatformData(page: Page) {
       201,
     );
   });
-  await page.route('**/api/v1/users', (route) => {
-    const body = route.request().postDataJSON() as Record<string, unknown>;
-    return json(route, { id: 'u-owner', ...body }, 201);
-  });
   await page.route('**/api/v1/companies/*/plan', (route) =>
     json(route, { success: true, plan: PLANS[0], start_plan_date: '2026-11-19T15:30:00Z' }),
   );
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Usuarios de la empresa: los de Café La Montaña SAS (la dueña que inicia sesión es `user-1`, el `sub` del token);
+// las demás empresas no tienen usuarios. Los cambios y los usuarios nuevos quedan en la lista, como en el Api.
+// ---------------------------------------------------------------------------------------------------------------
+
+interface CompanyUser {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  role: 'owner' | 'seller';
+  is_active: boolean;
+}
+
+export const COMPANY_USERS: CompanyUser[] = [
+  {
+    id: 'user-1',
+    email: USER.email,
+    name: 'Ana María Gómez',
+    phone: '3001234567',
+    role: 'owner',
+    is_active: true,
+  },
+  {
+    id: 'user-2',
+    email: 'carlos@cafelamontana.example',
+    name: 'Carlos Andrés Ruiz',
+    phone: '3104567890',
+    role: 'seller',
+    is_active: true,
+  },
+  {
+    id: 'user-3',
+    email: 'diana@cafelamontana.example',
+    name: 'Diana Peña Ospina',
+    phone: null,
+    role: 'seller',
+    is_active: false,
+  },
+];
+
+export async function mockCompanyUsers(page: Page) {
+  const users = COMPANY_USERS.map((user) => ({ ...user }));
+  await page.route(/\/api\/v1\/companies\/\d+\/users(\/[^/?]+)?(\?|$)/, (route) => {
+    const request = route.request();
+    const [, nit, userId] = /\/companies\/(\d+)\/users(?:\/([^/?]+))?/.exec(request.url())!;
+    const rows = nit === NIT ? users : [];
+    if (!userId) {
+      return json(route, { items: rows });
+    }
+    const user = rows.find((entry) => entry.id === userId);
+    if (!user || request.method() !== 'PATCH') {
+      return problem(route, 404, 'user.not_found', 'No encontrado.');
+    }
+    Object.assign(user, request.postDataJSON() as Partial<CompanyUser>);
+    return json(route, user);
+  });
+  await page.route('**/api/v1/users', (route) => {
+    const body = route.request().postDataJSON() as Omit<CompanyUser, 'id' | 'is_active'> & {
+      company_id: string;
+    };
+    const created = { id: `user-${users.length + 1}`, ...body };
+    if (body.company_id === COMPANY_ID) {
+      users.push({
+        id: created.id,
+        email: body.email,
+        name: body.name,
+        phone: body.phone,
+        role: body.role,
+        is_active: true,
+      });
+    }
+    return json(
+      route,
+      {
+        id: created.id,
+        email: body.email,
+        name: body.name,
+        role: body.role,
+        company_id: body.company_id,
+      },
+      201,
+    );
+  });
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -998,5 +1080,6 @@ export async function mockManualApi(page: Page, options: MockApiOptions = {}) {
   await mockDocumentsData(page);
   const config = await mockCompanyConfig(page);
   await mockPlatformData(page);
+  await mockCompanyUsers(page);
   return { api, config };
 }

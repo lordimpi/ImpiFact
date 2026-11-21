@@ -22,15 +22,15 @@ Lo que usted ve en el panel depende de su rol:
 
 | Rol                                | Qué puede hacer                                                                                                                                                               |
 | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Administrador de la plataforma     | Crea las empresas y su primer usuario dueño, y administra los planes.                                                                                                         |
-| Dueño                              | Configura la empresa, la pasa a producción, emite y consulta documentos, administra clientes, productos y llaves de API, y consulta su plan.                                   |
+| Administrador de la plataforma     | Crea las empresas y su primer usuario dueño, administra los usuarios de cada empresa y los planes.                                                                            |
+| Dueño                              | Configura la empresa y la pasa a producción, administra sus usuarios, emite y consulta documentos, administra clientes, productos y llaves de API, y consulta su plan.        |
 | Vendedor                           | Consulta documentos, clientes y productos. Si tiene permiso para emitir, también emite facturas y notas.                                                                      |
 | Cliente                            | Ve la página de inicio y los avisos.                                                                                                                                          |
 
 ### Requisitos
 
 - Un navegador actualizado (Chrome, Edge, Firefox o Safari) en computador, tableta o celular.
-- El correo y la contraseña de su cuenta de ImpiFact. Las cuentas las crea el administrador de la plataforma (el primer dueño de cada empresa) o el dueño de la empresa.
+- El correo y la contraseña de su cuenta de ImpiFact. Las cuentas las crea el administrador de la plataforma (el primer dueño de cada empresa) o el dueño de la empresa (vea «Usuarios de la empresa»).
 
 ## Ingresar al panel
 
@@ -59,10 +59,12 @@ Si el correo o la contraseña no son correctos, el panel muestra «El correo o l
 
 Si su cuenta trabaja con varias empresas, después de ingresar el panel le pide elegir una:
 
-1. Busque la empresa en la lista **Seleccionar empresa**.
-2. Haga clic en «Trabajar con» seguido del nombre de la empresa.
+1. Busque la empresa en la lista **Seleccionar empresa**. Cada empresa aparece en una tarjeta con su inicial, su razón social y su NIT.
+2. Haga clic en cualquier parte de la tarjeta de la empresa.
 
 ![Pantalla «Seleccionar empresa».](img/03-seleccionar-empresa.png)
+
+La tarjeta de la empresa con la que ya está trabajando dice «Empresa activa». Una empresa marcada «Empresa inactiva» no se puede elegir.
 
 Todo lo que haga después (emitir, consultar, configurar) se hace sobre esa empresa, la **empresa activa**. Para cambiarla, abra el menú de su cuenta y elija «Cambiar de empresa».
 
@@ -70,7 +72,7 @@ Todo lo que haga después (emitir, consultar, configurar) se hace sobre esa empr
 
 La pantalla tiene tres partes:
 
-1. **La barra lateral**, a la izquierda, con las secciones agrupadas: «Inicio»; **Emisión** («Nueva factura», «Nota crédito», «Nota débito»); **Consulta** («Documentos», «Clientes», «Productos»), y **Ajustes** («Empresa», «Paso a producción», «Llaves de API», «Mi plan», «Avisos»). Solo aparecen las secciones que su rol permite.
+1. **La barra lateral**, a la izquierda, con las secciones agrupadas: «Inicio»; **Emisión** («Nueva factura», «Nota crédito», «Nota débito»); **Consulta** («Documentos», «Clientes», «Productos»), y **Ajustes** («Empresa», «Paso a producción», «Usuarios», «Llaves de API», «Mi plan», «Avisos»). Solo aparecen las secciones que su rol permite.
 2. **La barra superior**, con el nombre de la empresa activa, el botón de la luna o el sol (cambia entre el modo claro y el oscuro), «Ayuda» (abre este manual en PDF en otra pestaña), la campana de avisos (con el número de avisos sin leer) y el menú de su cuenta.
 3. **El contenido** de la sección elegida.
 
@@ -99,6 +101,7 @@ El panel abre en modo claro. Para trabajar con colores oscuros, haga clic en la 
 - **Ruta de la página:** arriba del título de algunas páginas aparece la ruta, por ejemplo «Clientes › Nuevo cliente». Haga clic en «Clientes» para volver a la lista.
 - **Cambios sin guardar:** si sale de un formulario sin guardar lo que escribió, el panel pregunta en el diálogo **Cambios sin guardar**. «Seguir editando» lo deja en el formulario con lo que escribió; «Salir sin guardar» descarta los cambios.
 - **Campos obligatorios:** llevan un asterisco rojo (*). Si falta uno al guardar, el panel lo marca en rojo con el mensaje «Este campo es obligatorio.».
+- **Mensajes del panel:** cuando algo se guarda o falla, el panel muestra un mensaje arriba a la derecha, debajo de la barra superior, con un ícono según su tipo (confirmación, información, advertencia o error). Los de confirmación e información se cierran solos después de unos segundos; los de advertencia y error quedan hasta que usted los cierre con la «X» del mensaje.
 
 ## Administración de la plataforma
 
@@ -144,9 +147,23 @@ Enseguida el panel abre **Crear usuario** para la empresa nueva. El dueño es qu
 
 ![Diálogo para crear el usuario dueño de la empresa.](img/13-plataforma-crear-dueno.png)
 
-> **Nota:** el panel no guarda la contraseña. Entréguela a la persona por un medio seguro. Para crear más usuarios de una empresa ya creada, use «Crear usuario» en su fila de la lista de empresas.
+> **Nota:** el panel no guarda la contraseña. Entréguela a la persona por un medio seguro. Para crear más usuarios de una empresa ya creada, abra «Acciones» en su fila de la lista de empresas y elija «Crear usuario».
 
-![Lista «Empresas de la plataforma» con las acciones «Asignar plan» y «Crear usuario».](img/10-plataforma-empresas.png)
+![Lista «Empresas de la plataforma», con el botón «Acciones» de cada fila.](img/10-plataforma-empresas.png)
+
+Cada fila tiene un botón «Acciones» con «Asignar plan», «Crear usuario» y «Usuarios».
+
+![Menú «Acciones» de una empresa abierto.](img/10-plataforma-empresas-acciones.png)
+
+### Administrar los usuarios de una empresa
+
+1. En «Empresas», busque la empresa, abra «Acciones» en su fila y elija «Usuarios».
+2. Se abre la página de usuarios de esa empresa, por ejemplo **Usuarios de Café La Montaña SAS**, con la ruta «Empresas de la plataforma › Usuarios de Café La Montaña SAS». Haga clic en «Empresas de la plataforma» para volver a la lista.
+3. Desde ahí cree usuarios con «Nuevo usuario», cambie su rol, desactívelos o reactívelos, igual que el dueño de la empresa (vea «Usuarios de la empresa»).
+
+![Página «Usuarios de Café La Montaña SAS» vista por el administrador de la plataforma.](img/17-plataforma-usuarios-empresa.png)
+
+Como el administrador de la plataforma no es usuario de la empresa, todas las filas muestran sus acciones, también las de los dueños.
 
 ### Planes
 
@@ -165,7 +182,7 @@ Un plan define cuántos documentos de cada familia puede emitir una empresa en c
 
 ### Asignar un plan a una empresa
 
-1. En «Empresas», busque la empresa y haga clic en «Asignar plan» en su fila.
+1. En «Empresas», busque la empresa, abra «Acciones» en su fila y elija «Asignar plan».
 2. Elija el **Plan** y haga clic en «Asignar plan».
 
 ![Diálogo «Asignar plan».](img/16-plataforma-asignar-plan.png)
@@ -273,6 +290,39 @@ Para pasar a producción:
 
 ![Diálogo «Confirmar el paso a producción».](img/28-paso-produccion-confirmar.png)
 
+## Usuarios de la empresa
+
+El dueño administra las personas que trabajan con la empresa en el panel. En la barra lateral, en **Ajustes**, haga clic en «Usuarios». Solo los dueños ven esta sección.
+
+La página **Usuarios** muestra el **Nombre**, el **Correo**, el **Teléfono**, el **Rol** («Dueño» o «Vendedor») y el **Estado** («Activo» o «Inactivo») de cada usuario. Su propia fila dice «(usted)» y no tiene acciones: «Es su cuenta: no puede cambiar su rol ni desactivarla.».
+
+![Página «Usuarios» con la lista de usuarios de la empresa.](img/29-usuarios-empresa.png)
+
+### Crear un usuario
+
+1. Haga clic en «Nuevo usuario».
+2. Escriba el **Correo electrónico** y el **Nombre** de la persona y, si quiere, su **Teléfono**.
+3. Escriba una **Contraseña** de al menos 10 caracteres.
+4. Elija el **Rol**: «Dueño» configura la empresa y administra los usuarios; «Vendedor» emite y consulta documentos. Viene en «Vendedor».
+5. Haga clic en «Crear usuario». El usuario aparece en la lista y ya puede iniciar sesión.
+
+![Diálogo «Nuevo usuario».](img/29-usuarios-nuevo.png)
+
+> **Nota:** el panel no guarda la contraseña. Entréguela a la persona por un medio seguro.
+
+### Cambiar el rol, desactivar o reactivar un usuario
+
+En la fila del usuario:
+
+- «Cambiar a dueño» o «Cambiar a vendedor» cambia su rol enseguida.
+- «Desactivar» le quita el acceso. Lea el diálogo de confirmación y haga clic en «Desactivar». La persona pierde el acceso a esta empresa y se cierran sus sesiones abiertas. Los documentos que emitió conservan su autor.
+- «Reactivar» le devuelve el acceso a un usuario inactivo.
+
+> **Importante:** la empresa siempre debe tener al menos un dueño activo. Si el cambio la dejaría sin dueño, el panel no lo hace y muestra «La empresa debe tener al menos un dueño activo: nombre otro dueño antes de hacer este cambio.».
+
+Si otra persona cambió el mismo usuario al mismo tiempo, el panel muestra «Otra persona cambió estos datos al mismo tiempo; la lista se actualizó.» y actualiza la lista solo. Revise la lista y repita el cambio si todavía hace falta.
+
+Las llaves de API no pueden administrar usuarios: hágalo desde el panel con su cuenta de dueño.
 
 ## Clientes y productos
 
@@ -376,7 +426,20 @@ Para filtrar:
 
 ![Filtros de la lista con «Más filtros» abierto.](img/51-documentos-filtros.png)
 
-> **Consejo:** los filtros quedan en la dirección de la página. Puede guardarla en favoritos o compartirla para volver a la misma consulta. «Exportar CSV» descarga los documentos de la consulta en un archivo para hojas de cálculo.
+> **Consejo:** los filtros quedan en la dirección de la página. Puede guardarla en favoritos o compartirla para volver a la misma consulta.
+
+### Exportar los documentos
+
+1. En «Documentos», aplique los filtros de los documentos que necesita (por ejemplo, un rango de fechas).
+2. Haga clic en «Exportar».
+3. Elija el formato. El archivo trae los documentos que cumplen los filtros actuales:
+   - «Excel (.xlsx)»: para trabajar con las cifras en una hoja de cálculo (sumar, filtrar, hacer tablas).
+   - «CSV»: para importar los documentos en otros sistemas, como su programa contable.
+   - «PDF»: un informe para imprimir o compartir. No trae la columna CUFE/CUDE y admite hasta 5.000 documentos.
+
+![Menú «Exportar» abierto en la lista de documentos.](img/56-documentos-exportar.png)
+
+El panel confirma la descarga con un mensaje, por ejemplo «Se descargó el archivo de Excel.». Si la consulta tiene más documentos de los que admite el formato, el panel muestra «La exportación tiene demasiadas filas. Acote el rango de fechas e intente de nuevo.». Con más de 5.000 documentos, exporte a «Excel (.xlsx)» o use un rango de fechas más corto.
 
 ### Estados de la DIAN
 
