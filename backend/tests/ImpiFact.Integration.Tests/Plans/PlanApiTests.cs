@@ -33,9 +33,9 @@ public sealed class PlanApiTests
         using var platform = await PlansHost.PlatformAsync();
         var id = NextId();
 
-        using var response = await platform.PutAsJsonAsync("/api/ubl2.1/plan", new Dictionary<string, object?>
+        using var response = await platform.PutAsJsonAsync($"/api/v1/plans/{id}", new Dictionary<string, object?>
         {
-            ["id"] = id, ["name"] = $"Mensual {id}", ["qty_docs_invoice"] = 100, ["qty_docs_payroll"] = "5",
+            ["name"] = $"Mensual {id}", ["qty_docs_invoice"] = 100, ["qty_docs_payroll"] = "5",
             ["qty_docs_radian"] = 7, ["qty_docs_ds"] = 0, ["period"] = 1, ["observations"] = "Plan de prueba",
         });
 
@@ -72,9 +72,9 @@ public sealed class PlanApiTests
         using var platform = await PlansHost.PlatformAsync();
         var id = await CreatePlanAsync(platform, period: 1, invoices: 100);
 
-        using var response = await platform.PutAsJsonAsync("/api/ubl2.1/plan", new
+        using var response = await platform.PutAsJsonAsync($"/api/v1/plans/{id}", new
         {
-            id, qty_docs_invoice = 250, qty_docs_payroll = 1, qty_docs_radian = 2, qty_docs_ds = 3, period = 3, state = false,
+            qty_docs_invoice = 250, qty_docs_payroll = 1, qty_docs_radian = 2, qty_docs_ds = 3, period = 3, state = false,
         });
 
         using var json = await JsonAsync(response, HttpStatusCode.OK);
@@ -105,9 +105,9 @@ public sealed class PlanApiTests
         using var platform = await PlansHost.PlatformAsync();
         var id = NextId();
 
-        using var response = await platform.PutAsJsonAsync("/api/ubl2.1/plan", new Dictionary<string, object?>
+        using var response = await platform.PutAsJsonAsync($"/api/v1/plans/{id}", new Dictionary<string, object?>
         {
-            ["id"] = id, ["name"] = $"Estado {id}", ["qty_docs_invoice"] = 3, ["qty_docs_payroll"] = 0, ["qty_docs_radian"] = 0,
+            ["name"] = $"Estado {id}", ["qty_docs_invoice"] = 3, ["qty_docs_payroll"] = 0, ["qty_docs_radian"] = 0,
             ["qty_docs_ds"] = 0, ["period"] = 1, ["state"] = state,
         });
 
@@ -125,7 +125,7 @@ public sealed class PlanApiTests
     {
         using var platform = await PlansHost.PlatformAsync();
 
-        using var response = await platform.PutAsJsonAsync("/api/ubl2.1/plan", new { id = 1000, qty_docs_invoice = -1, period = 4 });
+        using var response = await platform.PutAsJsonAsync("/api/v1/plans/1000", new { qty_docs_invoice = -1, period = 4 });
 
         using var json = await JsonAsync(response, HttpStatusCode.UnprocessableEntity);
         var errors = json.RootElement.GetProperty("errors");
@@ -140,12 +140,12 @@ public sealed class PlanApiTests
             Assert.That(json.RootElement.GetProperty("success").GetBoolean(), Is.False);
         });
 
-        using var empty = await platform.PutAsJsonAsync("/api/ubl2.1/plan", new { });
+        // The id comes from the route, so only the fields of the body can be missing.
+        using var empty = await platform.PutAsJsonAsync($"/api/v1/plans/{NextId()}", new { });
         using var emptyJson = await JsonAsync(empty, HttpStatusCode.UnprocessableEntity);
         var missing = emptyJson.RootElement.GetProperty("errors");
         Assert.Multiple(() =>
         {
-            Assert.That(missing.GetProperty("id")[0].GetString(), Is.EqualTo("El campo id es obligatorio."));
             Assert.That(missing.GetProperty("qty_docs_invoice")[0].GetString(), Is.EqualTo("El campo qty docs invoice es obligatorio."));
             Assert.That(missing.GetProperty("period")[0].GetString(), Is.EqualTo("El campo period es obligatorio."));
         });
@@ -256,9 +256,9 @@ public sealed class PlanApiTests
         var existing = await CreatePlanAsync(platform);
         var id = NextId();
 
-        using var unnamed = await platform.PutAsJsonAsync("/api/ubl2.1/plan", Body(id, name: null));
-        using var taken = await platform.PutAsJsonAsync("/api/ubl2.1/plan", Body(id, name: $"Plan {existing}"));
-        using var same = await platform.PutAsJsonAsync("/api/ubl2.1/plan", Body(existing, name: $"Plan {existing}"));
+        using var unnamed = await platform.PutAsJsonAsync($"/api/v1/plans/{id}", Body(id, name: null));
+        using var taken = await platform.PutAsJsonAsync($"/api/v1/plans/{id}", Body(id, name: $"Plan {existing}"));
+        using var same = await platform.PutAsJsonAsync($"/api/v1/plans/{existing}", Body(existing, name: $"Plan {existing}"));
 
         using var unnamedJson = await JsonAsync(unnamed, HttpStatusCode.UnprocessableEntity);
         using var takenJson = await JsonAsync(taken, HttpStatusCode.UnprocessableEntity);
@@ -273,29 +273,25 @@ public sealed class PlanApiTests
     }
 
     [Test]
-    public async Task Plan_query_lists_the_plans_or_returns_one_by_id_on_both_routes()
+    public async Task Plan_query_lists_the_plans_or_returns_one_by_id()
     {
         using var platform = await PlansHost.PlatformAsync();
         var id = await CreatePlanAsync(platform, period: 2, invoices: 40);
 
-        using var all = await platform.GetAsync("/api/ubl2.1/plan/query");
-        using var canonicalAll = await platform.GetAsync("/api/v1/plans");
-        using var one = await platform.GetAsync($"/api/ubl2.1/plan/query/{id}");
-        using var canonicalOne = await platform.GetAsync($"/api/v1/plans/{id}");
-        using var missing = await platform.GetAsync("/api/ubl2.1/plan/query/999");
+        using var all = await platform.GetAsync("/api/v1/plans");
+        using var one = await platform.GetAsync($"/api/v1/plans/{id}");
+        using var missing = await platform.GetAsync("/api/v1/plans/999");
 
         using var allJson = await JsonAsync(all, HttpStatusCode.OK);
         using var oneJson = await JsonAsync(one, HttpStatusCode.OK);
         using var missingJson = await JsonAsync(missing, HttpStatusCode.NotFound);
         var expected = PlanJson(id, $"Plan {id}", 40, 0, 0, 0, 2, true, null);
-        Assert.Multiple(async () =>
+        Assert.Multiple(() =>
         {
             Assert.That(allJson.RootElement.GetProperty("message").GetString(), Is.EqualTo("Plan/es existe/n, informacion del/los plan/es:"));
             Assert.That(allJson.RootElement.GetProperty("data").EnumerateArray().Select(plan => plan.ToString()), Does.Contain(expected));
             Assert.That(oneJson.RootElement.GetProperty("success").GetBoolean(), Is.True);
             Assert.That(oneJson.RootElement.GetProperty("data").ToString(), Is.EqualTo(expected));
-            Assert.That(await canonicalAll.Content.ReadAsStringAsync(), Is.EqualTo(allJson.RootElement.ToString()));
-            Assert.That(await canonicalOne.Content.ReadAsStringAsync(), Is.EqualTo(oneJson.RootElement.ToString()));
             Assert.That(missingJson.RootElement.GetProperty("code").GetString(), Is.EqualTo("plan.not_found"));
             Assert.That(missingJson.RootElement.GetProperty("message").GetString(), Is.EqualTo("No existe el plan con ID 999."));
         });
@@ -311,15 +307,14 @@ public sealed class PlanApiTests
         using var firstAssigned = await platform.PutAsJsonAsync($"/api/v1/companies/{company.Nit}/plan", new { plan_id = first });
 
         using var assigned = await platform.PutAsJsonAsync($"/api/v1/companies/{company.Nit}/plan", new { plan_id = second });
-        using var byPlan = await platform.GetAsync($"/api/ubl2.1/plan/queryusersbyplan/{second}");
-        using var canonical = await platform.GetAsync($"/api/v1/plans/{second}/companies");
-        using var previous = await platform.GetAsync($"/api/ubl2.1/plan/queryusersbyplan/{first}");
+        using var byPlan = await platform.GetAsync($"/api/v1/plans/{second}/companies");
+        using var previous = await platform.GetAsync($"/api/v1/plans/{first}/companies");
 
         using var assignedJson = await JsonAsync(assigned, HttpStatusCode.OK);
         using var byPlanJson = await JsonAsync(byPlan, HttpStatusCode.OK);
         using var previousJson = await JsonAsync(previous, HttpStatusCode.OK);
         var user = byPlanJson.RootElement.GetProperty("user");
-        Assert.Multiple(async () =>
+        Assert.Multiple(() =>
         {
             Assert.That(firstAssigned.StatusCode, Is.EqualTo(HttpStatusCode.OK));
             Assert.That(assignedJson.RootElement.GetProperty("message").GetString(), Is.EqualTo("Plan asignado con éxito"));
@@ -334,7 +329,6 @@ public sealed class PlanApiTests
             Assert.That(user[0].GetProperty("type_plan_id").GetInt32(), Is.EqualTo(second));
             Assert.That(user[0].GetProperty("start_plan_date").GetString(), Is.EqualTo(NowColombia));
             Assert.That(previousJson.RootElement.GetProperty("user").GetArrayLength(), Is.Zero);
-            Assert.That(await canonical.Content.ReadAsStringAsync(), Is.EqualTo(byPlanJson.RootElement.ToString()));
         });
         await using var scope = Api.OpenScope(null, null, ActorType.System);
         var assignments = await scope.Db.Set<CompanyPlan>().IgnoreQueryFilters([QueryFilters.Tenant]).AsNoTracking()
@@ -351,7 +345,7 @@ public sealed class PlanApiTests
 
         using var unknownPlan = await platform.PutAsJsonAsync($"/api/v1/companies/{company.Nit}/plan", new { plan_id = 998 });
         using var unknownCompany = await platform.PutAsJsonAsync("/api/v1/companies/100000001/plan", new { plan_id = plan });
-        using var queryUnknown = await platform.GetAsync("/api/ubl2.1/plan/queryusersbyplan/998");
+        using var queryUnknown = await platform.GetAsync("/api/v1/plans/998/companies");
 
         Assert.Multiple(() =>
         {
@@ -370,13 +364,12 @@ public sealed class PlanApiTests
         using var assigned = await platform.PutAsJsonAsync($"/api/v1/companies/{company.Nit}/plan", new { plan_id = id });
         await AddUsageAsync(company.CompanyId, DocumentKind.Invoice, 3);
 
-        using var response = await company.Client.GetAsync("/api/ubl2.1/plan/infoplanuser");
-        using var canonical = await company.Client.GetAsync("/api/v1/plans/current");
+        using var response = await company.Client.GetAsync("/api/v1/plans/current");
 
         using var json = await JsonAsync(response, HttpStatusCode.OK);
         var root = json.RootElement;
         var plan = PlanJson(id, $"Plan {id}", 100, 10, 0, 0, 1, true, null);
-        Assert.Multiple(async () =>
+        Assert.Multiple(() =>
         {
             Assert.That(PropertyNames(root), Is.EqualTo(new[]
             {
@@ -393,7 +386,6 @@ public sealed class PlanApiTests
             Assert.That(root.GetProperty("docs_left_invoice").GetInt64(), Is.EqualTo(97));
             Assert.That(root.GetProperty("docs_left_payroll").GetInt64(), Is.EqualTo(10));
             Assert.That(root.GetProperty("docs_left_radian").GetInt64(), Is.Zero);
-            Assert.That(await canonical.Content.ReadAsStringAsync(), Is.EqualTo(root.ToString()));
         });
     }
 
@@ -403,7 +395,7 @@ public sealed class PlanApiTests
         using var platform = await PlansHost.PlatformAsync();
         using var company = await PlansHost.CreateCompanyAsync(platform);
 
-        using var response = await company.Client.GetAsync("/api/ubl2.1/plan/infoplanuser");
+        using var response = await company.Client.GetAsync("/api/v1/plans/current");
 
         using var json = await JsonAsync(response, HttpStatusCode.OK);
         var root = json.RootElement;
@@ -427,8 +419,7 @@ public sealed class PlanApiTests
         var id = await CreatePlanAsync(platform);
         var routes = new (HttpMethod Method, string Path)[]
         {
-            (HttpMethod.Put, "/api/ubl2.1/plan"), (HttpMethod.Get, "/api/ubl2.1/plan/query"), (HttpMethod.Get, $"/api/ubl2.1/plan/query/{id}"),
-            (HttpMethod.Get, $"/api/ubl2.1/plan/queryusersbyplan/{id}"), (HttpMethod.Get, "/api/v1/plans"), (HttpMethod.Put, $"/api/v1/plans/{id}"),
+            (HttpMethod.Get, "/api/v1/plans"), (HttpMethod.Get, $"/api/v1/plans/{id}"), (HttpMethod.Put, $"/api/v1/plans/{id}"),
             (HttpMethod.Get, $"/api/v1/plans/{id}/companies"), (HttpMethod.Put, $"/api/v1/companies/{company.Nit}/plan"),
             (HttpMethod.Post, "/api/v1/plans"),
         };
@@ -441,10 +432,10 @@ public sealed class PlanApiTests
             Assert.That(byNobody.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized), $"{method} {path} without credential");
         }
 
-        using var infoByPlatform = await platform.GetAsync("/api/ubl2.1/plan/infoplanuser");
+        using var infoByPlatform = await platform.GetAsync("/api/v1/plans/current");
         using var infoByNobody = await anonymous.GetAsync("/api/v1/plans/current");
         using var writeOnly = await Api.ClientWithNewKeyAsync(company.CompanyId, ApiScopes.DocumentsWrite);
-        using var infoWithoutRead = await writeOnly.GetAsync("/api/ubl2.1/plan/infoplanuser");
+        using var infoWithoutRead = await writeOnly.GetAsync("/api/v1/plans/current");
         Assert.Multiple(() =>
         {
             Assert.That(infoByPlatform.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
@@ -464,7 +455,7 @@ public sealed class PlanApiTests
     private static async Task<int> CreatePlanAsync(HttpClient platform, int period = 3, long invoices = 100, long payroll = 0)
     {
         var id = NextId();
-        using var response = await platform.PutAsJsonAsync("/api/ubl2.1/plan", Body(id, $"Plan {id}", period, invoices, payroll));
+        using var response = await platform.PutAsJsonAsync($"/api/v1/plans/{id}", Body(id, $"Plan {id}", period, invoices, payroll));
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
         return id;
     }

@@ -117,6 +117,10 @@ public sealed class RenderPdfHandlerTests
     [TestCase(1, "FES-SETP990000005.pdf")]
     [TestCase(4, "NCS-SETP990000005.pdf")]
     [TestCase(5, "NDS-SETP990000005.pdf")]
+    [TestCase(3, "FES-SETP990000005.pdf")]
+    [TestCase(12, "FES-SETP990000005.pdf")]
+    [TestCase(11, "DSS-SETP990000005.pdf")]
+    [TestCase(13, "NDSNS-SETP990000005.pdf")]
     public void The_pdf_file_name_follows_apidian(int documentTypeId, string expected)
     {
         Assert.That(PdfFileNames.For(documentTypeId, "SETP", 990000005), Is.EqualTo(expected));

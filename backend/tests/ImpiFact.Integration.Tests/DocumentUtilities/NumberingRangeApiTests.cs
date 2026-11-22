@@ -8,8 +8,8 @@ using static ImpiFact.Integration.Tests.DocumentUtilities.UtilitiesHost;
 namespace ImpiFact.Integration.Tests.DocumentUtilities;
 
 /// <summary>
-/// <c>POST /api/ubl2.1/numbering-range</c> (alias <c>GET /api/v1/companies/{nit}/numbering-ranges</c>): la única consulta
-/// en vivo a la DIAN desde la API. Responde como el PHP (<c>message</c>, <c>ResponseDian</c>,
+/// <c>GET /api/v1/companies/{nit}/numbering-ranges</c> (el <c>numbering-range</c> del PHP): la única consulta en vivo a la
+/// DIAN desde la API. Responde como el PHP (<c>message</c>, <c>ResponseDian</c>,
 /// <c>certificate_days_left</c>) con los rangos leídos del sobre.
 /// </summary>
 [TestFixture]
@@ -21,14 +21,14 @@ public sealed class NumberingRangeApiTests
     private static FakeDian Dian => UtilitiesHost.Api.Dian;
 
     [Test]
-    public async Task The_legacy_route_answers_the_php_shape_with_the_ranges_the_dian_returned()
+    public async Task The_route_answers_the_php_shape_with_the_ranges_the_dian_returned()
     {
         var company = await CompanyAsync();
         var client = await ClientAsync(company, ApiScopes.ConfigWrite);
         var before = Dian.Requests.Count;
         Dian.Reply(NumberingRangeSamples.TwoRanges);
 
-        var (status, body) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/numbering-range", """{"IDSoftware":"soft-123","GuardarEn":"C:\\temp"}""");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, $"/api/v1/companies/{company.Nit}/numbering-ranges?software_id=soft-123");
 
         var request = Dian.Requests.Skip(before).Single();
         var result = body.GetProperty("ResponseDian").GetProperty("Envelope").GetProperty("Body")
@@ -97,7 +97,7 @@ public sealed class NumberingRangeApiTests
         var company = await CompanyAsync();
         var client = await ClientAsync(company, ApiScopes.ConfigWrite);
 
-        var (status, body) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/numbering-range", "{}");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, $"/api/v1/companies/{company.Nit}/numbering-ranges");
 
         Assert.Multiple(() =>
         {
@@ -112,7 +112,7 @@ public sealed class NumberingRangeApiTests
         var company = await CompanyAsync(withCertificate: false);
         var client = await ClientAsync(company, ApiScopes.ConfigWrite);
 
-        var (status, body) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/numbering-range", """{"IDSoftware":"soft-1"}""");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, $"/api/v1/companies/{company.Nit}/numbering-ranges?software_id=soft-1");
 
         Assert.Multiple(() =>
         {
@@ -127,7 +127,7 @@ public sealed class NumberingRangeApiTests
         var company = await CompanyAsync(certificateNotAfter: CompaniesHost.Now);
         var client = await ClientAsync(company, ApiScopes.ConfigWrite);
 
-        var (status, body) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/numbering-range", """{"IDSoftware":"soft-1"}""");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, $"/api/v1/companies/{company.Nit}/numbering-ranges?software_id=soft-1");
 
         Assert.Multiple(() =>
         {
@@ -144,7 +144,7 @@ public sealed class NumberingRangeApiTests
         var client = await ClientAsync(company, ApiScopes.ConfigWrite);
         Dian.Reply(DianReplies.ClientFault, HttpStatusCode.InternalServerError);
 
-        var (status, body) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/numbering-range", """{"IDSoftware":"soft-1"}""");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, $"/api/v1/companies/{company.Nit}/numbering-ranges?software_id=soft-1");
 
         Assert.Multiple(() =>
         {
@@ -163,8 +163,7 @@ public sealed class NumberingRangeApiTests
         var client = await ClientAsync(company, ApiScopes.ConfigWrite);
         Dian.Reply(DianReplies.ServiceUnavailablePage);
 
-        using var response = await client.PostAsync(
-            "/api/ubl2.1/numbering-range", new StringContent("""{"IDSoftware":"soft-1"}""", System.Text.Encoding.UTF8, "application/json"));
+        using var response = await client.GetAsync($"/api/v1/companies/{company.Nit}/numbering-ranges?software_id=soft-1");
         var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 
         Assert.Multiple(() =>
@@ -183,7 +182,7 @@ public sealed class NumberingRangeApiTests
         var company = await CompanyAsync();
         var client = await ClientAsync(company, ApiScopes.DocumentsRead, ApiScopes.DocumentsWrite);
 
-        var (status, _) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/numbering-range", """{"IDSoftware":"soft-1"}""");
+        var (status, _) = await SendAsync(client, HttpMethod.Get, $"/api/v1/companies/{company.Nit}/numbering-ranges?software_id=soft-1");
 
         Assert.That(status, Is.EqualTo(403));
     }

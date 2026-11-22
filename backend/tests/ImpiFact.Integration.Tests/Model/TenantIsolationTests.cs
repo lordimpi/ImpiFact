@@ -26,7 +26,7 @@ public sealed class TenantIsolationTests
         typeof(Certificate), typeof(Resolution), typeof(CompanyMailSettings), typeof(CompanyLogo), typeof(Customer),
         typeof(Item), typeof(Document), typeof(DocumentLine), typeof(DocumentTax), typeof(DocumentLineTax),
         typeof(DocumentAllowanceCharge), typeof(DocumentPayment), typeof(DocumentReference), typeof(DocumentFile),
-        typeof(DianSubmission), typeof(DocumentEvent), typeof(ReceivedDocument), typeof(NumberingSequence),
+        typeof(DianSubmission), typeof(DocumentEvent), typeof(ReceivedDocument), typeof(DocumentBatch), typeof(NumberingSequence),
         typeof(CompanyPlan), typeof(Notification), typeof(IdempotencyKey),
     ];
 

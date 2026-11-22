@@ -1,6 +1,7 @@
 using System.Globalization;
 using FluentValidation;
 using FluentValidation.Results;
+using ImpiFact.Dian.Ubl;
 
 namespace ImpiFact.Application.Features.Documents.Issue;
 
@@ -53,7 +54,7 @@ internal static class IssueDocumentRules
         check.Decimal("calculationrate", body.CalculationRate);
         check.Date("calculationratedate", body.CalculationRateDate);
 
-        ValidateCustomer(spec, check, body.Customer);
+        ValidateCustomer(spec, check, spec.PartyOf(body));
         ValidatePayment(check, body);
         ValidatePrepaidPayments(spec, check, body);
         ValidateAllowanceCharges(check, "allowance_charges", body.AllowanceCharges, isLine: false);
@@ -61,6 +62,11 @@ internal static class IssueDocumentRules
         ValidateWithholdings(check, body.WithHoldingTaxTotal);
         ValidateTotals(spec, check, spec.TotalsOf(body));
         ValidateLines(spec, check, spec.LinesOf(body));
+        ValidateVariant(spec, check, body);
+        if (spec.HealthOf(body) is { } health)
+        {
+            ValidateHealth(spec, check, body, health);
+        }
 
         if (spec.IsNote)
         {
@@ -68,70 +74,103 @@ internal static class IssueDocumentRules
         }
     }
 
+    /// <summary>
+    /// The buyer (<c>customer</c>) of the invoice and its notes, or the seller (<c>seller</c>) of the support document and
+    /// its adjustment note, with the rules of <c>SupportDocumentRequest</c> for the seller (php-rules 13.1, items 1 and 2):
+    /// identification type 4, 5, 6, 7, 8, 9 or 11 and <c>phone</c>, <c>address</c>, <c>merchant_registration</c> and a
+    /// numeric <c>postal_zone_code</c> required.
+    /// </summary>
     private static void ValidateCustomer(IssueSpec spec, Checker check, CustomerBody? customer)
     {
+        var party = spec.PartyField;
+        var isSeller = spec.IsSupportDocumentFamily;
+        string Field(string name) => $"{party}.{name}";
         if (customer is null)
         {
-            check.Fail("customer", IssueMessages.Required("customer"));
+            check.Fail(party, IssueMessages.Required(party));
             return;
         }
 
-        var identification = check.RequiredText("customer.identification_number", customer.IdentificationNumber);
+        var identification = check.RequiredText(Field("identification_number"), customer.IdentificationNumber);
         if (identification is not null)
         {
             if (!identification.All(char.IsAsciiLetterOrDigit))
             {
-                check.Fail("customer.identification_number", IssueMessages.AlphaNum("customer.identification_number"));
+                check.Fail(Field("identification_number"), IssueMessages.AlphaNum(Field("identification_number")));
             }
             else if (identification.Length > 15)
             {
-                check.Fail("customer.identification_number", IssueMessages.BetweenLength("customer.identification_number", 1, 15));
+                check.Fail(Field("identification_number"), IssueMessages.BetweenLength(Field("identification_number"), 1, 15));
             }
         }
 
-        var identificationType = check.Integer("customer.type_document_identification_id", customer.TypeDocumentIdentificationId);
+        var identificationType = check.Integer(Field("type_document_identification_id"), customer.TypeDocumentIdentificationId);
+        if (isSeller && identificationType is { } sellerType && !SellerIdentificationTypes.Contains((int)sellerType))
+        {
+            check.Fail(Field("type_document_identification_id"), IssueMessages.Invalid(Field("type_document_identification_id")));
+        }
+
         // Laravel's «required» treats only null and blank text as missing: a check digit of 0 is a value.
         if (!LegacyScalar.IsMissing(customer.Dv) && customer.Dv is { } dv)
         {
             if (!dv.TryInteger(out _) || dv.Text.Trim().Length != 1)
             {
-                check.Fail("customer.dv", IssueMessages.Digits("customer.dv", 1));
+                check.Fail(Field("dv"), IssueMessages.Digits(Field("dv"), 1));
             }
             else if (identification is not null && identification.All(char.IsAsciiDigit)
                 && DianCheckDigit.Of(identification) != int.Parse(dv.Text.Trim(), CultureInfo.InvariantCulture))
             {
-                check.Fail("customer.dv", IssueMessages.InvalidDv);
+                check.Fail(Field("dv"), IssueMessages.InvalidDv);
             }
         }
         else if (identificationType == 6 && spec.Kind == IssueKind.Invoice)
         {
-            check.Fail("customer.dv", IssueMessages.RequiredIf("customer.dv", "customer.type_document_identification_id", "6"));
+            check.Fail(Field("dv"), IssueMessages.RequiredIf(Field("dv"), Field("type_document_identification_id"), "6"));
         }
 
-        check.Integer("customer.type_organization_id", customer.TypeOrganizationId);
-        check.Integer("customer.type_regime_id", customer.TypeRegimeId);
-        check.Integer("customer.type_liability_id", customer.TypeLiabilityId);
-        check.Integer("customer.tax_id", customer.TaxId);
-        check.Integer("customer.language_id", customer.LanguageId);
-        check.Integer("customer.country_id", customer.CountryId);
-        check.Integer("customer.municipality_id", customer.MunicipalityId);
-        check.RequiredText("customer.name", customer.Name, 300);
-        check.Text("customer.phone", customer.Phone, 20);
-        check.Text("customer.address", customer.Address, 300);
-        check.Text("customer.merchant_registration", customer.MerchantRegistration, 50);
+        check.Integer(Field("type_organization_id"), customer.TypeOrganizationId);
+        check.Integer(Field("type_regime_id"), customer.TypeRegimeId);
+        check.Integer(Field("type_liability_id"), customer.TypeLiabilityId);
+        check.Integer(Field("tax_id"), customer.TaxId);
+        check.Integer(Field("language_id"), customer.LanguageId);
+        check.Integer(Field("country_id"), customer.CountryId);
+        check.Integer(Field("municipality_id"), customer.MunicipalityId);
+        check.RequiredText(Field("name"), customer.Name, 300);
+        if (isSeller)
+        {
+            check.RequiredText(Field("phone"), customer.Phone, 20);
+            check.RequiredText(Field("address"), customer.Address, 300);
+            check.RequiredText(Field("merchant_registration"), customer.MerchantRegistration, 50);
+            check.Text(Field("municipality_name"), customer.MunicipalityName, 100);
+            check.Text(Field("state_name"), customer.StateName, 100);
+            if (check.RequiredText(Field("postal_zone_code"), customer.PostalZoneCode, 10) is { } postal
+                && (postal.Trim().Length == 0 || !postal.Trim().All(char.IsAsciiDigit)))
+            {
+                check.Fail(Field("postal_zone_code"), IssueMessages.Numeric(Field("postal_zone_code")));
+            }
+        }
+        else
+        {
+            check.Text(Field("phone"), customer.Phone, 20);
+            check.Text(Field("address"), customer.Address, 300);
+            check.Text(Field("merchant_registration"), customer.MerchantRegistration, 50);
+        }
 
-        if (check.Text("customer.email", customer.Email, 200) is { Length: > 0 } email)
+        if (check.Text(Field("email"), customer.Email, 200) is { Length: > 0 } email)
         {
             if (!IssueMessages.IsEmail(email))
             {
-                check.Fail("customer.email", IssueMessages.Email("customer.email"));
+                check.Fail(Field("email"), IssueMessages.Email(Field("email")));
             }
         }
         else if (spec.Kind == IssueKind.DebitNote && identification != FinalConsumer)
         {
-            check.Fail("customer.email", IssueMessages.RequiredUnless("customer.email", "customer.identification_number", FinalConsumer));
+            check.Fail(Field("email"), IssueMessages.RequiredUnless(Field("email"), Field("identification_number"), FinalConsumer));
         }
     }
+
+    /// <summary>Identification types a support-document seller may have (<c>SupportDocumentRequest</c>, <c>Rule::in</c>).</summary>
+    private static readonly int[] SellerIdentificationTypes = [4, 5, 6, 7, 8, 9, 11];
 
     private static void ValidatePayment(Checker check, IssueDocumentBody body)
     {
@@ -196,7 +235,7 @@ internal static class IssueDocumentRules
             check.Text($"{path}.instructionid", prepaid.InstructionId, 500);
         }
 
-        if (spec.Kind == IssueKind.Invoice && body.PrepaidPayment is { IsEmpty: false }
+        if (spec.IsInvoiceDocument && body.PrepaidPayment is { IsEmpty: false }
             && spec.TotalsOf(body) is { } totals && LegacyScalar.IsMissing(totals.PrePaidAmount))
         {
             var field = $"{spec.TotalsField}.pre_paid_amount";
@@ -332,6 +371,424 @@ internal static class IssueDocumentRules
         }
     }
 
+    /// <summary>
+    /// Fields of the AIU, mandate and freight transport invoices (php-rules, section 10). The other rules are those of
+    /// the standard invoice, also for the customer (php-rules 9.2, item 5). Differences with the PHP, on purpose: the
+    /// mandator's check digit is required with its NIT and must be the DIAN one for that NIT, and the RNDC numbers must
+    /// be digits.
+    /// </summary>
+    private static void ValidateVariant(IssueSpec spec, Checker check, IssueDocumentBody body)
+    {
+        if (spec.Variant == InvoiceVariant.Aiu)
+        {
+            check.RequiredText("noteAIU", body.NoteAiu, 2000);
+            return;
+        }
+
+        if (spec.Variant == InvoiceVariant.Export)
+        {
+            ValidateExport(spec, check, body);
+            return;
+        }
+
+        if (spec.IsSupportDocumentFamily)
+        {
+            ValidateSupportDocument(spec, check, body);
+            return;
+        }
+
+        if (spec.Variant == InvoiceVariant.Contingency)
+        {
+            ValidateContingency(check, body);
+            return;
+        }
+
+        foreach (var (line, index) in (spec.LinesOf(body) ?? []).Select((line, index) => (line, index)))
+        {
+            var at = $"{spec.LinesField}.{index}";
+            if (spec.Variant == InvoiceVariant.Mandate)
+            {
+                ValidateMandator(check, at, line);
+            }
+            else if (spec.Variant == InvoiceVariant.Transport && check.RequiredBoolean($"{at}.is_RNDC", line.IsRndc) == true)
+            {
+                ValidateConsignment(check, at, line);
+            }
+        }
+    }
+
+    /// <summary>
+    /// <c>health_fields</c> of a health-sector invoice (php-rules 17), against the Ministerio de Salud's Documento Técnico 2
+    /// v001: the billing period (sections 4.10 and 4.11), the health operation (section 9), the users that become the single
+    /// Collection of the extension (sections 4.1 to 4.5, 4.12 and 6.a) and the collection concept of each prepaid payment
+    /// (section 7.c). The patient data is RIPS data (section 6.b): only its types and lengths are checked.
+    /// </summary>
+    private static void ValidateHealth(IssueSpec spec, Checker check, IssueDocumentBody body, HealthFieldsBody health)
+    {
+        const string at = "health_fields";
+        var start = RequiredDate(check, $"{at}.invoice_period_start_date", health.InvoicePeriodStartDate);
+        var end = RequiredDate(check, $"{at}.invoice_period_end_date", health.InvoicePeriodEndDate);
+        if (start is { } from && end is { } to && to < from)
+        {
+            check.Fail($"{at}.invoice_period_end_date", IssueMessages.AfterOrEqual(
+                $"{at}.invoice_period_end_date", IssueMessages.Attribute($"{at}.invoice_period_start_date")));
+        }
+
+        check.Text($"{at}.print_users_info_to_pdf", health.PrintUsersInfoToPdf, 10);
+        var operation = check.RequiredInteger($"{at}.health_type_operation_id", health.HealthTypeOperationId);
+        if (operation is { } operationId && !HealthSectorCatalogs.Contains(HealthSectorCatalogs.Operations, operationId))
+        {
+            check.Fail($"{at}.health_type_operation_id", IssueMessages.HealthOperation($"{at}.health_type_operation_id"));
+            operation = null;
+        }
+
+        var users = health.UsersInfo ?? [];
+        if (operation == HealthSectorCatalogs.CollectionOperationId && users.Count > 0)
+        {
+            check.Fail($"{at}.users_info", IssueMessages.HealthUsersForbidden($"{at}.users_info"));
+        }
+        else if (operation is { } withExtension && withExtension != HealthSectorCatalogs.NoContributionOperationId
+                 && withExtension != HealthSectorCatalogs.CollectionOperationId && users.Count == 0)
+        {
+            check.Fail($"{at}.users_info", IssueMessages.HealthUsersRequired($"{at}.users_info", withExtension));
+        }
+
+        for (var index = 0; index < users.Count; index++)
+        {
+            ValidateHealthUser(check, $"{at}.users_info.{index}", users[index]);
+        }
+
+        // One Collection per invoice (section 6.a): the users share the values it carries.
+        var collection = new (string Field, Func<HealthUserBody, LegacyScalar?> Value)[]
+        {
+            ("provider_code", user => user.ProviderCode),
+            ("health_contracting_payment_method_id", user => user.HealthContractingPaymentMethodId),
+            ("health_coverage_id", user => user.HealthCoverageId),
+            ("contract_number", user => user.ContractNumber),
+            ("policy_number", user => user.PolicyNumber),
+            ("health_invoice_without_contract_id", user => user.HealthInvoiceWithoutContractId),
+        };
+        for (var index = 1; index < users.Count; index++)
+        {
+            foreach (var (field, value) in collection)
+            {
+                if (HealthText(value(users[index])) != HealthText(value(users[0])))
+                {
+                    check.Fail($"{at}.users_info.{index}.{field}",
+                        IssueMessages.HealthSameCollection($"{at}.users_info.{index}.{field}", $"{at}.users_info.0.{field}"));
+                }
+            }
+        }
+
+        // Section 7.c and the Ministry's rules DND110 (schemeID required) and «una única vez por concepto».
+        var concepts = new HashSet<long>();
+        foreach (var (path, prepaid) in LegacyDocumentMapper.PrepaidPaymentsOf(spec, body))
+        {
+            var field = $"{path}.prepaid_payment_type_id";
+            if (LegacyScalar.IsMissing(prepaid.PrepaidPaymentTypeId))
+            {
+                check.Fail(field, IssueMessages.RequiredWith(field, at));
+            }
+            else if (check.Integer(field, prepaid.PrepaidPaymentTypeId) is { } concept && !concepts.Add(concept))
+            {
+                check.Fail(field, IssueMessages.HealthPrepaidConceptRepeated(field));
+            }
+        }
+    }
+
+    private static void ValidateHealthUser(Checker check, string at, HealthUserBody user)
+    {
+        check.RequiredText($"{at}.provider_code", user.ProviderCode, 30);
+        HealthId(check, $"{at}.health_contracting_payment_method_id", user.HealthContractingPaymentMethodId, required: true,
+            HealthSectorCatalogs.PaymentMethods.Count, "tabla modalidadPago de SISPRO");
+        HealthId(check, $"{at}.health_coverage_id", user.HealthCoverageId, required: true,
+            HealthSectorCatalogs.Coverages.Count, "tabla coberturaPlan de SISPRO");
+        var withoutContract = HealthId(check, $"{at}.health_invoice_without_contract_id", user.HealthInvoiceWithoutContractId, required: false,
+            HealthSectorCatalogs.InvoicesWithoutContract.Count, "tabla facturaSinContrato de SISPRO");
+        HealthId(check, $"{at}.health_type_document_identification_id", user.HealthTypeDocumentIdentificationId, required: false,
+            HealthSectorCatalogs.IdentificationTypeCount, "tabla de tipos de documento del sector salud");
+        check.Integer($"{at}.health_type_user_id", user.HealthTypeUserId);
+
+        var contract = check.Text($"{at}.contract_number", user.ContractNumber, 100);
+        var policy = check.Text($"{at}.policy_number", user.PolicyNumber, 100);
+        var hasContract = !string.IsNullOrWhiteSpace(contract);
+        if (hasContract && !string.IsNullOrWhiteSpace(policy))
+        {
+            check.Fail($"{at}.policy_number", IssueMessages.HealthContractAndPolicy($"{at}.policy_number"));
+        }
+
+        if (hasContract && withoutContract is not null)
+        {
+            check.Fail($"{at}.health_invoice_without_contract_id", IssueMessages.HealthWithoutContract($"{at}.health_invoice_without_contract_id"));
+        }
+
+        check.Text($"{at}.identification_number", user.IdentificationNumber, 30);
+        check.Text($"{at}.surname", user.Surname, 60);
+        check.Text($"{at}.second_surname", user.SecondSurname, 60);
+        check.Text($"{at}.first_name", user.FirstName, 60);
+        check.Text($"{at}.middle_name", user.MiddleName, 60);
+        check.Text($"{at}.autorization_numbers", user.AutorizationNumbers, 500);
+        check.Text($"{at}.mipres", user.Mipres, 500);
+        check.Text($"{at}.mipres_delivery", user.MipresDelivery, 500);
+
+        // Sections 4.6 to 4.9: «Se valida que no existan valores negativos».
+        foreach (var (field, value) in new[]
+                 {
+                     ("co_payment", user.CoPayment), ("moderating_fee", user.ModeratingFee), ("recovery_fee", user.RecoveryFee),
+                     ("shared_payment", user.SharedPayment), ("advance_payment", user.AdvancePayment),
+                 })
+        {
+            if (check.Decimal($"{at}.{field}", value) is < 0m)
+            {
+                check.Fail($"{at}.{field}", IssueMessages.NotNegative($"{at}.{field}"));
+            }
+        }
+    }
+
+    /// <summary>An id of a health reference table (1 to <paramref name="count"/>); returns it when valid.</summary>
+    private static long? HealthId(Checker check, string field, LegacyScalar? value, bool required, int count, string table)
+    {
+        var id = required ? check.RequiredInteger(field, value) : check.Integer(field, value);
+        if (id is { } number && (number < 1 || number > count))
+        {
+            check.Fail(field, IssueMessages.HealthTable(field, table, count));
+            return null;
+        }
+
+        return id;
+    }
+
+    /// <summary>The value as the Collection compares it: trimmed text, or null when PHP would see it empty.</summary>
+    internal static string? HealthText(LegacyScalar? value) => LegacyScalar.IsMissing(value) ? null : value!.Value.Text.Trim() is { Length: > 0 } text ? text : null;
+
+    private static DateOnly? RequiredDate(Checker check, string field, LegacyScalar? value)
+    {
+        if (LegacyScalar.IsMissing(value))
+        {
+            check.Fail(field, IssueMessages.Required(field));
+            return null;
+        }
+
+        return check.Date(field, value);
+    }
+
+    /// <summary>
+    /// Fields of the contingency invoice type 03 (php-rules 12.1, item 1; <c>InvoiceContingencyRequest</c>): the paper invoice
+    /// it transcribes (<c>AdditionalDocumentReferenceID</c>, <c>AdditionalDocumentReferenceDate</c> as <c>Y-m-d</c> and
+    /// <c>AdditionalDocumentReferenceTypeDocument</c>, a two-digit DIAN document type code where the PHP checked
+    /// <c>exists:type_documents,code</c>), its <c>number</c> (the one printed on the paper invoice, from the contingency
+    /// range) and its <c>time</c>, all required as in the PHP. Annex 1.9 rule FAI01 requires the reference for type 03.
+    /// </summary>
+    private static void ValidateContingency(Checker check, IssueDocumentBody body)
+    {
+        check.RequiredText("AdditionalDocumentReferenceID", body.AdditionalDocumentReferenceId, 50);
+        if (check.RequiredText("AdditionalDocumentReferenceDate", body.AdditionalDocumentReferenceDate, 10) is not null)
+        {
+            check.Date("AdditionalDocumentReferenceDate", body.AdditionalDocumentReferenceDate);
+        }
+
+        if (check.RequiredText("AdditionalDocumentReferenceTypeDocument", body.AdditionalDocumentReferenceTypeDocument, 10) is { } code
+            && !(code.Length == 2 && code.All(char.IsAsciiDigit)))
+        {
+            check.Fail("AdditionalDocumentReferenceTypeDocument", IssueMessages.Invalid("AdditionalDocumentReferenceTypeDocument"));
+        }
+
+        if (LegacyScalar.IsMissing(body.Number))
+        {
+            check.Fail("number", IssueMessages.Required("number"));
+        }
+
+        if (LegacyScalar.IsMissing(body.Time))
+        {
+            check.Fail("time", IssueMessages.Required("time"));
+        }
+    }
+
+    /// <summary>
+    /// Fields of the export invoice (php-rules, section 11): <c>deliveryterms</c> with an Incoterm of the PHP list (the
+    /// <c>incoterms</c> catalog without DPU, which the PHP rejected; open question 3 of section 18), the line brand and
+    /// model, the city and state of a foreign customer, and <c>k_supplement</c>, optional but complete when sent (the PHP
+    /// answered 500 to an incomplete one). A positive exchange rate; whether it is required depends on the currency
+    /// catalog (<see cref="CatalogNeeds.ExchangeRateGaps"/>).
+    /// </summary>
+    private static void ValidateExport(IssueSpec spec, Checker check, IssueDocumentBody body)
+    {
+        if (body.DeliveryTerms is not { } terms)
+        {
+            check.Fail("deliveryterms", IssueMessages.Required("deliveryterms"));
+        }
+        else
+        {
+            check.RequiredText("deliveryterms.special_terms", terms.SpecialTerms, 500);
+            if (check.RequiredText("deliveryterms.loss_risk_responsibility_code", terms.LossRiskResponsibilityCode, 10) is { } code
+                && !ExportIncoterms.Accepted.Contains(code))
+            {
+                check.Fail("deliveryterms.loss_risk_responsibility_code", IssueMessages.Incoterm("deliveryterms.loss_risk_responsibility_code"));
+            }
+
+            check.RequiredText("deliveryterms.loss_risk", terms.LossRisk, 500);
+        }
+
+        if (check.Decimal("calculationrate", body.CalculationRate) is <= 0m)
+        {
+            check.Fail("calculationrate", IssueMessages.Positive("calculationrate"));
+        }
+
+        if (body.Customer is { } customer)
+        {
+            check.Text("customer.municipality_name", customer.MunicipalityName, 100);
+            check.Text("customer.state_name", customer.StateName, 100);
+        }
+
+        foreach (var (line, index) in (spec.LinesOf(body) ?? []).Select((line, index) => (line, index)))
+        {
+            check.Text($"{spec.LinesField}.{index}.brandname", line.BrandName, 300);
+            check.Text($"{spec.LinesField}.{index}.modelname", line.ModelName, 300);
+        }
+
+        if (body.KSupplement is not { } supplement)
+        {
+            return;
+        }
+
+        // Annex 1.9, section 21: every value of the supplement K is text of up to 100 characters.
+        var keys = ExportSupplement.AdditionalInformationFields.Select(field => field.Key).Concat(ExportSupplement.CopTotalFields);
+        foreach (var key in keys)
+        {
+            var field = $"k_supplement.{key}";
+            var value = supplement.GetValueOrDefault(key);
+            if (LegacyScalar.IsMissing(value))
+            {
+                check.Fail(field, IssueMessages.RequiredWith(field, "k_supplement"));
+            }
+            else if (value!.Value.Kind is LegacyScalarKind.True or LegacyScalarKind.False)
+            {
+                check.Fail(field, IssueMessages.Invalid(field));
+            }
+            else
+            {
+                check.Text(field, value, 100);
+            }
+        }
+
+        // FctConvCop is the exchange rate to pesos: ImpiFact never fetches nor invents it (the PHP read the DIAN page or
+        // wrote 4000.00), so it must be a positive number.
+        if (supplement.GetValueOrDefault("FctConvCop") is { Kind: not (LegacyScalarKind.True or LegacyScalarKind.False) } rate
+            && !LegacyScalar.IsMissing(rate) && check.Decimal("k_supplement.FctConvCop", rate) is <= 0m)
+        {
+            check.Fail("k_supplement.FctConvCop", IssueMessages.Positive("k_supplement.FctConvCop"));
+        }
+    }
+
+    /// <summary>
+    /// Support document (php-rules 13.1, item 5): every line needs <c>type_generation_transmition_id</c> and
+    /// <c>start_date</c> (<c>Y-m-d</c>). Adjustment note (php-rules 14, items 2 and 5): <c>billing_reference</c> is
+    /// required (there are no adjustment notes without a support document) and its lines may carry the brand and model.
+    /// </summary>
+    private static void ValidateSupportDocument(IssueSpec spec, Checker check, IssueDocumentBody body)
+    {
+        foreach (var (line, index) in (spec.LinesOf(body) ?? []).Select((line, index) => (line, index)))
+        {
+            var at = $"{spec.LinesField}.{index}";
+            if (spec.Kind == IssueKind.SupportDocument)
+            {
+                check.RequiredInteger($"{at}.type_generation_transmition_id", line.TypeGenerationTransmitionId);
+                if (LegacyScalar.IsMissing(line.StartDate))
+                {
+                    check.Fail($"{at}.start_date", IssueMessages.Required($"{at}.start_date"));
+                }
+                else
+                {
+                    check.Date($"{at}.start_date", line.StartDate);
+                }
+            }
+            else
+            {
+                check.Text($"{at}.brandname", line.BrandName, 300);
+                check.Text($"{at}.modelname", line.ModelName, 300);
+            }
+        }
+
+        if (spec.Kind == IssueKind.SupportDocumentAdjustmentNote && body.BillingReference is null)
+        {
+            check.Fail("billing_reference", IssueMessages.Required("billing_reference"));
+        }
+    }
+
+    /// <summary>
+    /// <c>agentparty</c> (<c>digits_between:1,15</c>) and <c>agentparty_dv</c> (<c>digits:1</c>), both optional as in
+    /// the PHP, but the check digit goes with the NIT.
+    /// </summary>
+    private static void ValidateMandator(Checker check, string at, LineBody line)
+    {
+        string? nit = null;
+        if (!LegacyScalar.IsMissing(line.AgentParty))
+        {
+            var text = line.AgentParty!.Value.Text.Trim();
+            if (text.Length is 0 or > 15 || !text.All(char.IsAsciiDigit) || line.AgentParty.Value.Kind is LegacyScalarKind.True or LegacyScalarKind.False)
+            {
+                check.Fail($"{at}.agentparty", IssueMessages.DigitsBetween($"{at}.agentparty", 1, 15));
+            }
+            else
+            {
+                nit = text;
+            }
+        }
+
+        if (LegacyScalar.IsMissing(line.AgentPartyDv))
+        {
+            if (!LegacyScalar.IsMissing(line.AgentParty))
+            {
+                check.Fail($"{at}.agentparty_dv", IssueMessages.RequiredWith($"{at}.agentparty_dv", $"{at}.agentparty"));
+            }
+
+            return;
+        }
+
+        var dv = line.AgentPartyDv!.Value;
+        if (!dv.TryInteger(out var digit) || dv.Text.Trim().Length != 1)
+        {
+            check.Fail($"{at}.agentparty_dv", IssueMessages.Digits($"{at}.agentparty_dv", 1));
+        }
+        else if (nit is not null && DianCheckDigit.Of(nit) != digit)
+        {
+            check.Fail($"{at}.agentparty_dv", IssueMessages.InvalidDv);
+        }
+    }
+
+    /// <summary>The five consignment fields that <c>is_RNDC = true</c> requires (<c>required_if:...is_RNDC,true</c>).</summary>
+    private static void ValidateConsignment(Checker check, string at, LineBody line)
+    {
+        string Field(string name) => $"{at}.{name}";
+        void Required(string name, LegacyScalar? value, Func<LegacyScalar, string?> invalid)
+        {
+            if (LegacyScalar.IsMissing(value) || value!.Value.Kind is LegacyScalarKind.True or LegacyScalarKind.False)
+            {
+                check.Fail(Field(name), LegacyScalar.IsMissing(value)
+                    ? IssueMessages.RequiredIf(Field(name), Field("is_RNDC"), "true")
+                    : IssueMessages.Invalid(Field(name)));
+            }
+            else if (invalid(value.Value) is { } message)
+            {
+                check.Fail(Field(name), message);
+            }
+        }
+
+        Required("RNDC_consignment_number", line.RndcConsignmentNumber, value =>
+            value.Text.Trim() is not { Length: > 0 } digits || !digits.All(char.IsAsciiDigit) ? IssueMessages.Numeric(Field("RNDC_consignment_number"))
+            : value.Text.Trim().Length > 30 ? IssueMessages.MaxLength(Field("RNDC_consignment_number"), 30) : null);
+        Required("internal_consignment_number", line.InternalConsignmentNumber, value =>
+            value.Text.Length > 100 ? IssueMessages.MaxLength(Field("internal_consignment_number"), 100) : null);
+        Required("value_consignment", line.ValueConsignment, value =>
+            !value.TryInteger(out var amount) ? IssueMessages.Integer(Field("value_consignment"))
+            : Math.Abs(amount) > LegacyScalar.MaxMagnitude ? IssueMessages.MaxNumber(Field("value_consignment"), LegacyScalar.MaxMagnitude) : null);
+        Required("unit_measure_consignment_id", line.UnitMeasureConsignmentId, value =>
+            value.TryInteger(out var id) && id is > 0 and <= int.MaxValue ? null : IssueMessages.Integer(Field("unit_measure_consignment_id")));
+        Required("quantity_consignment", line.QuantityConsignment, value =>
+            !value.TryDecimal(out var quantity) ? IssueMessages.Numeric(Field("quantity_consignment"))
+            : Math.Abs(quantity) > LegacyScalar.MaxMagnitude ? IssueMessages.MaxNumber(Field("quantity_consignment"), LegacyScalar.MaxMagnitude) : null);
+    }
+
     private static void ValidateNote(IssueSpec spec, Checker check, IssueDocumentBody body, long? operation)
     {
         if (check.Integer("discrepancyresponsecode", body.DiscrepancyResponseCode) is { } code && (code < 1 || code > spec.MaxDiscrepancyCode))
@@ -371,9 +828,9 @@ internal static class IssueDocumentRules
                 }
             }
         }
-        else if (operation == spec.OperationWithoutReferenceId)
+        else if (spec.OperationWithoutReferenceId is { } withoutReference && operation == withoutReference)
         {
-            check.Fail("invoice_period", IssueMessages.RequiredIf("invoice_period", "type_operation_id", spec.OperationWithoutReferenceId!.Value.ToString(CultureInfo.InvariantCulture)));
+            check.Fail("invoice_period", IssueMessages.RequiredIf("invoice_period", "type_operation_id", withoutReference.ToString(CultureInfo.InvariantCulture)));
         }
     }
 
@@ -561,6 +1018,77 @@ internal sealed class IssueInvoiceCommandValidator : AbstractValidator<IssueInvo
     public IssueInvoiceCommandValidator() =>
         RuleFor(command => command).Custom((command, context) =>
             IssueDocumentRules.Validate(IssueSpec.Invoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueAiuInvoiceCommandValidator : AbstractValidator<IssueAiuInvoiceCommand>
+{
+    public IssueAiuInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.AiuInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueMandateInvoiceCommandValidator : AbstractValidator<IssueMandateInvoiceCommand>
+{
+    public IssueMandateInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.MandateInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueTransportInvoiceCommandValidator : AbstractValidator<IssueTransportInvoiceCommand>
+{
+    public IssueTransportInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.TransportInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueContingencyInvoiceCommandValidator : AbstractValidator<IssueContingencyInvoiceCommand>
+{
+    public IssueContingencyInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.ContingencyInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueDianContingencyInvoiceCommandValidator : AbstractValidator<IssueDianContingencyInvoiceCommand>
+{
+    public IssueDianContingencyInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.DianContingencyInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueExportInvoiceCommandValidator : AbstractValidator<IssueExportInvoiceCommand>
+{
+    public IssueExportInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.ExportInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+/// <summary>
+/// Incoterms that the export invoice accepts: the list of the PHP validation (REQ/InvoiceExportRequest.php:231), which is
+/// the seeded <c>incoterms</c> catalog without DPU. DPU (Incoterms 2020) replaced DAT, but the annex 1.9 list 13.3.7 is
+/// in the DIAN toolbox and not in the repository, so it stays rejected until the habilitation tests confirm it
+/// (php-rules, section 18, question 3).
+/// </summary>
+internal static class ExportIncoterms
+{
+    public static readonly IReadOnlySet<string> Accepted = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "CFR", "CIF", "CIP", "CPT", "DAP", "DAT", "DDP", "EXW", "FAS", "FCA", "FOB",
+    };
+}
+
+internal sealed class IssueSupportDocumentCommandValidator : AbstractValidator<IssueSupportDocumentCommand>
+{
+    public IssueSupportDocumentCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.SupportDocument, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueSupportDocumentAdjustmentNoteCommandValidator : AbstractValidator<IssueSupportDocumentAdjustmentNoteCommand>
+{
+    public IssueSupportDocumentAdjustmentNoteCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.SupportDocumentAdjustmentNote, command.Body,
+                (field, message) => context.AddFailure(new ValidationFailure(field, message))));
 }
 
 internal sealed class IssueCreditNoteCommandValidator : AbstractValidator<IssueCreditNoteCommand>

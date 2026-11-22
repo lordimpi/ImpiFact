@@ -25,6 +25,10 @@ public sealed class DocumentIssueHost
 
     public static CompanyApiFactory Api => factory ?? throw new InvalidOperationException("The document issue API host is not running.");
 
+    /// <summary>Connection string of the database, for a Worker host on the same data (see ContingencyDeliveryApiTests).</summary>
+    public static string ConnectionString =>
+        container?.GetConnectionString() ?? throw new InvalidOperationException("The document issue database is not running.");
+
     [OneTimeSetUp]
     public async Task StartAsync()
     {
@@ -104,7 +108,7 @@ public static class IssuerSetup
     {
         var api = DocumentIssueHost.Api;
         using var platform = await api.ClientWithNewKeyAsync(null, ApiScopes.Platform);
-        using var created = await platform.PostAsJsonAsync($"/api/ubl2.1/config/{nit}/{dv}", GoldenCompanyBody(nit == GoldenNit ? "golden@example.com" : $"{nit}@example.com"));
+        using var created = await platform.PostAsJsonAsync($"/api/v1/companies/{nit}/{dv}", GoldenCompanyBody(nit == GoldenNit ? "golden@example.com" : $"{nit}@example.com"));
         Assert.That(created.StatusCode, Is.EqualTo(HttpStatusCode.OK), await created.Content.ReadAsStringAsync());
         string token;
         using (var json = JsonDocument.Parse(await created.Content.ReadAsStringAsync()))
@@ -115,18 +119,18 @@ public static class IssuerSetup
         var client = api.ClientWith(token);
         if (withSoftware)
         {
-            await Ok(await client.PutAsJsonAsync("/api/ubl2.1/config/software", new { id = SoftwareId, pin = SoftwarePin }));
+            await Ok(await client.PutAsJsonAsync($"/api/v1/companies/{nit}/software", new { id = SoftwareId, pin = SoftwarePin }));
         }
 
         if (withCertificate)
         {
-            await Ok(await client.PutAsJsonAsync("/api/ubl2.1/config/certificate",
+            await Ok(await client.PutAsJsonAsync($"/api/v1/companies/{nit}/certificate",
                 new { certificate = Convert.ToBase64String(TestPfx.Rsa()), password = TestPfx.Password }));
         }
 
         foreach (var resolution in resolutions ?? GoldenResolutions)
         {
-            await Ok(await client.PutAsJsonAsync("/api/ubl2.1/config/resolution", resolution));
+            await Ok(await client.PutAsJsonAsync($"/api/v1/companies/{nit}/resolution", resolution));
         }
 
         await using var scope = api.OpenScope(null, null, ActorType.System);

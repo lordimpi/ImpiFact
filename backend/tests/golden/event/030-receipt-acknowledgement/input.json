@@ -1,0 +1,24 @@
+{
+  "now": "2026-11-14 14:00:00",
+  "event_id": 1,
+  "issuer_party": {
+    "identification_number": "1000000001",
+    "first_name": "PERSONA",
+    "last_name": "DE PRUEBA",
+    "organization_department": "CONTABILIDAD",
+    "job_title": "AUXILIAR CONTABLE"
+  },
+  "document_reference": {
+    "number": "FPRU1001",
+    "prefix": "FPRU",
+    "uuid": "83c3ba93981ccf3d79c246498209c7762962faccc62b1328e3be207da45569b7dac74cac108cae80addd7e2e4c4e9f9e",
+    "type_document_id": 1
+  },
+  "provider": {
+    "name": "PROVEEDOR DE PRUEBA GOLDEN SAS",
+    "identification_number": "800000002",
+    "email": "proveedor.radian@example.com",
+    "type_organization_id": 1,
+    "type_regime_id": 1
+  }
+}

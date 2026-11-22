@@ -16,6 +16,33 @@ public static class GoldenCaptureContext
     public const string SoftwarePin = "12345";
     public const string TechnicalKey = "fc8eac422eba16e22ffd8c6f94b3f40a6e38162c";
 
+    /// <summary>
+    /// Software del documento soporte y de su nota de ajuste (SD_SOFTWARE_ID y SD_SOFTWARE_PIN de capture.py). Su PIN
+    /// es el secreto del CUDS (código único del documento soporte).
+    /// </summary>
+    public const string SupportDocumentSoftwareId = "7c1e5a90-2b4d-4f3a-8e6c-1d9b0a2f3c58";
+
+    public const string SupportDocumentSoftwarePin = "54321";
+
+    /// <summary>
+    /// Support-document resolution (type 11) of capture.py: the SEDS test range of the Postman collection. The adjustment
+    /// note (type 13) uses prefix NDS without dates.
+    /// </summary>
+    public const string SupportDocumentPrefix = "SEDS";
+
+    public static readonly DateOnly SupportDocumentDateFrom = new(2022, 1, 1);
+    public const long SupportDocumentFrom = 984000000;
+    public const long SupportDocumentTo = 985000000;
+
+    /// <summary>
+    /// Day the support-document cases were captured: without <c>idcurrency</c> ApiDian writes cac:PaymentExchangeRate with
+    /// today's date (php-rules 13.2, item 4), so expected.xml pins it.
+    /// </summary>
+    public static readonly DateOnly SupportDocumentCaptureDate = new(2026, 11, 21);
+
+    /// <summary>type_operation_id that sdCreditNoteController uses when the request has none (10, code 10).</summary>
+    public const int AdjustmentNoteOperationTypeId = 10;
+
     public const int CompanyIdentificationTypeId = 6;
     public const int CompanyOrganizationTypeId = 1;
     public const int CompanyRegimeId = 1;

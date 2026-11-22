@@ -19,7 +19,7 @@ namespace ImpiFact.Application.Features.Companies.NumberingRange;
 /// única consulta que la API hace en vivo a la DIAN: llama a GetNumberingRange con el NIT (número de identificación
 /// tributaria) de la empresa como emisor y como proveedor tecnológico, igual que el PHP (software propio).
 /// </summary>
-/// <param name="Nit">NIT de la ruta canónica; nulo en la ruta heredada, que no lo trae.</param>
+/// <param name="Nit">NIT de la ruta, que debe ser el de la empresa de la credencial.</param>
 /// <param name="SoftwareId">Identificador del software ante la DIAN (<c>IDSoftware</c> del PHP).</param>
 /// <param name="SaveIn">
 /// <c>GuardarEn</c> del PHP: carpeta del servidor donde guardar la solicitud y la respuesta. Se acepta por el contrato y

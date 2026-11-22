@@ -43,6 +43,12 @@ internal static class DocumentEmailComposer
 
     private const string CellStyle = "border: 1px solid #ddd; padding: 8px; border-radius: 5px;";
 
+    /// <summary>Prefixes of the support-document family's XML names (<c>DianFileNames.Prefix</c>).</summary>
+    private static readonly string[] SupportDocumentPrefixes = ["dse", "nds"];
+
+    /// <summary>Prefixes of the XML names whose entry gives the attached-document name.</summary>
+    private static readonly string[] EntryPrefixes = ["fv", "nc", "nd", "dse"];
+
     /// <summary>
     /// Asunto con el formato que exige la DIAN para el correo del documento electrónico y que arma el PHP:
     /// <c>NIT;nombre;prefijonúmero;código del tipo de documento;nombre</c>.
@@ -56,9 +62,19 @@ internal static class DocumentEmailComposer
     /// ese mismo nombre), con <c>atacheddocument_name_prefix</c> delante si la solicitud lo trae.
     /// </summary>
     /// <param name="sentZip">Último ZIP enviado a la DIAN; si falta, el nombre sale del número del documento.</param>
+    /// <remarks>
+    /// The support document (<c>dse</c>) and its adjustment note (<c>nds</c>) get <c>ad</c> in place of their three-letter
+    /// prefix: the PHP replaces <c>dse</c> and then <c>nd</c> and <c>ads</c> by <c>ad</c> (SupportDocumentController 364,
+    /// SdCreditNoteController 330), which leaves the same name.
+    /// </remarks>
     public static string AttachedDocumentName(string? prefix, byte[]? sentZip, string fullNumber)
     {
-        var name = EntryName(sentZip) is { } entry ? AttachedDocumentFileName.FromDianXmlFileName(entry) : "ad-" + fullNumber;
+        var name = EntryName(sentZip) switch
+        {
+            { } entry when SupportDocumentPrefixes.Any(tag => entry.StartsWith(tag, StringComparison.Ordinal)) => string.Concat("ad", entry.AsSpan(3)),
+            { } entry => AttachedDocumentFileName.FromDianXmlFileName(entry),
+            null => "ad-" + fullNumber,
+        };
         return (prefix ?? string.Empty) + name;
     }
 
@@ -156,7 +172,7 @@ internal static class DocumentEmailComposer
         {
             using var archive = new ZipArchive(new MemoryStream(zip), ZipArchiveMode.Read);
             return archive.Entries is [var entry] && Path.GetFileNameWithoutExtension(entry.FullName) is { Length: > 2 } name
-                && (name.StartsWith("fv", StringComparison.Ordinal) || name.StartsWith("nc", StringComparison.Ordinal) || name.StartsWith("nd", StringComparison.Ordinal))
+                && EntryPrefixes.Any(tag => name.StartsWith(tag, StringComparison.Ordinal))
                 ? name
                 : null;
         }

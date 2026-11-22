@@ -1,10 +1,10 @@
-{{!-- Adquiriente, QR y factura de referencia de las notas crédito y débito. --}}
+{{!-- Adquiriente («Cliente») o vendedor («Proveedor»), QR y documento de referencia de las notas (crédito, débito y de ajuste). --}}
 <table class="full">
     <tr>
         <td class="top" style="width: 50%;">
             <table class="labels">
                 <tr><td>CC o NIT:</td><td>{{Document.Customer.Identification}}</td></tr>
-                <tr><td>Cliente:</td><td>{{Document.Customer.Name}}</td></tr>
+                <tr><td>{{Labels.PartyLabel}}</td><td>{{Document.Customer.Name}}</td></tr>
                 <tr><td>Regimen:</td><td>{{Document.Customer.Regime}}</td></tr>
                 <tr><td>Obligación:</td><td>{{Document.Customer.Liability}}</td></tr>
                 <tr><td>Dirección:</td><td>{{Document.Customer.Address}}</td></tr>
@@ -28,6 +28,6 @@
 {{#with Document.Reference}}
 <div class="reference">
     <p>Referencia: {{Number}} - Fecha: {{IssueDate}}</p>
-    <p>CUFE: <span class="uuid">{{Uuid}}</span></p>
+    <p>{{@root.Labels.ReferenceUuidLabel}}: <span class="uuid">{{Uuid}}</span></p>
 </div>
 {{/with}}

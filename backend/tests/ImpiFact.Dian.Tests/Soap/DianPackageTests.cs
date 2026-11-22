@@ -21,6 +21,8 @@ public class DianPackageTests
     [TestCase(DianFileKind.Invoice, "fv")]
     [TestCase(DianFileKind.CreditNote, "nc")]
     [TestCase(DianFileKind.DebitNote, "nd")]
+    [TestCase(DianFileKind.SupportDocument, "dse")]
+    [TestCase(DianFileKind.SupportDocumentAdjustmentNote, "nds")]
     public void Xml_entry_name_prefix_depends_on_the_document_kind(DianFileKind kind, string prefix)
     {
         Assert.That(DianFileNames.XmlEntry(kind, "900123456", 2026, 1), Is.EqualTo(prefix + "09001234560002600000001.xml"));

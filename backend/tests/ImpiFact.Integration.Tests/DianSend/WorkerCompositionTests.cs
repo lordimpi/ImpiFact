@@ -41,6 +41,7 @@ public sealed class WorkerCompositionTests
                     OutboxMessageTypes.SendEmail, OutboxMessageTypes.SendNoticeEmail,
                     OutboxMessageTypes.RegeneratePdf, OutboxMessageTypes.RegenerateAttachedDocument,
                     OutboxMessageTypes.SendPasswordResetEmail,
+                    OutboxMessageTypes.SendDocumentBatchToDian, OutboxMessageTypes.PollDocumentBatchStatus,
                 }));
             Assert.That(handlers.Select(handler => handler.MessageType), Is.Unique);
         });

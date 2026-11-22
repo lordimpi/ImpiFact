@@ -1,13 +1,16 @@
 {
   "_source": "Extracted from ApiDian Community seed CSVs (apidian/public/csv/*.csv, commit da4ed76), keeping only the IDs the golden inputs and the fixed capture context use. Values are copied verbatim, including the trailing space of municipality 149.",
   "countries": {
-    "46": { "name": "Colombia", "code": "CO" }
+    "46": { "name": "Colombia", "code": "CO" },
+    "65": { "name": "Estados Unidos", "code": "US" }
   },
   "departments": {
-    "5": { "name": "Bogotá", "code": "11" }
+    "5": { "name": "Bogotá", "code": "11" },
+    "25": { "name": "Quindío", "code": "63" }
   },
   "municipalities": {
-    "149": { "name": "Bogotá, D.c. ", "code": "11001", "departmentId": "5" }
+    "149": { "name": "Bogotá, D.c. ", "code": "11001", "departmentId": "5" },
+    "820": { "name": "Armenia", "code": "63001", "departmentId": "25" }
   },
   "languages": {
     "79": { "name": "Spanish; Castilian", "code": "es" }
@@ -18,7 +21,8 @@
   },
   "identificationTypes": {
     "3": { "name": "Cédula de ciudadanía", "code": "13" },
-    "6": { "name": "NIT", "code": "31" }
+    "6": { "name": "NIT", "code": "31" },
+    "8": { "name": "Documento de identificación extranjero", "code": "42" }
   },
   "organizationTypes": {
     "1": { "name": "Persona Jurídica y asimiladas", "code": "1" },
@@ -67,13 +71,23 @@
   "operationTypes": {
     "6": { "name": "Nota Débito que referencia una factura electrónica", "code": "30" },
     "8": { "name": "Nota Crédito sin referencia a facturas", "code": "22" },
+    "9": { "name": "AIU", "code": "09" },
     "10": { "name": "Estandar", "code": "10" },
-    "12": { "name": "Nota Crédito que referencia una factura electrónica", "code": "20" }
+    "11": { "name": "Mandatos bienes", "code": "11" },
+    "12": { "name": "Nota Crédito que referencia una factura electrónica", "code": "20" },
+    "21": { "name": "Mandatos Servicios", "code": "12" },
+    "23": { "name": "Residente", "code": "10" },
+    "24": { "name": "No Residente", "code": "11" }
   },
   "documentTypes": {
     "1": { "name": "Factura de Venta Nacional", "code": "01" },
+    "2": { "name": "Factura de Exportación", "code": "02" },
+    "3": { "name": "Factura de Contingencia", "code": "03" },
     "4": { "name": "Nota Crédito", "code": "91" },
-    "5": { "name": "Nota Débito", "code": "92" }
+    "5": { "name": "Nota Débito", "code": "92" },
+    "11": { "name": "Documento Soporte Electrónico", "code": "05" },
+    "12": { "name": "Factura electrónica de Venta - tipo 04", "code": "04" },
+    "13": { "name": "Nota de Ajuste al Documento Soporte Electrónico", "code": "95" }
   },
   "creditNoteDiscrepancies": {
     "1": { "name": "Devolución parcial de los bienes y/o no aceptación parcial del servicio", "code": "1" },
@@ -81,5 +95,16 @@
   },
   "debitNoteDiscrepancies": {
     "3": { "name": "Cambio del valor", "code": "3" }
+  },
+  "supportDocumentDiscrepancies": {
+    "2": { "name": "Anulación del documento soporte en adquisiciones efectuadas a sujetos no obligados a expedir factura de venta o documento equivalente", "code": "2" }
+  },
+  "generationTransmitions": {
+    "1": { "name": "Por operación", "code": "1" }
+  },
+  "prepaidPaymentTypes": {
+    "1": { "name": "Copago", "code": "01" },
+    "2": { "name": "Cuota moderadora", "code": "02" },
+    "4": { "name": "Anticipo", "code": "04" }
   }
 }

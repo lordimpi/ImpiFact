@@ -57,4 +57,36 @@ internal static class PdfSamples
     };
 
     public static DocumentPdfModel DebitNote() => CreditNote() with { Kind = PdfDocumentKind.DebitNote, Prefix = "ND" };
+
+    public const string Cuds = "e3b6f1cf90150b66de1e1c55970c9797970c6239719a278bfb58a3a27ec1ba4dc35d586590a3958d0aa36e661a3d4d11";
+
+    /// <summary>The support-document golden <c>resident-seller</c>: the company buys from a seller not obliged to invoice.</summary>
+    public static DocumentPdfModel SupportDocument() => Invoice() with
+    {
+        Kind = PdfDocumentKind.SupportDocument,
+        Prefix = "SEDS",
+        Number = "984000001",
+        UuidLabel = "CUDS",
+        Uuid = Cuds,
+        QrText = "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=" + Cuds,
+        Resolution = new PdfResolution("18760000001", "2022-01-01", "SEDS", "984000000", "985000000", "2022-01-01", "2030-01-19"),
+        Customer = new PdfCustomer("800000003-4", "PROVEEDOR NO OBLIGADO GOLDEN", "Responsable de IVA", "No aplica – Otros", "CALLE 3 # 3-03",
+            "Armenia - Colombia", "3000000003", "proveedor.golden@example.com"),
+        Lines = [new PdfLine(1, "PRUEBA", "ARTICULO DE PRUEBAS", null, "2.00", "Unidad", "100.00", "0.00", "0.00", "0.00", "200.00")],
+        Taxes = [new PdfTax("IVA", "200.00", "0.00%", "0.00")],
+        Withholdings = [],
+        Totals = new PdfTotals("1", "200.00", "0.00", "0.00", "0.00", "200.00"),
+        AmountInWords = "DOSCIENTOS PESOS CON CERO CENTAVOS",
+    };
+
+    /// <summary>The adjustment-note golden <c>adjustment-with-reference</c>, which adjusts <see cref="SupportDocument"/>.</summary>
+    public static DocumentPdfModel SupportDocumentAdjustmentNote() => SupportDocument() with
+    {
+        Kind = PdfDocumentKind.SupportDocumentAdjustmentNote,
+        Prefix = "NDS",
+        Number = "1",
+        Resolution = null,
+        Payments = [],
+        Reference = new PdfReference("SEDS984000001", "2026-11-14", Cuds),
+    };
 }

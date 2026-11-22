@@ -5,10 +5,12 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Companies;
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Identity;
+using ImpiFact.Application.Features.Companies.Activation;
 using ImpiFact.Application.Features.Companies.CreateCompany;
 using ImpiFact.Application.Features.Companies.ListCertificates;
 using ImpiFact.Application.Features.Companies.ListPlatformCompanies;
 using ImpiFact.Application.Features.Companies.Logo;
+using ImpiFact.Application.Features.Companies.MailSettings;
 using ImpiFact.Application.Features.Companies;
 using ImpiFact.Application.Features.Companies.NumberingRange;
 using ImpiFact.Application.Features.Companies.Reads;
@@ -18,18 +20,15 @@ using ImpiFact.Application.Features.Companies.SetSoftware;
 using ImpiFact.Application.Features.Companies.UpdateCompany;
 using ImpiFact.Application.Features.Companies.UploadCertificate;
 using ImpiFact.Application.Features.Companies.UpsertResolution;
-using ImpiFact.Infrastructure.Identity;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ImpiFact.Api.Companies;
 
 /// <summary>
-/// Endpoints del módulo Company (Arquitectura detallada, sección 9.3). La ruta canónica es
-/// <c>/api/v1/companies/{nit}/...</c>; las del contrato heredado (<c>/api/ubl2.1/...</c>, anexo A.5) son alias del
-/// mismo caso de uso. En las canónicas el NIT debe ser el de la empresa de la credencial (si no, 403 sin revelar si
-/// existe); las heredadas no traen NIT y actúan sobre la empresa de la credencial. Cada endpoint solo arma la
-/// solicitud, llama al caso de uso y traduce el resultado.
+/// Endpoints del módulo Company (Arquitectura detallada, sección 9.3), bajo <c>/api/v1/companies/{nit}/...</c>. El NIT
+/// debe ser el de la empresa de la credencial (si no, 403 sin revelar si existe). Las rutas heredadas del PHP
+/// (<c>/api/ubl2.1/config/...</c>) se borraron en la fase 7a (T9b2). Cada endpoint solo arma la solicitud, llama al
+/// caso de uso y traduce el resultado.
 /// </summary>
 internal sealed class CompanyEndpoints : IEndpointModule
 {
@@ -40,8 +39,6 @@ internal sealed class CompanyEndpoints : IEndpointModule
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         var canonical = endpoints.MapGroup("/api/v1/companies").WithTags(ApiTags.Companies);
-        // Contrato heredado del PHP: sigue activo para la colección Postman, fuera de la documentación; se borra en la fase 7.
-        var legacy = endpoints.MapGroup("/api/ubl2.1").WithTags(ApiTags.Companies).ExcludeFromDescription();
 
         // Alta o actualización por NIT: operación de plataforma.
         canonical.MapPost("/{nit}/{dv}", CreateCompany).RequireAuthorization(ApiScopes.Platform)
@@ -57,10 +54,6 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "(`type_environment_id`; si no llega, habilitación). Al crearla, la respuesta trae en `token` la API key de " +
                 "la empresa (alcances `documents:write`, `documents:read` y `config:write`): se muestra solo esta vez. En " +
                 "una actualización `token` es nulo. Correo ya usado por otra empresa: 409 (`company.email_taken`).");
-
-        // Ruta heredada del alta. La plataforma crea o actualiza cualquier empresa; una empresa con config:write solo
-        // actualiza la suya, como cuando el PHP recibía de nuevo el alta de una empresa existente.
-        legacy.MapPost("/config/{nit}/{dv?}", CreateOrUpdateCompany).RequireAuthorization(PlatformOrConfigWrite);
 
         canonical.MapPut("/{nit}/{dv}", UpdateCompany).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<CompanySavedResponse>()
@@ -83,20 +76,20 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "`support_document_type_environment_id` (documento soporte) y `event_type_environment_id` (eventos). Las " +
                 "familias que no llegan quedan como estaban. Exige el software configurado antes: si no, 422 " +
                 "(`company.software_missing`)." + OwnNit);
-        legacy.MapPut("/config/environment", SetEnvironment).RequireAuthorization(ApiScopes.ConfigWrite);
 
         canonical.MapPut("/{nit}/software", SetSoftware).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<SoftwareSavedResponse>()
-            .WithRequestExamples(ExampleBodies.Software)
+            .WithRequestExamples([.. ExampleBodies.Software, .. ExampleBodies.SupportDocumentSoftware])
             .WithOperationId("setCompanySoftware")
             .WithSummary("Registrar el software ante la DIAN")
             .WithDescription(
                 "Guarda el identificador del software (`id`), su PIN de 5 dígitos (`pin`) y, si quiere, la URL del servicio " +
                 "(`url`) y el `test_set_id` del set de pruebas, tal como los dio la DIAN al registrar el software. Otras " +
                 "familias usan sus propios campos (`idpayroll`, `ideqdocs`, `idsupportdocument`…). El software queda en el " +
-                "ambiente actual de cada familia. El PIN se guarda cifrado y nunca se devuelve." + OwnNit);
-        legacy.MapPut("/config/software", SetSoftware).RequireAuthorization(ApiScopes.ConfigWrite);
-        legacy.MapPut("/config/softwaresupportdocument", SetSoftware).RequireAuthorization(ApiScopes.ConfigWrite);
+                "ambiente actual de cada familia. El del documento soporte (`idsupportdocument` y `pinsupportdocument`, o " +
+                "`identifier_support_document` y `pin_support_document`) es el que firman y envían el documento soporte y su " +
+                "nota de ajuste; es la misma operación que `PUT /api/ubl2.1/config/softwaresupportdocument` del PHP. El PIN " +
+                "se guarda cifrado y nunca se devuelve." + OwnNit);
 
         canonical.MapPut("/{nit}/certificate", UploadCertificate).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<CertificateSavedResponse>()
@@ -110,7 +103,6 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "422 si la contraseña o el archivo no son válidos (`certificate.invalid`), si no trae llave privada RSA " +
                 "(`certificate.no_private_key`) o si ya venció (`certificate.expired`). Ni el archivo ni la contraseña se " +
                 "devuelven." + OwnNit);
-        legacy.MapPut("/config/certificate", UploadCertificate).RequireAuthorization(ApiScopes.ConfigWrite);
 
         canonical.MapPut("/{nit}/resolution", UpsertResolution).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<ResolutionSavedResponse>()
@@ -123,7 +115,6 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "`date_from`-`date_to`. Se identifica por tipo de documento, número, prefijo y ambiente: si ya existe, se " +
                 "actualiza. Queda en el ambiente actual de la familia de su tipo. Con `delete_all_type_resolutions` las " +
                 "demás resoluciones del mismo tipo y ambiente quedan inactivas." + OwnNit);
-        legacy.MapPut("/config/resolution", UpsertResolution).RequireAuthorization(ApiScopes.ConfigWrite);
 
         canonical.MapGet("/{nit}/certificates", ListCertificates).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<CertificatesResponse>()
@@ -131,7 +122,6 @@ internal sealed class CompanyEndpoints : IEndpointModule
             .WithSummary("Listar los certificados de la empresa")
             .WithDescription("Lista los certificados que la empresa ha subido, solo con sus datos (titular, emisor, vigencia, " +
                 "días que le quedan); nunca el archivo ni la contraseña." + OwnNit);
-        legacy.MapGet("/certificates-listing/{nit?}", ListCertificates).RequireAuthorization(ApiScopes.ConfigWrite);
 
         canonical.MapGet("/{nit}/certificate/end-date", CertificateEndDate).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<CertificateEndDateResponse>()
@@ -139,7 +129,6 @@ internal sealed class CompanyEndpoints : IEndpointModule
             .WithSummary("Consultar el vencimiento del certificado")
             .WithDescription("Responde la fecha de vencimiento del certificado activo (formato `dd/MM/yyyy`, hora de Colombia). " +
                 "Sin certificado activo: 404 (`certificate.not_found`)." + OwnNit);
-        legacy.MapPut("/certificate-end-date", CertificateEndDate).RequireAuthorization(ApiScopes.ConfigWrite);
 
         // Lecturas de la configuración para el panel: lo mismo que guardan las escrituras, sin ningún secreto.
         canonical.MapGet("/{nit}", (string nit, IHandler<GetCompanyQuery, CompanyResponse> handler, CancellationToken ct) =>
@@ -215,7 +204,10 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "en el ambiente actual de la factura), `test_set_accepted` (verdadero si la DIAN validó un documento del set, " +
                 "falso si respondió sin validar ninguno, nulo si no hay respuestas guardadas), `environments` (el ambiente de " +
                 "cada familia) y `resolutions` (para factura, nota crédito y nota débito, `valid` si hay una resolución activa " +
-                "en el ambiente actual, vigente hoy y con números por usar; la de factura además con clave técnica)." + OwnNit);
+                "en el ambiente actual, vigente hoy y con números por usar; la de factura además con clave técnica) y " +
+                "`support_document` (la familia del documento soporte: `type_environment_id`, su ambiente actual; " +
+                "`software_configured`, software de documento soporte en ese ambiente; y `resolutions` del documento soporte, con " +
+                "número y vigencia, y de su nota de ajuste)." + OwnNit);
 
         // Logo del PDF: multipart con el campo «logo». Sin protección antifalsificación de formularios: la credencial
         // viaja en el encabezado Authorization, que un formulario de otro sitio no puede poner.
@@ -246,6 +238,43 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "Borra el logo y responde 204 sin cuerpo, también si la empresa no tenía. Los PDF que se generen después " +
                 "salen sin logo; los ya generados no cambian." + OwnNit);
 
+        // Servidor de correo propio (RF-01 «correo»; el GET emailconfig del PHP): la contraseña solo se escribe.
+        canonical.MapGet("/{nit}/mail-settings", (string nit, IHandler<GetCompanyMailSettingsQuery, CompanyMailSettingsResponse> handler,
+            CancellationToken ct) => Read(new GetCompanyMailSettingsQuery(nit), handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces<CompanyMailSettingsResponse>()
+            .WithOperationId("getCompanyMailSettings")
+            .WithSummary("Ver el servidor de correo de la empresa")
+            .WithDescription(
+                "Responde el servidor de correo (SMTP) propio de la empresa: `host`, `port`, `username`, `encryption`, " +
+                "`from_address`, `from_name`, `use_platform_default` y `has_password` (si hay contraseña guardada; la " +
+                "contraseña nunca se devuelve). `in_use` dice por dónde sale el correo de los documentos: `company` si el " +
+                "servidor propio está completo (servidor, puerto, usuario, contraseña y cifrado) y no se eligió el de la " +
+                "plataforma, o `platform`. Sin servidor propio, los datos llegan nulos y `in_use` es `platform`. Los datos " +
+                "del servidor de la plataforma no se muestran." + OwnNit);
+        canonical.MapPut("/{nit}/mail-settings", SaveMailSettings).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces<CompanyMailSettingsResponse>()
+            .WithRequestExamples(ExampleBodies.MailSettings)
+            .WithOperationId("saveCompanyMailSettings")
+            .WithSummary("Guardar el servidor de correo de la empresa")
+            .WithDescription(
+                "Crea o reemplaza el servidor de correo propio con que salen los correos de los documentos de la empresa: " +
+                "`host` (nombre o dirección IP, sin protocolo), `port` (1 a 65535), `username`, `password`, `encryption` " +
+                "(`ssl`, `tls`, `starttls` o `none`), y si quiere `from_address` y `from_name` (sin ellos sale con el " +
+                "remitente de la plataforma) y `use_platform_default` (verdadero: lo guarda pero envía por la plataforma). " +
+                "La contraseña es obligatoria la primera vez y cada vez que cambian `host`, `port`, `username` o " +
+                "`encryption` (sin ella: 422 en `errors.password` y no se guarda nada), porque la guardada solo se usa con " +
+                "el servidor para el que se dio; si solo cambian el remitente o `use_platform_default`, sin `password` queda " +
+                "la guardada. Se guarda cifrada y " +
+                "nunca se devuelve ni se registra. Datos inválidos: 422 con el motivo en `errors.<campo>`. Responde lo mismo " +
+                "que `GET .../mail-settings`." + OwnNit);
+        canonical.MapDelete("/{nit}/mail-settings", DeleteMailSettings).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithOperationId("deleteCompanyMailSettings")
+            .WithSummary("Quitar el servidor de correo de la empresa")
+            .WithDescription(
+                "Borra el servidor de correo propio, contraseña incluida, y responde 204 sin cuerpo, también si la empresa no " +
+                "tenía. Desde ese momento los correos salen por el servidor de la plataforma." + OwnNit);
+
         // Todas las empresas, para la pantalla de la plataforma: operación de plataforma, fuera del grupo de la empresa.
         endpoints.MapGet("/api/v1/platform/companies", (
                 [FromQuery(Name = "search")] string? search,
@@ -265,6 +294,41 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "caracteres). Pagina por cursor: `limit` (20 por defecto, máximo 100) y `cursor` con el `next_cursor` de la " +
                 "página anterior (nulo en la última). Pide `platform:*` sin empresa.");
 
+        // Desactivar y reactivar: reemplazan el borrado del PHP (delete/company/{nit}/{dv}); ImpiFact nunca borra una empresa.
+        endpoints.MapPost("/api/v1/platform/companies/{nit}/deactivate", (
+                string nit, IHandler<DeactivateCompanyCommand, CompanyActivationResponse> handler, CancellationToken ct) =>
+                Read(new DeactivateCompanyCommand(nit), handler, ct))
+            .WithTags(ApiTags.Companies)
+            .RequireAuthorization(ApiScopes.Platform)
+            .Produces<CompanyActivationResponse>()
+            .WithOperationId("deactivatePlatformCompany")
+            .WithSummary("Desactivar una empresa")
+            .WithDescription(
+                "Deja inactiva la empresa del NIT (`is_active` falso) en una sola transacción: revoca para siempre sus API " +
+                "keys y cierra las sesiones del panel de sus usuarios (deben volver a iniciar sesión; la empresa les aparece " +
+                "deshabilitada y no pueden elegirla). Desde ese momento no emite nada: facturas, notas, documento soporte, " +
+                "eventos RADIAN, lotes y contingencia responden 403 (`company.inactive`) antes de numerar o llamar a la DIAN. " +
+                "Los documentos y archivos guardados se conservan y la plataforma sigue viendo la empresa, su plan y sus " +
+                "usuarios; el Worker sigue " +
+                "consultando en la DIAN el estado de lo ya enviado, pero no envía nada nuevo mientras esté inactiva. Nunca " +
+                "borra la empresa. Responde la empresa con `changed`, `revoked_api_keys` y `signed_out_users`; si ya estaba " +
+                "inactiva responde 200 con `changed` falso y no hace nada. NIT inexistente: 404 (`company.not_found`). " +
+                "Solo el administrador de la plataforma (`platform:*` sin empresa); otra credencial: 403.");
+        endpoints.MapPost("/api/v1/platform/companies/{nit}/reactivate", (
+                string nit, IHandler<ReactivateCompanyCommand, CompanyActivationResponse> handler, CancellationToken ct) =>
+                Read(new ReactivateCompanyCommand(nit), handler, ct))
+            .WithTags(ApiTags.Companies)
+            .RequireAuthorization(ApiScopes.Platform)
+            .Produces<CompanyActivationResponse>()
+            .WithOperationId("reactivatePlatformCompany")
+            .WithSummary("Reactivar una empresa")
+            .WithDescription(
+                "Vuelve a dejar activa la empresa del NIT: sus usuarios pueden elegirla de nuevo y vuelve a emitir. No " +
+                "restaura nada más: las API keys revocadas al desactivarla siguen revocadas (un dueño crea llaves nuevas) y " +
+                "las sesiones cerradas siguen cerradas. Si ya estaba activa responde 200 con `changed` falso y no hace nada. " +
+                "NIT inexistente: 404 (`company.not_found`). Solo el administrador de la plataforma (`platform:*` sin " +
+                "empresa); otra credencial: 403.");
+
         // Única consulta en vivo a la DIAN desde la API (rangos de numeración autorizados).
         canonical.MapGet("/{nit}/numbering-ranges", (string nit, [FromQuery(Name = "software_id")] string? softwareId,
             IHandler<GetNumberingRangeQuery, NumberingRangeResponse> handler, CancellationToken ct) =>
@@ -279,40 +343,11 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "(404 `certificate.not_found`, 422 `certificate.expired`). Si la DIAN no responde: 503 " +
                 "(`dian.unavailable`, reintente después de `Retry-After`); si rechaza la consulta: 422 (`dian.fault`)." +
                 OwnNit);
-        legacy.MapPost("/numbering-range", (GetNumberingRangeQuery body, IHandler<GetNumberingRangeQuery, NumberingRangeResponse> handler,
-            CancellationToken ct) => NumberingRange(body with { Nit = null }, handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite);
     }
-
-    /// <summary>
-    /// Credencial de plataforma (alcance <c>platform:*</c> sin empresa, igual que la política de plataforma) o de una
-    /// empresa con <c>config:write</c>.
-    /// </summary>
-    private static void PlatformOrConfigWrite(AuthorizationPolicyBuilder policy) => policy
-        .RequireAuthenticatedUser()
-        .RequireAssertion(context =>
-            context.User.HasClaim(IdentityClaimTypes.Scope, ApiScopes.ConfigWrite)
-            || (context.User.HasClaim(IdentityClaimTypes.Scope, ApiScopes.Platform)
-                && !context.User.HasClaim(claim => claim.Type == IdentityClaimTypes.CompanyId)));
 
     private static async Task<IResult> CreateCompany(
         string nit, string dv, CreateCompanyCommand body, IHandler<CreateCompanyCommand, CompanySavedResponse> handler, CancellationToken ct) =>
         (await handler.HandleAsync(body with { Nit = nit, Dv = dv }, ct)).ToHttpResult();
-
-    private static async Task<IResult> CreateOrUpdateCompany(
-        string nit,
-        string? dv,
-        CreateCompanyCommand body,
-        ITenantContext tenant,
-        IHandler<CreateCompanyCommand, CompanySavedResponse> create,
-        IHandler<UpdateCompanyCommand, CompanySavedResponse> update,
-        CancellationToken ct)
-    {
-        var command = body with { Nit = nit, Dv = dv };
-        var result = tenant.Actor == ActorType.Platform
-            ? await create.HandleAsync(command, ct)
-            : await update.HandleAsync(new UpdateCompanyCommand(command), ct);
-        return result.ToHttpResult();
-    }
 
     private static async Task<IResult> UpdateCompany(
         string nit, string dv, UpdateCompanyCommand body, IHandler<UpdateCompanyCommand, CompanySavedResponse> handler, CancellationToken ct) =>
@@ -388,6 +423,15 @@ internal sealed class CompanyEndpoints : IEndpointModule
 
     private static async Task<IResult> DeleteLogo(string nit, IHandler<DeleteCompanyLogoCommand, bool> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new DeleteCompanyLogoCommand(nit), ct)).ToHttpResult(_ => TypedResults.NoContent());
+
+    private static async Task<IResult> SaveMailSettings(
+        string nit, SaveCompanyMailSettingsCommand body, IHandler<SaveCompanyMailSettingsCommand, CompanyMailSettingsResponse> handler,
+        CancellationToken ct) =>
+        (await handler.HandleAsync(body with { Nit = nit }, ct)).ToHttpResult();
+
+    private static async Task<IResult> DeleteMailSettings(
+        string nit, IHandler<DeleteCompanyMailSettingsCommand, bool> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(new DeleteCompanyMailSettingsCommand(nit), ct)).ToHttpResult(_ => TypedResults.NoContent());
 
     private static async Task CopyAtMostAsync(Stream source, Stream destination, int maxBytes, CancellationToken ct)
     {

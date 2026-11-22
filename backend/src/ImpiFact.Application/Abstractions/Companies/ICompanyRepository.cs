@@ -40,6 +40,9 @@ public interface ICompanyRepository
     /// <summary>Una resolución de la empresa por su id; nula si no existe o es de otra empresa.</summary>
     Task<Resolution?> FindResolutionAsync(Guid companyId, Guid resolutionId, CancellationToken ct);
 
+    /// <summary>The own mail server of the company (<c>company_mail_settings</c>), tracked; null when it has none.</summary>
+    Task<CompanyMailSettings?> GetMailSettingsAsync(Guid companyId, CancellationToken ct);
+
     /// <summary>Agrega una fila nueva; se inserta cuando el decorador de transacción guarda los cambios.</summary>
     void Add<TEntity>(TEntity entity)
         where TEntity : class;

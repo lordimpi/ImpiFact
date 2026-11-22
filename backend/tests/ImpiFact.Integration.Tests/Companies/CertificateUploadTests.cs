@@ -83,7 +83,7 @@ public sealed class CertificateUploadTests
         Assert.That((await UploadAsync(companyId, userId, TestPfx.Rsa(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero), notAfter))).IsSuccess);
 
         using var listing = await client.GetAsync($"/api/v1/companies/{nit}/certificates");
-        using var endDate = await client.PutAsync("/api/ubl2.1/certificate-end-date", content: null);
+        using var endDate = await client.GetAsync($"/api/v1/companies/{nit}/certificate/end-date");
 
         Assert.That(listing.StatusCode, Is.EqualTo(HttpStatusCode.OK), await listing.Content.ReadAsStringAsync());
         Assert.That(endDate.StatusCode, Is.EqualTo(HttpStatusCode.OK), await endDate.Content.ReadAsStringAsync());

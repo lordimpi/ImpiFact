@@ -17,8 +17,8 @@ namespace ImpiFact.Integration.Tests.DocumentIssue;
 /// <summary>
 /// Puerta de la fase 3 de punta a punta: «Golden tests: XML y CUFE idénticos al PHP en factura y notas». La empresa
 /// del contexto de captura (NIT 900000001, resolución SETP 990000000–995000000 con su clave técnica, PIN 12345,
-/// habilitación) se crea por la API de Company, cada input.json de tests/golden se envía tal cual a la ruta heredada
-/// y se comparan byte a byte el XML sin firmar de la respuesta y el CUFE o CUDE (códigos únicos de factura y de
+/// habilitación) se crea por la API de Company, cada input.json de tests/golden se envía tal cual a su ruta de emisión
+/// de /api/v1 y se comparan byte a byte el XML sin firmar de la respuesta y el CUFE o CUDE (códigos únicos de factura y de
 /// documento electrónico) con lo que generó el PHP. El único ajuste es el del lugar vacío de la firma.
 /// </summary>
 [Category("Integration")]
@@ -48,7 +48,7 @@ public sealed partial class GoldenIssueTests
     // Va primero: la prueba del enlace repite dos de estos casos, y una repetición no trae el XML sin firmar.
     [TestCaseSource(nameof(Cases))]
     [Order(1)]
-    public async Task Golden_input_posted_to_the_legacy_route_issues_the_php_xml_and_code(string route, string caseDir)
+    public async Task Golden_input_posted_to_the_issue_route_issues_the_php_xml_and_code(string route, string caseDir)
     {
         using var response = await PostAsync(route, caseDir);
 
@@ -69,6 +69,42 @@ public sealed partial class GoldenIssueTests
         Assert.That(SignatureElement().Replace(stored, ""), Is.EqualTo(expected), "Stored signed XML without its signature.");
         Assert.That(Verifies(stored), Is.True, "SignedXml verification of the stored XML.");
         Assert.That(Convert.FromBase64String(root.GetProperty("invoicexml").GetString()!), Is.EqualTo(Encoding.UTF8.GetBytes(stored)));
+    }
+
+    // Phase 7a, T8: the PHP has no batch golden of its own (T1: «lotes no: nada propio reproducible»), so a document added to a
+    // batch is checked against the golden of its type: the variants that no other test of the golden company issues go into one
+    // batch through /api/v1/documents/batches/{id}/documents/{type} and give the PHP XML and code, signed and Queued in the
+    // batch.
+    [TestCase("invoice-aiu", "construction-contract")]
+    [TestCase("invoice-mandate", "third-party-line")]
+    [Order(0)]
+    public async Task Golden_input_added_to_a_batch_issues_the_php_xml_and_code(string type, string goldenCase)
+    {
+        var caseDir = Path.Combine(GoldenRoot(), type, goldenCase);
+        var content = new ByteArrayContent(File.ReadAllBytes(Path.Combine(caseDir, "input.json")));
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+        var batch = await GoldenBatchAsync();
+        using var response = await Golden.Client.PostAsync($"/api/v1/documents/batches/{batch}/documents/{type}", content);
+
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), body);
+        using var json = JsonDocument.Parse(body);
+        var root = json.RootElement;
+        var expected = Encoding.UTF8.GetString(File.ReadAllBytes(Path.Combine(caseDir, "expected.xml")));
+        var unsigned = Encoding.UTF8.GetString(Convert.FromBase64String(root.GetProperty("unsignedinvoicexml").GetString()!));
+        var documentId = root.GetProperty("document").GetProperty("id").GetGuid();
+        var stored = await StoredSignedXmlAsync(documentId);
+        await using var scope = DocumentIssueHost.Api.OpenScope(null, null, ActorType.System);
+        var row = await CompanyApiTests.Rows<Document>(scope.Db, Golden.CompanyId).SingleAsync(document => document.Id == documentId);
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.GetProperty("cufe").GetString(), Is.EqualTo(File.ReadAllText(Path.Combine(caseDir, "expected.cufe")).Trim()));
+            Assert.That(unsigned, Is.EqualTo(expected.Replace(SignatureSlotInFixture, "<ext:ExtensionContent/>", StringComparison.Ordinal)));
+            Assert.That(SignatureElement().Replace(stored, ""), Is.EqualTo(expected), "Stored signed XML without its signature.");
+            Assert.That(Verifies(stored), Is.True, "SignedXml verification of the stored XML.");
+            Assert.That((row.Status, row.BatchId), Is.EqualTo((DocumentStatus.Queued, (Guid?)root.GetProperty("document").GetProperty("batch_id").GetGuid())));
+        });
     }
 
     // Supuesto B8: la nota golden referencia la factura golden SETP990000001 por su CUFE, así que queda enlazada.
@@ -95,7 +131,7 @@ public sealed partial class GoldenIssueTests
     {
         var content = new ByteArrayContent(File.ReadAllBytes(Path.Combine(caseDir, "input.json")));
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-        var response = await Golden.Client.PostAsync($"/api/ubl2.1/{route}", content);
+        var response = await Golden.Client.PostAsync(IssueRoutes.Of(route), content);
         if (route == "invoice" && response.IsSuccessStatusCode)
         {
             // Desde la fase 4 una nota exige que su factura ya esté aceptada por la DIAN. Aquí no hay DIAN ni Worker, así
@@ -107,6 +143,25 @@ public sealed partial class GoldenIssueTests
         }
 
         return response;
+    }
+
+    private static Guid? goldenBatch;
+
+    /// <summary>The open batch «lote-golden» of the golden company, created by the first case that needs it.</summary>
+    private static async Task<Guid> GoldenBatchAsync()
+    {
+        if (goldenBatch is { } id)
+        {
+            return id;
+        }
+
+        var content = new StringContent("""{"name":"lote-golden"}""", Encoding.UTF8, "application/json");
+        using var response = await Golden.Client.PostAsync("/api/v1/documents/batches", content);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created), body);
+        using var json = JsonDocument.Parse(body);
+        goldenBatch = json.RootElement.GetProperty("id").GetGuid();
+        return goldenBatch.Value;
     }
 
     internal static async Task<string> StoredSignedXmlAsync(Guid documentId)

@@ -31,6 +31,7 @@ public sealed class DashboardApiTests
         // 1-ene-2026 a las 04:59 UTC todavía es 31-dic-2025 en Colombia.
         await DocumentSeed.DocumentAsync(company, 1, 3, DocumentStatus.Accepted, new DateTimeOffset(2026, 1, 1, 4, 59, 0, TimeSpan.Zero));
         await DocumentSeed.DocumentAsync(company, 5, 1, DocumentStatus.Accepted, new DateTimeOffset(2025, 12, 5, 15, 0, 0, TimeSpan.Zero));
+        await DocumentSeed.DocumentAsync(company, 13, 1, DocumentStatus.Accepted, new DateTimeOffset(2025, 12, 6, 15, 0, 0, TimeSpan.Zero));
         // Primer instante del primer mes de la serie (1-feb-2025 en Colombia) y el último que queda fuera.
         await DocumentSeed.DocumentAsync(company, 11, 1, DocumentStatus.Accepted, new DateTimeOffset(2025, 2, 1, 5, 0, 0, TimeSpan.Zero));
         await DocumentSeed.DocumentAsync(company, 1, 4, DocumentStatus.Accepted, new DateTimeOffset(2025, 2, 1, 4, 59, 59, TimeSpan.Zero));
@@ -53,10 +54,10 @@ public sealed class DashboardApiTests
             {
                 "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01",
             }));
-            Assert.That(Counts(months[11]), Is.EqualTo((2L, 1L, 0L, 0L, 3L)));
-            Assert.That(Counts(months[10]), Is.EqualTo((1L, 0L, 1L, 0L, 2L)));
-            Assert.That(Counts(months[0]), Is.EqualTo((0L, 0L, 0L, 1L, 1L)));
-            Assert.That(months.Skip(1).Take(9).Select(Counts), Is.All.EqualTo((0L, 0L, 0L, 0L, 0L)));
+            Assert.That(Counts(months[11]), Is.EqualTo((2L, 1L, 0L, 0L, 0L, 0L, 3L)));
+            Assert.That(Counts(months[10]), Is.EqualTo((1L, 0L, 1L, 0L, 1L, 0L, 3L)));
+            Assert.That(Counts(months[0]), Is.EqualTo((0L, 0L, 0L, 1L, 0L, 0L, 1L)), "The support document has its own kind, not other.");
+            Assert.That(months.Skip(1).Take(9).Select(Counts), Is.All.EqualTo((0L, 0L, 0L, 0L, 0L, 0L, 0L)));
         });
     }
 
@@ -133,8 +134,9 @@ public sealed class DashboardApiTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
 
-    private static (long Invoice, long Credit, long Debit, long Other, long Total) Counts(JsonElement month) => (
+    private static (long Invoice, long Credit, long Debit, long Support, long Adjustment, long Other, long Total) Counts(JsonElement month) => (
         month.GetProperty("invoice").GetInt64(), month.GetProperty("credit_note").GetInt64(), month.GetProperty("debit_note").GetInt64(),
+        month.GetProperty("support_document").GetInt64(), month.GetProperty("support_document_adjustment_note").GetInt64(),
         month.GetProperty("other").GetInt64(), month.GetProperty("total").GetInt64());
 
     private static async Task PlanAsync(Guid companyId, PlanPeriod period, DateTimeOffset startsAt, long invoices, long used)

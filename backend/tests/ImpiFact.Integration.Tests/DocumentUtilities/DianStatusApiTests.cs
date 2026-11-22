@@ -8,8 +8,9 @@ using static ImpiFact.Integration.Tests.DocumentUtilities.UtilitiesHost;
 namespace ImpiFact.Integration.Tests.DocumentUtilities;
 
 /// <summary>
-/// <c>status/document</c>, <c>status/zip</c> y <c>xml/document</c> (carpetas 03 y 05 del Postman): responden con lo que
-/// guardó el Worker, con la forma del PHP, sin llamar a la DIAN.
+/// <c>GET /api/v1/documents/by-cufe/{cufe}/dian-status</c>, <c>/zip/{key}/dian-status</c> y <c>/by-cufe/{cufe}/xml</c> (el
+/// <c>status/document</c>, <c>status/zip</c> y <c>xml/document</c> del PHP, carpetas 03 y 05 del Postman): responden con lo
+/// que guardó el Worker, con la forma del PHP, sin llamar a la DIAN.
 /// </summary>
 [TestFixture]
 [Category("Integration")]
@@ -27,7 +28,7 @@ public sealed class DianStatusApiTests
         await SubmissionAsync(document, 3, DianOperation.GetStatus, responseBody: null);
         var calls = UtilitiesHost.Api.Dian.Requests.Count;
 
-        var (status, body) = await SendAsync(client, HttpMethod.Post, $"/api/ubl2.1/status/document/{document.Cufe}", """{"sendmail":true}""");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, $"/api/v1/documents/by-cufe/{document.Cufe}/dian-status");
 
         var result = body.GetProperty("ResponseDian").GetProperty("Envelope").GetProperty("Body").GetProperty("GetStatusResponse")
             .GetProperty("GetStatusResult");
@@ -63,8 +64,8 @@ public sealed class DianStatusApiTests
         var testSet = await DocumentAsync(company, DocumentStatus.Sent);
         await SubmissionAsync(testSet, 1, DianOperation.SendTestSetAsync, DianReplies.SendTestSetAsync("zip-attached"), zipKey: "zip-attached");
 
-        var (documentStatus, document) = await SendAsync(client, HttpMethod.Post, $"/api/ubl2.1/status/document/{accepted.Cufe}");
-        var (zipStatus, zip) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/status/zip/zip-attached");
+        var (documentStatus, document) = await SendAsync(client, HttpMethod.Get, $"/api/v1/documents/by-cufe/{accepted.Cufe}/dian-status");
+        var (zipStatus, zip) = await SendAsync(client, HttpMethod.Get, "/api/v1/documents/zip/zip-attached/dian-status");
 
         Assert.Multiple(() =>
         {
@@ -108,7 +109,7 @@ public sealed class DianStatusApiTests
         var foreign = await DocumentAsync(other);
         await SubmissionAsync(foreign, 1, DianOperation.SendBillSync, DianReplies.SendBillSync(true, "00"));
 
-        var (status, body) = await SendAsync(client, HttpMethod.Post, $"/api/ubl2.1/status/document/{foreign.Cufe}");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, $"/api/v1/documents/by-cufe/{foreign.Cufe}/dian-status");
 
         Assert.Multiple(() =>
         {
@@ -130,8 +131,7 @@ public sealed class DianStatusApiTests
         var decided = DianReplies.GetStatusZip(true, "00");
         await SubmissionAsync(document, 3, DianOperation.GetStatusZip, decided, zipKey: "zip-a", finishedAt: Companies.CompaniesHost.Now.AddMinutes(2));
 
-        var (status, body) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/status/zip/zip-a/C:_temp");
-        var (canonical, again) = await SendAsync(client, HttpMethod.Get, "/api/v1/documents/zip/zip-a/dian-status");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, "/api/v1/documents/zip/zip-a/dian-status");
 
         var item = body.GetProperty("ResponseDian").GetProperty("Envelope").GetProperty("Body").GetProperty("GetStatusZipResponse")
             .GetProperty("GetStatusZipResult").GetProperty("DianResponse");
@@ -142,8 +142,6 @@ public sealed class DianStatusApiTests
             Assert.That(item.GetProperty("StatusCode").GetString(), Is.EqualTo("00"));
             Assert.That(body.GetProperty("rptazip").GetString(), Is.EqualTo(Convert.ToBase64String(Encoding.UTF8.GetBytes(decided))));
             Assert.That(body.GetProperty("document").GetProperty("id").GetGuid(), Is.EqualTo(document.Id));
-            Assert.That(canonical, Is.EqualTo(200));
-            Assert.That(again.GetRawText(), Is.EqualTo(body.GetRawText()));
         });
     }
 
@@ -155,7 +153,7 @@ public sealed class DianStatusApiTests
         var document = await DocumentAsync(company, DocumentStatus.Sent);
         await SubmissionAsync(document, 1, DianOperation.SendTestSetAsync, DianReplies.SendTestSetAsync("zip-b"), zipKey: "zip-b");
 
-        var (status, body) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/status/zip/zip-b");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, "/api/v1/documents/zip/zip-b/dian-status");
 
         Assert.Multiple(() =>
         {
@@ -174,8 +172,8 @@ public sealed class DianStatusApiTests
         var foreign = await DocumentAsync(other);
         await SubmissionAsync(foreign, 1, DianOperation.GetStatusZip, DianReplies.GetStatusZip(true, "00"), zipKey: "zip-foreign");
 
-        var (unknown, _) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/status/zip/zip-unknown");
-        var (status, body) = await SendAsync(client, HttpMethod.Post, "/api/ubl2.1/status/zip/zip-foreign");
+        var (unknown, _) = await SendAsync(client, HttpMethod.Get, "/api/v1/documents/zip/zip-unknown/dian-status");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, "/api/v1/documents/zip/zip-foreign/dian-status");
 
         Assert.Multiple(() =>
         {
@@ -192,8 +190,8 @@ public sealed class DianStatusApiTests
         var client = await ClientAsync(company, ApiScopes.ConfigWrite);
         var document = await DocumentAsync(company);
 
-        var (status, _) = await SendAsync(client, HttpMethod.Post, $"/api/ubl2.1/status/document/{document.Cufe}");
-        var (xml, _) = await SendAsync(client, HttpMethod.Post, $"/api/ubl2.1/xml/document/{document.Cufe}");
+        var (status, _) = await SendAsync(client, HttpMethod.Get, $"/api/v1/documents/by-cufe/{document.Cufe}/dian-status");
+        var (xml, _) = await SendAsync(client, HttpMethod.Get, $"/api/v1/documents/by-cufe/{document.Cufe}/xml");
 
         Assert.Multiple(() =>
         {
@@ -209,8 +207,7 @@ public sealed class DianStatusApiTests
         var client = await ClientAsync(company, ApiScopes.DocumentsRead);
         var document = await DocumentAsync(company, DocumentStatus.AcceptedWithWarnings);
 
-        var (status, body) = await SendAsync(client, HttpMethod.Post, $"/api/ubl2.1/xml/document/{document.Cufe}");
-        var (canonical, again) = await SendAsync(client, HttpMethod.Get, $"/api/v1/documents/by-cufe/{document.Cufe}/xml");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, $"/api/v1/documents/by-cufe/{document.Cufe}/xml");
 
         var result = body.GetProperty("ResponseDian").GetProperty("Envelope").GetProperty("Body").GetProperty("GetXmlByDocumentKeyResponse")
             .GetProperty("GetXmlByDocumentKeyResult");
@@ -223,8 +220,6 @@ public sealed class DianStatusApiTests
             Assert.That(result.GetProperty("Code").GetString(), Is.EqualTo("100"));
             Assert.That(result.GetProperty("XmlBytesBase64").GetString(),
                 Is.EqualTo(Convert.ToBase64String(Encoding.UTF8.GetBytes(DianSendHost.SignedXml(document)))));
-            Assert.That(canonical, Is.EqualTo(200));
-            Assert.That(again.GetRawText(), Is.EqualTo(body.GetRawText()));
         });
     }
 
@@ -235,7 +230,7 @@ public sealed class DianStatusApiTests
         var client = await ClientAsync(company, ApiScopes.DocumentsRead);
         var document = await DocumentAsync(company, DocumentStatus.Rejected);
 
-        var (status, body) = await SendAsync(client, HttpMethod.Post, $"/api/ubl2.1/xml/document/{document.Cufe}");
+        var (status, body) = await SendAsync(client, HttpMethod.Get, $"/api/v1/documents/by-cufe/{document.Cufe}/xml");
 
         Assert.Multiple(() =>
         {
@@ -253,7 +248,7 @@ public sealed class DianStatusApiTests
         var client = await ClientAsync(company, ApiScopes.DocumentsRead);
         var foreign = await DocumentAsync(other);
 
-        var (status, _) = await SendAsync(client, HttpMethod.Post, $"/api/ubl2.1/xml/document/{foreign.Cufe}");
+        var (status, _) = await SendAsync(client, HttpMethod.Get, $"/api/v1/documents/by-cufe/{foreign.Cufe}/xml");
 
         Assert.That(status, Is.EqualTo(404));
     }

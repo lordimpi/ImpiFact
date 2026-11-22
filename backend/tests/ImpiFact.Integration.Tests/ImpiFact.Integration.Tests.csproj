@@ -35,6 +35,10 @@
     <ProjectReference Include="..\..\src\ImpiFact.Worker\ImpiFact.Worker.csproj" Aliases="WorkerHost" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The issue examples of the ApiDian Postman collection, replayed on /api/v1 by PostmanExampleIssueApiTests. -->
+    <None Include="Documents\PostmanExamples\issue-examples.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <Using Include="NUnit.Framework" />
   </ItemGroup>
 </Project>

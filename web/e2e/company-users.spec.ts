@@ -225,7 +225,7 @@ test('has no serious accessibility violations with the create dialog open, in bo
 test('a seller does not see the entry and cannot open the page', async ({ page }) => {
   await signInAt(page, '/', { roles: ['seller'], scopes: ['documents:read', 'documents:write'] });
 
-  await expect(mainNav(page).getByRole('link', { name: 'Documentos' })).toBeVisible();
+  await expect(mainNav(page).getByRole('link', { name: 'Documentos', exact: true })).toBeVisible();
   await expect(mainNav(page).getByRole('link', { name: 'Usuarios' })).toHaveCount(0);
 
   await page.goto('/empresa/usuarios');
@@ -347,13 +347,14 @@ test('the platform users page has no serious accessibility violations, in both t
   expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
 
   // Same keyboard as the Exportar menu: Escape closes it back on the button; Enter opens it, the arrows move and
-  // Enter picks «Usuarios».
+  // Enter picks «Usuarios», the item just before «Desactivar» (the last one for an active company).
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
   await expect(button).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(menu).toBeVisible();
   await page.keyboard.press('End');
+  await page.keyboard.press('ArrowUp');
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(`/plataforma/empresas/${BETA.nit}/usuarios`);
 

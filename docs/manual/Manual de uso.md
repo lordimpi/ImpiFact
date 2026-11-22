@@ -64,7 +64,7 @@ Si su cuenta trabaja con varias empresas, después de ingresar el panel le pide 
 
 ![Pantalla «Seleccionar empresa».](img/03-seleccionar-empresa.png)
 
-La tarjeta de la empresa con la que ya está trabajando dice «Empresa activa». Una empresa marcada «Empresa inactiva» no se puede elegir.
+La tarjeta de la empresa con la que ya está trabajando dice «Empresa activa». Una empresa marcada «Empresa inactiva» no se puede elegir: debajo dice «La plataforma desactivó esta empresa: nadie puede trabajar en ella hasta que la reactive.». Pida al administrador de la plataforma que la reactive.
 
 Todo lo que haga después (emitir, consultar, configurar) se hace sobre esa empresa, la **empresa activa**. Para cambiarla, abra el menú de su cuenta y elija «Cambiar de empresa».
 
@@ -151,7 +151,7 @@ Enseguida el panel abre **Crear usuario** para la empresa nueva. El dueño es qu
 
 ![Lista «Empresas de la plataforma», con el botón «Acciones» de cada fila.](img/10-plataforma-empresas.png)
 
-Cada fila tiene un botón «Acciones» con «Asignar plan», «Crear usuario» y «Usuarios».
+Cada fila tiene un botón «Acciones» con «Asignar plan», «Crear usuario» y «Usuarios», y además «Desactivar» si la empresa está activa o «Reactivar» si está inactiva.
 
 ![Menú «Acciones» de una empresa abierto.](img/10-plataforma-empresas-acciones.png)
 
@@ -164,6 +164,20 @@ Cada fila tiene un botón «Acciones» con «Asignar plan», «Crear usuario» y
 ![Página «Usuarios de Café La Montaña SAS» vista por el administrador de la plataforma.](img/17-plataforma-usuarios-empresa.png)
 
 Como el administrador de la plataforma no es usuario de la empresa, todas las filas muestran sus acciones, también las de los dueños.
+
+### Desactivar o reactivar una empresa
+
+Una empresa nunca se borra: sus facturas son documentos fiscales y se conservan. En su lugar se desactiva.
+
+1. En «Empresas», busque la empresa, abra «Acciones» en su fila y elija «Desactivar».
+2. El panel pregunta «¿Desactivar …?» y explica qué pasa: la empresa deja de emitir documentos, sus API keys se revocan para siempre y sus usuarios pierden el acceso (se cierran sus sesiones y ya no pueden elegirla). Las facturas y demás documentos se conservan.
+3. Haga clic en «Desactivar empresa» para seguir, o en «Cancelar» para dejarla como está.
+
+La fila pasa a «Inactiva» sin recargar la página, y el panel dice cuántas API keys se revocaron y a cuántos usuarios se les cerró la sesión. Lo ya enviado a la DIAN se sigue consultando; lo que faltaba enviar espera a que la empresa se reactive.
+
+Para que vuelva a trabajar, abra «Acciones» en su fila, elija «Reactivar» y confirme con «Reactivar empresa». Sus usuarios pueden volver a elegirla, pero las API keys revocadas no vuelven: un dueño de la empresa debe crear llaves nuevas.
+
+> **Nota:** solo el administrador de la plataforma puede desactivar o reactivar una empresa.
 
 ### Planes
 

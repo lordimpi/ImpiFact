@@ -45,6 +45,12 @@ public static class DianNotificationTypes
 
     /// <summary>La DIAN revisó el documento y lo rechazó (reglas de validación o número ya usado).</summary>
     public const string Rejected = "DocumentRejected";
+
+    /// <summary>
+    /// An invoice type 04 is still pending when the Worker stops retrying alone (48 hours after it was stored): only
+    /// <c>send-pending</c> sends it from then on.
+    /// </summary>
+    public const string ContingencyPending = "ContingencyInvoicePending";
 }
 
 /// <summary>Servicio de la DIAN que corresponde al ambiente del documento y el certificado con que se firma el sobre.</summary>
@@ -221,8 +227,9 @@ internal sealed class DianDelivery(
             document.AcceptedAt = clock.UtcNow;
             if (document.TrackId is null)
             {
-                // Facturas y notas (tipos 1 a 5) son la familia «factura» de las cuotas del plan.
-                await plans.CountAcceptedAsync(document.CompanyId, DocumentKind.Invoice, ct);
+                // Each family counts in its own plan quota: invoices and notes (types 1 to 5) in qty_docs_invoice, the support
+                // document and its adjustment note (11 and 13) in qty_docs_ds.
+                await plans.CountAcceptedAsync(document.CompanyId, DocumentFamilies.Of(document.DocumentTypeId), ct);
             }
 
             await ScheduleAfterAcceptanceAsync(document, decided.Result, endpoint.Certificate, ct);
@@ -284,6 +291,39 @@ internal sealed class DianDelivery(
             "La DIAN no recibió un documento",
             $"La DIAN rechazó el envío del documento {document.FullNumber} sin revisarlo, por ejemplo por el certificado o el software " +
             "configurados, y el documento quedó como fallido. Revise la configuración y emita un documento nuevo.");
+    }
+
+    /// <summary>
+    /// The DIAN refused the message of an invoice type 04 without evaluating it (a SOAP Fault of the sender, for example the
+    /// certificate or the software): unlike <see cref="Refuse"/>, the document stays <c>ContingencyPending</c>, because it
+    /// was already issued and must still reach the DIAN, and the company gets a notice to fix the setup and send it again.
+    /// </summary>
+    public void RefuseContingency(Document document, string reason)
+    {
+        document.DianStatusDescription = Truncate(reason, StatusDescriptionMaxLength);
+        notifications.Add(
+            document.CompanyId,
+            DianNotificationTypes.Refused,
+            "La DIAN no recibió una factura de contingencia",
+            $"La DIAN rechazó el envío de la factura de contingencia {document.FullNumber} sin revisarla, por ejemplo por el certificado " +
+            "o el software configurados. La factura sigue pendiente: revise la configuración y envíela de nuevo con " +
+            "POST /api/v1/documents/invoices/dian-contingency/send-pending.");
+    }
+
+    /// <summary>
+    /// The Worker stops retrying alone an invoice type 04 that the DIAN has not received (see
+    /// <c>ContingencyDelivery.AutomaticWindow</c>): it stays <c>ContingencyPending</c> and the company gets a notice.
+    /// </summary>
+    public void NotifyContingencyStillPending(Document document)
+    {
+        notifications.Add(
+            document.CompanyId,
+            DianNotificationTypes.ContingencyPending,
+            "Una factura de contingencia sigue sin transmitirse",
+            $"La factura de contingencia {document.FullNumber} sigue sin llegar a la DIAN y ImpiFact dejó de reintentar su envío " +
+            "automático. La DIAN da 48 horas para transmitirla después de restablecer su servicio: envíela con " +
+            "POST /api/v1/documents/invoices/dian-contingency/send-pending cuando la DIAN esté disponible.");
+        logger.LogWarning("Contingency invoice {DocumentId} is still pending after the automatic window; only send-pending sends it now.", document.Id);
     }
 
     /// <summary>Programa la próxima consulta del estado en la DIAN.</summary>

@@ -1,0 +1,90 @@
+<section class="doc-page">
+  <ui-page-title [subtitle]="'documents.received.list.description' | transloco">
+    {{ 'documents.received.list.title' | transloco }}
+    @if (canWrite()) {
+      <div uiPageTitleActions class="doc-actions">
+        <ui-button [label]="'documents.received.list.load' | transloco" (pressed)="openLoad()" />
+      </div>
+    }
+  </ui-page-title>
+
+  <ui-card padding="compact">
+    <feat-received-filters [filters]="filters()" (apply)="applyFilters($event)" />
+  </ui-card>
+
+  <ui-card [title]="'documents.received.list.caption' | transloco" padding="none">
+    @if (store.total(); as count) {
+      <p uiCardActions class="doc-muted doc-count" role="status">
+        {{ 'documents.received.list.count' | transloco: { count } }}
+      </p>
+    }
+    <ui-table
+      flush
+      class="doc-results"
+      [caption]="'documents.received.list.caption' | transloco"
+      [columns]="columns()"
+      [rows]="store.items()"
+      [labels]="labels()"
+      [loading]="store.loading()"
+      [error]="store.error() !== null"
+      [pagination]="store.pagination()"
+      [trackBy]="trackById"
+      (pageChange)="store.changePage($event)"
+      (retry)="store.refresh()"
+    >
+      <ng-template uiTableCell="number" let-row>
+        <a class="doc-number" [routerLink]="['/documentos/recibidos', row.id]">{{ row.number }}</a>
+      </ng-template>
+      <ng-template uiTableCell="supplier" let-row>
+        <span class="doc-customer">
+          <span>{{ row.supplier_name }}</span>
+          <span class="doc-muted doc-small"
+            >{{ row.supplier_identification_number }}-{{ row.supplier_dv }}</span
+          >
+        </span>
+      </ng-template>
+      <ng-template uiTableCell="issue_date" let-row>
+        <span class="doc-nowrap">{{ row.issue_date }}</span>
+      </ng-template>
+      <ng-template uiTableCell="payable_amount" let-row>
+        <span class="doc-amount">{{ row.payable_amount | cop }}</span>
+      </ng-template>
+      <ng-template uiTableCell="stage" let-row>
+        <ui-badge [tone]="stageTone(row)">{{
+          'documents.radian.stages.' + stageOf(row) | transloco
+        }}</ui-badge>
+      </ng-template>
+      <ng-template uiTableCell="actions" let-row>
+        <div class="doc-row-actions">
+          <a
+            [routerLink]="['/documentos/recibidos', row.id]"
+            [attr.aria-label]="
+              'documents.received.list.actions.view' | transloco: { number: row.number }
+            "
+            >{{ 'documents.received.list.actions.viewShort' | transloco }}</a
+          >
+          <button
+            type="button"
+            [attr.aria-label]="
+              'documents.received.list.actions.downloadXml' | transloco: { number: row.number }
+            "
+            [disabled]="busyRow() === row.id"
+            (click)="downloadXml(row)"
+          >
+            {{ 'documents.received.list.actions.xmlShort' | transloco }}
+          </button>
+        </div>
+      </ng-template>
+    </ui-table>
+  </ui-card>
+
+  @if (canWrite()) {
+    <feat-cufe-load-dialog
+      [(visible)]="loadOpen"
+      [busy]="loading()"
+      [error]="loadError()"
+      [messages]="loadMessages()"
+      (submitted)="load($event)"
+    />
+  }
+</section>

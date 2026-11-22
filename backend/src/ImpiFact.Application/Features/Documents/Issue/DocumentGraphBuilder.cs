@@ -1,6 +1,10 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Dian.Rounding;
+using ImpiFact.Dian.Ubl;
 using ImpiFact.Domain.Common;
 using ImpiFact.Domain.Documents;
 
@@ -26,7 +30,7 @@ internal static class DocumentGraphBuilder
         var documentId = Guid.CreateVersion7();
         var totals = spec.TotalsOf(body)!;
         var prefix = frame.Resolution.Prefix ?? "";
-        var customer = body.Customer!;
+        var customer = spec.PartyOf(body)!;
 
         var document = new Document
         {
@@ -74,6 +78,7 @@ internal static class DocumentGraphBuilder
             Notes = body.Notes?.Text,
             HeadNote = body.HeadNote?.Text,
             FootNote = body.FootNote?.Text,
+            Extensions = spec.IsSupportDocumentFamily ? SupportDocumentExtensions(spec, customer) : VariantExtensions(spec.Variant, body, spec.HealthOf(body)),
             CreatedByType = (ActorKind)tenant.Actor,
             CreatedById = tenant.UserId,
         };
@@ -101,6 +106,7 @@ internal static class DocumentGraphBuilder
                 LineExtensionAmount = Amount(line.LineExtensionAmount),
                 FreeOfCharge = line.FreeOfChargeIndicator!.Value.Boolean,
                 ReferencePriceId = LegacyDocumentMapper.IdOrNull(line.ReferencePriceId),
+                Extensions = spec.IsSupportDocumentFamily ? SupportDocumentLineExtensions(spec, line) : LineExtensions(spec.Variant, line),
             });
             lineTaxes.AddRange((line.TaxTotals ?? []).Select(tax => new DocumentLineTax
             {
@@ -153,7 +159,140 @@ internal static class DocumentGraphBuilder
             });
         }
 
+        // The paper invoice that a contingency type 03 transcribes (cac:AdditionalDocumentReference of the XML).
+        if (spec.Variant == InvoiceVariant.Contingency
+            && body is { AdditionalDocumentReferenceId: { } paperId, AdditionalDocumentReferenceDate: { } paperDate })
+        {
+            references.Add(new DocumentReference
+            {
+                CompanyId = companyId,
+                DocumentId = documentId,
+                Kind = DocumentReferenceKind.AdditionalDocumentReference,
+                Number = paperId.Text,
+                IssueDate = LegacyDocumentMapper.Date(paperDate),
+            });
+        }
+
         return new DocumentGraph(document, lines, taxes, lineTaxes, charges, payments, references);
+    }
+
+    /// <summary>
+    /// Variant of a type 1 invoice and its document-level data (<c>documents.extensions</c>); null for a standard
+    /// invoice and for the notes, which keep their previous rows.
+    /// </summary>
+    private static JsonObject? VariantExtensions(InvoiceVariant variant, IssueDocumentBody body, HealthFieldsBody? health) => variant switch
+    {
+        InvoiceVariant.Standard => health is not null ? HealthExtensions(health) : null,
+        InvoiceVariant.Aiu => new JsonObject { ["variant"] = "aiu", ["note_aiu"] = body.NoteAiu?.Text },
+        InvoiceVariant.Mandate => new JsonObject { ["variant"] = "mandate" },
+        InvoiceVariant.Export => ExportExtensions(body),
+
+        // The number and date of the paper invoice go to document_references; its document type code has no column there.
+        InvoiceVariant.Contingency => new JsonObject
+        {
+            ["variant"] = "contingency", ["paper_document_type_code"] = body.AdditionalDocumentReferenceTypeDocument?.Text,
+        },
+        InvoiceVariant.DianContingency => new JsonObject { ["variant"] = "dian_contingency" },
+        _ => new JsonObject { ["variant"] = "transport" },
+    };
+
+    /// <summary>
+    /// The family of a support document or its adjustment note and the seller's postal code, which the customer snapshot has
+    /// no column for; the snapshot holds the seller (php-rules 13.3, item 6: the PHP stored its NIT as the customer).
+    /// </summary>
+    private static JsonObject SupportDocumentExtensions(IssueSpec spec, CustomerBody seller) => new()
+    {
+        ["variant"] = spec.Kind == IssueKind.SupportDocument ? "support_document" : "support_document_adjustment_note",
+        ["party"] = "seller",
+        ["postal_zone_code"] = seller.PostalZoneCode?.Text,
+    };
+
+    /// <summary>The generation period of a support-document line, or the brand and model of an adjustment-note line.</summary>
+    private static JsonObject? SupportDocumentLineExtensions(IssueSpec spec, LineBody line)
+    {
+        if (spec.Kind == IssueKind.SupportDocument)
+        {
+            return new JsonObject
+            {
+                ["type_generation_transmition_id"] = LegacyDocumentMapper.IdOrNull(line.TypeGenerationTransmitionId),
+                ["start_date"] = line.StartDate?.Text,
+            };
+        }
+
+        return LegacyScalar.IsMissing(line.BrandName) && LegacyScalar.IsMissing(line.ModelName)
+            ? null
+            : new JsonObject { ["brandname"] = line.BrandName?.Text, ["modelname"] = line.ModelName?.Text };
+    }
+
+    /// <summary>
+    /// The <c>health_fields</c> of a health-sector invoice as the client sent them (php-rules 17): the XML keeps only the
+    /// Collection, the RIPS-bound patient data stays here for the representation and later phases.
+    /// </summary>
+    private static readonly JsonSerializerOptions StoredJson = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+
+    private static JsonObject HealthExtensions(HealthFieldsBody health) => new()
+    {
+        ["variant"] = "health",
+        ["health_fields"] = JsonSerializer.SerializeToNode(health, StoredJson),
+    };
+
+    /// <summary>The Incoterm and, when sent, the supplement K of an export invoice, as the client sent them.</summary>
+    private static JsonObject ExportExtensions(IssueDocumentBody body)
+    {
+        var terms = body.DeliveryTerms!;
+        var extensions = new JsonObject
+        {
+            ["variant"] = "export",
+            ["deliveryterms"] = new JsonObject
+            {
+                ["special_terms"] = terms.SpecialTerms?.Text,
+                ["loss_risk_responsibility_code"] = terms.LossRiskResponsibilityCode?.Text,
+                ["loss_risk"] = terms.LossRisk?.Text,
+            },
+        };
+        if (body.KSupplement is { } supplement)
+        {
+            var stored = new JsonObject();
+            foreach (var key in ExportSupplement.AdditionalInformationFields.Select(field => field.Key).Concat(ExportSupplement.CopTotalFields))
+            {
+                stored[key] = supplement[key]?.Text;
+            }
+
+            extensions["k_supplement"] = stored;
+        }
+
+        return extensions;
+    }
+
+    /// <summary>The mandator (mandate) or the RNDC consignment (transport) of a line, as the client sent them.</summary>
+    private static JsonObject? LineExtensions(InvoiceVariant variant, LineBody line)
+    {
+        if (variant == InvoiceVariant.Mandate && !LegacyScalar.IsMissing(line.AgentParty))
+        {
+            return new JsonObject { ["agentparty"] = line.AgentParty!.Value.Text.Trim(), ["agentparty_dv"] = line.AgentPartyDv?.Text.Trim() };
+        }
+
+        if (variant == InvoiceVariant.Transport && line.IsRndc is { } rndc && rndc.TryBoolean(out var isRndc))
+        {
+            var extensions = new JsonObject { ["is_RNDC"] = isRndc };
+            if (isRndc)
+            {
+                extensions["RNDC_consignment_number"] = line.RndcConsignmentNumber?.Text;
+                extensions["internal_consignment_number"] = line.InternalConsignmentNumber?.Text;
+                extensions["value_consignment"] = line.ValueConsignment?.Text;
+                extensions["unit_measure_consignment_id"] = LegacyDocumentMapper.IdOrNull(line.UnitMeasureConsignmentId);
+                extensions["quantity_consignment"] = line.QuantityConsignment?.Text;
+            }
+
+            return extensions;
+        }
+
+        if (variant == InvoiceVariant.Export && (!LegacyScalar.IsMissing(line.BrandName) || !LegacyScalar.IsMissing(line.ModelName)))
+        {
+            return new JsonObject { ["brandname"] = line.BrandName?.Text, ["modelname"] = line.ModelName?.Text };
+        }
+
+        return null;
     }
 
     private static List<DocumentAllowanceCharge> Charges(Guid companyId, Guid documentId, Guid? lineId, List<AllowanceChargeBody>? items) =>

@@ -28,7 +28,7 @@ public sealed class LegacyInformationApiTests
         await DocumentSeed.DocumentAsync(other, 1, 990000001, DocumentStatus.Accepted, Jan15Noon);
         using var client = await DocumentSeed.ClientAsync(company);
 
-        foreach (var url in new[] { $"/api/information/{company.Nit}", $"/api/v1/information/{company.Nit}" })
+        foreach (var url in new[] { $"/api/v1/information/{company.Nit}" })
         {
             using var json = await DocumentSeed.GetJsonAsync(client, url);
             var root = json.RootElement;
@@ -76,10 +76,10 @@ public sealed class LegacyInformationApiTests
 
         Assert.Multiple(async () =>
         {
-            Assert.That(await InvoiceNumbers(client, $"/api/information/{company.Nit}/2026-03-10"), Is.EqualTo(new long[] { 2, 3 }));
-            Assert.That(await InvoiceNumbers(client, $"/api/information/{company.Nit}/2026-03-09/2026-03-11"), Is.EqualTo(new long[] { 1, 2, 3, 4 }));
-            Assert.That(await InvoiceNumbers(client, $"/api/information/{company.Nit}"), Is.EqualTo(new long[] { 1, 2, 3, 4 }), "1900-01-01 to 2100-01-01.");
-            Assert.That(await InvoiceNumbers(client, $"/api/information/{company.Nit}/2026-03-11/2026-03-10"), Is.Empty);
+            Assert.That(await InvoiceNumbers(client, $"/api/v1/information/{company.Nit}/2026-03-10"), Is.EqualTo(new long[] { 2, 3 }));
+            Assert.That(await InvoiceNumbers(client, $"/api/v1/information/{company.Nit}/2026-03-09/2026-03-11"), Is.EqualTo(new long[] { 1, 2, 3, 4 }));
+            Assert.That(await InvoiceNumbers(client, $"/api/v1/information/{company.Nit}"), Is.EqualTo(new long[] { 1, 2, 3, 4 }), "1900-01-01 to 2100-01-01.");
+            Assert.That(await InvoiceNumbers(client, $"/api/v1/information/{company.Nit}/2026-03-11/2026-03-10"), Is.Empty);
         });
     }
 
@@ -97,9 +97,9 @@ public sealed class LegacyInformationApiTests
         await DocumentSeed.DocumentAsync(company, 5, 2, DocumentStatus.Failed, first);
         using var client = await DocumentSeed.ClientAsync(company);
 
-        using var page1 = await DocumentSeed.GetJsonAsync(client, $"/api/information/{company.Nit}/page/1/page");
+        using var page1 = await DocumentSeed.GetJsonAsync(client, $"/api/v1/information/{company.Nit}/page/1/page");
         using var page2 = await DocumentSeed.GetJsonAsync(client, $"/api/v1/information/{company.Nit}/page/2/page");
-        using var page0 = await DocumentSeed.GetJsonAsync(client, $"/api/information/{company.Nit}/page/0/page");
+        using var page0 = await DocumentSeed.GetJsonAsync(client, $"/api/v1/information/{company.Nit}/page/0/page");
 
         var firstPage = Numbers(page1.RootElement.GetProperty("data")[0]);
         Assert.Multiple(() =>
@@ -131,7 +131,7 @@ public sealed class LegacyInformationApiTests
         await DocumentSeed.DocumentAsync(other, 1, 1, DocumentStatus.Accepted, january);
         using var client = await DocumentSeed.ClientAsync(company);
 
-        using var january2026 = await DocumentSeed.GetJsonAsync(client, $"/api/total_documents/{company.Nit}/2026-01-01/2026-01-31");
+        using var january2026 = await DocumentSeed.GetJsonAsync(client, $"/api/v1/total_documents/{company.Nit}/2026-01-01/2026-01-31");
         using var everything = await DocumentSeed.GetJsonAsync(client, $"/api/v1/total_documents/{company.Nit}");
 
         var data = january2026.RootElement.GetProperty("data").EnumerateArray().ToList();
@@ -160,7 +160,7 @@ public sealed class LegacyInformationApiTests
         using var client = await DocumentSeed.ClientAsync(company);
         const string missing = "811999999";
 
-        foreach (var route in new[] { "/api/information/{0}", "/api/information/{0}/2026-01-15", "/api/information/{0}/page/1/page", "/api/total_documents/{0}", "/api/v1/total_documents/{0}/2026-01-01/2026-01-31" })
+        foreach (var route in new[] { "/api/v1/information/{0}", "/api/v1/information/{0}/2026-01-15", "/api/v1/information/{0}/page/1/page", "/api/v1/total_documents/{0}", "/api/v1/total_documents/{0}/2026-01-01/2026-01-31" })
         {
             var (existingStatus, existingBody) = await ErrorOf(client, string.Format(System.Globalization.CultureInfo.InvariantCulture, route, other.Nit));
             var (missingStatus, missingBody) = await ErrorOf(client, string.Format(System.Globalization.CultureInfo.InvariantCulture, route, missing));
@@ -181,7 +181,7 @@ public sealed class LegacyInformationApiTests
         using var configOnly = await DocumentSeed.ClientAsync(company, ApiScopes.ConfigWrite);
         using var anonymous = DocumentQueriesHost.Api.CreateClient();
 
-        foreach (var url in new[] { $"/api/information/{company.Nit}", $"/api/information/{company.Nit}/page/1/page", $"/api/total_documents/{company.Nit}" })
+        foreach (var url in new[] { $"/api/v1/information/{company.Nit}", $"/api/v1/information/{company.Nit}/page/1/page", $"/api/v1/total_documents/{company.Nit}" })
         {
             using var forbidden = await configOnly.GetAsync(url);
             using var unauthorized = await anonymous.GetAsync(url);
@@ -199,8 +199,8 @@ public sealed class LegacyInformationApiTests
         var company = await DocumentSeed.CompanyAsync();
         using var client = await DocumentSeed.ClientAsync(company);
 
-        using var badDate = await client.GetAsync($"/api/total_documents/{company.Nit}/2026-13-01");
-        using var badPage = await client.GetAsync($"/api/information/{company.Nit}/page/uno/page");
+        using var badDate = await client.GetAsync($"/api/v1/total_documents/{company.Nit}/2026-13-01");
+        using var badPage = await client.GetAsync($"/api/v1/information/{company.Nit}/page/uno/page");
 
         using var dateJson = await DocumentSeed.JsonAsync(badDate);
         using var pageJson = await DocumentSeed.JsonAsync(badPage);

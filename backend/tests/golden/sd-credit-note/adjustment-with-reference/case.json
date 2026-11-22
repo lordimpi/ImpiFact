@@ -1,0 +1,12 @@
+{
+  "variant": "Support-document adjustment note (95) referencing support-document/resident-seller",
+  "source_request": "Postman apidian-v2.1 / 02 - Primeros Envios / Documento soporte / Nota de ajuste de documento soporte",
+  "task": "T4",
+  "derived": "Fictitious issuer, customer and dates; lines, totals and variant fields as in the Postman request; billing_reference points to the CUDS of support-document/resident-seller",
+  "code_check": {
+    "scheme_name": "CUDS-SHA384",
+    "formula": "CUDS",
+    "secret": "support-document software PIN",
+    "matches": true
+  }
+}

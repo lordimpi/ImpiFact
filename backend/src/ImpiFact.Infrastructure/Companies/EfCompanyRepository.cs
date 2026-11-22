@@ -51,6 +51,9 @@ internal sealed class EfCompanyRepository(ImpiFactDbContext db) : ICompanyReposi
     public Task<Resolution?> FindResolutionAsync(Guid companyId, Guid resolutionId, CancellationToken ct) =>
         OfCompany<Resolution>(companyId).FirstOrDefaultAsync(resolution => resolution.Id == resolutionId, ct);
 
+    public Task<CompanyMailSettings?> GetMailSettingsAsync(Guid companyId, CancellationToken ct) =>
+        OfCompany<CompanyMailSettings>(companyId).FirstOrDefaultAsync(ct);
+
     public void Add<TEntity>(TEntity entity)
         where TEntity : class => db.Set<TEntity>().Add(entity);
 

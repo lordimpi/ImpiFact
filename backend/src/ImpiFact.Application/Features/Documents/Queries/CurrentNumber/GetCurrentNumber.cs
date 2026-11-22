@@ -1,6 +1,4 @@
 using System.Text.Json.Serialization;
-using FluentValidation;
-using FluentValidation.Results;
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Handlers;
@@ -12,8 +10,8 @@ using ImpiFact.Domain.Documents;
 namespace ImpiFact.Application.Features.Documents.Queries.CurrentNumber;
 
 /// <summary>
-/// Próximo número de una resolución (contrato del PHP <c>invoice/current_number/{type}/{prefix?}</c>). Sin prefijo
-/// (o con el texto «null», como lo manda el PHP) se usa la primera resolución activa del tipo.
+/// Próximo número de una resolución (el <c>invoice/current_number/{type}/{prefix?}</c> del PHP). Sin prefijo (o con el
+/// texto «null», como lo mandaba el PHP) se usa la primera resolución activa del tipo.
 /// </summary>
 public sealed record GetCurrentNumberQuery(int TypeDocumentId, string? Prefix);
 
@@ -32,59 +30,7 @@ public sealed record CurrentNumberResponse(
 }
 
 /// <summary>
-/// Cuerpo de <c>POST /api/ubl2.1/next-consecutive</c> del PHP (<c>NextConsecutiveRequest</c>): el tipo de documento y
-/// el prefijo, los dos obligatorios. Llegan como <see cref="LegacyScalar"/> porque el contrato admite número o texto.
-/// </summary>
-public sealed record GetNextConsecutiveQuery
-{
-    [JsonPropertyName("type_document_id")]
-    public LegacyScalar? TypeDocumentId { get; init; }
-
-    [JsonPropertyName("prefix")]
-    public LegacyScalar? Prefix { get; init; }
-}
-
-/// <summary>Respuesta de <c>next-consecutive</c> con los campos del PHP: <c>success</c>, <c>type_document_id</c>, <c>prefix</c> y <c>number</c>.</summary>
-public sealed record NextConsecutiveResponse(
-    [property: JsonPropertyName("type_document_id")] int TypeDocumentId,
-    [property: JsonPropertyName("prefix")] string? Prefix,
-    [property: JsonPropertyName("number")] long Number)
-{
-    [JsonPropertyName("success")]
-    public bool Success => true;
-}
-
-/// <summary>
-/// Reglas de <c>NextConsecutiveRequest.php</c> con los mensajes de Laravel: <c>type_document_id</c> obligatorio y entre
-/// los tipos 1 a 26, <c>prefix</c> obligatorio.
-/// </summary>
-internal sealed class GetNextConsecutiveQueryValidator : AbstractValidator<GetNextConsecutiveQuery>
-{
-    private const int MaxDocumentTypeId = 26;
-
-    public GetNextConsecutiveQueryValidator() =>
-        RuleFor(query => query).Custom((query, context) =>
-        {
-            void Fail(string field, string message) => context.AddFailure(new ValidationFailure(field, message));
-
-            if (LegacyScalar.IsMissing(query.TypeDocumentId))
-            {
-                Fail("type_document_id", IssueMessages.Required("type_document_id"));
-            }
-            else if (!query.TypeDocumentId!.Value.TryInteger(out var type) || type is < 1 or > MaxDocumentTypeId)
-            {
-                Fail("type_document_id", IssueMessages.Invalid("type_document_id"));
-            }
-
-            if (query.Prefix is not { Text: { Length: > 0 } prefix } || string.IsNullOrWhiteSpace(prefix))
-            {
-                Fail("prefix", IssueMessages.Required("prefix"));
-            }
-        });
-}
-
-/// <summary>
-/// La regla del próximo número, compartida por <c>current_number</c> y <c>next-consecutive</c> (php-rules 5.4.3).
+/// La regla del próximo número de <c>GET /api/v1/documents/current-number/{type}</c> (php-rules 5.4.3).
 /// </summary>
 /// <remarks>
 /// El PHP calculaba el máximo número emitido más uno (contando solo documentos aceptados, salvo que se pidiera lo
@@ -107,7 +53,7 @@ internal static class NextNumberRule
             return ResolutionNotConfigured;
         }
 
-        var issuer = await issuers.GetAsync(company, typeDocumentId, DocumentKind.Invoice, ct);
+        var issuer = await issuers.GetAsync(company, typeDocumentId, DocumentFamilies.Of(typeDocumentId), ct);
         var wanted = prefix is null or "null" ? null : prefix;
         var resolution = issuer?.Resolutions
             .Where(candidate => candidate.IsActive)
@@ -123,33 +69,9 @@ internal static class NextNumberRule
     }
 }
 
-/// <remarks>
-/// El tercer parámetro del PHP (<c>ignore_state_document_id</c>) se acepta pero no cambia el resultado (ver
-/// <see cref="NextNumberRule"/>).
-/// </remarks>
 internal sealed class GetCurrentNumberHandler(IIssuerContextReads issuers, IDocumentReads reads, ITenantContext tenant)
     : IHandler<GetCurrentNumberQuery, CurrentNumberResponse>
 {
     public Task<Result<CurrentNumberResponse>> HandleAsync(GetCurrentNumberQuery request, CancellationToken ct) =>
         NextNumberRule.FindAsync(issuers, reads, tenant.CompanyId, request.TypeDocumentId, request.Prefix, ct);
-}
-
-/// <summary>
-/// <c>POST /api/ubl2.1/next-consecutive</c>: el mismo número de <c>current_number</c> para el tipo y el prefijo, con la
-/// forma de respuesta del PHP. Solo consulta: no reserva el número.
-/// </summary>
-internal sealed class GetNextConsecutiveHandler(IIssuerContextReads issuers, IDocumentReads reads, ITenantContext tenant)
-    : IHandler<GetNextConsecutiveQuery, NextConsecutiveResponse>
-{
-    public async Task<Result<NextConsecutiveResponse>> HandleAsync(GetNextConsecutiveQuery request, CancellationToken ct)
-    {
-        var type = (int)request.TypeDocumentId!.Value.Integer;
-        var found = await NextNumberRule.FindAsync(issuers, reads, tenant.CompanyId, type, request.Prefix!.Value.Text, ct);
-        if (!found.IsSuccess)
-        {
-            return found.Error;
-        }
-
-        return new NextConsecutiveResponse(type, found.Value.Prefix, found.Value.Number);
-    }
 }

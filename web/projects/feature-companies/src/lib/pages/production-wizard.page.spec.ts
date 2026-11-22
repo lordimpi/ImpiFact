@@ -109,6 +109,58 @@ describe('ProductionWizardPage', () => {
     expect(sendButton().disabled).toBe(false);
   });
 
+  it('shows the support document family from the setup status', async () => {
+    await open();
+
+    const support = 'Documento soporte (opcional)';
+    expect(badge(support)).toBe('Pendiente');
+    expect(
+      within(step(support)).getByText(/guarde el software del documento soporte/),
+    ).toBeTruthy();
+    expect(
+      within(step(support)).getByRole('link', { name: 'Ir a Software' }).getAttribute('href'),
+    ).toBe('/empresas/company-1/software');
+  });
+
+  it('marks the support document family complete with its software and a valid resolution', async () => {
+    await open({
+      readiness: {
+        ...READY,
+        support_document: {
+          type_environment_id: 2,
+          software_configured: true,
+          resolutions: [
+            { kind: 'support_document', type_document_id: 11, valid: true },
+            { kind: 'support_document_adjustment_note', type_document_id: 13, valid: false },
+          ],
+        },
+      },
+    });
+
+    const support = 'Documento soporte (opcional)';
+    expect(badge(support)).toBe('Completo');
+    expect(
+      within(step(support)).getByText(
+        'El documento soporte tiene software y una resolución vigente en habilitación.',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('asks for the support document resolution once its software is saved', async () => {
+    await open({
+      readiness: {
+        ...READY,
+        support_document: { type_environment_id: 1, software_configured: true, resolutions: [] },
+      },
+    });
+
+    const support = 'Documento soporte (opcional)';
+    expect(badge(support)).toBe('Pendiente');
+    expect(
+      within(step(support)).getByRole('link', { name: 'Ir a Resoluciones' }).getAttribute('href'),
+    ).toBe('/empresas/company-1/resoluciones');
+  });
+
   it('tells whether the DIAN accepted or rejected the test set', async () => {
     const { http } = await open({
       readiness: { ...READY, test_set_accepted: true },

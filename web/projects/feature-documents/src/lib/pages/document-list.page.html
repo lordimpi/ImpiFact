@@ -48,7 +48,7 @@
         <a class="doc-number" [routerLink]="['/documentos', row.id]">{{ row.full_number }}</a>
       </ng-template>
       <ng-template uiTableCell="kind" let-row>
-        {{ 'documents.' + kindKey(row.kind) | transloco }}
+        {{ 'documents.' + kindKey(documentKindOf(row)) | transloco }}
       </ng-template>
       <ng-template uiTableCell="issue_date" let-row>
         <span class="doc-nowrap">{{ row.issue_date }}</span>

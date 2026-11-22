@@ -2,7 +2,7 @@ namespace ImpiFact.Dian.Soap;
 
 /// <summary>
 /// Lo que respondió el servicio web de la DIAN (la autoridad tributaria de Colombia), ya interpretado por
-/// <see cref="DianResponseReader"/>. Es una de seis posibilidades: <see cref="DianResultResponse"/>,
+/// <see cref="DianResponseReader"/>. Es una de siete posibilidades: <see cref="DianResultResponse"/>, <see cref="DianXmlDocumentResponse"/>,
 /// <see cref="DianNumberingRangeResponse"/>, <see cref="DianAcquirerResponse"/>, <see cref="DianSoapFaultResponse"/>,
 /// <see cref="DianServiceUnavailableResponse"/> o <see cref="DianUnrecognizedResponse"/>.
 /// </summary>
@@ -62,6 +62,14 @@ public sealed record DianNumberingRange(
 public sealed record DianAcquirerResponse(string? StatusCode, string? Message, string? ReceiverName, string? ReceiverEmail) : DianSoapResponse;
 
 /// <summary>
+/// Answer of GetXmlByDocumentKey (Anexo Técnico 1.9, section 7.14.3): <paramref name="Code"/> <c>100</c> when the document
+/// was found, <c>205</c> when it was not, <c>206</c> for an XML with errors in the issuer or receiver number and <c>401</c> when
+/// the certificate is not the issuer's or the receiver's. <paramref name="Xml"/> holds the document bytes, already decoded
+/// from Base64; null when the answer brings none.
+/// </summary>
+public sealed record DianXmlDocumentResponse(string? Code, string? Message, byte[]? Xml) : DianSoapResponse;
+
+/// <summary>
 /// Error SOAP (soap:Fault): el servicio no procesó la operación, por ejemplo porque la firma del sobre no es
 /// válida. <paramref name="Code"/> y <paramref name="Subcode"/> son los códigos tal como vienen (por ejemplo
 /// <c>s:Sender</c> y <c>a:InvalidSecurity</c>) y <paramref name="Reason"/> el texto del motivo.
@@ -98,7 +106,13 @@ public sealed record DianUnrecognizedResponse(string Body) : DianSoapResponse;
 /// <param name="XmlBase64Bytes">
 /// Bytes del ApplicationResponse (el XML de respuesta firmado por la DIAN), ya decodificados del Base64.
 /// </param>
-/// <param name="ZipKey">Clave del envío asíncrono (SendTestSetAsync) para consultarlo con GetStatusZip.</param>
+/// <param name="ZipKey">Clave del envío asíncrono (SendTestSetAsync o SendBillAsync) para consultarlo con GetStatusZip.</param>
+/// <param name="FileMessages">
+/// The initial-validation messages of an asynchronous send (SendTestSetAsync, SendBillAsync) with the file each one names
+/// (<c>XmlParamsResponseTrackId</c>, annex 1.9, section 7.8.3); empty when there are none and null in the answers of the
+/// other operations. Their texts are also in
+/// <paramref name="ErrorMessages"/>.
+/// </param>
 public sealed record DianResult(
     bool? IsValid,
     string? StatusCode,
@@ -108,4 +122,8 @@ public sealed record DianResult(
     string? XmlDocumentKey,
     string? XmlFileName,
     byte[]? XmlBase64Bytes,
-    string? ZipKey);
+    string? ZipKey,
+    IReadOnlyList<DianFileMessage>? FileMessages = null);
+
+/// <summary>An initial-validation message of an asynchronous send and the XML file it names (without extension, as the DIAN writes it).</summary>
+public sealed record DianFileMessage(string? FileName, string Message);

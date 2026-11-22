@@ -164,7 +164,9 @@ public sealed class DocumentListTests
     [TestCase(1, "invoice")]
     [TestCase(4, "credit_note")]
     [TestCase(5, "debit_note")]
-    [TestCase(11, null)]
+    [TestCase(11, "support_document")]
+    [TestCase(13, "support_document_adjustment_note")]
+    [TestCase(9, null)]
     public async Task Every_row_says_its_kind_and_email_status(int typeId, string? kind)
     {
         _reads.Listed.Add(DocumentSamples.Summary(typeId: typeId) with { EmailStatus = EmailStatus.Failed });

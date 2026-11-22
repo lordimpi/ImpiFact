@@ -69,6 +69,76 @@ public sealed class ScalarExampleFlowTests
             Assert.That(document.GetProperty("status").GetString(), Is.EqualTo("Queued"));
             Assert.That(document.GetProperty("full_number").GetString(), Is.EqualTo("SETP990000002"));
         });
+
+        // The invoice variant examples (phase 7a, T2) are issued as they are too, after the standard invoice.
+        foreach (var path in new[] { "/api/v1/documents/invoices/aiu", "/api/v1/documents/invoices/mandate", "/api/v1/documents/invoices/transport" })
+        {
+            using var variant = await SendAsync(company, HttpMethod.Post, path, Example(path, "post"));
+            var text = await variant.Content.ReadAsStringAsync();
+            Assert.That(variant.StatusCode, Is.EqualTo(HttpStatusCode.OK), $"{path}: {text}");
+            using var json = JsonDocument.Parse(text);
+            Assert.That(json.RootElement.GetProperty("document").GetProperty("status").GetString(), Is.EqualTo("Queued"), path);
+        }
+
+        // The health-sector example (phase 7a, T7) is a national invoice with health_fields: queued like the standard one.
+        using (var health = await SendAsync(company, HttpMethod.Post, "/api/v1/documents/invoices",
+                   Example("/api/v1/documents/invoices", "post", "health-sector-one-user")))
+        {
+            var text = await health.Content.ReadAsStringAsync();
+            Assert.That(health.StatusCode, Is.EqualTo(HttpStatusCode.OK), text);
+            using var json = JsonDocument.Parse(text);
+            Assert.That(json.RootElement.GetProperty("document").GetProperty("status").GetString(), Is.EqualTo("Queued"));
+        }
+
+        // The export examples (phase 7a, T3) use the type 2 resolution example and its own sequence.
+        var exportNumbers = new List<string>();
+        foreach (var name in new[] { "export-cop-cif", "export-usd-fob" })
+        {
+            using var export = await SendAsync(company, HttpMethod.Post, "/api/v1/documents/invoices/export",
+                Example("/api/v1/documents/invoices/export", "post", name));
+            var text = await export.Content.ReadAsStringAsync();
+            Assert.That(export.StatusCode, Is.EqualTo(HttpStatusCode.OK), $"{name}: {text}");
+            using var json = JsonDocument.Parse(text);
+            var exported = json.RootElement.GetProperty("document");
+            Assert.That((exported.GetProperty("status").GetString(), exported.GetProperty("document_type_id").GetInt32()), Is.EqualTo(("Queued", 2)), name);
+            exportNumbers.Add(exported.GetProperty("full_number").GetString()!);
+        }
+
+        Assert.That(exportNumbers, Is.EqualTo(new[] { "SETP990000000", "SETP990000001" }));
+
+        // The contingency examples (phase 7a, T5): type 03 on the type 3 resolution example, queued; type 04 on the invoice
+        // resolution, pending until send-pending.
+        foreach (var (path, status, type) in new[]
+        {
+            ("/api/v1/documents/invoices/contingency", "Queued", 3), ("/api/v1/documents/invoices/dian-contingency", "ContingencyPending", 12),
+        })
+        {
+            using var contingency = await SendAsync(company, HttpMethod.Post, path, Example(path, "post"));
+            var text = await contingency.Content.ReadAsStringAsync();
+            Assert.That(contingency.StatusCode, Is.EqualTo(HttpStatusCode.OK), $"{path}: {text}");
+            using var json = JsonDocument.Parse(text);
+            var issuedContingency = json.RootElement.GetProperty("document");
+            Assert.That((issuedContingency.GetProperty("status").GetString(), issuedContingency.GetProperty("document_type_id").GetInt32()),
+                Is.EqualTo((status, type)), path);
+        }
+
+        // The support document example (phase 7a, T4) needs the support-document software example and the SEDS resolution.
+        await OkAsync(company, HttpMethod.Put, $"/api/v1/companies/{nit}/software", Example("/api/v1/companies/{nit}/software", "put", "documento-soporte"));
+        using var supportDocument = await SendAsync(company, HttpMethod.Post, "/api/v1/documents/support-documents",
+            Example("/api/v1/documents/support-documents", "post", "support-document-resident"));
+        var supportText = await supportDocument.Content.ReadAsStringAsync();
+        Assert.That(supportDocument.StatusCode, Is.EqualTo(HttpStatusCode.OK), supportText);
+        using var supportJson = JsonDocument.Parse(supportText);
+        var issuedSupport = supportJson.RootElement.GetProperty("document");
+        Assert.That((issuedSupport.GetProperty("status").GetString(), issuedSupport.GetProperty("full_number").GetString()),
+            Is.EqualTo(("Queued", "SEDS984000000")));
+
+        // The adjustment note example references a support document the integrator must replace: as is, it answers 422.
+        using var note = await SendAsync(company, HttpMethod.Post, "/api/v1/documents/support-documents/adjustment-notes",
+            Example("/api/v1/documents/support-documents/adjustment-notes", "post"));
+        var noteText = await note.Content.ReadAsStringAsync();
+        Assert.That(note.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity), noteText);
+        Assert.That(noteText, Does.Contain("document.reference_not_found"));
     }
 
     private string PathExample(string path, string method, string name) =>

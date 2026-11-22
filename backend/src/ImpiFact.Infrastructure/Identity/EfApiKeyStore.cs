@@ -66,6 +66,24 @@ internal sealed class EfApiKeyStore(ImpiFactDbContext db, CredentialStoreGuard g
             }
         });
 
+    /// <summary>
+    /// Lee las filas con seguimiento en el contexto de la solicitud: se guardan con el resto del caso de uso (desactivar
+    /// la empresa) y se revierten con él.
+    /// </summary>
+    public Task<IReadOnlyList<string>> RevokeAllActiveForCompanyAsync(Guid companyId, DateTimeOffset revokedAt, CancellationToken ct) =>
+        guard.RunAsync<IReadOnlyList<string>>(async () =>
+        {
+            var active = await db.Set<ApiKey>()
+                .Where(key => key.CompanyId == companyId && key.RevokedAt == null)
+                .ToListAsync(ct);
+            foreach (var key in active)
+            {
+                key.RevokedAt = revokedAt;
+            }
+
+            return [.. active.Select(key => key.KeyHash)];
+        });
+
     private static ApiKeyRecord? ToRecord(ApiKey? key) => key is null
         ? null
         : new ApiKeyRecord(

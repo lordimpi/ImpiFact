@@ -1,0 +1,12 @@
+{
+  "variant": "Export invoice (02) in COP with CIF delivery terms and the k_supplement additional data",
+  "source_request": "Postman apidian-v2.1 / 07 - Otros tipos de Facturas / Factura de exportacion",
+  "task": "T3",
+  "derived": "Fictitious issuer, customer and dates; lines, totals and variant fields as in the Postman request",
+  "code_check": {
+    "scheme_name": "CUFE-SHA384",
+    "formula": "CUFE",
+    "secret": "technical key",
+    "matches": true
+  }
+}

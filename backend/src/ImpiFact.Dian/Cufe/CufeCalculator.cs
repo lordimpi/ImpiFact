@@ -56,6 +56,63 @@ public static class CufeCalculator
     /// <summary>CUDE de una nota crédito o débito; usa el PIN del software en lugar de la clave técnica.</summary>
     public static string ComputeCude(CufeInput input, string softwarePin) => Compute(input, softwarePin);
 
+    /// <summary>
+    /// CUDS of a support document (05) or its adjustment note (95), with the PIN of the support-document software. Unlike
+    /// the CUFE and the CUDE it carries only the IVA (01), without INC nor ICA (php-rules 2.1 and 13.3, item 1). The
+    /// supplier is the seller not obliged to invoice and the customer is the issuing company, as in the XML.
+    /// </summary>
+    public static string ComputeCuds(CufeInput input, string supportDocumentPin)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentException.ThrowIfNullOrEmpty(supportDocumentPin);
+        var text = string.Concat(
+            input.Number,
+            input.IssueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            input.IssueTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + ColombiaOffset,
+            DianRounding.FormatAmount(input.LineExtensionAmount),
+            IvaCode, DianRounding.FormatAmount(input.Iva ?? 0m),
+            DianRounding.FormatAmount(input.PayableAmount),
+            input.SupplierNit,
+            input.CustomerNit,
+            supportDocumentPin,
+            ((int)input.Environment).ToString(CultureInfo.InvariantCulture));
+
+        return Convert.ToHexStringLower(SHA384.HashData(Encoding.UTF8.GetBytes(text)));
+    }
+
+    /// <summary>
+    /// CUDE of a RADIAN event (ApplicationResponse, Anexo Técnico 1.9, section 11.1.5): SHA-384 of the event number, its
+    /// issue date and time (with <c>-05:00</c>), the NITs of the sender and the receiver, the event code, the number and
+    /// the type code of the referenced document and the PIN of the invoice software. Unlike the CUFE it carries neither
+    /// amounts nor the environment (php-rules 16.5, item 1).
+    /// </summary>
+    public static string ComputeEventCude(
+        string eventNumber,
+        DateOnly issueDate,
+        TimeOnly issueTime,
+        string senderNit,
+        string receiverNit,
+        string responseCode,
+        string referenceNumber,
+        string referenceTypeCode,
+        string softwarePin)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(eventNumber);
+        ArgumentException.ThrowIfNullOrEmpty(softwarePin);
+        var text = string.Concat(
+            eventNumber,
+            issueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            issueTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + ColombiaOffset,
+            senderNit,
+            receiverNit,
+            responseCode,
+            referenceNumber,
+            referenceTypeCode,
+            softwarePin);
+
+        return Convert.ToHexStringLower(SHA384.HashData(Encoding.UTF8.GetBytes(text)));
+    }
+
     private static string Compute(CufeInput input, string secret)
     {
         ArgumentNullException.ThrowIfNull(input);

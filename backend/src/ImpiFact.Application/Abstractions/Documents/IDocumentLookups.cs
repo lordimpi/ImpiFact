@@ -20,18 +20,6 @@ public interface IDocumentLookups
     Task<DocumentRef?> FindByCufeAsync(Guid companyId, string cufe, CancellationToken ct);
 
     /// <summary>
-    /// El documento con ese prefijo y número, de cualquier tipo y ambiente; si hay varios, el emitido más
-    /// recientemente. Nulo si no hay ninguno.
-    /// </summary>
-    Task<DocumentRef?> FindByNumberAsync(Guid companyId, string prefix, long number, CancellationToken ct);
-
-    /// <summary>
-    /// El documento con ese número completo (prefijo y número) y uno de los tipos indicados; si hay varios, el emitido
-    /// más recientemente. Nulo si no hay ninguno.
-    /// </summary>
-    Task<DocumentRef?> FindByFullNumberAsync(Guid companyId, string fullNumber, IReadOnlyCollection<int> documentTypeIds, CancellationToken ct);
-
-    /// <summary>
     /// Cuerpo de la última respuesta de la DIAN sobre el documento (<c>document_files</c> de tipo 5 de su intento más
     /// reciente con respuesta) en SendBillSync, GetStatus o GetStatusZip; nulo si todavía no hay ninguna. La respuesta
     /// de SendTestSetAsync no cuenta: solo trae la clave del envío.

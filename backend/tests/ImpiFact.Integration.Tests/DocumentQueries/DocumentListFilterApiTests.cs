@@ -35,7 +35,7 @@ public sealed class DocumentListFilterApiTests
             Assert.That(item.GetProperty("id").GetGuid(), Is.EqualTo(credit));
             Assert.That(item.GetProperty("kind").GetString(), Is.EqualTo("credit_note"));
             Assert.That(item.GetProperty("email_status").GetString(), Is.EqualTo("Sent"));
-            Assert.That(kinds, Is.EqualTo(new[] { null, "debit_note", "credit_note", "invoice" }));
+            Assert.That(kinds, Is.EqualTo(new[] { "support_document", "debit_note", "credit_note", "invoice" }));
             Assert.That(all.RootElement.TryGetProperty("total_count", out _), Is.False, "total_count only comes when asked for.");
         });
     }

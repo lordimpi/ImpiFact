@@ -15,6 +15,12 @@ public enum PdfDocumentKind
 
     /// <summary>Nota débito.</summary>
     DebitNote,
+
+    /// <summary>Documento soporte en adquisiciones a no obligados a facturar (tipo 11, código 05).</summary>
+    SupportDocument,
+
+    /// <summary>Nota de ajuste al documento soporte (tipo 13, código 95).</summary>
+    SupportDocumentAdjustmentNote,
 }
 
 /// <summary>Datos de la representación gráfica de un documento.</summary>

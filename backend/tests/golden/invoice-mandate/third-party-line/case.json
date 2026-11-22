@@ -1,0 +1,12 @@
+{
+  "variant": "Mandate invoice with a line sold on behalf of a third party (agentparty)",
+  "source_request": "Postman apidian-v2.1 / 07 - Otros tipos de Facturas / Factura de mandato",
+  "task": "T2",
+  "derived": "Fictitious issuer, customer and dates; lines, totals and variant fields as in the Postman request; mandator NIT replaced by a fictitious one",
+  "code_check": {
+    "scheme_name": "CUFE-SHA384",
+    "formula": "CUFE",
+    "secret": "technical key",
+    "matches": true
+  }
+}

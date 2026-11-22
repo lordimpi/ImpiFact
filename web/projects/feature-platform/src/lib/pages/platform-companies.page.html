@@ -59,7 +59,8 @@
           size="small"
           [label]="'platform.common.actions' | transloco"
           [ariaLabel]="rowText('companies.actionsOf', row)"
-          [items]="rowActions()"
+          [items]="row.is_active ? activeRowActions() : inactiveRowActions()"
+          [loading]="changing() === row.id"
           (selected)="onRowAction($event, row)"
         />
       </ng-template>

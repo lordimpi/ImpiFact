@@ -28,7 +28,8 @@ const devRoutes: Routes =
  * Rutas raíz (sección 7 de la arquitectura del frontend). Cada feature aporta las suyas desde su librería y sus
  * páginas se cargan de forma perezosa: `authRoutes` trae `/login`, `/recuperar` y `/empresas/seleccionar`;
  * `mastersRoutes`, `/clientes` y `/productos`.
- * `documentsRoutes`, `/documentos`, `/documentos/nuevo` y `/documentos/:id`; `notificationsRoutes`, `/notificaciones`;
+ * `documentsRoutes`, `/documentos`, `/documentos/nuevo`, `/documentos/documento-soporte`, las notas,
+ * `/documentos/recibidos` (y su detalle) y `/documentos/:id`; `notificationsRoutes`, `/notificaciones`;
  * `apiKeysRoutes`, `/llaves-api`; `plansRoutes`, `/plan`; `platformRoutes`, `/plataforma/*`; `dashboardRoutes`, el
  * tablero de `/` para el propietario y el vendedor.
  * `companiesRoutes`, `/empresa` y `/empresas/:id/...` (configuración y paso a producción); va después de

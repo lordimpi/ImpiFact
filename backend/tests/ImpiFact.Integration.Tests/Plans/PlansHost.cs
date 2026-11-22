@@ -54,7 +54,7 @@ public sealed class PlansHost
     public static async Task<Issuer> CreateCompanyAsync(HttpClient platform)
     {
         var (nit, dv) = CompaniesHost.NewNit();
-        using var created = await platform.PostAsJsonAsync($"/api/ubl2.1/config/{nit}/{dv}", IssuerSetup.GoldenCompanyBody($"{nit}@example.com"));
+        using var created = await platform.PostAsJsonAsync($"/api/v1/companies/{nit}/{dv}", IssuerSetup.GoldenCompanyBody($"{nit}@example.com"));
         Assert.That(created.StatusCode, Is.EqualTo(HttpStatusCode.OK), await created.Content.ReadAsStringAsync());
         using var json = JsonDocument.Parse(await created.Content.ReadAsStringAsync());
         var client = Api.ClientWith(json.RootElement.GetProperty("token").GetString()!);

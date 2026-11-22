@@ -2235,6 +2235,10 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("allowance_total_amount");
 
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("batch_id");
+
                     b.Property<decimal>("ChargeTotalAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
@@ -2469,6 +2473,9 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                     b.HasIndex("TypeOperationId")
                         .HasDatabaseName("ix_documents_type_operation_id");
 
+                    b.HasIndex("CompanyId", "BatchId")
+                        .HasDatabaseName("ix_documents_batch");
+
                     b.HasIndex("CompanyId", "Cufe")
                         .IsUnique()
                         .HasDatabaseName("ux_documents_cufe")
@@ -2580,6 +2587,133 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                     b.ToTable("document_allowance_charges", (string)null);
                 });
 
+            modelBuilder.Entity("ImpiFact.Domain.Documents.DocumentBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CompanyId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier")
+                        .HasColumnName("company_id");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DianStatusCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnName("dian_status_code")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<string>("DianStatusDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("dian_status_description")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<int>("DocumentCount")
+                        .HasColumnType("int")
+                        .HasColumnName("document_count");
+
+                    b.Property<string>("Entries")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("entries")
+                        .HasAnnotation("ImpiFact:JsonColumn", true);
+
+                    b.Property<string>("ErrorMessages")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("error_messages")
+                        .HasAnnotation("ImpiFact:JsonColumn", true);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("name")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<DateTimeOffset?>("QueuedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("queued_at");
+
+                    b.Property<string>("ResponseFileKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("response_file_key")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<long>("RowVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("row_version");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("sent_at");
+
+                    b.Property<short>("Status")
+                        .HasColumnType("smallint")
+                        .HasColumnName("status");
+
+                    b.Property<int?>("TypeEnvironmentId")
+                        .HasColumnType("int")
+                        .HasColumnName("type_environment_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("ZipFileKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("zip_file_key")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<string>("ZipFileName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("zip_file_name")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<string>("ZipKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasColumnName("zip_key")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.HasKey("Id")
+                        .HasName("pk_document_batches");
+
+                    b.HasAlternateKey("CompanyId", "Id")
+                        .HasName("ux_document_batches_company_id_id");
+
+                    b.HasIndex("TypeEnvironmentId")
+                        .HasDatabaseName("ix_document_batches_type_environment_id");
+
+                    b.HasIndex("CompanyId", "CreatedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_document_batches_company_id_created_at");
+
+                    b.HasIndex("CompanyId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ux_document_batches_company_id_name");
+
+                    b.ToTable("document_batches", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_document_batches_entries_json", "ISJSON([entries]) = 1");
+
+                            t.HasCheckConstraint("ck_document_batches_error_messages_json", "ISJSON([error_messages]) = 1");
+                        });
+                });
+
             modelBuilder.Entity("ImpiFact.Domain.Documents.DocumentEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2609,9 +2743,20 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .HasColumnName("dian_status_code")
                         .UseCollation("Latin1_General_100_CS_AS_SC");
 
+                    b.Property<string>("DianStatusDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("dian_status_description")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
                     b.Property<Guid?>("DocumentId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("document_id");
+
+                    b.Property<string>("ErrorMessages")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("error_messages")
+                        .HasAnnotation("ImpiFact:JsonColumn", true);
 
                     b.Property<int>("EventId")
                         .HasColumnType("int")
@@ -2621,6 +2766,12 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("issued_at");
 
+                    b.Property<string>("Number")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)")
+                        .HasColumnName("number")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
                     b.Property<Guid?>("PayloadFileId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("payload_file_id");
@@ -2628,6 +2779,18 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                     b.Property<Guid?>("ReceivedDocumentId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("received_document_id");
+
+                    b.Property<string>("RejectionCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)")
+                        .HasColumnName("rejection_code")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<string>("ResponseFileKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("response_file_key")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
 
                     b.Property<long>("RowVersion")
                         .IsConcurrencyToken()
@@ -2647,6 +2810,12 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("updated_at");
+
+                    b.Property<string>("XmlFileKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("xml_file_key")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
 
                     b.HasKey("Id")
                         .HasName("pk_document_events");
@@ -2675,6 +2844,8 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
 
                     b.ToTable("document_events", null, t =>
                         {
+                            t.HasCheckConstraint("ck_document_events_error_messages_json", "ISJSON([error_messages]) = 1");
+
                             t.HasCheckConstraint("ck_document_events_target", "(document_id IS NOT NULL AND received_document_id IS NULL) OR (document_id IS NULL AND received_document_id IS NOT NULL)");
                         });
                 });
@@ -3275,6 +3446,12 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .IsFixedLength()
                         .UseCollation("Latin1_General_100_CS_AS_SC");
 
+                    b.Property<string>("SupplierEmail")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
+                        .HasColumnName("supplier_email")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
                     b.Property<string>("SupplierIdentificationNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -3287,6 +3464,18 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)")
                         .HasColumnName("supplier_name")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<string>("SupplierOrganizationTypeCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)")
+                        .HasColumnName("supplier_organization_type_code")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<string>("SupplierRegimeCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)")
+                        .HasColumnName("supplier_regime_code")
                         .UseCollation("Latin1_General_100_CS_AS_SC");
 
                     b.Property<decimal>("TaxAmount")
@@ -4731,6 +4920,13 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_documents_type_operations");
 
+                    b.HasOne("ImpiFact.Domain.Documents.DocumentBatch", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId", "BatchId")
+                        .HasPrincipalKey("CompanyId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_documents_document_batches");
+
                     b.HasOne("ImpiFact.Domain.Masters.Customer", null)
                         .WithMany()
                         .HasForeignKey("CompanyId", "CustomerId")
@@ -4782,6 +4978,22 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .HasPrincipalKey("CompanyId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_document_allowance_charges_document_lines");
+                });
+
+            modelBuilder.Entity("ImpiFact.Domain.Documents.DocumentBatch", b =>
+                {
+                    b.HasOne("ImpiFact.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_document_batches_companies");
+
+                    b.HasOne("ImpiFact.Domain.Catalog.TypeEnvironment", null)
+                        .WithMany()
+                        .HasForeignKey("TypeEnvironmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_document_batches_type_environments");
                 });
 
             modelBuilder.Entity("ImpiFact.Domain.Documents.DocumentEvent", b =>

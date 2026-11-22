@@ -116,6 +116,8 @@ internal static class ApiComposition
         services.AddSingleton<IEndpointModule, DocumentQueryEndpoints>();
         services.AddSingleton<IEndpointModule, DocumentIssueEndpoints>();
         services.AddSingleton<IEndpointModule, DocumentUtilityEndpoints>();
+        services.AddSingleton<IEndpointModule, DocumentBatchEndpoints>();
+        services.AddSingleton<IEndpointModule, Radian.RadianEndpoints>();
         services.AddSingleton<IEndpointModule, PlanEndpoints>();
         services.AddSingleton<IEndpointModule, NotificationEndpoints>();
         services.AddSingleton<IEndpointModule, MasterEndpoints>();

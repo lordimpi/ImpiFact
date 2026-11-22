@@ -5,7 +5,8 @@ namespace ImpiFact.Dian.Signing;
 /// <summary>
 /// Ubica en el texto del XML el lugar reservado para la firma: el ext:ExtensionContent vacío del segundo
 /// ext:UBLExtension (ruta /*/ext:UBLExtensions/ext:UBLExtension[2]/ext:ExtensionContent, Anexo Técnico
-/// 002, sección 13), o el de la única extensión cuando el documento tiene una sola.
+/// 002, sección 13), o el de la única extensión cuando el documento tiene una sola. When the second one carries the
+/// health-sector extension, the slot is the empty third one (php-rules 17, item 3).
 /// </summary>
 /// <remarks>
 /// ext:UBLExtension es el bloque del XML donde van las extensiones: el primero lleva los datos propios de
@@ -45,6 +46,7 @@ internal sealed class SignatureSlot
         var lineInfo = (IXmlLineInfo)reader;
         var extensionCount = 0;
         SignatureSlot? emptyFirstSlot = null;
+        var filledSecondSlot = false;
         while (reader.Read())
         {
             if (reader.NodeType != XmlNodeType.Element || reader.NamespaceURI != ExtNs)
@@ -60,6 +62,18 @@ internal sealed class SignatureSlot
             else if (reader is { Depth: 3, LocalName: "ExtensionContent" } && extensionCount == 2)
             {
                 var slot = Locate(xml, reader.Name, lineInfo.LineNumber, lineInfo.LinePosition);
+                if (IsEmpty(reader))
+                {
+                    return slot;
+                }
+
+                // The health-sector invoice (Ministerio de Salud, Documento Técnico 2 v001, section 6) puts its extension
+                // second and the signature third, as the PHP library does (SignInvoice.php:197-198).
+                filledSecondSlot = true;
+            }
+            else if (reader is { Depth: 3, LocalName: "ExtensionContent" } && extensionCount == 3 && filledSecondSlot)
+            {
+                var slot = Locate(xml, reader.Name, lineInfo.LineNumber, lineInfo.LinePosition);
                 EnsureEmpty(reader);
                 return slot;
             }
@@ -73,6 +87,11 @@ internal sealed class SignatureSlot
         if (extensionCount == 1 && emptyFirstSlot is not null)
         {
             return emptyFirstSlot;
+        }
+
+        if (filledSecondSlot)
+        {
+            throw new InvalidOperationException($"{SlotPath} must be empty before signing, or followed by an empty third one.");
         }
 
         throw new InvalidOperationException(

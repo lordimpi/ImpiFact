@@ -9,7 +9,7 @@ namespace ImpiFact.Integration.Tests.Identity;
 /// <summary>
 /// Contenido del documento OpenAPI (la descripción estándar de una API HTTP que muestra Scalar en <c>/scalar</c>):
 /// solo documenta las rutas <c>/api/v1</c>, con una introducción, el esquema de autenticación Bearer y un resumen y una
-/// descripción por operación y por sección. Las rutas heredadas del PHP quedan fuera del documento, pero siguen activas.
+/// descripción por operación y por sección. Las rutas heredadas del PHP se borraron en la fase 7a (T9b2).
 /// </summary>
 [TestFixture]
 public sealed class OpenApiDocumentTests
@@ -165,28 +165,73 @@ public sealed class OpenApiDocumentTests
     }
 
     /// <summary>
-    /// Ocultar una ruta heredada del documento no la desactiva: con una llave sin alcances, la heredada y su gemela
-    /// canónica responden 403 (la ruta existe y la autorización la rechaza), no 404.
+    /// The control of <see cref="The_deleted_php_routes_answer_404"/>: with a key without scopes an existing route answers
+    /// 403 (the route exists and the authorization refuses it), so a 404 there means the route is gone.
     /// </summary>
-    [TestCase("POST", "/api/ubl2.1/invoice")]
     [TestCase("POST", "/api/v1/documents/invoices")]
+    [TestCase("GET", "/api/v1/information/900123456")]
+    [TestCase("PUT", "/api/v1/companies/900123456/software")]
+    [TestCase("GET", "/api/v1/plans")]
+    public async Task An_existing_route_answers_403_to_a_key_without_scopes(string method, string path)
+    {
+        using var response = await SendWithoutScopesAsync(method, path);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+    }
+
+    /// <summary>
+    /// Phase 7a, T9b2 (S2, item 7): the routes of the PHP contract (<c>/api/ubl2.1/...</c>, <c>/api/information</c>,
+    /// <c>/api/total_documents</c>, <c>/api/download</c>, <c>/api/load-document-by-cufe</c>, <c>/api/receivedfile</c>) were
+    /// deleted; their behavior lives under <c>/api/v1</c>. At least one route of each endpoint module that had them.
+    /// </summary>
+    // CompanyEndpoints
+    [TestCase("POST", "/api/ubl2.1/config/900123456/2")]
+    [TestCase("PUT", "/api/ubl2.1/config/software")]
+    [TestCase("PUT", "/api/ubl2.1/config/resolution")]
+    [TestCase("GET", "/api/ubl2.1/certificates-listing/900123456")]
+    [TestCase("POST", "/api/ubl2.1/numbering-range")]
+    // DocumentIssueEndpoints
+    [TestCase("POST", "/api/ubl2.1/invoice")]
     [TestCase("POST", "/api/ubl2.1/credit-note/0d2e2883-eb8d-4d5c-a4a6-1bd40f5a2b10")]
+    [TestCase("POST", "/api/ubl2.1/support-document")]
+    [TestCase("POST", "/api/ubl2.1/invoice-contingency-4/send_pendings")]
+    // DocumentQueryEndpoints
+    [TestCase("GET", "/api/information/900123456")]
+    [TestCase("GET", "/api/total_documents/900123456")]
+    [TestCase("GET", "/api/ubl2.1/invoice/current_number/1")]
+    [TestCase("POST", "/api/ubl2.1/next-consecutive")]
+    // DocumentUtilityEndpoints
+    [TestCase("POST", "/api/ubl2.1/status/document/abc123")]
+    [TestCase("POST", "/api/ubl2.1/xml/document/abc123")]
     [TestCase("GET", "/api/download/900123456/FES-SETP990000001.pdf")]
     [TestCase("GET", "/api/ubl2.1/download/900123456/FES-SETP990000001.pdf")]
-    [TestCase("GET", "/api/information/900123456")]
-    [TestCase("GET", "/api/v1/information/900123456")]
-    [TestCase("PUT", "/api/ubl2.1/config/software")]
-    [TestCase("PUT", "/api/v1/companies/900123456/software")]
+    [TestCase("POST", "/api/ubl2.1/regeneratepdf")]
+    [TestCase("POST", "/api/ubl2.1/send-email")]
+    // DocumentBatchEndpoints
+    [TestCase("POST", "/api/ubl2.1/add-to-batch/invoice/lote-1")]
+    [TestCase("POST", "/api/ubl2.1/send-batch/lote-1")]
+    // PlanEndpoints
+    [TestCase("PUT", "/api/ubl2.1/plan")]
     [TestCase("GET", "/api/ubl2.1/plan/query")]
-    [TestCase("GET", "/api/v1/plans")]
-    public async Task A_route_hidden_from_the_document_still_answers_like_its_v1_twin(string method, string path)
+    [TestCase("GET", "/api/ubl2.1/plan/infoplanuser")]
+    // RadianEndpoints
+    [TestCase("POST", "/api/ubl2.1/send-event")]
+    [TestCase("POST", "/api/ubl2.1/send-event-data")]
+    [TestCase("POST", "/api/load-document-by-cufe")]
+    [TestCase("POST", "/api/ubl2.1/status/events-document/abc123")]
+    [TestCase("GET", "/api/receivedfile/900123456/abc123.xml")]
+    public async Task The_deleted_php_routes_answer_404(string method, string path)
+    {
+        using var response = await SendWithoutScopesAsync(method, path);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+    }
+
+    private async Task<HttpResponseMessage> SendWithoutScopesAsync(string method, string path)
     {
         var (key, _) = _factory.AddApiKey(Guid.CreateVersion7(), []);
         using var client = _factory.CreateClient(key);
-
-        using var response = await client.SendAsync(new HttpRequestMessage(new HttpMethod(method), path));
-
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
+        return await client.SendAsync(new HttpRequestMessage(new HttpMethod(method), path));
     }
 
     /// <summary>

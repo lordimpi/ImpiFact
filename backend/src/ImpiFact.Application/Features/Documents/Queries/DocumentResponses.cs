@@ -18,8 +18,8 @@ public record DocumentSummaryResponse
     public int DocumentTypeId { get; init; }
 
     /// <summary>
-    /// Familia en palabras (<c>invoice</c>, <c>credit_note</c>, <c>debit_note</c>); nula para los demás tipos de
-    /// documento.
+    /// Familia en palabras (<c>invoice</c>, <c>credit_note</c>, <c>debit_note</c>, <c>support_document</c>,
+    /// <c>support_document_adjustment_note</c>); nula para los demás tipos de documento.
     /// </summary>
     [JsonPropertyName("kind")]
     public string? Kind { get; init; }

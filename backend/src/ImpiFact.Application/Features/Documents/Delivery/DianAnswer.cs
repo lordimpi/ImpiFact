@@ -83,7 +83,8 @@ internal abstract partial record DianAnswer
         DianSoapFaultResponse fault => IsServiceFault(fault.Code) ? new NotDelivered(fault.Reason) : new Refused(fault.Reason),
         DianServiceUnavailableResponse => new NotDelivered("The DIAN service is unavailable."),
         DianResultResponse { Results.Count: 0 } => new InProcess(null),
-        DianResultResponse { OperationName: "SendTestSetAsync", Results: [var testSet, ..] } =>
+        // SendBillAsync (a batch, phase 7a, T8) answers with the same contract as SendTestSetAsync (annex 1.9, 7.8.3 and 7.9.3).
+        DianResultResponse { OperationName: "SendTestSetAsync" or "SendBillAsync", Results: [var testSet, ..] } =>
             string.IsNullOrWhiteSpace(testSet.ZipKey) ? new Decided(DocumentStatus.Rejected, testSet) : new ZipReceived(testSet.ZipKey),
         DianResultResponse { Results: [var first, ..] } => Classify(first),
         _ => new NoAnswer("The DIAN answer was not recognized."),
@@ -128,7 +129,7 @@ internal abstract partial record DianAnswer
     /// </summary>
     public sealed record Refused(string Reason) : DianAnswer;
 
-    /// <summary>SendTestSetAsync recibió el ZIP; el resultado se consulta después con GetStatusZip y esta ZipKey.</summary>
+    /// <summary>SendTestSetAsync o SendBillAsync recibió el ZIP; el resultado se consulta después con GetStatusZip y esta ZipKey.</summary>
     public sealed record ZipReceived(string ZipKey) : DianAnswer;
 
     /// <summary>

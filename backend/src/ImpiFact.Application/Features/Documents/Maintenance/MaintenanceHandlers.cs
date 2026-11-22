@@ -30,7 +30,7 @@ internal sealed class RegeneratePdfHandler(IDocumentLookups lookups, IOutbox out
             return DocumentErrors.NotFound;
         }
 
-        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request, ct);
+        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request.DocumentId, ct);
         if (!found.IsSuccess)
         {
             return found.Error;
@@ -60,7 +60,7 @@ internal sealed class RegenerateAttachedDocumentHandler(
             return DocumentErrors.NotFound;
         }
 
-        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request, ct);
+        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request.DocumentId, ct);
         if (!found.IsSuccess)
         {
             return found.Error;
@@ -72,7 +72,7 @@ internal sealed class RegenerateAttachedDocumentHandler(
             return MaintenanceErrors.ApplicationResponseMissing(document.FullNumber);
         }
 
-        if ((await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentKind.Invoice, ct))?.Certificate is null)
+        if ((await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct))?.Certificate is null)
         {
             return IssueErrors.CertificateMissing;
         }
@@ -104,14 +104,14 @@ internal sealed class SendDocumentEmailHandler(
             return DocumentErrors.NotFound;
         }
 
-        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request, ct);
+        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request.DocumentId, ct);
         if (!found.IsSuccess || await documents.FindForUpdateAsync(companyId, found.Value.Id, ct) is not { } document)
         {
             return found.IsSuccess ? DocumentErrors.NotFound : found.Error;
         }
 
         var emailRequest = DocumentEmailRequest.Parse(await files.ReadLatestAsync(companyId, document.Id, DocumentFileKind.RequestJson, ct));
-        var companyEmail = (await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentKind.Invoice, ct))?.Company.Email;
+        var companyEmail = (await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct))?.Company.Email;
         var recipients = DocumentEmailRecipients.Resolve(
             emailRequest, document.CustomerSnapshot.IdentificationNumber, document.CustomerSnapshot.Email, companyEmail);
         if (recipients.Skip is { } reason)

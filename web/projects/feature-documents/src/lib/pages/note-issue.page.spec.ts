@@ -243,6 +243,129 @@ describe('NoteIssuePage', () => {
     expect(alert.textContent).toContain('La factura referenciada no está aceptada por la DIAN.');
   });
 
+  describe('adjustment note', () => {
+    const SUPPORT = {
+      ...DETAIL,
+      id: 'ds-1',
+      kind: null,
+      document_type_id: 11,
+      full_number: 'SEDS984000001',
+      cufe: 'c'.repeat(96),
+      customer: {
+        identification_number: '800000003',
+        dv: '4',
+        type_document_identification_id: 6,
+        name: 'PROVEEDOR NO OBLIGADO',
+        phone: '3000000003',
+        address: 'CALLE 3 # 3-03',
+        merchant_registration: '0000-00',
+      },
+    };
+
+    it(
+      'issues an adjustment note for the support document in the link with the seller and its postal code',
+      async () => {
+        const { http, router } = await renderDocumentsRoute('/documentos/nota-ajuste?soporte=ds-1');
+        expect(
+          await screen.findByRole('heading', { level: 1, name: 'Emitir nota de ajuste' }),
+        ).toBeTruthy();
+        (await waitFor(() => http.expectOne('/api/v1/documents/ds-1'))).flush(SUPPORT);
+        expect(await screen.findByText('SEDS984000001')).toBeTruthy();
+        expect(
+          screen.getByRole('heading', { name: 'Documento soporte que se ajusta' }),
+        ).toBeTruthy();
+        // No catalog request: the five reasons of the adjustment note are fixed by the DIAN.
+        http.expectNone((r) => r.url.startsWith('/api/v1/catalogs/'));
+        // No preview: the API has none for the support document family. The email goes to the seller.
+        expect(screen.queryByRole('button', { name: 'Vista previa' })).toBeNull();
+        expect(screen.getByRole('checkbox', { name: /correo al proveedor/ })).toBeTruthy();
+        expect(
+          screen.getByText(
+            'El proveedor no tiene correo en el documento soporte: la nota no se enviará por correo.',
+          ),
+        ).toBeTruthy();
+
+        const line = await screen.findByRole('group', { name: 'Línea 1' });
+        expect((within(line).getByLabelText(/Código/) as HTMLInputElement).value).toBe('SERV01');
+        (await waitFor(() => http.expectOne(isCalculate))).flush(CALCULATION);
+        await screen.findByTestId('payable');
+
+        fireEvent.click(screen.getByRole('combobox', { name: /^Concepto de la corrección/ }));
+        const reasons = (await screen.findAllByRole('option')).map((o) => o.textContent?.trim());
+        expect(reasons).toHaveLength(5);
+        fireEvent.click(
+          screen.getByRole('option', {
+            name: 'Anulación del documento soporte en adquisiciones efectuadas a sujetos no obligados a expedir factura de venta o documento equivalente',
+          }),
+        );
+        const submit = screen.getByRole('button', {
+          name: 'Emitir nota de ajuste',
+        }) as HTMLButtonElement;
+        // The postal code of the seller is not in the stored document: the person writes it.
+        expect(submit.disabled).toBe(true);
+        fireEvent.input(screen.getByLabelText(/^Código postal del proveedor/), {
+          target: { value: '630001' },
+        });
+        await waitFor(() => expect(submit.disabled).toBe(false));
+        fireEvent.click(submit);
+
+        const issue = await waitFor(() =>
+          http.expectOne('/api/v1/documents/support-documents/adjustment-notes'),
+        );
+        expect(issue.request.context.get(IDEMPOTENCY_KEY)).toMatch(/^[0-9a-f-]{36}$/);
+        expect(issue.request.body).toMatchObject({
+          type_document_id: 13,
+          discrepancyresponsecode: 2,
+          billing_reference: {
+            number: 'SEDS984000001',
+            uuid: SUPPORT.cufe,
+            issue_date: '2026-11-10',
+          },
+          seller: {
+            identification_number: '800000003',
+            dv: '4',
+            name: 'PROVEEDOR NO OBLIGADO',
+            postal_zone_code: '630001',
+            merchant_registration: '0000-00',
+          },
+          legal_monetary_totals: CALCULATION.legal_monetary_totals,
+        });
+        expect(issue.request.body.customer).toBeUndefined();
+        expect(issue.request.body.sendmail).toBeUndefined();
+        expect(issue.request.body.credit_note_lines).toHaveLength(1);
+        issue.flush({
+          ...ISSUED,
+          document: { id: 'nds-9', full_number: 'NDS9', status: 'Queued' },
+        });
+
+        await waitFor(() => expect(router.url).toBe('/documentos/nds-9'));
+      },
+      LONG_FLOW_MS,
+    );
+
+    it('searches only accepted support documents and refuses an invoice', async () => {
+      const { http } = await renderDocumentsRoute('/documentos/nota-ajuste');
+      await screen.findByRole('heading', { level: 1, name: 'Emitir nota de ajuste' });
+
+      fireEvent.input(screen.getByLabelText(/Buscar documento soporte/), {
+        target: { value: 'SEDS984000001' },
+      });
+      const search = await waitFor(() => http.expectOne((r) => r.url === '/api/v1/documents'));
+      expect(search.request.params.get('kind')).toBe('support_document');
+      expect(search.request.params.getAll('status')).toEqual(['Accepted', 'AcceptedWithWarnings']);
+      expect(search.request.params.get('number')).toBe('SEDS984000001');
+      search.flush({ items: [{ ...SUMMARY, id: 'doc-1' }], next_cursor: null });
+      fireEvent.click(await screen.findByRole('button', { name: /Elegir SETP990000001/ }));
+
+      (await waitFor(() => http.expectOne('/api/v1/documents/doc-1'))).flush(DETAIL);
+      expect(
+        await screen.findByText(
+          'Solo se puede ajustar un documento soporte. Busque el documento soporte que quiere ajustar.',
+        ),
+      ).toBeTruthy();
+    });
+  });
+
   describe('preview', () => {
     beforeEach(() => {
       vi.spyOn(window, 'open');

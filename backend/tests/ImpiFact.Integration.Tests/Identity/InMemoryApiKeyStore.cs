@@ -50,4 +50,15 @@ internal sealed class InMemoryApiKeyStore : IApiKeyStore
         Revoke(apiKeyId, revokedAt);
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<string>> RevokeAllActiveForCompanyAsync(Guid companyId, DateTimeOffset revokedAt, CancellationToken ct)
+    {
+        var active = _keys.Values.Where(key => key.CompanyId == companyId && key.RevokedAt is null).ToList();
+        foreach (var key in active)
+        {
+            _keys[key.KeyHash] = key with { RevokedAt = revokedAt };
+        }
+
+        return Task.FromResult<IReadOnlyList<string>>([.. active.Select(key => key.KeyHash)]);
+    }
 }

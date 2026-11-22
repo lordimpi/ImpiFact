@@ -12,8 +12,8 @@
 // con SignAttachedDocument. La respuesta de la DIAN es un ApplicationResponse inventado que llega en la
 // entrada; el certificado y la empresa son los que configuró capture.py.
 //
-// Entrada: storage/app/public/golden-attached/{input.json, signed-document.xml, application-response.xml}.
-// Salida: storage/app/public/golden-attached/output.xml (el AttachedDocument firmado).
+// Entrada: storage/app/public/golden-script/{input.json, signed-document.xml, application-response.xml}.
+// Salida: storage/app/public/golden-script/output.xml (el AttachedDocument firmado).
 
 require '/var/www/html/vendor/autoload.php';
 $app = require '/var/www/html/bootstrap/app.php';
@@ -35,7 +35,7 @@ final class GoldenAttachedDocument
     }
 }
 
-$dir = '/var/www/html/storage/app/public/golden-attached';
+$dir = '/var/www/html/storage/app/public/golden-script';
 $input = json_decode(file_get_contents("$dir/input.json"), true, 512, JSON_THROW_ON_ERROR);
 
 // La plantilla escribe la fecha y la hora actuales (Carbon::now(), zona America/Bogota): se fijan para

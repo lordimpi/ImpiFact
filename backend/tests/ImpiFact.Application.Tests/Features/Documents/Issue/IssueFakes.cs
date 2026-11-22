@@ -29,6 +29,9 @@ public sealed class FakeDocumentDb : IDocumentStore, IDocumentFiles, INumberingS
 
     public List<(string Type, object? Payload, Guid? CompanyId)> Messages { get; } = [];
 
+    /// <summary>The <c>notBefore</c> of each message, in the order of <see cref="Messages"/>.</summary>
+    public List<DateTimeOffset?> NotBefore { get; } = [];
+
     public List<string> Calls { get; } = [];
 
     public void Add(DocumentGraph graph) => Graphs.Add(graph);
@@ -99,6 +102,7 @@ public sealed class FakeDocumentDb : IDocumentStore, IDocumentFiles, INumberingS
     public Task<Guid> EnqueueAsync<TPayload>(string type, TPayload payload, Guid? companyId, DateTimeOffset? notBefore, CancellationToken ct)
     {
         Messages.Add((type, payload, companyId));
+        NotBefore.Add(notBefore);
         return Task.FromResult(Guid.CreateVersion7());
     }
 
@@ -123,8 +127,14 @@ public sealed class FakeIssuerContextReads : IIssuerContextReads
 {
     public Dictionary<(Guid Company, int Type), IssuerContext> Contexts { get; } = [];
 
-    public Task<IssuerContext?> GetAsync(Guid companyId, int documentTypeId, DocumentKind kind, CancellationToken ct) =>
-        Task.FromResult(Contexts.GetValueOrDefault((companyId, documentTypeId)));
+    /// <summary>Every read with the family it asked for, so tests can prove which software and environment were used.</summary>
+    public List<(int Type, DocumentKind Kind)> Requests { get; } = [];
+
+    public Task<IssuerContext?> GetAsync(Guid companyId, int documentTypeId, DocumentKind kind, CancellationToken ct)
+    {
+        Requests.Add((documentTypeId, kind));
+        return Task.FromResult(Contexts.GetValueOrDefault((companyId, documentTypeId)));
+    }
 }
 
 /// <summary>Catálogos del archivo de las pruebas golden (catalogs.json, copiado de los CSV del PHP).</summary>
@@ -151,6 +161,9 @@ public sealed class FakeCatalogs : IDocumentCatalogs
         ["referencePrices"] = DianCatalog.ReferencePrice,
         ["creditNoteDiscrepancies"] = DianCatalog.CreditNoteDiscrepancy,
         ["debitNoteDiscrepancies"] = DianCatalog.DebitNoteDiscrepancy,
+        ["supportDocumentDiscrepancies"] = DianCatalog.SupportDocumentDiscrepancy,
+        ["generationTransmitions"] = DianCatalog.GenerationTransmition,
+        ["prepaidPaymentTypes"] = DianCatalog.PrepaidPaymentType,
     };
 
     public Dictionary<CatalogKey, CatalogItem> Items { get; } = Load();
@@ -285,4 +298,33 @@ public static class GoldenFiles
 
         throw new DirectoryNotFoundException(relative + " not found above " + AppContext.BaseDirectory);
     }
+}
+
+/// <summary>Batches in memory (phase 7a, T8), for the issue tests that do not use them: the store answers them by id and name.</summary>
+public sealed class FakeDocumentBatches : IDocumentBatches
+{
+    public List<DocumentBatch> Rows { get; } = [];
+
+    public Task<DocumentBatch?> FindAsync(Guid companyId, Guid id, CancellationToken ct) =>
+        Task.FromResult(Rows.FirstOrDefault(row => row.CompanyId == companyId && row.Id == id));
+
+    public Task<DocumentBatch?> FindByNameAsync(Guid companyId, string name, CancellationToken ct) =>
+        Task.FromResult(Rows.FirstOrDefault(row => row.CompanyId == companyId && row.Name == name));
+
+    public void Add(DocumentBatch batch) => Rows.Add(batch);
+
+    public Task<IReadOnlyList<DocumentBatch>> ListAsync(Guid companyId, int skip, int take, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<DocumentBatch>>([.. Rows.Where(row => row.CompanyId == companyId).Skip(skip).Take(take)]);
+
+    public Task<long> CountAsync(Guid companyId, CancellationToken ct) => Task.FromResult((long)Rows.Count(row => row.CompanyId == companyId));
+
+    public Task<IReadOnlyList<Document>> DocumentsAsync(Guid companyId, Guid batchId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Document>>([]);
+
+    public Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> LastMessagesAsync(
+        Guid companyId, IReadOnlyCollection<Guid> documentIds, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyList<string>>>(new Dictionary<Guid, IReadOnlyList<string>>());
+
+    public Task<string> PutFileAsync(Guid companyId, Guid batchId, byte[] content, string contentType, string extension, CancellationToken ct) =>
+        Task.FromResult($"{companyId:N}/batches/{batchId:N}/file{extension}");
 }

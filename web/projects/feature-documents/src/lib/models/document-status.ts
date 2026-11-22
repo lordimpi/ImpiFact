@@ -17,9 +17,47 @@ export const DOCUMENT_STATUSES = [
 ] as const;
 
 /** Tipos de documento que acepta el filtro `kind` de la lista. */
-export const DOCUMENT_KINDS = ['invoice', 'credit_note', 'debit_note'] as const;
+export const DOCUMENT_KINDS = [
+  'invoice',
+  'credit_note',
+  'debit_note',
+  'support_document',
+  'support_document_adjustment_note',
+] as const;
 
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
+
+/** Tipo de documento DIAN (`document_type_id`) del documento soporte y de su nota de ajuste. */
+export const SUPPORT_DOCUMENT_TYPE = 11;
+export const SUPPORT_ADJUSTMENT_NOTE_TYPE = 13;
+
+/**
+ * Tipo del documento para mostrar: el `kind` del Api o, si llega nulo (el Api no lo da para el documento soporte ni
+ * para su nota de ajuste), el que corresponde a su `document_type_id`.
+ */
+export function documentKindOf(
+  document: { kind?: string | null; document_type_id?: number | string | null } | null | undefined,
+): string | null {
+  if (document?.kind) {
+    return document.kind;
+  }
+  switch (Number(document?.document_type_id)) {
+    case SUPPORT_DOCUMENT_TYPE:
+      return 'support_document';
+    case SUPPORT_ADJUSTMENT_NOTE_TYPE:
+      return 'support_document_adjustment_note';
+    default:
+      return null;
+  }
+}
+
+/** Si el documento es de la familia del documento soporte (la empresa es el comprador y el tercero, el proveedor). */
+export function isSupportDocumentFamily(
+  document: { kind?: string | null; document_type_id?: number | string | null } | null | undefined,
+): boolean {
+  const kind = documentKindOf(document);
+  return kind === 'support_document' || kind === 'support_document_adjustment_note';
+}
 
 /** Estados en que la DIAN todavía no da una respuesta final: el detalle sigue consultando (sección 9). */
 const PENDING_STATUSES = new Set(['Queued', 'Sent', 'Unconfirmed']);

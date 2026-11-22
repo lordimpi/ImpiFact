@@ -67,6 +67,20 @@ public sealed record SendTestSetAsyncRequest(string FileName, string ContentFile
 }
 
 /// <summary>
+/// Sending of a batch (SendBillAsync, annex 1.9, section 7.8): <paramref name="FileName"/> is the name of the ZIP
+/// (<see cref="DianFileNames.Zip"/>, at most 100 characters) and <paramref name="ContentFile"/> the ZIP with up to 50 signed
+/// documents, in Base64 (at most 50 MB). The DIAN answers a ZipKey; the verdicts come later from
+/// <see cref="GetStatusZipRequest"/>.
+/// </summary>
+public sealed record SendBillAsyncRequest(string FileName, string ContentFile) : DianSoapRequest
+{
+    public override string OperationName => "SendBillAsync";
+
+    internal override IReadOnlyList<KeyValuePair<string, string>> Parameters =>
+        [Parameter("fileName", FileName), Parameter("contentFile", ContentFile)];
+}
+
+/// <summary>
 /// Consulta del estado de un documento (GetStatus) por su CUFE (código único de factura electrónica) o su
 /// CUDE (código único de documento electrónico, el de las notas).
 /// </summary>
@@ -112,4 +126,40 @@ public sealed record GetAcquirerRequest(string IdentificationType, string Identi
 
     internal override IReadOnlyList<KeyValuePair<string, string>> Parameters =>
         [Parameter("identificationType", IdentificationType), Parameter("identificationNumber", IdentificationNumber)];
+}
+
+/// <summary>
+/// Registration of a RADIAN event (SendEventUpdateStatus, Anexo Técnico 1.9, section 7.13): the ZIP with exactly one
+/// signed ApplicationResponse, in Base64. The operation has no <c>fileName</c>; the name only travels inside the ZIP (see
+/// <see cref="DianFileNames.EventXmlEntry"/>). The DIAN answers synchronously with a <see cref="DianResult"/>.
+/// </summary>
+public sealed record SendEventUpdateStatusRequest(string ContentFile) : DianSoapRequest
+{
+    public override string OperationName => "SendEventUpdateStatus";
+
+    internal override IReadOnlyList<KeyValuePair<string, string>> Parameters => [Parameter("contentFile", ContentFile)];
+}
+
+/// <summary>
+/// Download of an electronic document by its CUFE (GetXmlByDocumentKey, Anexo Técnico 1.9, section 7.14). The DIAN only
+/// answers to the issuer or the receiver of the document, identified by the certificate; the answer is a
+/// <see cref="DianXmlDocumentResponse"/>.
+/// </summary>
+public sealed record GetXmlByDocumentKeyRequest(string TrackId) : DianSoapRequest
+{
+    public override string OperationName => "GetXmlByDocumentKey";
+
+    internal override IReadOnlyList<KeyValuePair<string, string>> Parameters => [Parameter("trackId", TrackId)];
+}
+
+/// <summary>
+/// The events registered on an invoice (GetStatusEvent, Anexo Técnico 1.9, section 7.17), by the CUFE of the invoice. The
+/// answer is a <see cref="DianResult"/> whose ApplicationResponse lists the events (see
+/// <see cref="Radian.RadianEventStatusReader"/>).
+/// </summary>
+public sealed record GetStatusEventRequest(string TrackId) : DianSoapRequest
+{
+    public override string OperationName => "GetStatusEvent";
+
+    internal override IReadOnlyList<KeyValuePair<string, string>> Parameters => [Parameter("trackId", TrackId)];
 }

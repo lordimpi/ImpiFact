@@ -275,7 +275,7 @@ test(
       email: 'fe@nuevo.test',
     });
 
-    await page.getByRole('link', { name: 'Documentos' }).click();
+    await page.getByRole('link', { name: 'Documentos', exact: true }).click();
     await page.getByRole('link', { name: 'Emitir factura' }).click();
     await page.getByLabel('Buscar cliente').fill('901555');
     await page.getByRole('button', { name: /Elegir NUEVO CLIENTE DIAN SAS/ }).click();

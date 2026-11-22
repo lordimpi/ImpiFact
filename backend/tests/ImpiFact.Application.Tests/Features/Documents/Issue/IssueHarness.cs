@@ -31,15 +31,48 @@ public sealed class IssueHarness : IDisposable
 
     public FakePlanGate Plans { get; } = new();
 
+    /// <summary>Batches of the phase 7a, T8: none unless a test adds one.</summary>
+    public FakeDocumentBatches Batches { get; } = new();
+
     public IssueClock Clock { get; } = new(Now);
 
     public IssuerResolution InvoiceResolution { get; } = new(
         Guid.CreateVersion7(), "SETP", "18760000001", new DateOnly(2019, 1, 19), TechnicalKey, 990000000, 995000000,
         new DateOnly(2019, 1, 19), new DateOnly(2030, 1, 19), true);
 
+    /// <summary>Export invoice resolution (type 2) of the golden capture: the same SETP data as the invoice one.</summary>
+    public IssuerResolution ExportResolution { get; } = new(
+        Guid.CreateVersion7(), "SETP", "18760000001", new DateOnly(2019, 1, 19), TechnicalKey, 990000000, 995000000,
+        new DateOnly(2019, 1, 19), new DateOnly(2030, 1, 19), true);
+
+    /// <summary>
+    /// Contingency resolution (type 3) of the golden capture: the same SETP data, without a technical key, because annex 1.9
+    /// (section 11.1.4, Nota-2) says a contingency range has none.
+    /// </summary>
+    public IssuerResolution ContingencyResolution { get; } = new(
+        Guid.CreateVersion7(), "SETP", "18760000001", new DateOnly(2019, 1, 19), null, 990000000, 995000000,
+        new DateOnly(2019, 1, 19), new DateOnly(2030, 1, 19), true);
+
     public IssuerResolution CreditResolution { get; } = new(Guid.CreateVersion7(), "NC", null, null, null, 1, 99999999, null, null, true);
 
     public IssuerResolution DebitResolution { get; } = new(Guid.CreateVersion7(), "ND", null, null, null, 1, 99999999, null, null, true);
+
+    /// <summary>Support-document resolution (type 11) of the golden capture: SEDS 984000000-985000000, without technical key.</summary>
+    public IssuerResolution SupportDocumentResolution { get; } = new(
+        Guid.CreateVersion7(), "SEDS", "18760000001", new DateOnly(2022, 1, 1), null, 984000000, 985000000,
+        new DateOnly(2022, 1, 1), new DateOnly(2030, 1, 19), true);
+
+    /// <summary>Adjustment-note resolution (type 13) of the golden capture: NDS without dates.</summary>
+    public IssuerResolution AdjustmentNoteResolution { get; } = new(Guid.CreateVersion7(), "NDS", null, null, null, 1, 99999999, null, null, true);
+
+    /// <summary>
+    /// Support-document software of the golden capture (SD_SOFTWARE_ID, PIN 54321), the one the support-document family
+    /// must use; the invoice context keeps the invoice software.
+    /// </summary>
+    public IssuerSoftware SupportDocumentSoftware { get; } = new("7c1e5a90-2b4d-4f3a-8e6c-1d9b0a2f3c58", SecretPurposes.SoftwarePin + ":54321", null);
+
+    /// <summary>Environment of the support-document family; habilitation like the capture unless a test changes it.</summary>
+    public int SupportDocumentEnvironment { get; set; } = 2;
 
     public IssuerContext Context { get; private set; } = null!;
 
@@ -54,7 +87,11 @@ public sealed class IssueHarness : IDisposable
             new IssuerSoftware("3f9d8c2e-5b1a-4e7f-9c3d-2a6b8e1f0d47", SecretPurposes.SoftwarePin + ":12345", null),
             new IssuerCertificate("cert-ref", new DateTimeOffset(2036, 1, 1, 0, 0, 0, TimeSpan.Zero)),
             []);
-        foreach (var resolution in new[] { InvoiceResolution, CreditResolution, DebitResolution })
+        foreach (var resolution in new[]
+        {
+            InvoiceResolution, ExportResolution, ContingencyResolution, CreditResolution, DebitResolution, SupportDocumentResolution,
+            AdjustmentNoteResolution,
+        })
         {
             Db.Sequences[NumberingScope.ForResolution(resolution.Id)] = resolution.From;
         }
@@ -65,8 +102,21 @@ public sealed class IssueHarness : IDisposable
     {
         Context = change(Context);
         Issuers.Contexts[(CompanyId, 1)] = Context with { Resolutions = Resolutions(1) };
+        Issuers.Contexts[(CompanyId, 2)] = Context with { Resolutions = Resolutions(2) };
+        Issuers.Contexts[(CompanyId, 3)] = Context with { Resolutions = Resolutions(3) };
         Issuers.Contexts[(CompanyId, 4)] = Context with { Resolutions = Resolutions(4) };
         Issuers.Contexts[(CompanyId, 5)] = Context with { Resolutions = Resolutions(5) };
+
+        // The support-document family has its own software and environment (php-rules 13.1, item 6).
+        foreach (var type in new[] { 11, 13 })
+        {
+            Issuers.Contexts[(CompanyId, type)] = Context with
+            {
+                Software = Context.Software is null ? null : SupportDocumentSoftware,
+                TypeEnvironmentId = SupportDocumentEnvironment,
+                Resolutions = Resolutions(type),
+            };
+        }
     }
 
     public Func<int, IReadOnlyList<IssuerResolution>> Resolutions { get; set; } = null!;
@@ -76,7 +126,11 @@ public sealed class IssueHarness : IDisposable
         Resolutions = type => type switch
         {
             1 => [InvoiceResolution],
+            2 => [ExportResolution],
+            3 => [ContingencyResolution],
             4 => [CreditResolution],
+            11 => [SupportDocumentResolution],
+            13 => [AdjustmentNoteResolution],
             _ => [DebitResolution],
         };
         SetContext(context => context);
@@ -96,11 +150,31 @@ public sealed class IssueHarness : IDisposable
         return kind switch
         {
             "invoice" => await Run(new IssueInvoiceCommandValidator(), new IssueInvoiceCommand(body!, json, idempotencyKey, testSetId),
-                new IssueInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
+            "invoice-aiu" => await Run(new IssueAiuInvoiceCommandValidator(), new IssueAiuInvoiceCommand(body!, json, idempotencyKey, testSetId),
+                new IssueAiuInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
+            "invoice-mandate" => await Run(new IssueMandateInvoiceCommandValidator(), new IssueMandateInvoiceCommand(body!, json, idempotencyKey, testSetId),
+                new IssueMandateInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
+            "invoice-transport" => await Run(new IssueTransportInvoiceCommandValidator(), new IssueTransportInvoiceCommand(body!, json, idempotencyKey, testSetId),
+                new IssueTransportInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
+            "invoice-export" => await Run(new IssueExportInvoiceCommandValidator(), new IssueExportInvoiceCommand(body!, json, idempotencyKey, testSetId),
+                new IssueExportInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
+            "invoice-contingency" => await Run(new IssueContingencyInvoiceCommandValidator(),
+                new IssueContingencyInvoiceCommand(body!, json, idempotencyKey, testSetId),
+                new IssueContingencyInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
+            "invoice-contingency-4" => await Run(new IssueDianContingencyInvoiceCommandValidator(),
+                new IssueDianContingencyInvoiceCommand(body!, json, idempotencyKey),
+                new IssueDianContingencyInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
+            "support-document" => await Run(new IssueSupportDocumentCommandValidator(),
+                new IssueSupportDocumentCommand(body!, json, idempotencyKey, testSetId),
+                new IssueSupportDocumentHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
+            "sd-credit-note" => await Run(new IssueSupportDocumentAdjustmentNoteCommandValidator(),
+                new IssueSupportDocumentAdjustmentNoteCommand(body!, json, idempotencyKey, testSetId),
+                new IssueSupportDocumentAdjustmentNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             "credit-note" => await Run(new IssueCreditNoteCommandValidator(), new IssueCreditNoteCommand(body!, json, idempotencyKey, testSetId),
-                new IssueCreditNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueCreditNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             _ => await Run(new IssueDebitNoteCommandValidator(), new IssueDebitNoteCommand(body!, json, idempotencyKey, testSetId),
-                new IssueDebitNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueDebitNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
         };
     }
 

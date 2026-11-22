@@ -125,7 +125,7 @@
   },
   "companies": {
     "title": "Empresas de la plataforma",
-    "description": "Busque una empresa por razón social o NIT; desde su fila asígnele un plan, cree un usuario o administre sus usuarios.",
+    "description": "Busque una empresa por razón social o NIT; desde su fila asígnele un plan, cree un usuario, administre sus usuarios o desactívela.",
     "search": "Buscar empresa",
     "searchHint": "Escriba parte de la razón social o del NIT; la búsqueda se hace en el servidor.",
     "caption": "Empresas de la plataforma",
@@ -145,6 +145,23 @@
     "users": "Usuarios",
     "actionsOf": "Acciones de {{ name }}",
     "searchPlaceholder": "Buscar por razón social o NIT"
+  },
+  "activation": {
+    "deactivate": "Desactivar",
+    "reactivate": "Reactivar",
+    "deactivateHeader": "¿Desactivar {{ name }}?",
+    "deactivateMessage": "La empresa {{ name }} (NIT {{ nit }}) dejará de emitir documentos. Sus API keys se revocan para siempre y sus usuarios pierden el acceso: se cierran sus sesiones y ya no podrán elegirla. Las facturas y demás documentos se conservan, y puede reactivarla cuando quiera.",
+    "deactivateAccept": "Desactivar empresa",
+    "reactivateHeader": "¿Reactivar {{ name }}?",
+    "reactivateMessage": "La empresa {{ name }} (NIT {{ nit }}) volverá a emitir y sus usuarios podrán elegirla de nuevo. Las API keys revocadas no vuelven: un dueño de la empresa debe crear llaves nuevas.",
+    "reactivateAccept": "Reactivar empresa",
+    "deactivated": "Se desactivó {{ name }} (NIT {{ nit }}). API keys revocadas: {{ keys }}. Usuarios con la sesión cerrada: {{ users }}.",
+    "reactivated": "Se reactivó {{ name }} (NIT {{ nit }}). Sus usuarios ya pueden elegirla; las API keys anteriores siguen revocadas.",
+    "alreadyInactive": "{{ name }} ya estaba desactivada; no se cambió nada.",
+    "alreadyActive": "{{ name }} ya estaba activa; no se cambió nada.",
+    "forbidden": "Solo el administrador de la plataforma puede desactivar o reactivar empresas.",
+    "notFound": "La empresa ya no existe en la plataforma.",
+    "conflict": "Otra persona cambió la empresa al mismo tiempo. La lista se actualizó; revise su estado e intente de nuevo."
   },
   "newCompany": {
     "title": "Nueva empresa",

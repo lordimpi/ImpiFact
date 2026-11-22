@@ -1,0 +1,338 @@
+<form class="doc-page" novalidate (submit)="issue($event)" [attr.aria-busy]="submitting() || null">
+  <ui-page-title [subtitle]="'documents.supportDocument.description' | transloco">
+    {{ 'documents.supportDocument.title' | transloco }}
+    <a uiPageTitleActions uiButtonLink variant="secondary" routerLink="/documentos">{{
+      'documents.issue.cancel' | transloco
+    }}</a>
+  </ui-page-title>
+
+  <div class="issue-layout">
+    <div class="issue-main">
+      <ui-card
+        [title]="'documents.supportDocument.seller' | transloco"
+        [subtitle]="'documents.supportDocument.sellerHint' | transloco"
+      >
+        <div class="issue-grid">
+          <ui-field
+            [label]="'documents.supportDocument.identificationType' | transloco"
+            [error]="sellerError('identificationTypeId')"
+            required
+          >
+            <ui-select
+              [options]="identificationTypes()"
+              [placeholder]="'documents.supportDocument.identificationTypeNone' | transloco"
+              [formField]="supportForm.seller.identificationTypeId"
+            />
+          </ui-field>
+          <ui-field
+            [label]="'documents.supportDocument.identificationNumber' | transloco"
+            [error]="sellerError('identificationNumber')"
+            required
+          >
+            <input
+              uiInput
+              type="text"
+              autocomplete="off"
+              [placeholder]="
+                'documents.supportDocument.placeholders.identificationNumber' | transloco
+              "
+              [formField]="supportForm.seller.identificationNumber"
+            />
+          </ui-field>
+          <ui-field
+            [label]="'documents.supportDocument.dv' | transloco"
+            [hint]="'documents.supportDocument.dvHint' | transloco"
+            [error]="sellerError('dv')"
+          >
+            <input
+              uiInput
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              [placeholder]="'documents.supportDocument.placeholders.dv' | transloco"
+              [formField]="supportForm.seller.dv"
+            />
+          </ui-field>
+          <ui-field
+            class="issue-wide"
+            [label]="'documents.supportDocument.name' | transloco"
+            [error]="sellerError('name')"
+            required
+          >
+            <input
+              uiInput
+              type="text"
+              autocomplete="off"
+              [placeholder]="'documents.supportDocument.placeholders.name' | transloco"
+              [formField]="supportForm.seller.name"
+            />
+          </ui-field>
+          <ui-field
+            class="issue-wide"
+            [label]="'documents.supportDocument.address' | transloco"
+            [error]="sellerError('address')"
+            required
+          >
+            <input
+              uiInput
+              type="text"
+              autocomplete="off"
+              [placeholder]="'documents.supportDocument.placeholders.address' | transloco"
+              [formField]="supportForm.seller.address"
+            />
+          </ui-field>
+          <ui-field
+            [label]="'documents.supportDocument.phone' | transloco"
+            [error]="sellerError('phone')"
+            required
+          >
+            <input
+              uiInput
+              type="tel"
+              autocomplete="off"
+              [placeholder]="'documents.supportDocument.placeholders.phone' | transloco"
+              [formField]="supportForm.seller.phone"
+            />
+          </ui-field>
+          <ui-field
+            [label]="'documents.supportDocument.email' | transloco"
+            [error]="sellerError('email')"
+          >
+            <input
+              uiInput
+              type="email"
+              autocomplete="off"
+              [placeholder]="'documents.supportDocument.placeholders.email' | transloco"
+              [formField]="supportForm.seller.email"
+            />
+          </ui-field>
+          <ui-field
+            [label]="'documents.supportDocument.merchantRegistration' | transloco"
+            [error]="sellerError('merchantRegistration')"
+            required
+          >
+            <input
+              uiInput
+              type="text"
+              autocomplete="off"
+              [placeholder]="
+                'documents.supportDocument.placeholders.merchantRegistration' | transloco
+              "
+              [formField]="supportForm.seller.merchantRegistration"
+            />
+          </ui-field>
+          <ui-field
+            [label]="'documents.supportDocument.postalZoneCode' | transloco"
+            [error]="sellerError('postalZoneCode')"
+            required
+          >
+            <input
+              uiInput
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              [placeholder]="'documents.supportDocument.placeholders.postalZoneCode' | transloco"
+              [formField]="supportForm.seller.postalZoneCode"
+            />
+          </ui-field>
+        </div>
+      </ui-card>
+
+      <ui-card [title]="'documents.supportDocument.operation' | transloco">
+        <div class="issue-grid">
+          <ui-field
+            [label]="'documents.supportDocument.operationLabel' | transloco"
+            [error]="fieldError('operation')"
+            required
+          >
+            <ui-select [options]="operations()" [formField]="supportForm.operation" />
+          </ui-field>
+          <ui-field
+            [label]="'documents.supportDocument.generationMode' | transloco"
+            [hint]="'documents.supportDocument.generationModeHint' | transloco"
+            required
+          >
+            <ui-select [options]="generationModes()" [formField]="supportForm.generationMode" />
+          </ui-field>
+          <ui-field
+            [label]="'documents.supportDocument.startDate' | transloco"
+            [hint]="'documents.supportDocument.startDateHint' | transloco"
+            [error]="fieldError('startDate')"
+            required
+          >
+            <ui-date-picker
+              [placeholder]="'documents.filters.datePlaceholder' | transloco"
+              [formField]="supportForm.startDate"
+            />
+          </ui-field>
+          @if (nonResident()) {
+            <ui-field
+              [label]="'documents.supportDocument.country' | transloco"
+              [error]="sellerError('countryId')"
+              required
+            >
+              <ui-select
+                filter
+                [options]="countries()"
+                [placeholder]="'documents.supportDocument.countryNone' | transloco"
+                [filterPlaceholder]="'documents.supportDocument.countrySearch' | transloco"
+                [formField]="supportForm.seller.countryId"
+              />
+            </ui-field>
+            <ui-field
+              [label]="'documents.supportDocument.stateName' | transloco"
+              [error]="sellerError('stateName')"
+            >
+              <input
+                uiInput
+                type="text"
+                autocomplete="off"
+                [placeholder]="'documents.supportDocument.placeholders.stateName' | transloco"
+                [formField]="supportForm.seller.stateName"
+              />
+            </ui-field>
+            <ui-field
+              [label]="'documents.supportDocument.municipalityName' | transloco"
+              [error]="sellerError('municipalityName')"
+            >
+              <input
+                uiInput
+                type="text"
+                autocomplete="off"
+                [placeholder]="
+                  'documents.supportDocument.placeholders.municipalityName' | transloco
+                "
+                [formField]="supportForm.seller.municipalityName"
+              />
+            </ui-field>
+          }
+        </div>
+      </ui-card>
+
+      <ui-card [title]="'documents.issue.payment' | transloco">
+        <div class="issue-grid">
+          <ui-field [label]="'documents.issue.paymentForm' | transloco" required>
+            <ui-select [options]="paymentForms()" [formField]="supportForm.paymentFormId" />
+          </ui-field>
+          <ui-field [label]="'documents.issue.paymentMethod' | transloco" required>
+            <ui-select [options]="paymentMethods()" [formField]="supportForm.paymentMethodId" />
+          </ui-field>
+          @if (onCredit()) {
+            <ui-field
+              [label]="'documents.issue.dueDate' | transloco"
+              [error]="fieldError('paymentDueDate')"
+              required
+            >
+              <ui-date-picker
+                [placeholder]="'documents.filters.datePlaceholder' | transloco"
+                [formField]="supportForm.paymentDueDate"
+              />
+            </ui-field>
+            <ui-field
+              [label]="'documents.issue.durationDays' | transloco"
+              [error]="fieldError('durationDays')"
+              required
+            >
+              <input
+                uiInput
+                uiNonNegative
+                type="number"
+                step="1"
+                [placeholder]="'documents.issue.durationPlaceholder' | transloco"
+                [formField]="supportForm.durationDays"
+              />
+            </ui-field>
+          }
+        </div>
+      </ui-card>
+
+      <ui-card [title]="'documents.issue.lines' | transloco">
+        <ui-button
+          uiCardActions
+          variant="secondary"
+          size="small"
+          [label]="'documents.supportDocument.addLine' | transloco"
+          (pressed)="addLine()"
+        />
+        <div class="issue-lines">
+          @for (line of supportForm.lines().value(); track $index; let index = $index) {
+            <feat-line-fields
+              [line]="lineFields(index)"
+              [index]="index"
+              [amount]="lineAmount(index)"
+              (remove)="removeLine(index)"
+            />
+          } @empty {
+            <p class="issue-empty">{{ 'documents.supportDocument.noLines' | transloco }}</p>
+          }
+        </div>
+      </ui-card>
+
+      <ui-card [title]="'documents.issue.notes' | transloco">
+        <ui-field
+          [label]="'documents.issue.notes' | transloco"
+          [hint]="'documents.supportDocument.notesHint' | transloco"
+        >
+          <textarea
+            uiInput
+            rows="3"
+            [placeholder]="'documents.supportDocument.notesPlaceholder' | transloco"
+            [formField]="supportForm.notes"
+          ></textarea>
+        </ui-field>
+        <ui-checkbox
+          class="issue-check"
+          [formField]="supportForm.sendEmail"
+          [label]="'documents.supportDocument.sendEmail' | transloco"
+        />
+        <p class="doc-muted doc-small issue-check__hint">
+          @if (sellerEmail(); as email) {
+            {{ 'documents.issue.sendEmailHint' | transloco: { email } }}
+          } @else {
+            {{ 'documents.supportDocument.sendEmailNoAddress' | transloco }}
+          }
+        </p>
+      </ui-card>
+    </div>
+
+    <ui-card class="issue-side" [title]="'documents.totals.title' | transloco">
+      <div class="issue-side__body">
+        <feat-totals-panel
+          [totals]="calculated()?.legal_monetary_totals"
+          [taxes]="totals.taxes()"
+          [state]="totals.state()"
+          (retry)="totals.retry()"
+        />
+
+        @if (issueError(); as failure) {
+          <div class="doc-error" role="alert">
+            <p>{{ failure.message }}</p>
+            @if (failure.details.length > 0) {
+              <ul>
+                @for (detail of failure.details; track $index) {
+                  <li>{{ detail }}</li>
+                }
+              </ul>
+            }
+          </div>
+        }
+
+        @if (!canIssue() && !submitting()) {
+          <p class="doc-muted doc-small">
+            {{ 'documents.supportDocument.notReady' | transloco }}
+          </p>
+        }
+        <div class="issue-side__actions">
+          <ui-button
+            type="submit"
+            size="large"
+            block
+            [label]="'documents.supportDocument.submit' | transloco"
+            [loading]="submitting()"
+            [disabled]="!canIssue()"
+          />
+        </div>
+      </div>
+    </ui-card>
+  </div>
+</form>

@@ -1,0 +1,15 @@
+{
+  "variant": "Export invoice (02) in USD with FOB delivery terms",
+  "source_request": "Postman apidian-v2.1 / 07 - Otros tipos de Facturas / Factura de exportacion",
+  "task": "T3",
+  "derived": "Fictitious issuer, customer and dates; lines, totals and variant fields as in the Postman request; Incoterm changed to FOB, the USD currency fields of tests/golden/invoice/foreign-currency-usd added and the k_supplement exchange rate set to the same TRM",
+  "php_bugs": [
+    "The first version of this case had no k_supplement. With deliveryterms and no k_supplement, InvoiceExportController::store (lines 55-73) creates a k_supplement that only holds FctConvCop, and fetches that value from the live TRM service when the request omits it. The template _ubl_extensions.blade.php then reads k_supplement.responsible_incharge, so the request fails with HTTP 500 \"Undefined array key responsible_incharge\". An export invoice with Incoterms needs a complete k_supplement in the PHP."
+  ],
+  "code_check": {
+    "scheme_name": "CUFE-SHA384",
+    "formula": "CUFE",
+    "secret": "technical key",
+    "matches": true
+  }
+}

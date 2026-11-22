@@ -30,7 +30,14 @@ import {
 } from '../components/month-chart.component';
 import { dashboardText, provideDashboardI18n } from '../dashboard-i18n';
 
-const KNOWN_KINDS = ['invoice', 'payroll', 'equivalent_document', 'support_document', 'events'];
+const KNOWN_KINDS = [
+  'invoice',
+  'payroll',
+  'equivalent_document',
+  'support_document',
+  'support_document_adjustment_note',
+  'events',
+];
 const KNOWN_STATUSES = [
   'Received',
   'Queued',
@@ -176,6 +183,8 @@ export class DashboardPage {
       invoice: this.text('history.invoice'),
       creditNote: this.text('history.creditNote'),
       debitNote: this.text('history.debitNote'),
+      supportDocument: this.text('history.supportDocument'),
+      adjustmentNote: this.text('history.adjustmentNote'),
       other: this.text('history.other'),
       total: this.text('history.total'),
     };
@@ -225,6 +234,8 @@ export class DashboardPage {
       invoice: toNumber(month.invoice),
       creditNote: toNumber(month.credit_note),
       debitNote: toNumber(month.debit_note),
+      supportDocument: toNumber(month.support_document),
+      adjustmentNote: toNumber(month.support_document_adjustment_note),
       other: toNumber(month.other),
       total: toNumber(month.total),
     };
@@ -239,6 +250,8 @@ export class DashboardPage {
         invoice: values.invoice,
         credit: values.creditNote,
         debit: values.debitNote,
+        support: values.supportDocument,
+        adjustment: values.adjustmentNote,
         other: values.other,
       }),
     };

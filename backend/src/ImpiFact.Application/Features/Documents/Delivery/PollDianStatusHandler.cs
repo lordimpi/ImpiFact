@@ -63,7 +63,7 @@ internal sealed class PollDianStatusHandler(
             throw new PermanentOutboxFailureException($"Document {document.Id} has no key for {operation}.");
         }
 
-        var issuer = await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentKind.Invoice, ct)
+        var issuer = await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct)
             ?? throw new PermanentOutboxFailureException($"Company {companyId} does not exist.");
         if (issuer.Certificate?.SecretRef is not { } secretRef)
         {

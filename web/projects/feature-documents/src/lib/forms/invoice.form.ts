@@ -255,6 +255,25 @@ export function linesBody(
   });
 }
 
+/** Campos del pago que comparten la factura y el documento soporte. */
+export type PaymentModel = Pick<
+  InvoiceModel,
+  'paymentFormId' | 'paymentMethodId' | 'paymentDueDate' | 'durationDays'
+>;
+
+/** Forma y medio de pago del cuerpo de emisión; a crédito, con su vencimiento y plazo. */
+export function paymentEntry(model: PaymentModel): Record<string, number | string> {
+  const payment: Record<string, number | string> = {
+    payment_form_id: Number(model.paymentFormId),
+    payment_method_id: Number(model.paymentMethodId),
+  };
+  if (model.paymentFormId === CREDIT_PAYMENT_FORM) {
+    payment['payment_due_date'] = model.paymentDueDate;
+    payment['duration_measure'] = model.durationDays ?? 0;
+  }
+  return payment;
+}
+
 /**
  * Cuerpo de `issueInvoice`: los datos del formulario y del cliente con los totales, impuestos y valores de línea
  * que calculó el servidor (`calculation`, la respuesta a `buildCalculationRequest(model)`).
@@ -266,20 +285,10 @@ export function buildInvoiceBody(
 ): IssueBody {
   const buyer = buyerOf(customer);
 
-  const onCredit = model.paymentFormId === CREDIT_PAYMENT_FORM;
-  const payment: Record<string, number | string> = {
-    payment_form_id: Number(model.paymentFormId),
-    payment_method_id: Number(model.paymentMethodId),
-  };
-  if (onCredit) {
-    payment['payment_due_date'] = model.paymentDueDate;
-    payment['duration_measure'] = model.durationDays ?? 0;
-  }
-
   const body: IssueBody = {
     type_document_id: 1,
     customer: buyer,
-    payment_form: [payment],
+    payment_form: [paymentEntry(model)],
     legal_monetary_totals: calculation.legal_monetary_totals,
     tax_totals: calculation.tax_totals.flatMap((total) => total.tax_subtotals.map(taxEntry)),
     invoice_lines: linesBody(model.lines, calculation),

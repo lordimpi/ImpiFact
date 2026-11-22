@@ -122,6 +122,42 @@ describe('DocumentListPage', () => {
     expect(await screen.findByText('1 documentos con estos filtros')).toBeTruthy();
   });
 
+  it('filters by the support document kinds and names their rows by document type', async () => {
+    const { http, router } = await renderDocumentsRoute('/documentos');
+    (await waitFor(() => http.expectOne(isList))).flush({ items: [], next_cursor: null });
+
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Tipo de documento' }));
+    expect(await screen.findByRole('option', { name: 'Nota de ajuste DS' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('option', { name: 'Documento soporte' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+
+    await waitFor(() => expect(router.url).toBe('/documentos?tipo=support_document'));
+    const request = await waitFor(() => http.expectOne(isList));
+    expect(request.request.params.get('kind')).toBe('support_document');
+    // The API names both kinds; a row without `kind` (before 91adc38) is named by its document type.
+    request.flush({
+      items: [
+        { ...ROW, id: 'ds-1', full_number: 'SEDS984000001', kind: 'support_document' },
+        {
+          ...ROW,
+          id: 'nds-1',
+          full_number: 'NDS1',
+          kind: 'support_document_adjustment_note',
+        },
+        { ...ROW, id: 'nds-0', full_number: 'NDS0', kind: null, document_type_id: 13 },
+      ],
+      next_cursor: null,
+    });
+
+    const support = (await screen.findByText('SEDS984000001')).closest('tr')!;
+    expect(within(support).getByText('Documento soporte')).toBeTruthy();
+    const note = screen.getByText('NDS1').closest('tr')!;
+    expect(within(note).getByText('Nota de ajuste DS')).toBeTruthy();
+    const untyped = screen.getByText('NDS0').closest('tr')!;
+    expect(within(untyped).getByText('Nota de ajuste DS')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Cliente o proveedor' })).toBeTruthy();
+  });
+
   it('shows the empty state and the error state with retry', async () => {
     const { http } = await renderDocumentsRoute('/documentos');
     (await waitFor(() => http.expectOne(isList))).flush(

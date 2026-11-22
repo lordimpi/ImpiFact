@@ -143,6 +143,7 @@ public static class AttachedDocumentBuilder
     {
         AttachedDocumentKind.Invoice => "CUFE-SHA384",
         AttachedDocumentKind.CreditNote or AttachedDocumentKind.DebitNote => "CUDE-SHA384",
+        AttachedDocumentKind.SupportDocument => "CUDS-SHA384",
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown attached document kind."),
     };
 
