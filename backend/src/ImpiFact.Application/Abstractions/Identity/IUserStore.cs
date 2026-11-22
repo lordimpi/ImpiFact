@@ -21,7 +21,8 @@ public interface IUserStore
     /// Roles de plataforma del usuario (<c>user_roles</c>), por ejemplo <c>platform_admin</c>, y sus empresas con
     /// el rol en cada una (<c>user_companies</c>). Las empresas se leen sin el filtro de empresa a propósito: se
     /// necesitan antes de saber en qué empresa va a trabajar el usuario. Solo cuentan las pertenencias activas: una
-    /// desactivada (<c>user_companies.is_active</c>) no da ningún rol.
+    /// desactivada (<c>user_companies.is_active</c>) no da ningún rol. Cada pertenencia dice además si la empresa está
+    /// activa (<c>companies.is_active</c>): una empresa que la plataforma desactivó sigue en la lista, pero no da roles.
     /// </summary>
     Task<UserRoles> GetRolesAsync(Guid userId, CancellationToken ct);
 
@@ -50,16 +51,25 @@ public sealed record UserAccount(Guid Id, string Email, string PasswordHash, boo
 /// <summary>Roles de un usuario: los de plataforma y uno por cada empresa a la que pertenece.</summary>
 public sealed record UserRoles(IReadOnlyList<string> PlatformRoles, IReadOnlyList<CompanyMembership> Companies)
 {
-    /// <summary>Roles del usuario en una empresa (puede tener más de uno).</summary>
+    /// <summary>
+    /// Roles del usuario en una empresa (puede tener más de uno). Una empresa desactivada por la plataforma no da
+    /// ninguno: ni el token del panel ni las revisiones de dueño la cuentan.
+    /// </summary>
     public IReadOnlyList<string> RolesIn(Guid companyId) =>
-        [.. Companies.Where(membership => membership.CompanyId == companyId).Select(membership => membership.Role).Distinct()];
+        [.. Companies.Where(membership => membership.CompanyId == companyId && membership.CompanyIsActive)
+            .Select(membership => membership.Role).Distinct()];
 
-    /// <summary>Empresas distintas a las que pertenece.</summary>
+    /// <summary>Empresas distintas a las que pertenece, activas o no (el selector muestra las inactivas deshabilitadas).</summary>
     public IReadOnlyList<Guid> CompanyIds => [.. Companies.Select(membership => membership.CompanyId).Distinct()];
+
+    /// <summary>Empresas distintas a las que pertenece y que la plataforma no desactivó: en ellas puede trabajar.</summary>
+    public IReadOnlyList<Guid> ActiveCompanyIds =>
+        [.. Companies.Where(membership => membership.CompanyIsActive).Select(membership => membership.CompanyId).Distinct()];
 }
 
 /// <param name="Role">Nombre del rol en esa empresa, por ejemplo <c>owner</c>.</param>
-public sealed record CompanyMembership(Guid CompanyId, string Role);
+/// <param name="CompanyIsActive">Si la empresa está activa (<c>companies.is_active</c>); falso si la plataforma la desactivó.</param>
+public sealed record CompanyMembership(Guid CompanyId, string Role, bool CompanyIsActive = true);
 
 /// <summary>Un usuario nuevo con sus roles.</summary>
 /// <param name="Email">Correo ya normalizado.</param>

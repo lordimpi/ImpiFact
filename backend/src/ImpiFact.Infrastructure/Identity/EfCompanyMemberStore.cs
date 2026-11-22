@@ -107,4 +107,12 @@ internal sealed class EfCompanyMemberStore(ImpiFactDbContext db, CredentialStore
 
             return CompanyMemberChange.Changed;
         });
+
+    public Task<IReadOnlyList<Guid>> ListActiveUserIdsAsync(Guid companyId, CancellationToken ct) =>
+        guard.RunAsync<IReadOnlyList<Guid>>(async () => await db.Set<UserCompany>().AsNoTracking()
+            .IgnoreQueryFilters([QueryFilters.Tenant])
+            .Where(link => link.CompanyId == companyId && link.IsActive)
+            .Select(link => link.UserId)
+            .Distinct()
+            .ToListAsync(ct));
 }

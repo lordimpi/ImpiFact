@@ -80,6 +80,12 @@ internal sealed class SendDocumentToDianHandler(
             ?? throw new PermanentOutboxFailureException($"Document {document.Id} has no signed XML.");
         var issuer = await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct)
             ?? throw new PermanentOutboxFailureException($"Company {companyId} does not exist.");
+        if (!issuer.Company.IsActive)
+        {
+            await InactiveCompanyHold.HoldAsync(message, payload, companyId, outbox, unitOfWork, clock, logger, ct);
+            return;
+        }
+
         var secretRef = issuer.Certificate?.SecretRef
             ?? throw new PermanentOutboxFailureException($"Company {companyId} has no active certificate.");
 

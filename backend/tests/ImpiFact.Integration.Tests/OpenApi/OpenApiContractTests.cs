@@ -82,6 +82,8 @@ public sealed class OpenApiContractTests
     [TestCase("PUT /api/v1/companies/{nit}/resolutions/{id}/next-number", "setResolutionNextNumber")]
     [TestCase("GET /api/v1/companies/{nit}/setup-status", "getCompanySetupStatus")]
     [TestCase("GET /api/v1/platform/companies", "listPlatformCompanies")]
+    [TestCase("POST /api/v1/platform/companies/{nit}/deactivate", "deactivatePlatformCompany")]
+    [TestCase("POST /api/v1/platform/companies/{nit}/reactivate", "reactivatePlatformCompany")]
     [TestCase("PUT /api/v1/companies/{nit}/plan", "assignCompanyPlan")]
     [TestCase("PUT /api/v1/companies/{nit}/logo", "saveCompanyLogo")]
     [TestCase("GET /api/v1/companies/{nit}/logo", "getCompanyLogo")]

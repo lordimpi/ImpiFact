@@ -109,6 +109,18 @@ public sealed class FakeApiKeyStore : IApiKeyStore
     public Task MarkUsedAsync(Guid apiKeyId, DateTimeOffset usedAt, CancellationToken ct) => throw new NotSupportedException();
 
     public Task RevokeAsync(Guid apiKeyId, DateTimeOffset revokedAt, CancellationToken ct) => throw new NotSupportedException();
+
+    /// <summary>Keys of each company still unrevoked, by hash; the call revokes them and records when.</summary>
+    public Dictionary<Guid, List<string>> ActiveByCompany { get; } = [];
+
+    public List<(Guid CompanyId, DateTimeOffset RevokedAt)> RevokedCompanies { get; } = [];
+
+    public Task<IReadOnlyList<string>> RevokeAllActiveForCompanyAsync(Guid companyId, DateTimeOffset revokedAt, CancellationToken ct)
+    {
+        RevokedCompanies.Add((companyId, revokedAt));
+        IReadOnlyList<string> hashes = ActiveByCompany.Remove(companyId, out var keys) ? keys : [];
+        return Task.FromResult(hashes);
+    }
 }
 
 /// <summary>Cifrado de mentira que deja ver el propósito usado; nunca devuelve el texto claro tal cual.</summary>

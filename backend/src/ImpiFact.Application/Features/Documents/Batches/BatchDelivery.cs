@@ -258,6 +258,7 @@ internal sealed class SendDocumentBatchToDianHandler(
     IDocumentDelivery documents,
     IDocumentStore store,
     INumberingSequences numbering,
+    IOutbox outbox,
     IUnitOfWork unitOfWork,
     ImpiFactMetrics metrics,
     ILogger<SendDocumentBatchToDianHandler> logger) : IOutboxMessageHandler
@@ -285,6 +286,13 @@ internal sealed class SendDocumentBatchToDianHandler(
         }
 
         var issuer = await delivery.IssuerAsync(companyId, ct) ?? throw new PermanentOutboxFailureException($"Company {companyId} does not exist.");
+        if (!issuer.Company.IsActive)
+        {
+            // The batch stays Queued with its documents and is looked at again later (see InactiveCompanyHold).
+            await InactiveCompanyHold.HoldAsync(message, payload, companyId, outbox, unitOfWork, delivery.Clock, logger, ct);
+            return;
+        }
+
         var secretRef = issuer.Certificate?.SecretRef ?? throw new PermanentOutboxFailureException($"Company {companyId} has no active certificate.");
         var endpoint = await delivery.EndpointAsync(companyId, secretRef, batch.TypeEnvironmentId ?? pending[0].TypeEnvironmentId, ct);
         using var certificate = endpoint.Certificate;

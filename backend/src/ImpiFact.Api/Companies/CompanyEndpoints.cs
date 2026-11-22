@@ -5,6 +5,7 @@ using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Companies;
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Identity;
+using ImpiFact.Application.Features.Companies.Activation;
 using ImpiFact.Application.Features.Companies.CreateCompany;
 using ImpiFact.Application.Features.Companies.ListCertificates;
 using ImpiFact.Application.Features.Companies.ListPlatformCompanies;
@@ -305,6 +306,41 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "plan). `search` busca el texto dentro del NIT o de la razón social, sin distinguir mayúsculas (hasta 100 " +
                 "caracteres). Pagina por cursor: `limit` (20 por defecto, máximo 100) y `cursor` con el `next_cursor` de la " +
                 "página anterior (nulo en la última). Pide `platform:*` sin empresa.");
+
+        // Desactivar y reactivar: reemplazan el borrado del PHP (delete/company/{nit}/{dv}); ImpiFact nunca borra una empresa.
+        endpoints.MapPost("/api/v1/platform/companies/{nit}/deactivate", (
+                string nit, IHandler<DeactivateCompanyCommand, CompanyActivationResponse> handler, CancellationToken ct) =>
+                Read(new DeactivateCompanyCommand(nit), handler, ct))
+            .WithTags(ApiTags.Companies)
+            .RequireAuthorization(ApiScopes.Platform)
+            .Produces<CompanyActivationResponse>()
+            .WithOperationId("deactivatePlatformCompany")
+            .WithSummary("Desactivar una empresa")
+            .WithDescription(
+                "Deja inactiva la empresa del NIT (`is_active` falso) en una sola transacción: revoca para siempre sus API " +
+                "keys y cierra las sesiones del panel de sus usuarios (deben volver a iniciar sesión; la empresa les aparece " +
+                "deshabilitada y no pueden elegirla). Desde ese momento no emite nada: facturas, notas, documento soporte, " +
+                "eventos RADIAN, lotes y contingencia responden 403 (`company.inactive`) antes de numerar o llamar a la DIAN. " +
+                "Los documentos y archivos guardados se conservan y la plataforma sigue viendo la empresa, su plan y sus " +
+                "usuarios; el Worker sigue " +
+                "consultando en la DIAN el estado de lo ya enviado, pero no envía nada nuevo mientras esté inactiva. Nunca " +
+                "borra la empresa. Responde la empresa con `changed`, `revoked_api_keys` y `signed_out_users`; si ya estaba " +
+                "inactiva responde 200 con `changed` falso y no hace nada. NIT inexistente: 404 (`company.not_found`). " +
+                "Solo el administrador de la plataforma (`platform:*` sin empresa); otra credencial: 403.");
+        endpoints.MapPost("/api/v1/platform/companies/{nit}/reactivate", (
+                string nit, IHandler<ReactivateCompanyCommand, CompanyActivationResponse> handler, CancellationToken ct) =>
+                Read(new ReactivateCompanyCommand(nit), handler, ct))
+            .WithTags(ApiTags.Companies)
+            .RequireAuthorization(ApiScopes.Platform)
+            .Produces<CompanyActivationResponse>()
+            .WithOperationId("reactivatePlatformCompany")
+            .WithSummary("Reactivar una empresa")
+            .WithDescription(
+                "Vuelve a dejar activa la empresa del NIT: sus usuarios pueden elegirla de nuevo y vuelve a emitir. No " +
+                "restaura nada más: las API keys revocadas al desactivarla siguen revocadas (un dueño crea llaves nuevas) y " +
+                "las sesiones cerradas siguen cerradas. Si ya estaba activa responde 200 con `changed` falso y no hace nada. " +
+                "NIT inexistente: 404 (`company.not_found`). Solo el administrador de la plataforma (`platform:*` sin " +
+                "empresa); otra credencial: 403.");
 
         // Única consulta en vivo a la DIAN desde la API (rangos de numeración autorizados).
         canonical.MapGet("/{nit}/numbering-ranges", (string nit, [FromQuery(Name = "software_id")] string? softwareId,

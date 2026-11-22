@@ -103,7 +103,11 @@ public static class KnownDeviations
         KnownDeviation.StatusCode("Cargar el logo de la empresa", 405, Todo + "PUT config/logo (RF-01) no existe."),
         KnownDeviation.StatusCode("Ajustar el consecutivo de un tipo de documento", 405,
             Todo + "PUT config/generateddocuments no existe (el consecutivo sale de numbering_sequences)."),
-        KnownDeviation.StatusCode("Eliminar una empresa", 404, Todo + "POST delete/company/{nit}/{dv} (RF-01, rol de plataforma) no existe."),
+        KnownDeviation.StatusCode("Eliminar una empresa", 404,
+            "Reemplazo deliberado (fase 7a, T9b1; decisión del usuario del 22-nov): ImpiFact nunca borra una empresa. El PHP " +
+            "POST delete/company/{nit}/{dv} borraba todo y lo podía llamar cualquier usuario (php-rules 5.2, ítem 6); en su lugar el " +
+            "administrador de la plataforma la desactiva con POST /api/v1/platform/companies/{nit}/deactivate (y la reactiva con " +
+            ".../reactivate): no emite, sus API keys se revocan, sus usuarios pierden el acceso y las facturas se conservan."),
 
         // Carpeta 10: plantillas de PDF.
         KnownDeviation.StatusCode("Listar las plantillas de PDF disponibles", 404, Todo + "GET /api/templates (RF-12) no existe."),

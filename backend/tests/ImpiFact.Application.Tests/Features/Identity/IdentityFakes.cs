@@ -215,6 +215,21 @@ public sealed class FakeApiKeyStore : IApiKeyStore
         Keys[index] = Keys[index] with { RevokedAt = revokedAt };
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<string>> RevokeAllActiveForCompanyAsync(Guid companyId, DateTimeOffset revokedAt, CancellationToken ct)
+    {
+        var revoked = new List<string>();
+        for (var index = 0; index < Keys.Count; index++)
+        {
+            if (Keys[index] is { RevokedAt: null } key && key.CompanyId == companyId)
+            {
+                Keys[index] = key with { RevokedAt = revokedAt };
+                revoked.Add(key.KeyHash);
+            }
+        }
+
+        return Task.FromResult<IReadOnlyList<string>>(revoked);
+    }
 }
 
 public sealed class FakeApiKeyGenerator : IApiKeyGenerator

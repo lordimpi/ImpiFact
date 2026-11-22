@@ -363,6 +363,8 @@ internal sealed class GatedMemberStore(ICompanyMemberStore inner, MemberStoreGat
 
     public Task<IReadOnlyList<CompanyMember>> ListAsync(Guid companyId, CancellationToken ct) => inner.ListAsync(companyId, ct);
 
+    public Task<IReadOnlyList<Guid>> ListActiveUserIdsAsync(Guid companyId, CancellationToken ct) => inner.ListActiveUserIdsAsync(companyId, ct);
+
     public async Task<CompanyMemberChange> ChangeAsync(Guid companyId, Guid userId, string role, bool isActive, CancellationToken ct)
     {
         var enter = gate.TryEnter(userId);
