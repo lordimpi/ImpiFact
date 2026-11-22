@@ -13,6 +13,8 @@ public static class ApiTags
 
     public const string Documents = "Documentos";
 
+    public const string Batches = "Lotes";
+
     public const string Radian = "RADIAN";
 
     public const string Plans = "Planes";
@@ -38,6 +40,10 @@ public static class ApiTags
             "Emisión de facturas, notas crédito y notas débito; consulta de documentos y de su estado en la DIAN; " +
             "descarga de archivos (XML, PDF, AttachedDocument, ZIP) y tareas de mantenimiento (regenerar el PDF o el " +
             "AttachedDocument, reenviar el correo)."),
+        (Batches,
+            "Envío por lotes (SendBillAsync): hasta 50 facturas y notas de la empresa en un solo ZIP. Cada documento se agrega con " +
+            "el cuerpo de su ruta de emisión y queda firmado en el lote; al enviar el lote, el Worker consulta GetStatusZip y " +
+            "deja a cada documento su propio veredicto de la DIAN."),
         (Radian,
             "Eventos RADIAN (registro de la factura electrónica como título valor): facturas recibidas de proveedores, que se " +
             "cargan desde la DIAN por su CUFE, y sus eventos de acuse de recibo (030), reclamo (031), recibo del bien (032) y " +

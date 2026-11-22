@@ -427,5 +427,13 @@ internal static class ExampleBodies
             """), "La última línea es una muestra gratuita: vale 0 y su precio solo es de referencia."),
     ];
 
+    /// <summary>A batch with a name of the company or with the one ImpiFact gives it (phase 7a, T8).</summary>
+    public static RequestExample[] DocumentBatches { get; } =
+    [
+        new("con-nombre", "Lote con un nombre propio", Parse("""{ "name": "lote-2026-11-22-01" }"""),
+            "El nombre es único en la empresa: letras, números, guion y guion bajo, hasta 50."),
+        new("sin-nombre", "Lote con el nombre que le pone ImpiFact", Parse("{}")),
+    ];
+
     private static JsonNode Parse(string json) => JsonNode.Parse(json)!;
 }

@@ -74,6 +74,9 @@ public enum DianOperation : short
     GetStatus = 3,
     GetStatusZip = 4,
     SendEvent = 5,
+
+    /// <summary>A ZIP with up to 50 documents (phase 7a, T8); the verdicts come later from GetStatusZip.</summary>
+    SendBillAsync = 6,
 }
 
 /// <summary>

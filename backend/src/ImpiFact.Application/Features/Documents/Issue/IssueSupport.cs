@@ -277,4 +277,9 @@ public sealed record IssuedDocumentInfo
     /// <summary>Verdadero si la solicitud repitió una ya atendida y se respondió con el documento existente.</summary>
     [JsonPropertyName("replayed")]
     public bool Replayed { get; init; }
+
+    /// <summary>Batch the document was added to (phase 7a, T8); absent for a document sent on its own.</summary>
+    [JsonPropertyName("batch_id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? BatchId { get; init; }
 }

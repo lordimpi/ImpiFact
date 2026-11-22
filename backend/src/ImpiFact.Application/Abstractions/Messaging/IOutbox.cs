@@ -34,6 +34,12 @@ public static class OutboxMessageTypes
     /// <summary>Volver a consultar en la DIAN el estado de un documento sin confirmar.</summary>
     public const string PollDianStatus = "PollDianStatus";
 
+    /// <summary>Send a closed batch of documents to the DIAN with SendBillAsync (phase 7a, T8).</summary>
+    public const string SendDocumentBatchToDian = "SendDocumentBatchToDian";
+
+    /// <summary>Ask GetStatusZip for the verdict of each document of a sent batch (phase 7a, T8).</summary>
+    public const string PollDocumentBatchStatus = "PollDocumentBatchStatus";
+
     public const string SendEmail = "SendEmail";
 
     public const string RenderPdf = "RenderPdf";

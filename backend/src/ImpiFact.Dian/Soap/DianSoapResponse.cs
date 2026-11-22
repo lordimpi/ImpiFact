@@ -106,7 +106,13 @@ public sealed record DianUnrecognizedResponse(string Body) : DianSoapResponse;
 /// <param name="XmlBase64Bytes">
 /// Bytes del ApplicationResponse (el XML de respuesta firmado por la DIAN), ya decodificados del Base64.
 /// </param>
-/// <param name="ZipKey">Clave del envío asíncrono (SendTestSetAsync) para consultarlo con GetStatusZip.</param>
+/// <param name="ZipKey">Clave del envío asíncrono (SendTestSetAsync o SendBillAsync) para consultarlo con GetStatusZip.</param>
+/// <param name="FileMessages">
+/// The initial-validation messages of an asynchronous send (SendTestSetAsync, SendBillAsync) with the file each one names
+/// (<c>XmlParamsResponseTrackId</c>, annex 1.9, section 7.8.3); empty when there are none and null in the answers of the
+/// other operations. Their texts are also in
+/// <paramref name="ErrorMessages"/>.
+/// </param>
 public sealed record DianResult(
     bool? IsValid,
     string? StatusCode,
@@ -116,4 +122,8 @@ public sealed record DianResult(
     string? XmlDocumentKey,
     string? XmlFileName,
     byte[]? XmlBase64Bytes,
-    string? ZipKey);
+    string? ZipKey,
+    IReadOnlyList<DianFileMessage>? FileMessages = null);
+
+/// <summary>An initial-validation message of an asynchronous send and the XML file it names (without extension, as the DIAN writes it).</summary>
+public sealed record DianFileMessage(string? FileName, string Message);

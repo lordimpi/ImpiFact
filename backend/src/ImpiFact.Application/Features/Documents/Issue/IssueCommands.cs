@@ -18,54 +18,85 @@ public interface IIssueDocumentCommand : ICommand
 
     /// <summary>Set de pruebas de la ruta <c>/{testSetId}</c>; nulo en la ruta normal.</summary>
     string? TestSetId { get; }
+
+    /// <summary>
+    /// Batch the document is issued into (phase 7a, T8; php-rules 15.1): it is validated, numbered and signed like any other,
+    /// but waits in the batch, without a DIAN call, until the batch is sent with SendBillAsync. Null for a document sent alone.
+    /// </summary>
+    Guid? BatchId { get; }
 }
 
 /// <summary><c>POST /api/ubl2.1/invoice[/{testSetId}]</c>: factura electrónica de venta nacional (tipo 1).</summary>
 public sealed record IssueInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
-    : IIssueDocumentCommand;
+    : IIssueDocumentCommand
+{
+    public Guid? BatchId { get; init; }
+}
 
 /// <summary><c>POST /api/ubl2.1/credit-note[/{testSetId}]</c>: nota crédito (tipo 4).</summary>
 public sealed record IssueCreditNoteCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
-    : IIssueDocumentCommand;
+    : IIssueDocumentCommand
+{
+    public Guid? BatchId { get; init; }
+}
 
 /// <summary><c>POST /api/ubl2.1/debit-note[/{testSetId}]</c>: nota débito (tipo 5).</summary>
 public sealed record IssueDebitNoteCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
-    : IIssueDocumentCommand;
+    : IIssueDocumentCommand
+{
+    public Guid? BatchId { get; init; }
+}
 
 /// <summary>
 /// <c>POST /api/v1/documents/invoices/aiu</c> (<c>/api/ubl2.1/invoice-aiu[/{testSetId}]</c>): AIU invoice (type 1,
 /// operation 9; php-rules 10.1).
 /// </summary>
 public sealed record IssueAiuInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
-    : IIssueDocumentCommand;
+    : IIssueDocumentCommand
+{
+    public Guid? BatchId { get; init; }
+}
 
 /// <summary>
 /// <c>POST /api/v1/documents/invoices/mandate</c> (<c>/api/ubl2.1/invoice-mandate[/{testSetId}]</c>): mandate invoice
 /// (type 1, operation 11; php-rules 10.2).
 /// </summary>
 public sealed record IssueMandateInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
-    : IIssueDocumentCommand;
+    : IIssueDocumentCommand
+{
+    public Guid? BatchId { get; init; }
+}
 
 /// <summary>
 /// <c>POST /api/v1/documents/invoices/transport</c> (<c>/api/ubl2.1/invoice-transport[/{testSetId}]</c>): freight
 /// transport invoice (type 1, operation 21, code 12; php-rules 10.3).
 /// </summary>
 public sealed record IssueTransportInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
-    : IIssueDocumentCommand;
+    : IIssueDocumentCommand
+{
+    /// <summary>The PHP has no batch for the transport invoice (php-rules 15.1, item 1).</summary>
+    public Guid? BatchId => null;
+}
 
 /// <summary>
 /// <c>POST /api/v1/documents/invoices/export</c> (<c>/api/ubl2.1/invoice-export[/{testSetId}]</c>): export invoice (type
 /// 2, template 02, operation 10; php-rules 11).
 /// </summary>
 public sealed record IssueExportInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
-    : IIssueDocumentCommand;
+    : IIssueDocumentCommand
+{
+    public Guid? BatchId { get; init; }
+}
 
 /// <summary>
 /// <c>POST /api/v1/documents/invoices/contingency</c> (<c>/api/ubl2.1/invoice-contingency[/{testSetId}]</c>): contingency
 /// invoice type 03, the transcription of a paper invoice (type 3, template 03, CUDE; php-rules 12.1).
 /// </summary>
 public sealed record IssueContingencyInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
-    : IIssueDocumentCommand;
+    : IIssueDocumentCommand
+{
+    public Guid? BatchId { get; init; }
+}
 
 /// <summary>
 /// <c>POST /api/v1/documents/invoices/dian-contingency</c> (<c>/api/ubl2.1/invoice-contingency-4</c>): invoice type 04,
@@ -76,6 +107,9 @@ public sealed record IssueDianContingencyInvoiceCommand(IssueDocumentBody Body, 
     : IIssueDocumentCommand
 {
     public string? TestSetId => null;
+
+    /// <summary>The invoice type 04 is sent on its own when the DIAN answers again; the PHP has no batch for it.</summary>
+    public Guid? BatchId => null;
 }
 
 /// <summary>
@@ -83,14 +117,21 @@ public sealed record IssueDianContingencyInvoiceCommand(IssueDocumentBody Body, 
 /// purchases from sellers not obliged to invoice (type 11, template 05, CUDS; php-rules 13).
 /// </summary>
 public sealed record IssueSupportDocumentCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
-    : IIssueDocumentCommand;
+    : IIssueDocumentCommand
+{
+    /// <summary>The support document has its own software and environment, and the PHP has no batch for it (php-rules 15.1, item 1).</summary>
+    public Guid? BatchId => null;
+}
 
 /// <summary>
 /// <c>POST /api/v1/documents/support-documents/adjustment-notes</c> (<c>/api/ubl2.1/sd-credit-note[/{testSetId}]</c>):
 /// adjustment note to a support document (type 13, template 95, CUDS; php-rules 14).
 /// </summary>
 public sealed record IssueSupportDocumentAdjustmentNoteCommand(
-    IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null) : IIssueDocumentCommand;
+    IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null) : IIssueDocumentCommand
+{
+    public Guid? BatchId => null;
+}
 
 /// <summary>Tipo de documento que se emite.</summary>
 public enum IssueKind

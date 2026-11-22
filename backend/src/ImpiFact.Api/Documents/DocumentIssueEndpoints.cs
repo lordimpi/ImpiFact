@@ -399,7 +399,7 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
     /// respondería 415 antes de revisar la credencial.
     /// </summary>
     /// <param name="producesPdf">Verdadero en la vista previa, que responde el PDF y no la respuesta de la emisión.</param>
-    private static RouteHandlerBuilder Issue(RouteHandlerBuilder route, IReadOnlyList<RequestExample> examples, bool producesPdf = false) =>
+    internal static RouteHandlerBuilder Issue(RouteHandlerBuilder route, IReadOnlyList<RequestExample> examples, bool producesPdf = false) =>
         (producesPdf ? route.Produces(StatusCodes.Status200OK, contentType: "application/pdf") : route.Produces<IssueDocumentResponse>())
         .AddOpenApiOperationTransformer(async (operation, context, ct) => operation.RequestBody = new OpenApiRequestBody
         {
@@ -512,7 +512,7 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
     /// Lee el cuerpo completo tal como llegó (su resumen identifica la solicitud repetida) y lo interpreta con el
     /// contrato heredado; un cuerpo que no es JSON o no tiene su forma responde 422.
     /// </summary>
-    private static async Task<IResult> IssueAsync(
+    internal static async Task<IResult> IssueAsync(
         HttpRequest request,
         Func<IssueDocumentBody, byte[], string?, Task<Application.Abstractions.Results.Result<IssueDocumentResponse>>> issue,
         CancellationToken ct)

@@ -67,6 +67,20 @@ public sealed record SendTestSetAsyncRequest(string FileName, string ContentFile
 }
 
 /// <summary>
+/// Sending of a batch (SendBillAsync, annex 1.9, section 7.8): <paramref name="FileName"/> is the name of the ZIP
+/// (<see cref="DianFileNames.Zip"/>, at most 100 characters) and <paramref name="ContentFile"/> the ZIP with up to 50 signed
+/// documents, in Base64 (at most 50 MB). The DIAN answers a ZipKey; the verdicts come later from
+/// <see cref="GetStatusZipRequest"/>.
+/// </summary>
+public sealed record SendBillAsyncRequest(string FileName, string ContentFile) : DianSoapRequest
+{
+    public override string OperationName => "SendBillAsync";
+
+    internal override IReadOnlyList<KeyValuePair<string, string>> Parameters =>
+        [Parameter("fileName", FileName), Parameter("contentFile", ContentFile)];
+}
+
+/// <summary>
 /// Consulta del estado de un documento (GetStatus) por su CUFE (código único de factura electrónica) o su
 /// CUDE (código único de documento electrónico, el de las notas).
 /// </summary>

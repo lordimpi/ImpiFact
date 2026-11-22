@@ -8,6 +8,7 @@ using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Application.Abstractions.Protection;
 using ImpiFact.Application.Abstractions.Results;
+using ImpiFact.Application.Features.Documents.Batches;
 using ImpiFact.Application.Features.Documents.Totals;
 using ImpiFact.Dian.Signing;
 using ImpiFact.Dian.Ubl;
@@ -30,7 +31,8 @@ internal sealed record IssuePorts(
     ISecretProtector Secrets,
     IDianQrUrls QrUrls,
     IPlanGate Plans,
-    IClock Clock);
+    IClock Clock,
+    IDocumentBatches Batches);
 
 /// <summary>Mensaje <c>SendDocumentToDian</c> de la bandeja de salida (supuesto B7: el envío lo hará el Worker).</summary>
 /// <param name="TestSetId">Set de pruebas de habilitación cuando el documento llegó por la ruta <c>/{testSetId}</c>.</param>
@@ -87,12 +89,27 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             return IssueErrors.CompanyInactive;
         }
 
+        // A batch of another company answers like a missing one, before anything else is read (phase 7a, T8).
+        DocumentBatch? batch = null;
+        if (request.BatchId is { } batchId && (batch = await ports.Batches.FindAsync(companyId, batchId, ct)) is null)
+        {
+            return BatchErrors.NotFound;
+        }
+
         if (key is not null && await ports.IdempotencyKeys.FindAsync(companyId, key, ct) is { } previous)
         {
+            // A repeated addition answers with its document even if the batch was sent since; a key used for a document
+            // outside this batch is another request.
             return previous.RequestSha256 == requestHash && previous.DocumentId is { } previousId
                 && await ports.Store.FindByIdAsync(companyId, previousId, ct) is { } existing
-                ? await ReplayAsync(existing, issuer, ct)
+                && existing.BatchId == batch?.Id
+                ? await ReplayAsync(existing, issuer, batch, ct)
                 : IssueErrors.IdempotencyKeyReused;
+        }
+
+        if (batch is not null && BatchChecks.RefuseAddition(batch, issuer.TypeEnvironmentId) is { } refusedAddition)
+        {
+            return refusedAddition;
         }
 
         var resolution = IssueChecks.SelectResolution(spec, issuer, body);
@@ -144,7 +161,10 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
 
         if (number.Value.Existing is { } repeated)
         {
-            return await ReplayAsync(repeated, issuer, ct);
+            // The same body again answers with its document, but only where it was issued: alone or in this same batch.
+            return repeated.BatchId == batch?.Id
+                ? await ReplayAsync(repeated, issuer, batch, ct)
+                : IssueErrors.NumberInUse(repeated.FullNumber);
         }
 
         var frame = new IssueFrame(
@@ -178,9 +198,19 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         // any DIAN call nor simulated answer, and the Worker makes its first automatic attempt after the monitoring interval.
         var pending = spec.Variant == InvoiceVariant.DianContingency;
         document.MoveTo(pending ? DocumentStatus.ContingencyPending : DocumentStatus.Queued);
-        await ports.Outbox.EnqueueAsync(
-            OutboxMessageTypes.SendDocumentToDian, new SendDocumentToDianPayload(document.Id, request.TestSetId), companyId,
-            pending ? now + ContingencyDelivery.RetryInterval : null, ct);
+        if (batch is not null)
+        {
+            // Phase 7a, T8: the document waits in the batch, signed and Queued, with no message of its own; the batch is
+            // sent whole with SendBillAsync. Counting it changes the batch row, so a send saved meanwhile makes this fail.
+            document.BatchId = batch.Id;
+            batch.Add(document.TypeEnvironmentId);
+        }
+        else
+        {
+            await ports.Outbox.EnqueueAsync(
+                OutboxMessageTypes.SendDocumentToDian, new SendDocumentToDianPayload(document.Id, request.TestSetId), companyId,
+                pending ? now + ContingencyDelivery.RetryInterval : null, ct);
+        }
         if (key is not null)
         {
             ports.IdempotencyKeys.Add(companyId, key, requestHash, document.Id, now + IdempotencyWindow);
@@ -189,8 +219,8 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         var typeName = catalogs.Value[new CatalogKey(DianCatalog.DocumentType, spec.DocumentTypeId)].Name;
         var stored = new StoredDocument(
             document.Id, document.DocumentTypeId, document.TypeEnvironmentId, document.ResolutionId, document.Prefix, document.Number,
-            document.FullNumber, document.Status, uuid, document.UuidAlgorithm, requestHash);
-        return Respond(typeName, stored, issuer, signedXml, unsignedXml, replayed: false);
+            document.FullNumber, document.Status, uuid, document.UuidAlgorithm, requestHash, document.BatchId);
+        return Respond(typeName, stored, issuer, batch, signedXml, unsignedXml, replayed: false);
     }
 
     /// <summary>
@@ -386,23 +416,28 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
     };
 
     /// <summary>Responde por un documento ya emitido con el XML firmado que se guardó.</summary>
-    private async Task<Result<IssueDocumentResponse>> ReplayAsync(StoredDocument existing, IssuerContext issuer, CancellationToken ct)
+    private async Task<Result<IssueDocumentResponse>> ReplayAsync(
+        StoredDocument existing, IssuerContext issuer, DocumentBatch? batch, CancellationToken ct)
     {
         var signed = await ports.Store.ReadFileAsync(issuer.Company.Id, existing.Id, DocumentFileKind.SignedXml, ct);
         var types = await ports.Catalogs.FindAsync([new CatalogKey(DianCatalog.DocumentType, existing.DocumentTypeId)], ct);
         var typeName = types.Values.FirstOrDefault()?.Name ?? "";
-        return Respond(typeName, existing, issuer, signed is null ? null : Utf8.GetString(signed), unsignedXml: null, replayed: true);
+        return Respond(typeName, existing, issuer, batch, signed is null ? null : Utf8.GetString(signed), unsignedXml: null, replayed: true);
     }
 
     private IssueDocumentResponse Respond(
-        string typeName, StoredDocument document, IssuerContext issuer, string? signedXml, string? unsignedXml, bool replayed)
+        string typeName, StoredDocument document, IssuerContext issuer, DocumentBatch? batch, string? signedXml, string? unsignedXml,
+        bool replayed)
     {
         var uuid = document.Cufe ?? "";
         var resolution = issuer.Resolutions.FirstOrDefault(row => row.Id == document.ResolutionId);
         return new IssueDocumentResponse
         {
             Success = spec.IsNote ? null : true,
-            Message = $"{typeName} #{document.FullNumber} generada con éxito",
+            // The PHP said «… generada y agregada con éxito al batch {batch}.zip» (php-rules 15.1, item 7).
+            Message = batch is null
+                ? $"{typeName} #{document.FullNumber} generada con éxito"
+                : $"{typeName} #{document.FullNumber} generada y agregada con éxito al lote {batch.Name}",
             UrlInvoiceXml = $"{LegacyFileTag(spec.Kind)}-{document.FullNumber}.xml",
             UrlInvoicePdf = $"{LegacyFileTag(spec.Kind)}-{document.FullNumber}.pdf",
             UrlInvoiceAttached = $"Attachment-{document.FullNumber}.xml",
@@ -427,6 +462,7 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
                 Uuid = document.Cufe,
                 UuidAlgorithm = document.UuidAlgorithm,
                 Replayed = replayed,
+                BatchId = document.BatchId,
             },
         };
     }
@@ -504,87 +540,87 @@ internal static class IssueChecks
 internal sealed class IssueInvoiceHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueInvoiceCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.Invoice);
 
 internal sealed class IssueAiuInvoiceHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueAiuInvoiceCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.AiuInvoice);
 
 internal sealed class IssueMandateInvoiceHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueMandateInvoiceCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.MandateInvoice);
 
 internal sealed class IssueTransportInvoiceHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueTransportInvoiceCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.TransportInvoice);
 
 internal sealed class IssueExportInvoiceHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueExportInvoiceCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.ExportInvoice);
 
 internal sealed class IssueContingencyInvoiceHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueContingencyInvoiceCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.ContingencyInvoice);
 
 internal sealed class IssueDianContingencyInvoiceHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueDianContingencyInvoiceCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.DianContingencyInvoice);
 
 internal sealed class IssueSupportDocumentHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueSupportDocumentCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.SupportDocument);
 
 internal sealed class IssueSupportDocumentAdjustmentNoteHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueSupportDocumentAdjustmentNoteCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.SupportDocumentAdjustmentNote);
 
 internal sealed class IssueCreditNoteHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueCreditNoteCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.CreditNote);
 
 internal sealed class IssueDebitNoteHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueDebitNoteCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.DebitNote);

@@ -299,3 +299,32 @@ public static class GoldenFiles
         throw new DirectoryNotFoundException(relative + " not found above " + AppContext.BaseDirectory);
     }
 }
+
+/// <summary>Batches in memory (phase 7a, T8), for the issue tests that do not use them: the store answers them by id and name.</summary>
+public sealed class FakeDocumentBatches : IDocumentBatches
+{
+    public List<DocumentBatch> Rows { get; } = [];
+
+    public Task<DocumentBatch?> FindAsync(Guid companyId, Guid id, CancellationToken ct) =>
+        Task.FromResult(Rows.FirstOrDefault(row => row.CompanyId == companyId && row.Id == id));
+
+    public Task<DocumentBatch?> FindByNameAsync(Guid companyId, string name, CancellationToken ct) =>
+        Task.FromResult(Rows.FirstOrDefault(row => row.CompanyId == companyId && row.Name == name));
+
+    public void Add(DocumentBatch batch) => Rows.Add(batch);
+
+    public Task<IReadOnlyList<DocumentBatch>> ListAsync(Guid companyId, int skip, int take, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<DocumentBatch>>([.. Rows.Where(row => row.CompanyId == companyId).Skip(skip).Take(take)]);
+
+    public Task<long> CountAsync(Guid companyId, CancellationToken ct) => Task.FromResult((long)Rows.Count(row => row.CompanyId == companyId));
+
+    public Task<IReadOnlyList<Document>> DocumentsAsync(Guid companyId, Guid batchId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Document>>([]);
+
+    public Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> LastMessagesAsync(
+        Guid companyId, IReadOnlyCollection<Guid> documentIds, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyList<string>>>(new Dictionary<Guid, IReadOnlyList<string>>());
+
+    public Task<string> PutFileAsync(Guid companyId, Guid batchId, byte[] content, string contentType, string extension, CancellationToken ct) =>
+        Task.FromResult($"{companyId:N}/batches/{batchId:N}/file{extension}");
+}

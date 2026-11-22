@@ -124,6 +124,12 @@ public sealed class Document : TenantEntity
     public Guid? CreatedById { get; init; }
 
     /// <summary>
+    /// Batch the document was issued into (phase 7a, T8): it waits <see cref="DocumentStatus.Queued"/> until the batch is sent
+    /// with SendBillAsync, and never travels alone. Null for a document sent on its own.
+    /// </summary>
+    public Guid? BatchId { get; set; }
+
+    /// <summary>
     /// Pasa el documento al estado indicado si la transición está permitida (Modelo de datos detallado, sección 4).
     /// </summary>
     /// <exception cref="InvalidDocumentTransitionException">Si la transición no está en la tabla; el estado no cambia.</exception>

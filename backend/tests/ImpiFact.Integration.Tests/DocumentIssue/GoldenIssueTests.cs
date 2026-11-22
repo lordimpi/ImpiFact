@@ -71,6 +71,40 @@ public sealed partial class GoldenIssueTests
         Assert.That(Convert.FromBase64String(root.GetProperty("invoicexml").GetString()!), Is.EqualTo(Encoding.UTF8.GetBytes(stored)));
     }
 
+    // Phase 7a, T8: the PHP has no batch golden of its own (T1: «lotes no: nada propio reproducible»), so a document added to a
+    // batch is checked against the golden of its type: the variants that no other test of the golden company issues go into one
+    // batch through the PHP route and give the PHP XML and code, signed and Queued in the batch.
+    [TestCase("invoice-aiu", "construction-contract")]
+    [TestCase("invoice-mandate", "third-party-line")]
+    [Order(0)]
+    public async Task Golden_input_added_to_a_batch_issues_the_php_xml_and_code(string type, string goldenCase)
+    {
+        var caseDir = Path.Combine(GoldenRoot(), type, goldenCase);
+        var content = new ByteArrayContent(File.ReadAllBytes(Path.Combine(caseDir, "input.json")));
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+
+        using var response = await Golden.Client.PostAsync($"/api/ubl2.1/add-to-batch/{type}/lote-golden", content);
+
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), body);
+        using var json = JsonDocument.Parse(body);
+        var root = json.RootElement;
+        var expected = Encoding.UTF8.GetString(File.ReadAllBytes(Path.Combine(caseDir, "expected.xml")));
+        var unsigned = Encoding.UTF8.GetString(Convert.FromBase64String(root.GetProperty("unsignedinvoicexml").GetString()!));
+        var documentId = root.GetProperty("document").GetProperty("id").GetGuid();
+        var stored = await StoredSignedXmlAsync(documentId);
+        await using var scope = DocumentIssueHost.Api.OpenScope(null, null, ActorType.System);
+        var row = await CompanyApiTests.Rows<Document>(scope.Db, Golden.CompanyId).SingleAsync(document => document.Id == documentId);
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.GetProperty("cufe").GetString(), Is.EqualTo(File.ReadAllText(Path.Combine(caseDir, "expected.cufe")).Trim()));
+            Assert.That(unsigned, Is.EqualTo(expected.Replace(SignatureSlotInFixture, "<ext:ExtensionContent/>", StringComparison.Ordinal)));
+            Assert.That(SignatureElement().Replace(stored, ""), Is.EqualTo(expected), "Stored signed XML without its signature.");
+            Assert.That(Verifies(stored), Is.True, "SignedXml verification of the stored XML.");
+            Assert.That((row.Status, row.BatchId), Is.EqualTo((DocumentStatus.Queued, (Guid?)root.GetProperty("document").GetProperty("batch_id").GetGuid())));
+        });
+    }
+
     // Supuesto B8: la nota golden referencia la factura golden SETP990000001 por su CUFE, así que queda enlazada.
     [Test]
     [Order(2)]

@@ -75,7 +75,7 @@ internal sealed class SendDocumentToDianHandler(
             return;
         }
 
-        var kind = FileKindOf(document);
+        var kind = DianFileCounters.KindOf(document);
         var signedXml = await store.ReadFileAsync(companyId, document.Id, DocumentFileKind.SignedXml, ct)
             ?? throw new PermanentOutboxFailureException($"Document {document.Id} has no signed XML.");
         var issuer = await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct)
@@ -100,7 +100,7 @@ internal sealed class SendDocumentToDianHandler(
         await using (var transaction = await unitOfWork.BeginTransactionAsync(ct))
         {
             var year = ColombiaTime.Today(startedAt).Year;
-            var counter = await TakeFileCounterAsync(companyId, kind, year, ct);
+            var counter = await DianFileCounters.TakeAsync(numbering, unitOfWork, companyId, DianFileNames.Prefix(kind), year, ct);
             var entry = DianFileNames.XmlEntry(kind, issuer.Company.IdentificationNumber, year, counter);
             zip = DianZip.Create(entry, signedXml, ColombiaTime.Local(startedAt));
             submission = await delivery.BeginAsync(document, operation, zipKey: null, zip, ct);
@@ -246,14 +246,27 @@ internal sealed class SendDocumentToDianHandler(
         }
     }
 
+}
+
+/// <summary>
+/// The consecutives of the DIAN file names of a company (supuesto C2; annex 1.9, sections 6.7 and 6.8): one per XML prefix
+/// (<c>fv</c>, <c>nc</c>, <c>nd</c>, <c>dse</c>, <c>nds</c>) and one for the ZIP packages (<c>z</c>), each restarting every
+/// year. A single send and a batch take them through here, so they never repeat a name.
+/// </summary>
+internal static class DianFileCounters
+{
+    /// <summary>Prefix of the counter of the ZIP packages sent in a batch (annex 1.9, section 6.8).</summary>
+    public const string ZipPrefix = "z";
+
     /// <summary>
-    /// Siguiente número del consecutivo de nombres de archivo de la empresa para ese tipo y año (supuesto C2). El
+    /// Siguiente número del consecutivo de nombres de archivo de la empresa para ese prefijo y año (supuesto C2). El
     /// primer envío del año crea el consecutivo en 1; si dos envíos lo crean a la vez, uno choca con el índice único y
     /// su mensaje se reintenta.
     /// </summary>
-    private async Task<long> TakeFileCounterAsync(Guid companyId, DianFileKind kind, int year, CancellationToken ct)
+    public static async Task<long> TakeAsync(
+        INumberingSequences numbering, IUnitOfWork unitOfWork, Guid companyId, string filePrefix, int year, CancellationToken ct)
     {
-        var scopeKey = NumberingScope.ForDianFile(FilePrefixOf(kind), year);
+        var scopeKey = NumberingScope.ForDianFile(filePrefix, year);
         if (await numbering.TakeNextAsync(companyId, scopeKey, ct) is { } taken)
         {
             return taken;
@@ -265,7 +278,7 @@ internal sealed class SendDocumentToDianHandler(
             ?? throw new InvalidOperationException($"The file name sequence {scopeKey} was not created.");
     }
 
-    private static DianFileKind FileKindOf(Document document) => document.DocumentTypeId switch
+    public static DianFileKind KindOf(Document document) => document.DocumentTypeId switch
     {
         // Factura de venta nacional, de exportación y de contingencia (tipos 03 y 04).
         1 or 2 or DocumentFamilies.ContingencyInvoiceType or DocumentFamilies.DianContingencyInvoiceType => DianFileKind.Invoice,
@@ -276,6 +289,4 @@ internal sealed class SendDocumentToDianHandler(
         _ => throw new PermanentOutboxFailureException(
             $"Document {document.Id} has type {document.DocumentTypeId}, which is not sent to the DIAN yet."),
     };
-
-    private static string FilePrefixOf(DianFileKind kind) => DianFileNames.Prefix(kind);
 }

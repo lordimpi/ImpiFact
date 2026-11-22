@@ -203,7 +203,7 @@ internal sealed class EfDocumentStore(ImpiFactDbContext db, IBlobStorage storage
             .FirstOrDefaultAsync(ct);
         return new StoredDocument(
             document.Id, document.DocumentTypeId, document.TypeEnvironmentId, document.ResolutionId, document.Prefix, document.Number,
-            document.FullNumber, document.Status, document.Cufe, document.UuidAlgorithm, requestHash);
+            document.FullNumber, document.Status, document.Cufe, document.UuidAlgorithm, requestHash, document.BatchId);
     }
 }
 

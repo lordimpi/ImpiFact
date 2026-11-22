@@ -51,6 +51,7 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
         builder.ReferencesInCompany<Document, Resolution>(nameof(Document.ResolutionId));
         builder.ReferencesInCompany<Document, Customer>(nameof(Document.CustomerId));
         builder.ReferencesInCompany<Document, Document>(nameof(Document.ReferenceDocumentId));
+        builder.ReferencesInCompany<Document, DocumentBatch>(nameof(Document.BatchId));
 
         builder.HasIndex(
                 document => new { document.CompanyId, document.DocumentTypeId, document.TypeEnvironmentId, document.Prefix, document.Number }).HasDatabaseName("ux_documents_number")
@@ -65,6 +66,30 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
             .IsDescending(false, false, true);
         builder.HasIndex(document => document.TrackId).HasDatabaseName("ix_documents_track")
             .HasPortableFilter(PortableIndexFilterKind.WhereNotNull, "track_id");
+        builder.HasIndex(document => new { document.CompanyId, document.BatchId }).HasDatabaseName("ix_documents_batch");
+    }
+}
+
+/// <summary>Batches sent with SendBillAsync (phase 7a, T8); the documents point to them with (company_id, batch_id).</summary>
+internal sealed class DocumentBatchConfiguration : IEntityTypeConfiguration<DocumentBatch>
+{
+    public void Configure(EntityTypeBuilder<DocumentBatch> builder)
+    {
+        builder.ToTable("document_batches");
+        builder.Property(batch => batch.Name).HasMaxLength(DocumentBatch.MaxNameLength);
+        builder.Property(batch => batch.ZipFileName).HasMaxLength(100);
+        builder.Property(batch => batch.ZipKey).HasMaxLength(64);
+        builder.Property(batch => batch.Entries).HasJsonConversion();
+        builder.Property(batch => batch.DianStatusCode).HasMaxLength(10);
+        builder.Property(batch => batch.DianStatusDescription).HasMaxLength(500);
+        builder.Property(batch => batch.ErrorMessages).HasJsonConversion();
+        builder.Property(batch => batch.ZipFileKey).HasMaxLength(500);
+        builder.Property(batch => batch.ResponseFileKey).HasMaxLength(500);
+        builder.HasCompanyScopedKey();
+        builder.BelongsToCompany();
+        builder.References<DocumentBatch, TypeEnvironment>(batch => batch.TypeEnvironmentId);
+        builder.HasIndex(batch => new { batch.CompanyId, batch.Name }).IsUnique();
+        builder.HasIndex(batch => new { batch.CompanyId, batch.CreatedAt }).IsDescending(false, true);
     }
 }
 

@@ -62,6 +62,9 @@ public static class ApplicationServiceCollectionExtensions
         // Piezas comunes de los handlers que hablan con la DIAN (envío y consulta de estado).
         services.TryAddScoped<DianDelivery>();
 
+        // The same pieces for the batches sent with SendBillAsync and followed with GetStatusZip (phase 7a, T8).
+        services.TryAddScoped<Features.Documents.Batches.BatchDelivery>();
+
         // Elige el servidor de correo de la empresa o el de la plataforma para el correo del documento (SendEmail).
         services.TryAddScoped<MailServerSelector>();
         return services;

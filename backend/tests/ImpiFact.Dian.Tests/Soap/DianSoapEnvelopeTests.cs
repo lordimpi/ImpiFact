@@ -34,6 +34,8 @@ public class DianSoapEnvelopeTests
         yield return new TestCaseData(BillSync, "SendBillSync").SetArgDisplayNames("SendBillSync");
         yield return new TestCaseData(new SendTestSetAsyncRequest("SETP990000001.xml", "UEsDBAo=", "test-set-id"), "SendTestSetAsync")
             .SetArgDisplayNames("SendTestSetAsync");
+        yield return new TestCaseData(new SendBillAsyncRequest("z09000000010002600000001.zip", "UEsDBAo="), "SendBillAsync")
+            .SetArgDisplayNames("SendBillAsync");
         yield return new TestCaseData(new GetStatusRequest("cufe-1"), "GetStatus").SetArgDisplayNames("GetStatus");
         yield return new TestCaseData(new GetStatusZipRequest("zip-key-1"), "GetStatusZip").SetArgDisplayNames("GetStatusZip");
         yield return new TestCaseData(new GetNumberingRangeRequest("900000001", "900000001", "software-1"), "GetNumberingRange")

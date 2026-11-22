@@ -31,6 +31,9 @@ public sealed class IssueHarness : IDisposable
 
     public FakePlanGate Plans { get; } = new();
 
+    /// <summary>Batches of the phase 7a, T8: none unless a test adds one.</summary>
+    public FakeDocumentBatches Batches { get; } = new();
+
     public IssueClock Clock { get; } = new(Now);
 
     public IssuerResolution InvoiceResolution { get; } = new(
@@ -147,31 +150,31 @@ public sealed class IssueHarness : IDisposable
         return kind switch
         {
             "invoice" => await Run(new IssueInvoiceCommandValidator(), new IssueInvoiceCommand(body!, json, idempotencyKey, testSetId),
-                new IssueInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             "invoice-aiu" => await Run(new IssueAiuInvoiceCommandValidator(), new IssueAiuInvoiceCommand(body!, json, idempotencyKey, testSetId),
-                new IssueAiuInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueAiuInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             "invoice-mandate" => await Run(new IssueMandateInvoiceCommandValidator(), new IssueMandateInvoiceCommand(body!, json, idempotencyKey, testSetId),
-                new IssueMandateInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueMandateInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             "invoice-transport" => await Run(new IssueTransportInvoiceCommandValidator(), new IssueTransportInvoiceCommand(body!, json, idempotencyKey, testSetId),
-                new IssueTransportInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueTransportInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             "invoice-export" => await Run(new IssueExportInvoiceCommandValidator(), new IssueExportInvoiceCommand(body!, json, idempotencyKey, testSetId),
-                new IssueExportInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueExportInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             "invoice-contingency" => await Run(new IssueContingencyInvoiceCommandValidator(),
                 new IssueContingencyInvoiceCommand(body!, json, idempotencyKey, testSetId),
-                new IssueContingencyInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueContingencyInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             "invoice-contingency-4" => await Run(new IssueDianContingencyInvoiceCommandValidator(),
                 new IssueDianContingencyInvoiceCommand(body!, json, idempotencyKey),
-                new IssueDianContingencyInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueDianContingencyInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             "support-document" => await Run(new IssueSupportDocumentCommandValidator(),
                 new IssueSupportDocumentCommand(body!, json, idempotencyKey, testSetId),
-                new IssueSupportDocumentHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueSupportDocumentHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             "sd-credit-note" => await Run(new IssueSupportDocumentAdjustmentNoteCommandValidator(),
                 new IssueSupportDocumentAdjustmentNoteCommand(body!, json, idempotencyKey, testSetId),
-                new IssueSupportDocumentAdjustmentNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueSupportDocumentAdjustmentNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             "credit-note" => await Run(new IssueCreditNoteCommandValidator(), new IssueCreditNoteCommand(body!, json, idempotencyKey, testSetId),
-                new IssueCreditNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueCreditNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
             _ => await Run(new IssueDebitNoteCommandValidator(), new IssueDebitNoteCommand(body!, json, idempotencyKey, testSetId),
-                new IssueDebitNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+                new IssueDebitNoteHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock, Batches).HandleAsync),
         };
     }
 

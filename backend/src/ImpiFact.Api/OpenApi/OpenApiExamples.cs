@@ -157,6 +157,19 @@ internal static class OpenApiExamples
         Golden("credit-note/without-reference-invoice-period", "Rebaja sin factura de referencia, por periodo (`invoice_period`)"),
     ];
 
+    /// <summary>
+    /// Bodies for <c>addDocumentToBatch</c>: the simple invoice without <c>number</c> (type <c>invoice</c>) and the credit note
+    /// without a reference invoice (type <c>credit-note</c>), so both go in the same batch.
+    /// </summary>
+    public static IReadOnlyList<RequestExample> BatchDocuments { get; } =
+    [
+        Variant("batch-invoice", "type invoice: la factura simple, sin `number`", _ => { }),
+        Golden("credit-note/without-reference-invoice-period", "type credit-note: rebaja sin factura de referencia, por periodo") with
+        {
+            Name = "batch-credit-note",
+        },
+    ];
+
     public static IReadOnlyList<RequestExample> DebitNotes { get; } =
     [
         Golden("debit-note/price-adjustment-with-reference", "Ajuste de precio de la factura SETP990000001",

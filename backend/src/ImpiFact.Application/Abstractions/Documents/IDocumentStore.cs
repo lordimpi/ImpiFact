@@ -48,6 +48,7 @@ public sealed record DocumentGraph(
 /// SHA-256 (huella del contenido) de la solicitud guardada (<c>document_files</c> de tipo solicitud); nulo si no
 /// se guardó. Sirve para saber si una solicitud repetida es la misma.
 /// </param>
+/// <param name="BatchId">Batch the document was issued into (phase 7a, T8); null for a document sent on its own.</param>
 public sealed record StoredDocument(
     Guid Id,
     int DocumentTypeId,
@@ -59,4 +60,5 @@ public sealed record StoredDocument(
     DocumentStatus Status,
     string? Cufe,
     string? UuidAlgorithm,
-    string? RequestSha256);
+    string? RequestSha256,
+    Guid? BatchId = null);
