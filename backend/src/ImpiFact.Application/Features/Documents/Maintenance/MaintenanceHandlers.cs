@@ -30,7 +30,7 @@ internal sealed class RegeneratePdfHandler(IDocumentLookups lookups, IOutbox out
             return DocumentErrors.NotFound;
         }
 
-        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request, ct);
+        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request.DocumentId, ct);
         if (!found.IsSuccess)
         {
             return found.Error;
@@ -60,7 +60,7 @@ internal sealed class RegenerateAttachedDocumentHandler(
             return DocumentErrors.NotFound;
         }
 
-        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request, ct);
+        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request.DocumentId, ct);
         if (!found.IsSuccess)
         {
             return found.Error;
@@ -104,7 +104,7 @@ internal sealed class SendDocumentEmailHandler(
             return DocumentErrors.NotFound;
         }
 
-        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request, ct);
+        var found = await DocumentSelection.FindAcceptedAsync(lookups, companyId, request.DocumentId, ct);
         if (!found.IsSuccess || await documents.FindForUpdateAsync(companyId, found.Value.Id, ct) is not { } document)
         {
             return found.IsSuccess ? DocumentErrors.NotFound : found.Error;

@@ -15,7 +15,7 @@ namespace ImpiFact.Integration.Tests.DocumentIssue;
 
 /// <summary>
 /// AIU, mandate and freight transport invoices through the real API and PostgreSQL (phase 7a, T2): the
-/// <c>/api/v1/documents/invoices/{variant}</c> routes and their PHP aliases, the fixed operation, the shared invoice
+/// <c>/api/v1/documents/invoices/{variant}</c> routes, the fixed operation, the shared invoice
 /// numbering, the invoice plan quota and the isolation between companies.
 /// </summary>
 [Category("Integration")]
@@ -49,19 +49,6 @@ public sealed class InvoiceVariantIssueApiTests
         var document = await SingleDocumentAsync(issuer);
         Assert.That((document.DocumentTypeId, document.TypeOperationId, document.Status), Is.EqualTo((1, operation, DocumentStatus.Queued)));
         Assert.That(document.Extensions?["variant"]?.GetValue<string>(), Is.EqualTo(golden["invoice-".Length..]));
-    }
-
-    [TestCase("invoice-aiu")]
-    [TestCase("invoice-mandate")]
-    [TestCase("invoice-transport")]
-    public async Task The_php_route_of_the_variant_issues_it_too(string golden)
-    {
-        using var issuer = await NewIssuerAsync();
-
-        using var response = await PostAsync(issuer.Client, $"/api/ubl2.1/{golden}", Body(golden));
-
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
-        Assert.That((await SingleDocumentAsync(issuer)).DocumentTypeId, Is.EqualTo(1));
     }
 
     // php-rules 9.2, item 7: the PHP answered 500 to any type_operation_id; ImpiFact answers 422 to another operation.

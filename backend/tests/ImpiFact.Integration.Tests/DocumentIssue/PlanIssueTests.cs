@@ -212,7 +212,7 @@ public sealed class PlanIssueTests
     {
         var content = new ByteArrayContent(body);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-        return await client.PostAsync($"/api/ubl2.1/{route}", content);
+        return await client.PostAsync(IssueRoutes.Of(route), content);
     }
 
     private static byte[] Body(string caseDir) => File.ReadAllBytes(Path.Combine(caseDir, "input.json"));

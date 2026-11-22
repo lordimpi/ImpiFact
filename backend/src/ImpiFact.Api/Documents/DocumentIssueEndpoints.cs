@@ -15,10 +15,9 @@ namespace ImpiFact.Api.Documents;
 /// sus totales antes de emitir (<c>POST /api/v1/documents/calculate</c>) y la vista previa del PDF de la factura y de las
 /// notas (<c>POST /api/v1/documents/invoices/preview</c>, <c>credit-notes/preview</c> y <c>debit-notes/preview</c>). Todas
 /// piden el alcance
-/// <c>documents:write</c>; la empresa es siempre la de la credencial, porque el cuerpo heredado no trae el NIT del
-/// emisor. Las rutas heredadas <c>/api/ubl2.1/...</c> y sus variantes con <c>{testSetId}</c> (set de pruebas de
-/// habilitación) usan el mismo caso de uso que las canónicas de <c>/api/v1/documents</c>. El encabezado
-/// <c>Idempotency-Key</c> es opcional. Cada endpoint solo lee el cuerpo, arma la solicitud, llama al caso de uso y
+/// <c>documents:write</c>; la empresa es siempre la de la credencial, porque el cuerpo (con la forma del PHP) no trae el
+/// NIT del emisor. Las variantes con <c>test-set/{testSetId}</c> envían al set de pruebas de habilitación. Las rutas
+/// heredadas <c>/api/ubl2.1/...</c> se borraron en la fase 7a (T9b2). El encabezado <c>Idempotency-Key</c> es opcional. Cada endpoint solo lee el cuerpo, arma la solicitud, llama al caso de uso y
 /// traduce el resultado.
 /// </summary>
 internal sealed class DocumentIssueEndpoints : IEndpointModule
@@ -50,36 +49,6 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // Contrato heredado del PHP: sigue activo para la colección Postman, fuera de la documentación; se borra en la fase 7.
-        var legacy = endpoints.MapGroup("/api/ubl2.1").WithTags(ApiTags.Documents)
-            .RequireAuthorization(ApiScopes.DocumentsWrite).ExcludeFromDescription();
-        // El testSetId que da la DIAN es un GUID: así otra ruta del PHP con la misma forma (por ejemplo la vista previa
-        // invoice/preeliminar-view) no se toma por un envío al set de pruebas.
-        legacy.MapPost("/invoice", Invoice);
-        legacy.MapPost("/invoice/{testSetId:guid}", Invoice);
-        legacy.MapPost("/invoice-aiu", AiuInvoice);
-        legacy.MapPost("/invoice-aiu/{testSetId:guid}", AiuInvoice);
-        legacy.MapPost("/invoice-mandate", MandateInvoice);
-        legacy.MapPost("/invoice-mandate/{testSetId:guid}", MandateInvoice);
-        legacy.MapPost("/invoice-transport", TransportInvoice);
-        legacy.MapPost("/invoice-transport/{testSetId:guid}", TransportInvoice);
-        legacy.MapPost("/invoice-export", ExportInvoice);
-        legacy.MapPost("/invoice-export/{testSetId:guid}", ExportInvoice);
-        legacy.MapPost("/invoice-contingency", ContingencyInvoice);
-        legacy.MapPost("/invoice-contingency/{testSetId:guid}", ContingencyInvoice);
-        legacy.MapPost("/invoice-contingency-4", DianContingencyInvoice);
-        legacy.MapPost("/invoice-contingency-4/send_pendings", SendPendingContingency);
-        legacy.MapPost("/invoice-contingency-4/send_pendings/{prefix}", SendPendingContingency);
-        legacy.MapPost("/invoice-contingency-4/send_pendings/{prefix}/{number}", SendPendingContingency);
-        legacy.MapPost("/credit-note", CreditNote);
-        legacy.MapPost("/credit-note/{testSetId:guid}", CreditNote);
-        legacy.MapPost("/debit-note", DebitNote);
-        legacy.MapPost("/debit-note/{testSetId:guid}", DebitNote);
-        legacy.MapPost("/support-document", SupportDocument);
-        legacy.MapPost("/support-document/{testSetId:guid}", SupportDocument);
-        legacy.MapPost("/sd-credit-note", SupportDocumentAdjustmentNote);
-        legacy.MapPost("/sd-credit-note/{testSetId:guid}", SupportDocumentAdjustmentNote);
-
         var canonical = endpoints.MapGroup("/api/v1/documents").WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsWrite);
         Issue(canonical.MapPost("/invoices", Invoice), OpenApiExamples.Invoices)
             .WithOperationId("issueInvoice")
@@ -482,10 +451,7 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         HttpRequest request, IHandler<IssueDianContingencyInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
         IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueDianContingencyInvoiceCommand(body, raw, key), ct), ct);
 
-    /// <summary>
-    /// <c>prefix</c> and <c>number</c> come from the query in <c>/api/v1</c> and from the path in the PHP alias
-    /// (<c>send_pendings/{prefix}/{number}</c>); the request has no body.
-    /// </summary>
+    /// <summary><c>prefix</c> and <c>number</c> come from the query; the request has no body.</summary>
     private static async Task<IResult> SendPendingContingency(
         string? prefix, string? number, IHandler<SendPendingContingencyInvoicesCommand, SendPendingContingencyInvoicesResponse> handler,
         CancellationToken ct) =>

@@ -15,16 +15,13 @@ namespace ImpiFact.Api.Documents;
 
 /// <summary>
 /// Consultas de documentos (Arquitectura detallada, sección 9.3; anexo A.5.1). Todas piden el alcance
-/// <c>documents:read</c>. Las rutas heredadas <c>/api/information/...</c> y <c>/api/total_documents/...</c> eran
-/// públicas en el PHP; aquí piden credencial y su alias canónico va bajo <c>/api/v1</c> con el mismo caso de uso. El
-/// NIT de la ruta debe ser el de la empresa de la credencial (si no, 403 sin revelar si existe). Cada endpoint solo
+/// <c>documents:read</c>. <c>information</c> y <c>total_documents</c> eran públicas en el PHP (<c>/api/information/...</c>,
+/// borradas en la fase 7a, T9b2); aquí van bajo <c>/api/v1</c> y piden credencial. El NIT de la ruta debe ser el de la
+/// empresa de la credencial (si no, 403 sin revelar si existe). Cada endpoint solo
 /// arma la solicitud, llama al caso de uso y traduce el resultado.
 /// </summary>
 internal sealed class DocumentQueryEndpoints : IEndpointModule
 {
-    /// <summary>Prefijo de las consultas heredadas del PHP, fuera de la documentación; se borran en la fase 7.</summary>
-    private const string LegacyPrefix = "/api";
-
     private const string Dates =
         " `{desde}` y `{hasta}` son fechas `yyyy-MM-dd` en hora de Colombia; con una sola fecha se consulta ese día y, sin " +
         "fechas, todos los documentos.";
@@ -34,56 +31,37 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        foreach (var prefix in new[] { LegacyPrefix, "/api/v1" })
-        {
-            var group = endpoints.MapGroup(prefix).WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsRead);
-            if (prefix == LegacyPrefix)
-            {
-                group.ExcludeFromDescription();
-            }
-
-            group.MapGet("/information/{nit}", Information).Produces<InformationResponse>()
-                .WithOperationId("listValidatedDocuments")
-                .WithSummary("Documentos validados (todos)")
-                .WithDescription(InformationText + Dates + OwnNit);
-            group.MapGet("/information/{nit}/{desde}", Information).Produces<InformationResponse>()
-                .WithOperationId("listValidatedDocumentsOfDay")
-                .WithSummary("Documentos validados de un día")
-                .WithDescription(InformationText + Dates + OwnNit);
-            group.MapGet("/information/{nit}/{desde}/{hasta}", Information).Produces<InformationResponse>()
-                .WithOperationId("listValidatedDocumentsBetween")
-                .WithSummary("Documentos validados entre dos fechas")
-                .WithDescription(InformationText + Dates + OwnNit);
-            group.MapGet("/information/{nit}/page/{page}/page", InformationPage).Produces<InformationResponse>()
-                .WithOperationId("listValidatedDocumentsPage")
-                .WithSummary("Documentos validados por página")
-                .WithDescription(
-                    "Los mismos documentos de `information`, sin filtro de fechas: 100 por tipo y por página, del más antiguo " +
-                    "al más nuevo. `{page}` empieza en 1." + OwnNit);
-            group.MapGet("/total_documents/{nit}", TotalDocuments).Produces<TotalDocumentsResponse>()
-                .WithOperationId("countValidatedDocuments")
-                .WithSummary("Cantidad de documentos validados (todos)")
-                .WithDescription(TotalsText + Dates + OwnNit);
-            group.MapGet("/total_documents/{nit}/{desde}", TotalDocuments).Produces<TotalDocumentsResponse>()
-                .WithOperationId("countValidatedDocumentsOfDay")
-                .WithSummary("Cantidad de documentos validados de un día")
-                .WithDescription(TotalsText + Dates + OwnNit);
-            group.MapGet("/total_documents/{nit}/{desde}/{hasta}", TotalDocuments).Produces<TotalDocumentsResponse>()
-                .WithOperationId("countValidatedDocumentsBetween")
-                .WithSummary("Cantidad de documentos validados entre dos fechas")
-                .WithDescription(TotalsText + Dates + OwnNit);
-        }
-
-        // Contrato del PHP: invoice/current_number/{type}/{prefix?}/{ignore_state_document_id?}.
-        var legacyInvoice = endpoints.MapGroup("/api/ubl2.1/invoice").WithTags(ApiTags.Documents)
-            .RequireAuthorization(ApiScopes.DocumentsRead).ExcludeFromDescription();
-        legacyInvoice.MapGet("/current_number/{type:int}", CurrentNumber);
-        legacyInvoice.MapGet("/current_number/{type:int}/{prefix}", CurrentNumber);
-        legacyInvoice.MapGet("/current_number/{type:int}/{prefix}/{ignore}", CurrentNumber);
-
-        // Contrato del PHP: next-consecutive con {type_document_id, prefix}; la misma regla de current_number.
-        endpoints.MapPost("/api/ubl2.1/next-consecutive", NextConsecutive).WithTags(ApiTags.Documents)
-            .RequireAuthorization(ApiScopes.DocumentsRead).ExcludeFromDescription();
+        var group = endpoints.MapGroup("/api/v1").WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsRead);
+        group.MapGet("/information/{nit}", Information).Produces<InformationResponse>()
+            .WithOperationId("listValidatedDocuments")
+            .WithSummary("Documentos validados (todos)")
+            .WithDescription(InformationText + Dates + OwnNit);
+        group.MapGet("/information/{nit}/{desde}", Information).Produces<InformationResponse>()
+            .WithOperationId("listValidatedDocumentsOfDay")
+            .WithSummary("Documentos validados de un día")
+            .WithDescription(InformationText + Dates + OwnNit);
+        group.MapGet("/information/{nit}/{desde}/{hasta}", Information).Produces<InformationResponse>()
+            .WithOperationId("listValidatedDocumentsBetween")
+            .WithSummary("Documentos validados entre dos fechas")
+            .WithDescription(InformationText + Dates + OwnNit);
+        group.MapGet("/information/{nit}/page/{page}/page", InformationPage).Produces<InformationResponse>()
+            .WithOperationId("listValidatedDocumentsPage")
+            .WithSummary("Documentos validados por página")
+            .WithDescription(
+                "Los mismos documentos de `information`, sin filtro de fechas: 100 por tipo y por página, del más antiguo " +
+                "al más nuevo. `{page}` empieza en 1." + OwnNit);
+        group.MapGet("/total_documents/{nit}", TotalDocuments).Produces<TotalDocumentsResponse>()
+            .WithOperationId("countValidatedDocuments")
+            .WithSummary("Cantidad de documentos validados (todos)")
+            .WithDescription(TotalsText + Dates + OwnNit);
+        group.MapGet("/total_documents/{nit}/{desde}", TotalDocuments).Produces<TotalDocumentsResponse>()
+            .WithOperationId("countValidatedDocumentsOfDay")
+            .WithSummary("Cantidad de documentos validados de un día")
+            .WithDescription(TotalsText + Dates + OwnNit);
+        group.MapGet("/total_documents/{nit}/{desde}/{hasta}", TotalDocuments).Produces<TotalDocumentsResponse>()
+            .WithOperationId("countValidatedDocumentsBetween")
+            .WithSummary("Cantidad de documentos validados entre dos fechas")
+            .WithDescription(TotalsText + Dates + OwnNit);
 
         var documents = endpoints.MapGroup("/api/v1/documents").WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsRead);
         documents.MapGet("/current-number/{type:int}", (int type, [FromQuery(Name = "prefix")] string? prefix,
@@ -195,10 +173,6 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
     private static async Task<IResult> CurrentNumber(
         int type, string? prefix, IHandler<GetCurrentNumberQuery, CurrentNumberResponse> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new GetCurrentNumberQuery(type, prefix), ct)).ToHttpResult();
-
-    private static async Task<IResult> NextConsecutive(
-        GetNextConsecutiveQuery body, IHandler<GetNextConsecutiveQuery, NextConsecutiveResponse> handler, CancellationToken ct) =>
-        (await handler.HandleAsync(body, ct)).ToHttpResult();
 
     private static async Task<IResult> Information(
         string nit, string? desde, string? hasta, IHandler<GetInformationQuery, InformationResponse> handler, CancellationToken ct) =>

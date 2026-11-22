@@ -128,12 +128,6 @@ public sealed class RegeneratePdfOutboxHandlerTests
 
         public Task<DocumentRef?> FindByCufeAsync(Guid companyId, string cufe, CancellationToken ct) => throw new NotSupportedException();
 
-        public Task<DocumentRef?> FindByNumberAsync(Guid companyId, string prefix, long number, CancellationToken ct) =>
-            throw new NotSupportedException();
-
-        public Task<DocumentRef?> FindByFullNumberAsync(
-            Guid companyId, string fullNumber, IReadOnlyCollection<int> documentTypeIds, CancellationToken ct) => throw new NotSupportedException();
-
         public Task<byte[]?> LatestDianAnswerAsync(Guid companyId, Guid documentId, CancellationToken ct) => throw new NotSupportedException();
 
         public Task<ZipAnswer?> FindZipAnswerAsync(Guid companyId, string zipKey, CancellationToken ct) => throw new NotSupportedException();

@@ -34,7 +34,7 @@ internal static class ContingencyDelivery
 
 /// <summary>
 /// <c>POST /api/v1/documents/invoices/dian-contingency/send-pending</c>
-/// (<c>/api/ubl2.1/invoice-contingency-4/send_pendings[/{prefix}[/{number}]]</c>): send now the company's pending invoices
+/// (the PHP's <c>invoice-contingency-4/send_pendings[/{prefix}[/{number}]]</c>): send now the company's pending invoices
 /// type 04 (php-rules 12.3).
 /// </summary>
 /// <param name="Prefix">Only the documents with this prefix; null for all.</param>

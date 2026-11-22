@@ -175,7 +175,7 @@ Las metas numéricas son propuestas iniciales y quedan para validar en la secci�
 | RNF-09 | Auditoría | Registro de quién cambió certificados, resoluciones y configuración | Toda operación sensible queda registrada |
 | RNF-10 | Mantenibilidad | Clean Architecture, reglas de dependencia verificadas con pruebas de arquitectura | Domain sin referencias externas |
 | RNF-11 | Calidad | Pruebas unitarias, de integración con Testcontainers y golden tests contra el PHP | Cobertura: Domain y Dian ≥ 90 %, Application ≥ 80 % |
-| RNF-12 | Compatibilidad | Mismas rutas y formato JSON del API actual en `/api/ubl2.1/...` | Colección Postman oficial en verde |
+| RNF-12 | Compatibilidad | Mismo formato JSON del API actual (cuerpos y respuestas del PHP) en las rutas `/api/v1`. Las rutas heredadas `/api/ubl2.1/...` sirvieron de alias hasta cumplir la puerta y se borraron en la fase 7a (S2.7) | Colección Postman oficial (Community) en verde: cumplido el 22-nov-2026 (45 bien, 75 diferencias conocidas y decididas, 0 fallas); sus ejemplos de emisión siguen como pruebas de `/api/v1` |
 
 Referencias del PHP actual ([rendimiento](https://manual.facturalatam.com/apidian/rendimiento/)): el grupo `api` admite 60 peticiones por minuto, el correo se envía dentro de la petición, la subida a S3 también, y no hay colas ni envío asíncrono. De ahí salen el diseño asíncrono (RNF-05) y el límite de tasa configurable por API key.
 

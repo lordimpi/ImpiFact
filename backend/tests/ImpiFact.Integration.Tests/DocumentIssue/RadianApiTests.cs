@@ -16,7 +16,7 @@ namespace ImpiFact.Integration.Tests.DocumentIssue;
 /// <summary>
 /// RADIAN through the real API (phase 7a, T6): received invoices loaded from the fake DIAN by their CUFE, the events of the
 /// buyer (030 to 033) with the order rules of Anexo Técnico 1.9, the tacit acceptance (034) of the seller, the quota
-/// <c>qty_docs_radian</c>, the PHP routes and the isolation between companies.
+/// <c>qty_docs_radian</c> and the isolation between companies.
 /// </summary>
 [Category("Integration")]
 public sealed class RadianApiTests
@@ -306,66 +306,18 @@ public sealed class RadianApiTests
     }
 
     [Test]
-    public async Task The_php_routes_load_and_send_by_cufe_and_from_the_attached_document()
+    public async Task The_events_of_a_document_of_another_company_are_not_asked_to_the_dian()
     {
         using var issuer = await NewIssuerAsync();
-        var cufe = NewCufe();
-
-        var (loaded, loadedBody) = await PostAsync(issuer.Client, "/api/load-document-by-cufe", new { cufe, saved = true });
-        var (again, againBody) = await PostAsync(issuer.Client, "/api/load-document-by-cufe", new { cufe });
-        var (sent, sentBody) = await PostAsync(issuer.Client, "/api/ubl2.1/send-event-data", new
-        {
-            event_id = "1", document_reference = new { cufe },
-        });
-
-        var attachedCufe = NewCufe();
-        var attached = Convert.ToBase64String(Encoding.UTF8.GetBytes(RadianReplies.AttachedDocument(RadianReplies.Invoice(issuer.Nit, attachedCufe, "FPRU2002"))));
-        var (fromFile, fromFileBody) = await PostAsync(issuer.Client, "/api/ubl2.1/send-event", new
-        {
-            event_id = 1, base64_attacheddocument = attached, base64_attacheddocument_name = "../../evil.xml",
-        });
-        var (redacted, redactedBody) = await PostAsync(issuer.Client, "/api/ubl2.1/send-event", new
-        {
-            event_id = 1, base64_attacheddocument = "REDACTED_BASE64", base64_attacheddocument_name = "ad.xml",
-        });
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(loaded, Is.EqualTo(200), loadedBody.ToString());
-            Assert.That(loadedBody.GetProperty("message").GetString(), Is.EqualTo("El documento fue cargado y guardado satisfactoriamente."));
-            Assert.That(loadedBody.GetProperty("saved").GetBoolean(), Is.True);
-            Assert.That(againBody.GetProperty("message").GetString(), Is.EqualTo("El documento ya existe en la base de datos."));
-            Assert.That(againBody.GetProperty("already_exists").GetBoolean(), Is.True);
-            Assert.That(again, Is.EqualTo(200));
-            Assert.That(sent, Is.EqualTo(200), sentBody.ToString());
-            Assert.That(sentBody.GetProperty("success").GetBoolean(), Is.True);
-            Assert.That(sentBody.GetProperty("transmitter_id").GetString(), Is.EqualTo(RadianReplies.SellerNit));
-            Assert.That(sentBody.GetProperty("invoice_number").GetString(), Is.EqualTo("FPRU1001"));
-            Assert.That(fromFile, Is.EqualTo(200), fromFileBody.ToString());
-            Assert.That(fromFileBody.GetProperty("invoice_cufe").GetString(), Is.EqualTo(attachedCufe));
-            Assert.That(redacted, Is.EqualTo(422), redactedBody.ToString());
-            Assert.That(redactedBody.GetProperty("message").GetString(), Is.EqualTo("La solicitud tiene datos inválidos."));
-        });
-        Assert.That(await ReceivedCountAsync(issuer), Is.EqualTo(2));
-
-        using var file = await issuer.Client.GetAsync($"/api/receivedfile/{issuer.Nit}/{attachedCufe}.xml");
-        using var foreign = await issuer.Client.GetAsync($"/api/receivedfile/900999999/{attachedCufe}.xml");
-        Assert.That(file.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-        Assert.That(foreign.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
-    }
-
-    [Test]
-    public async Task The_events_of_another_company_cufe_are_not_asked_to_the_dian()
-    {
-        using var issuer = await NewIssuerAsync();
+        using var other = await NewIssuerAsync();
         var id = await LoadAsync(issuer);
-        var (_, document) = await GetAsync(issuer.Client, $"/api/v1/received-documents/{id}");
+        var foreignId = await LoadAsync(other);
         statusEventsReply = () => RadianReplies.StatusEvents(("030", new DateOnly(2026, 1, 12)));
         var before = Dian.Requests.Count;
 
-        var (own, ownBody) = await PostAsync(issuer.Client, $"/api/ubl2.1/status/events-document/{document.GetProperty("cufe").GetString()}", new { });
+        var (own, ownBody) = await GetAsync(issuer.Client, $"/api/v1/received-documents/{id}/dian-events");
         var afterOwn = Dian.Requests.Count;
-        var (foreign, _) = await PostAsync(issuer.Client, $"/api/ubl2.1/status/events-document/{NewCufe()}", new { });
+        var (foreign, _) = await GetAsync(issuer.Client, $"/api/v1/received-documents/{foreignId}/dian-events");
 
         Assert.Multiple(() =>
         {
@@ -437,7 +389,7 @@ public sealed class RadianApiTests
         var body = File.ReadAllBytes(Path.Combine(GoldenIssueTests.GoldenRoot(), "invoice", "single-line-iva19", "input.json"));
         using var content = new ByteArrayContent(body);
         content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
-        using var response = await issuer.Client.PostAsync("/api/ubl2.1/invoice", content);
+        using var response = await issuer.Client.PostAsync("/api/v1/documents/invoices", content);
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
         Guid id;
         using (var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync()))

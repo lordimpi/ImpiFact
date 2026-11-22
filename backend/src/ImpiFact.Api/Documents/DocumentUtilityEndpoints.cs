@@ -15,21 +15,14 @@ namespace ImpiFact.Api.Documents;
 /// <summary>
 /// Rutas utilitarias de documentos de la primera entrega (carpetas 03 «Consultas de estado», 05 «Utilidades» y 10
 /// «Regenerar PDFs» del Postman): estado en la DIAN, XML validado y descargas con el alcance <c>documents:read</c>;
-/// regenerar el PDF o el AttachedDocument y reenviar el correo con <c>documents:write</c>. Las heredadas van bajo
-/// <c>/api/ubl2.1</c> con los mismos verbos del PHP; las canónicas, bajo <c>/api/v1/documents</c>. Ninguna llama a la
-/// DIAN (la autoridad tributaria de Colombia) ni espera al Worker: las consultas responden con lo que guardó el Worker
-/// y las regeneraciones y el correo quedan en la bandeja de salida (decisión C5 de la fase 4). El segmento opcional
-/// <c>{GuardarEn}</c> del PHP (una carpeta del servidor) se acepta y se ignora. Cada endpoint solo arma la solicitud,
-/// llama al caso de uso y traduce el resultado.
+/// regenerar el PDF o el AttachedDocument y reenviar el correo con <c>documents:write</c>, bajo <c>/api/v1/documents</c>
+/// (las heredadas <c>/api/ubl2.1/...</c> se borraron en la fase 7a, T9b2). Ninguna llama a la DIAN (la autoridad
+/// tributaria de Colombia) ni espera al Worker: las consultas responden con lo que guardó el Worker y las regeneraciones
+/// y el correo quedan en la bandeja de salida (decisión C5 de la fase 4). Cada endpoint solo arma la solicitud, llama al
+/// caso de uso y traduce el resultado.
 /// </summary>
 internal sealed class DocumentUtilityEndpoints : IEndpointModule
 {
-    /// <summary><c>type_response</c> de la descarga que responde el archivo en Base64 dentro de un JSON.</summary>
-    public const string Base64Response = "BASE64";
-
-    /// <summary><c>type_response</c> de la descarga que muestra el archivo en el navegador en vez de descargarlo.</summary>
-    public const string InlineResponse = "INLINE";
-
     /// <summary>Regla de las tareas de mantenimiento: se encolan y solo aplican a documentos aceptados.</summary>
     private const string QueuedRules =
         " La respuesta es inmediata: la tarea queda en cola y la hace el Worker. Solo aplica a documentos aceptados por la " +
@@ -37,21 +30,6 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // Contrato heredado del PHP: sigue activo para la colección Postman, fuera de la documentación; se borra en la fase 7.
-        var legacy = endpoints.MapGroup("/api/ubl2.1").WithTags(ApiTags.Documents)
-            .RequireAuthorization(ApiScopes.DocumentsRead).ExcludeFromDescription();
-        legacy.MapPost("/status/document/{trackId}", DocumentStatus);
-        legacy.MapPost("/status/document/{trackId}/{saveIn}", DocumentStatus);
-        legacy.MapPost("/status/zip/{trackId}", ZipStatus);
-        legacy.MapPost("/status/zip/{trackId}/{saveIn}", ZipStatus);
-        legacy.MapPost("/xml/document/{trackId}", DocumentXml);
-        legacy.MapPost("/xml/document/{trackId}/{saveIn}", DocumentXml);
-        legacy.MapGet("/download/{nit}/{file}/{typeResponse?}", Download);
-
-        // El PHP también publicaba la descarga fuera de /ubl2.1.
-        endpoints.MapGet("/api/download/{nit}/{file}/{typeResponse?}", Download).WithTags(ApiTags.Documents)
-            .RequireAuthorization(ApiScopes.DocumentsRead).ExcludeFromDescription();
-
         var canonical = endpoints.MapGroup("/api/v1/documents").WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsRead);
         canonical.MapGet("/by-cufe/{trackId}/dian-status", DocumentStatus)
             .Produces<DianStatusResponse>()
@@ -100,22 +78,9 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
                 "la DIAN), responde 422 (`documents.pdf_missing`) con sus números. Si el conversor de PDF no responde: 503 " +
                 "(`pdf.unavailable`, reintente después de `Retry-After`).");
 
-        var legacyWrite = endpoints.MapGroup("/api/ubl2.1").WithTags(ApiTags.Documents)
-            .RequireAuthorization(ApiScopes.DocumentsWrite).ExcludeFromDescription();
-        legacyWrite.MapPost("/regeneratepdf", (RegeneratePdfCommand body, IHandler<RegeneratePdfCommand, MaintenanceQueuedResponse> handler,
-            CancellationToken ct) => Queue(body with { DocumentId = null }, handler, ct));
-        legacyWrite.MapPost("/regeneratepdf/{prefix}/{number}/{cufe}", (string prefix, string number, string cufe,
-            IHandler<RegeneratePdfCommand, MaintenanceQueuedResponse> handler, CancellationToken ct) =>
-            Queue(new RegeneratePdfCommand { Prefix = prefix, Number = new LegacyScalar(number, LegacyScalarKind.String), Cufe = cufe }, handler, ct));
-        legacyWrite.MapPost("/regenerate-attached-document", (RegenerateAttachedDocumentCommand body,
-            IHandler<RegenerateAttachedDocumentCommand, MaintenanceQueuedResponse> handler, CancellationToken ct) =>
-            Queue(body with { DocumentId = null }, handler, ct));
-        legacyWrite.MapPost("/send-email", (SendDocumentEmailCommand body, IHandler<SendDocumentEmailCommand, MaintenanceQueuedResponse> handler,
-            CancellationToken ct) => Queue(body with { DocumentId = null }, handler, ct));
-
         var canonicalWrite = endpoints.MapGroup("/api/v1/documents").WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsWrite);
         canonicalWrite.MapPost("/{id:guid}/pdf/regenerate", (Guid id, IHandler<RegeneratePdfCommand, MaintenanceQueuedResponse> handler,
-            CancellationToken ct) => Queue(new RegeneratePdfCommand { DocumentId = id }, handler, ct))
+            CancellationToken ct) => Queue(new RegeneratePdfCommand(id), handler, ct))
             .Produces<MaintenanceQueuedResponse>()
             .WithOperationId("regenerateDocumentPdf")
             .WithSummary("Regenerar el PDF")
@@ -124,7 +89,7 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
                 "descargas entregan la más reciente." + QueuedRules);
         canonicalWrite.MapPost("/{id:guid}/attached-document/regenerate", (Guid id,
             IHandler<RegenerateAttachedDocumentCommand, MaintenanceQueuedResponse> handler, CancellationToken ct) =>
-            Queue(new RegenerateAttachedDocumentCommand { DocumentId = id }, handler, ct))
+            Queue(new RegenerateAttachedDocumentCommand(id), handler, ct))
             .Produces<MaintenanceQueuedResponse>()
             .WithOperationId("regenerateAttachedDocument")
             .WithSummary("Regenerar el AttachedDocument")
@@ -134,7 +99,7 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
                 "(`document.application_response_missing`); sin certificado activo para firmar: 422 (`certificate.missing`)." +
                 QueuedRules);
         canonicalWrite.MapPost("/{id:guid}/email", (Guid id, IHandler<SendDocumentEmailCommand, MaintenanceQueuedResponse> handler,
-            CancellationToken ct) => Queue(new SendDocumentEmailCommand { DocumentId = id }, handler, ct))
+            CancellationToken ct) => Queue(new SendDocumentEmailCommand(id), handler, ct))
             .Produces<MaintenanceQueuedResponse>()
             .WithOperationId("resendDocumentEmail")
             .WithSummary("Reenviar el correo al comprador")
@@ -166,28 +131,10 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
         string trackId, IHandler<GetDocumentXmlQuery, DocumentXmlResponse> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new GetDocumentXmlQuery(trackId), ct)).ToHttpResult();
 
-    private static async Task<IResult> Download(
-        string nit, string file, string? typeResponse, IHandler<DownloadDocumentFileQuery, DocumentFileContent> handler, CancellationToken ct) =>
-        FileResult(await handler.HandleAsync(new DownloadDocumentFileQuery(nit, file), ct), typeResponse);
-
     private static async Task<IResult> DownloadById(
         Guid id, string kind, IHandler<DownloadDocumentFileByIdQuery, DocumentFileContent> handler, CancellationToken ct) =>
-        FileResult(await handler.HandleAsync(new DownloadDocumentFileByIdQuery(id, kind), ct), typeResponse: null);
+        FileResult(await handler.HandleAsync(new DownloadDocumentFileByIdQuery(id, kind), ct));
 
-    /// <summary>
-    /// Como el PHP: con <c>BASE64</c>, un JSON con el archivo en Base64; con <c>INLINE</c>, el archivo para verlo en el
-    /// navegador; si no, el archivo como descarga con su nombre.
-    /// </summary>
-    private static IResult FileResult(Result<DocumentFileContent> result, string? typeResponse) => result.ToHttpResult(file => typeResponse switch
-    {
-        Base64Response => TypedResults.Ok(new DownloadBase64Response(true, $"Archivo: {file.FileName} se encontro.", Convert.ToBase64String(file.Content))),
-        InlineResponse => TypedResults.File(file.Content, file.ContentType),
-        _ => TypedResults.File(file.Content, file.ContentType, file.FileName),
-    });
+    private static IResult FileResult(Result<DocumentFileContent> result) =>
+        result.ToHttpResult(file => TypedResults.File(file.Content, file.ContentType, file.FileName));
 }
-
-/// <summary>Respuesta de la descarga con <c>type_response</c> <c>BASE64</c>, con los campos del PHP.</summary>
-internal sealed record DownloadBase64Response(
-    [property: System.Text.Json.Serialization.JsonPropertyName("success")] bool Success,
-    [property: System.Text.Json.Serialization.JsonPropertyName("message")] string Message,
-    [property: System.Text.Json.Serialization.JsonPropertyName("filebase64")] string FileBase64);

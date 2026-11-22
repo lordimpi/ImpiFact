@@ -29,7 +29,7 @@ public sealed class CompanyApiTests
         var (nit, dv) = CompaniesHost.NewNit();
         using var platform = await PlatformClientAsync();
 
-        using var response = await platform.PostAsJsonAsync($"/api/ubl2.1/config/{nit}/{dv}", CompanyBody(nit));
+        using var response = await platform.PostAsJsonAsync($"/api/v1/companies/{nit}/{dv}", CompanyBody(nit));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), ServerErrors);
         using var json = await Json(response);
@@ -66,7 +66,7 @@ public sealed class CompanyApiTests
         }
 
         using var company2 = Api.ClientWith(token);
-        using var listing = await company2.GetAsync($"/api/ubl2.1/certificates-listing/{nit}");
+        using var listing = await company2.GetAsync($"/api/v1/companies/{nit}/certificates");
         Assert.That(listing.StatusCode, Is.EqualTo(HttpStatusCode.OK), "The returned key belongs to the new company.");
     }
 
@@ -75,7 +75,7 @@ public sealed class CompanyApiTests
     {
         var (nit, dv) = CompaniesHost.NewNit();
         using var platform = await PlatformClientAsync();
-        (await platform.PostAsJsonAsync($"/api/ubl2.1/config/{nit}/{dv}", CompanyBody(nit))).Dispose();
+        (await platform.PostAsJsonAsync($"/api/v1/companies/{nit}/{dv}", CompanyBody(nit))).Dispose();
 
         using var again = await platform.PostAsJsonAsync($"/api/v1/companies/{nit}/{dv}", CompanyBody(nit, businessName: "NUEVO NOMBRE"));
 
@@ -99,9 +99,9 @@ public sealed class CompanyApiTests
         var (first, firstDv) = CompaniesHost.NewNit();
         var (second, secondDv) = CompaniesHost.NewNit();
         using var platform = await PlatformClientAsync();
-        (await platform.PostAsJsonAsync($"/api/ubl2.1/config/{first}/{firstDv}", CompanyBody(first))).Dispose();
+        (await platform.PostAsJsonAsync($"/api/v1/companies/{first}/{firstDv}", CompanyBody(first))).Dispose();
 
-        using var response = await platform.PostAsJsonAsync($"/api/ubl2.1/config/{second}/{secondDv}", CompanyBody(second, email: $"{first}@example.com"));
+        using var response = await platform.PostAsJsonAsync($"/api/v1/companies/{second}/{secondDv}", CompanyBody(second, email: $"{first}@example.com"));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
         using var json = await Json(response);
@@ -119,7 +119,7 @@ public sealed class CompanyApiTests
         body.Remove("business_name");
         body["municipality_id"] = 999999;
 
-        using var response = await platform.PostAsJsonAsync($"/api/ubl2.1/config/{nit}/{(Application.Features.Companies.Nit.CheckDigit(nit) + 1) % 10}", body);
+        using var response = await platform.PostAsJsonAsync($"/api/v1/companies/{nit}/{(Application.Features.Companies.Nit.CheckDigit(nit) + 1) % 10}", body);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
         using var json = await Json(response);
@@ -146,12 +146,12 @@ public sealed class CompanyApiTests
     }
 
     [Test]
-    public async Task Company_updates_itself_through_the_legacy_route()
+    public async Task Company_updates_itself_with_the_body_of_the_creation()
     {
         var (company, nit) = await CreateCompanyAsync();
 
-        using var response = await company.PostAsJsonAsync(
-            $"/api/ubl2.1/config/{nit}/{Application.Features.Companies.Nit.CheckDigit(nit)}", CompanyBody(nit, businessName: "MI EMPRESA"));
+        using var response = await company.PutAsJsonAsync(
+            $"/api/v1/companies/{nit}/{Application.Features.Companies.Nit.CheckDigit(nit)}", CompanyBody(nit, businessName: "MI EMPRESA"));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
         using var json = await Json(response);
@@ -169,19 +169,19 @@ public sealed class CompanyApiTests
 
         using var existing = await company.PutAsJsonAsync($"/api/v1/companies/{otherNit}/environment", new { factura_ventas = 1 });
         using var missing = await company.PutAsJsonAsync($"/api/v1/companies/{missingNit}/environment", new { factura_ventas = 1 });
-        using var legacyExisting = await company.PostAsJsonAsync($"/api/ubl2.1/config/{otherNit}/{otherDv}", CompanyBody(otherNit));
-        using var legacyMissing = await company.PostAsJsonAsync($"/api/ubl2.1/config/{missingNit}/{missingDv}", CompanyBody(missingNit));
-        using var listing = await company.GetAsync($"/api/ubl2.1/certificates-listing/{otherNit}");
+        using var updateExisting = await company.PutAsJsonAsync($"/api/v1/companies/{otherNit}/{otherDv}", CompanyBody(otherNit));
+        using var updateMissing = await company.PutAsJsonAsync($"/api/v1/companies/{missingNit}/{missingDv}", CompanyBody(missingNit));
+        using var listing = await company.GetAsync($"/api/v1/companies/{otherNit}/certificates");
 
         Assert.Multiple(async () =>
         {
-            foreach (var response in new[] { existing, missing, legacyExisting, legacyMissing, listing })
+            foreach (var response in new[] { existing, missing, updateExisting, updateMissing, listing })
             {
                 Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden), response.RequestMessage!.RequestUri!.ToString());
             }
 
             Assert.That(await Detail(existing), Is.EqualTo(await Detail(missing)));
-            Assert.That(await Detail(legacyExisting), Is.EqualTo(await Detail(legacyMissing)));
+            Assert.That(await Detail(updateExisting), Is.EqualTo(await Detail(updateMissing)));
         });
     }
 
@@ -190,7 +190,7 @@ public sealed class CompanyApiTests
     {
         var (company, nit) = await CreateCompanyAsync();
 
-        using var response = await company.PutAsJsonAsync("/api/ubl2.1/config/software", new { id = "soft-123", pin = 12345, test_set_id = "set-1" });
+        using var response = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/software", new { id = "soft-123", pin = 12345, test_set_id = "set-1" });
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
         var body = await response.Content.ReadAsStringAsync();
@@ -211,9 +211,9 @@ public sealed class CompanyApiTests
     [Test]
     public async Task Software_pin_must_have_5_digits()
     {
-        var (company, _) = await CreateCompanyAsync();
+        var (company, nit) = await CreateCompanyAsync();
 
-        using var response = await company.PutAsJsonAsync("/api/ubl2.1/config/software", new { id = "soft-123", pin = "1234" });
+        using var response = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/software", new { id = "soft-123", pin = "1234" });
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
         using var json = await Json(response);
@@ -225,8 +225,8 @@ public sealed class CompanyApiTests
     {
         var (company, nit) = await CreateCompanyAsync();
 
-        using var withoutSoftware = await company.PutAsJsonAsync("/api/ubl2.1/config/environment", new { factura_ventas = 1 });
-        (await company.PutAsJsonAsync("/api/ubl2.1/config/software", new { id = "soft-123", pin = "12345" })).Dispose();
+        using var withoutSoftware = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/environment", new { factura_ventas = 1 });
+        (await company.PutAsJsonAsync($"/api/v1/companies/{nit}/software", new { id = "soft-123", pin = "12345" })).Dispose();
         using var withSoftware = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/environment", new { factura_ventas = 1 });
 
         Assert.That(withoutSoftware.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
@@ -256,11 +256,11 @@ public sealed class CompanyApiTests
             ["date_from"] = "2019-01-19", ["date_to"] = "2030-01-19",
         };
 
-        using var first = await company.PutAsJsonAsync("/api/ubl2.1/config/resolution", resolution);
+        using var first = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/resolution", resolution);
         resolution["to"] = 996000000;
         using var second = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/resolution", resolution);
         resolution["prefix"] = "SETPX";
-        using var tooLong = await company.PutAsJsonAsync("/api/ubl2.1/config/resolution", resolution);
+        using var tooLong = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/resolution", resolution);
 
         Assert.That(first.StatusCode, Is.EqualTo(HttpStatusCode.OK), await first.Content.ReadAsStringAsync());
         Assert.That(second.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -283,11 +283,11 @@ public sealed class CompanyApiTests
         var valid = TestPfx.Rsa();
         var expired = TestPfx.Rsa(new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero));
 
-        using var wrongPassword = await company.PutAsJsonAsync("/api/ubl2.1/config/certificate",
+        using var wrongPassword = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/certificate",
             new { certificate = Convert.ToBase64String(valid), password = "otra" });
-        using var expiredResponse = await company.PutAsJsonAsync("/api/ubl2.1/config/certificate",
+        using var expiredResponse = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/certificate",
             new { certificate = Convert.ToBase64String(expired), password = TestPfx.Password });
-        using var notBase64 = await company.PutAsJsonAsync("/api/ubl2.1/config/certificate",
+        using var notBase64 = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/certificate",
             new { certificate = "no es base64", password = TestPfx.Password });
 
         Assert.Multiple(async () =>
@@ -308,7 +308,7 @@ public sealed class CompanyApiTests
     {
         var (company, nit) = await CreateCompanyAsync();
 
-        using var response = await company.PutAsJsonAsync("/api/ubl2.1/config/certificate",
+        using var response = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/certificate",
             new { certificate = Convert.ToBase64String(TestPfx.Rsa()), password = TestPfx.Password });
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
@@ -325,7 +325,7 @@ public sealed class CompanyApiTests
         using var platform = await PlatformClientAsync();
 
         var responses = await Task.WhenAll(Enumerable.Range(0, 4)
-            .Select(_ => platform.PostAsJsonAsync($"/api/ubl2.1/config/{nit}/{dv}", CompanyBody(nit))));
+            .Select(_ => platform.PostAsJsonAsync($"/api/v1/companies/{nit}/{dv}", CompanyBody(nit))));
         await using var scope = Api.OpenScope(null, null, ActorType.System);
         var rows = await scope.Db.Set<Company>().IgnoreQueryFilters().CountAsync(company => company.IdentificationNumber == nit);
 
@@ -342,16 +342,16 @@ public sealed class CompanyApiTests
     {
         var (nit, dv) = CompaniesHost.NewNit();
         using var platform = await PlatformClientAsync();
-        using var created = await platform.PostAsJsonAsync($"/api/ubl2.1/config/{nit}/{dv}", CompanyBody(nit));
+        using var created = await platform.PostAsJsonAsync($"/api/v1/companies/{nit}/{dv}", CompanyBody(nit));
         using var createdJson = await Json(created);
         var token = createdJson.RootElement.GetProperty("token").GetString()!;
         using var company = Api.ClientWith(token);
         const string pin = "86420";
         const string password = "clave-del-certificado-77";
 
-        (await company.PutAsJsonAsync("/api/ubl2.1/config/software", new { id = "soft-log", pin })).Dispose();
-        (await company.PutAsJsonAsync("/api/ubl2.1/config/software", new { id = "soft-log", pin = "9" })).Dispose();
-        (await company.PutAsJsonAsync("/api/ubl2.1/config/certificate",
+        (await company.PutAsJsonAsync($"/api/v1/companies/{nit}/software", new { id = "soft-log", pin })).Dispose();
+        (await company.PutAsJsonAsync($"/api/v1/companies/{nit}/software", new { id = "soft-log", pin = "9" })).Dispose();
+        (await company.PutAsJsonAsync($"/api/v1/companies/{nit}/certificate",
             new { certificate = Convert.ToBase64String(TestPfx.Rsa(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero), new DateTimeOffset(2036, 1, 1, 0, 0, 0, TimeSpan.Zero), password)), password })).Dispose();
 
         var logs = string.Join(Environment.NewLine, Api.Logs.Entries);
@@ -369,7 +369,7 @@ public sealed class CompanyApiTests
     {
         var (nit, dv) = CompaniesHost.NewNit();
         using var platform = await PlatformClientAsync();
-        using var response = await platform.PostAsJsonAsync($"/api/ubl2.1/config/{nit}/{dv}", CompanyBody(nit));
+        using var response = await platform.PostAsJsonAsync($"/api/v1/companies/{nit}/{dv}", CompanyBody(nit));
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), ServerErrors);
         using var json = await Json(response);
         return (Api.ClientWith(json.RootElement.GetProperty("token").GetString()!), nit);

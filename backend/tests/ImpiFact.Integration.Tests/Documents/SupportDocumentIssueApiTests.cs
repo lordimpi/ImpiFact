@@ -17,8 +17,8 @@ namespace ImpiFact.Integration.Tests.DocumentIssue;
 
 /// <summary>
 /// Support document and its adjustment note through the real API and PostgreSQL (phase 7a, T4):
-/// <c>/api/v1/documents/support-documents</c> and <c>/support-documents/adjustment-notes</c>, their test-set routes and the
-/// PHP aliases, the support-document software (stored encrypted, used to sign instead of the invoice one), the type 11
+/// <c>/api/v1/documents/support-documents</c> and <c>/support-documents/adjustment-notes</c>, their test-set routes, the
+/// support-document software (stored encrypted, used to sign instead of the invoice one), the type 11
 /// numbering, the <c>qty_docs_ds</c> quota, the listing by kind, the setup status and the isolation between companies.
 /// </summary>
 [Category("Integration")]
@@ -74,28 +74,26 @@ public sealed class SupportDocumentIssueApiTests
         Assert.That(document.CustomerSnapshot.IdentificationNumber, Is.EqualTo("800000003"));
     }
 
-    [TestCase("/api/ubl2.1/support-document")]
-    [TestCase("/api/ubl2.1/support-document/" + TestSetId)]
-    [TestCase(Route + "/test-set/" + TestSetId)]
-    public async Task The_other_support_document_routes_issue_it_too(string path)
+    [Test]
+    public async Task The_support_document_test_set_route_issues_it_too()
     {
         using var issuer = await NewIssuerAsync();
 
-        using var response = await PostAsync(issuer.Client, path, Body("non-resident-seller"));
+        using var response = await PostAsync(issuer.Client, Route + "/test-set/" + TestSetId, Body("non-resident-seller"));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
         var document = await SingleDocumentAsync(issuer);
         Assert.That((document.DocumentTypeId, document.TypeOperationId), Is.EqualTo((11, 24)));
     }
 
-    // php-rules 13.1, item 6: PUT config/softwaresupportdocument (and its /api/v1 twin) stores the support-document
-    // software apart from the invoice one, with the PIN encrypted and never returned.
+    // php-rules 13.1, item 6: the software route stores the support-document software apart from the invoice one, with the
+    // PIN encrypted and never returned, with the field names of PUT config/softwaresupportdocument of the PHP too.
     [Test]
-    public async Task The_support_document_software_is_stored_encrypted_by_both_routes()
+    public async Task The_support_document_software_is_stored_encrypted_with_both_field_names()
     {
         using var issuer = await NewIssuerAsync(withSupportSoftware: false);
 
-        using var alias = await issuer.Client.PutAsJsonAsync("/api/ubl2.1/config/softwaresupportdocument",
+        using var alias = await issuer.Client.PutAsJsonAsync($"/api/v1/companies/{issuer.Nit}/software",
             new { identifier_support_document = SupportSoftwareId, pin_support_document = SupportSoftwarePin });
         var aliasText = await alias.Content.ReadAsStringAsync();
         Assert.That(alias.StatusCode, Is.EqualTo(HttpStatusCode.OK), aliasText);
@@ -186,15 +184,13 @@ public sealed class SupportDocumentIssueApiTests
         Assert.That((note.ReferenceDocumentId, note.TypeEnvironmentId, note.Status), Is.EqualTo(((Guid?)id, 2, DocumentStatus.Queued)));
     }
 
-    [TestCase("/api/ubl2.1/sd-credit-note")]
-    [TestCase("/api/ubl2.1/sd-credit-note/" + TestSetId)]
-    [TestCase(NoteRoute + "/test-set/" + TestSetId)]
-    public async Task The_other_adjustment_note_routes_issue_it_too(string path)
+    [Test]
+    public async Task The_adjustment_note_test_set_route_issues_it_too()
     {
         using var issuer = await NewIssuerAsync();
         var (cuds, _) = await AcceptedSupportDocumentAsync(issuer);
 
-        using var response = await PostAsync(issuer.Client, path, Note(cuds));
+        using var response = await PostAsync(issuer.Client, NoteRoute + "/test-set/" + TestSetId, Note(cuds));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
     }

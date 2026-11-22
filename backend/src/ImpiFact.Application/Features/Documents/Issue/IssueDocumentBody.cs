@@ -90,7 +90,7 @@ public sealed record IssueDocumentBody
     public Dictionary<string, LegacyScalar?>? KSupplement { get; init; }
 
     /// <summary>
-    /// National invoice only (<c>POST /api/v1/documents/invoices</c>, its test-set route and <c>/api/ubl2.1/invoice</c>),
+    /// National invoice only (<c>POST /api/v1/documents/invoices</c> and its test-set route),
     /// optional: makes it a health-sector invoice without RIPS (Ministerio de Salud, Resolución 948 de 2026, Documento
     /// Técnico 2 v001). The other documents ignore it, as ApiDian Community did.
     /// </summary>

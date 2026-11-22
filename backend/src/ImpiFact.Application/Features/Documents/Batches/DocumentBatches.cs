@@ -12,9 +12,8 @@ using ImpiFact.Domain.Documents;
 
 namespace ImpiFact.Application.Features.Documents.Batches;
 
-// Batches of documents sent with SendBillAsync (phase 7a, T8; php-rules 15). A batch is created (or, through the PHP alias,
-// found by its name), takes up to 50 documents issued by the normal issue pipeline (IIssueDocumentCommand.BatchId) and is
-// sent once; the Worker sends the ZIP and asks GetStatusZip for the verdict of each document (BatchDelivery.cs).
+// Batches of documents sent with SendBillAsync (phase 7a, T8; php-rules 15). A batch is created, takes up to 50 documents
+// issued by the normal issue pipeline (IIssueDocumentCommand.BatchId) and is sent once; the Worker sends the ZIP and asks GetStatusZip for the verdict of each document (BatchDelivery.cs).
 
 /// <summary><c>POST /api/v1/documents/batches</c>: a new open batch, with the given name or one made by ImpiFact.</summary>
 public sealed record CreateDocumentBatchCommand : ICommand
@@ -24,16 +23,10 @@ public sealed record CreateDocumentBatchCommand : ICommand
 }
 
 /// <summary>
-/// The PHP alias <c>add-to-batch/{tipo}/{batch}</c> creates the batch with its first document: this finds the company's
-/// batch with that name or creates it open, and answers its id.
+/// <c>POST /api/v1/documents/batches/{id}/send</c>: closes the batch and queues it for the Worker, which sends it with
+/// SendBillAsync.
 /// </summary>
-public sealed record EnsureDocumentBatchCommand(string Name) : ICommand;
-
-/// <summary>
-/// <c>POST /api/v1/documents/batches/{id}/send</c> (<c>/api/ubl2.1/send-batch/{batch}</c>, by name): closes the batch and
-/// queues it for the Worker, which sends it with SendBillAsync.
-/// </summary>
-public sealed record SendDocumentBatchCommand(Guid? Id, string? Name) : ICommand;
+public sealed record SendDocumentBatchCommand(Guid Id) : ICommand;
 
 /// <summary><c>GET /api/v1/documents/batches/{id}</c>: a batch with its documents.</summary>
 public sealed record GetDocumentBatchQuery(Guid Id);
@@ -203,19 +196,6 @@ internal sealed class CreateDocumentBatchCommandValidator : AbstractValidator<Cr
             .WithMessage(BatchNames.Rule).OverridePropertyName("name");
 }
 
-internal sealed class EnsureDocumentBatchCommandValidator : AbstractValidator<EnsureDocumentBatchCommand>
-{
-    public EnsureDocumentBatchCommandValidator() =>
-        RuleFor(command => command.Name).Must(BatchNames.IsValid).WithMessage(BatchNames.Rule).OverridePropertyName("batch");
-}
-
-internal sealed class SendDocumentBatchCommandValidator : AbstractValidator<SendDocumentBatchCommand>
-{
-    public SendDocumentBatchCommandValidator() =>
-        RuleFor(command => command.Name).Must(BatchNames.IsValid).When(command => command.Id is null)
-            .WithMessage(BatchNames.Rule).OverridePropertyName("batch");
-}
-
 internal sealed class ListDocumentBatchesQueryValidator : AbstractValidator<ListDocumentBatchesQuery>
 {
     public const int MaxLimit = 200;
@@ -247,22 +227,6 @@ internal sealed class CreateDocumentBatchHandler(ITenantContext tenant, IDocumen
     }
 }
 
-internal sealed class EnsureDocumentBatchHandler(ITenantContext tenant, IDocumentBatches batches) : IHandler<EnsureDocumentBatchCommand, Guid>
-{
-    public async Task<Result<Guid>> HandleAsync(EnsureDocumentBatchCommand request, CancellationToken ct)
-    {
-        var companyId = tenant.CompanyId ?? throw new InvalidOperationException("The tenant decorator guarantees a company.");
-        if (await batches.FindByNameAsync(companyId, request.Name, ct) is { } existing)
-        {
-            return existing.Id;
-        }
-
-        var batch = BatchMapping.New(companyId, request.Name);
-        batches.Add(batch);
-        return batch.Id;
-    }
-}
-
 /// <summary>
 /// Closes an open batch with documents and queues one <c>SendDocumentBatchToDian</c> for the Worker. Like the
 /// <c>send-pending</c> of the invoices type 04 it checks the company and its certificate, not the plan: each document
@@ -276,7 +240,7 @@ internal sealed class SendDocumentBatchHandler(
     public async Task<Result<DocumentBatchResponse>> HandleAsync(SendDocumentBatchCommand request, CancellationToken ct)
     {
         var companyId = tenant.CompanyId ?? throw new InvalidOperationException("The tenant decorator guarantees a company.");
-        var batch = request.Id is { } id ? await batches.FindAsync(companyId, id, ct) : await batches.FindByNameAsync(companyId, request.Name!, ct);
+        var batch = await batches.FindAsync(companyId, request.Id, ct);
         if (batch is null)
         {
             return BatchErrors.NotFound;

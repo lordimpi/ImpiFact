@@ -16,7 +16,7 @@ namespace ImpiFact.Api.Documents;
 /// into a batch with the same body, validation, plan, numbering and signature as its own issue route, and <c>/{id}/send</c>
 /// closes and sends it. Reading asks for <c>documents:read</c>; the rest, for <c>documents:write</c>. A batch of another
 /// company answers 404 like a missing one and never reaches the DIAN. The PHP routes <c>add-to-batch/{tipo}/{batch}</c> and
-/// <c>send-batch/{batch}</c> (by name) stay outside the documentation until T9.
+/// <c>send-batch/{batch}</c> (by name) were deleted in phase 7a, T9b2.
 /// </summary>
 internal sealed class DocumentBatchEndpoints : IEndpointModule
 {
@@ -72,7 +72,7 @@ internal sealed class DocumentBatchEndpoints : IEndpointModule
                 "(`batch.full`) y uno cuyo ambiente ya no es el de la empresa, 409 (`batch.environment_mismatch`). Acepta " +
                 "`Idempotency-Key`." + Isolation);
         write.MapPost("/{id:guid}/send", (Guid id, IHandler<SendDocumentBatchCommand, DocumentBatchResponse> handler, CancellationToken ct) =>
-                SendAsync(new SendDocumentBatchCommand(id, null), handler, ct))
+                SendAsync(new SendDocumentBatchCommand(id), handler, ct))
             .Produces<DocumentBatchResponse>()
             .WithOperationId("sendDocumentBatch")
             .WithSummary("Enviar un lote a la DIAN")
@@ -84,13 +84,6 @@ internal sealed class DocumentBatchEndpoints : IEndpointModule
                 "sola vez: si ya se envió, 409 (`batch.not_open`); dos envíos al mismo tiempo dejan uno solo (el otro responde " +
                 "409). Un lote sin documentos responde 422. Revisa la empresa activa (403 `company.inactive`) y su certificado " +
                 "(422 `certificate.missing` o `certificate.expired`); el plan se revisó al agregar cada documento." + Isolation);
-
-        // PHP routes (php-rules 15): {batch} is the name of the batch; add-to-batch creates it with its first document.
-        var legacy = endpoints.MapGroup("/api/ubl2.1").WithTags(ApiTags.Batches)
-            .RequireAuthorization(ApiScopes.DocumentsWrite).ExcludeFromDescription();
-        legacy.MapPost("/add-to-batch/{type}/{batch}", LegacyAdd);
-        legacy.MapPost("/send-batch/{batch}", (string batch, IHandler<SendDocumentBatchCommand, DocumentBatchResponse> handler, CancellationToken ct) =>
-            SendAsync(new SendDocumentBatchCommand(null, batch), handler, ct));
     }
 
     private static async Task<IResult> List(
@@ -110,19 +103,6 @@ internal sealed class DocumentBatchEndpoints : IEndpointModule
 
     private static Task<IResult> Add(HttpRequest request, Guid id, string type, IServiceProvider services, CancellationToken ct) =>
         AddAsync(request, id, type, services, ct);
-
-    private static async Task<IResult> LegacyAdd(
-        HttpRequest request, string type, string batch, IServiceProvider services, IHandler<EnsureDocumentBatchCommand, Guid> ensure,
-        CancellationToken ct)
-    {
-        if (!Types.Contains(type))
-        {
-            return UnknownType(type).ToHttpResult();
-        }
-
-        var found = await ensure.HandleAsync(new EnsureDocumentBatchCommand(batch), ct);
-        return found.IsSuccess ? await AddAsync(request, found.Value, type, services, ct) : found.ToHttpResult();
-    }
 
     /// <summary>Issues the body into the batch through the handler of its type, the same one its own issue route uses.</summary>
     private static Task<IResult> AddAsync(HttpRequest request, Guid batchId, string type, IServiceProvider services, CancellationToken ct) =>

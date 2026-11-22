@@ -226,28 +226,6 @@ public sealed record RadianEventResponse
     public decimal? InvoiceTax { get; init; }
 }
 
-/// <summary>
-/// Answer of the PHP's <c>load-document-by-cufe</c> (php-rules 16.7, item 4): the document with <c>saved</c> or
-/// <c>already_exists</c>.
-/// </summary>
-public sealed record LoadReceivedDocumentResponse
-{
-    [JsonPropertyName("success")]
-    public required bool Success { get; init; }
-
-    [JsonPropertyName("message")]
-    public required string Message { get; init; }
-
-    [JsonPropertyName("data")]
-    public required ReceivedDocumentResponse Data { get; init; }
-
-    [JsonPropertyName("saved")]
-    public bool? Saved { get; init; }
-
-    [JsonPropertyName("already_exists")]
-    public bool? AlreadyExists { get; init; }
-}
-
 internal static class RadianMapping
 {
     public static string StatusName(DocumentEventStatus status) => status switch

@@ -26,21 +26,21 @@ public interface IIssueDocumentCommand : ICommand
     Guid? BatchId { get; }
 }
 
-/// <summary><c>POST /api/ubl2.1/invoice[/{testSetId}]</c>: factura electrónica de venta nacional (tipo 1).</summary>
+/// <summary><c>POST /api/v1/documents/invoices[/test-set/{testSetId}]</c>: factura electrónica de venta nacional (tipo 1).</summary>
 public sealed record IssueInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
     : IIssueDocumentCommand
 {
     public Guid? BatchId { get; init; }
 }
 
-/// <summary><c>POST /api/ubl2.1/credit-note[/{testSetId}]</c>: nota crédito (tipo 4).</summary>
+/// <summary><c>POST /api/v1/documents/credit-notes[/test-set/{testSetId}]</c>: nota crédito (tipo 4).</summary>
 public sealed record IssueCreditNoteCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
     : IIssueDocumentCommand
 {
     public Guid? BatchId { get; init; }
 }
 
-/// <summary><c>POST /api/ubl2.1/debit-note[/{testSetId}]</c>: nota débito (tipo 5).</summary>
+/// <summary><c>POST /api/v1/documents/debit-notes[/test-set/{testSetId}]</c>: nota débito (tipo 5).</summary>
 public sealed record IssueDebitNoteCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
     : IIssueDocumentCommand
 {
@@ -48,7 +48,7 @@ public sealed record IssueDebitNoteCommand(IssueDocumentBody Body, byte[] RawBod
 }
 
 /// <summary>
-/// <c>POST /api/v1/documents/invoices/aiu</c> (<c>/api/ubl2.1/invoice-aiu[/{testSetId}]</c>): AIU invoice (type 1,
+/// <c>POST /api/v1/documents/invoices/aiu</c> (the PHP's <c>invoice-aiu[/{testSetId}]</c>): AIU invoice (type 1,
 /// operation 9; php-rules 10.1).
 /// </summary>
 public sealed record IssueAiuInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
@@ -58,7 +58,7 @@ public sealed record IssueAiuInvoiceCommand(IssueDocumentBody Body, byte[] RawBo
 }
 
 /// <summary>
-/// <c>POST /api/v1/documents/invoices/mandate</c> (<c>/api/ubl2.1/invoice-mandate[/{testSetId}]</c>): mandate invoice
+/// <c>POST /api/v1/documents/invoices/mandate</c> (the PHP's <c>invoice-mandate[/{testSetId}]</c>): mandate invoice
 /// (type 1, operation 11; php-rules 10.2).
 /// </summary>
 public sealed record IssueMandateInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
@@ -68,7 +68,7 @@ public sealed record IssueMandateInvoiceCommand(IssueDocumentBody Body, byte[] R
 }
 
 /// <summary>
-/// <c>POST /api/v1/documents/invoices/transport</c> (<c>/api/ubl2.1/invoice-transport[/{testSetId}]</c>): freight
+/// <c>POST /api/v1/documents/invoices/transport</c> (the PHP's <c>invoice-transport[/{testSetId}]</c>): freight
 /// transport invoice (type 1, operation 21, code 12; php-rules 10.3).
 /// </summary>
 public sealed record IssueTransportInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
@@ -79,7 +79,7 @@ public sealed record IssueTransportInvoiceCommand(IssueDocumentBody Body, byte[]
 }
 
 /// <summary>
-/// <c>POST /api/v1/documents/invoices/export</c> (<c>/api/ubl2.1/invoice-export[/{testSetId}]</c>): export invoice (type
+/// <c>POST /api/v1/documents/invoices/export</c> (the PHP's <c>invoice-export[/{testSetId}]</c>): export invoice (type
 /// 2, template 02, operation 10; php-rules 11).
 /// </summary>
 public sealed record IssueExportInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
@@ -89,7 +89,7 @@ public sealed record IssueExportInvoiceCommand(IssueDocumentBody Body, byte[] Ra
 }
 
 /// <summary>
-/// <c>POST /api/v1/documents/invoices/contingency</c> (<c>/api/ubl2.1/invoice-contingency[/{testSetId}]</c>): contingency
+/// <c>POST /api/v1/documents/invoices/contingency</c> (the PHP's <c>invoice-contingency[/{testSetId}]</c>): contingency
 /// invoice type 03, the transcription of a paper invoice (type 3, template 03, CUDE; php-rules 12.1).
 /// </summary>
 public sealed record IssueContingencyInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
@@ -99,7 +99,7 @@ public sealed record IssueContingencyInvoiceCommand(IssueDocumentBody Body, byte
 }
 
 /// <summary>
-/// <c>POST /api/v1/documents/invoices/dian-contingency</c> (<c>/api/ubl2.1/invoice-contingency-4</c>): invoice type 04,
+/// <c>POST /api/v1/documents/invoices/dian-contingency</c> (the PHP's <c>invoice-contingency-4</c>): invoice type 04,
 /// issued while the DIAN cannot validate (type 12, template 04; php-rules 12.2). It is stored signed and pending; the
 /// Worker sends it later. There is no test-set route, as in the PHP.
 /// </summary>
@@ -113,7 +113,7 @@ public sealed record IssueDianContingencyInvoiceCommand(IssueDocumentBody Body, 
 }
 
 /// <summary>
-/// <c>POST /api/v1/documents/support-documents</c> (<c>/api/ubl2.1/support-document[/{testSetId}]</c>): support document in
+/// <c>POST /api/v1/documents/support-documents</c> (the PHP's <c>support-document[/{testSetId}]</c>): support document in
 /// purchases from sellers not obliged to invoice (type 11, template 05, CUDS; php-rules 13).
 /// </summary>
 public sealed record IssueSupportDocumentCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
@@ -124,7 +124,7 @@ public sealed record IssueSupportDocumentCommand(IssueDocumentBody Body, byte[] 
 }
 
 /// <summary>
-/// <c>POST /api/v1/documents/support-documents/adjustment-notes</c> (<c>/api/ubl2.1/sd-credit-note[/{testSetId}]</c>):
+/// <c>POST /api/v1/documents/support-documents/adjustment-notes</c> (the PHP's <c>sd-credit-note[/{testSetId}]</c>):
 /// adjustment note to a support document (type 13, template 95, CUDS; php-rules 14).
 /// </summary>
 public sealed record IssueSupportDocumentAdjustmentNoteCommand(

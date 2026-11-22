@@ -22,14 +22,6 @@ internal sealed class EfDocumentLookups(ImpiFactDbContext db, IBlobStorage stora
     public Task<DocumentRef?> FindByCufeAsync(Guid companyId, string cufe, CancellationToken ct) =>
         FirstAsync(Documents(companyId).Where(document => document.Cufe == cufe), ct);
 
-    public Task<DocumentRef?> FindByNumberAsync(Guid companyId, string prefix, long number, CancellationToken ct) =>
-        FirstAsync(Documents(companyId).Where(document => document.Prefix == prefix && document.Number == number), ct);
-
-    public Task<DocumentRef?> FindByFullNumberAsync(
-        Guid companyId, string fullNumber, IReadOnlyCollection<int> documentTypeIds, CancellationToken ct) =>
-        FirstAsync(
-            Documents(companyId).Where(document => document.FullNumber == fullNumber && documentTypeIds.Contains(document.DocumentTypeId)), ct);
-
     public async Task<byte[]?> LatestDianAnswerAsync(Guid companyId, Guid documentId, CancellationToken ct)
     {
         var fileId = await Submissions(companyId)

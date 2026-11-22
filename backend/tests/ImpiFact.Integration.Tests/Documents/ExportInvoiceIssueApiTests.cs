@@ -16,7 +16,7 @@ namespace ImpiFact.Integration.Tests.DocumentIssue;
 
 /// <summary>
 /// Export invoice through the real API and PostgreSQL (phase 7a, T3): <c>/api/v1/documents/invoices/export</c>, its test
-/// set route and the PHP aliases, the type 2 resolution and numbering, the invoice plan quota, the 422 answers where the
+/// set route, the type 2 resolution and numbering, the invoice plan quota, the 422 answers where the
 /// PHP crashed, the Incoterms of the seeded catalog and the isolation between companies.
 /// </summary>
 [Category("Integration")]
@@ -58,14 +58,12 @@ public sealed class ExportInvoiceIssueApiTests
         Assert.That(document.Extensions?["variant"]?.GetValue<string>(), Is.EqualTo("export"));
     }
 
-    [TestCase("/api/ubl2.1/invoice-export")]
-    [TestCase("/api/ubl2.1/invoice-export/" + TestSetId)]
-    [TestCase(Route + "/test-set/" + TestSetId)]
-    public async Task The_other_export_routes_issue_it_too(string path)
+    [Test]
+    public async Task The_test_set_route_issues_it_too()
     {
         using var issuer = await NewIssuerAsync();
 
-        using var response = await PostAsync(issuer.Client, path, Body("usd-fob"));
+        using var response = await PostAsync(issuer.Client, Route + "/test-set/" + TestSetId, Body("usd-fob"));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
         Assert.That((await SingleDocumentAsync(issuer)).DocumentTypeId, Is.EqualTo(2));

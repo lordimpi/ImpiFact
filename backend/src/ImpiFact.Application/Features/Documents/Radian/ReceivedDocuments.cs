@@ -15,22 +15,17 @@ using Microsoft.Extensions.Logging;
 namespace ImpiFact.Application.Features.Documents.Radian;
 
 /// <summary>
-/// <c>POST /api/v1/received-documents</c> and the PHP's <c>load-document-by-cufe</c>: downloads an invoice addressed to the
-/// company from the DIAN by its CUFE (GetXmlByDocumentKey) and stores it with its XML. With <see cref="Save"/> false (only
-/// the PHP route) it answers the data without storing anything.
+/// <c>POST /api/v1/received-documents</c> (the PHP's <c>load-document-by-cufe</c>): downloads an invoice addressed to the
+/// company from the DIAN by its CUFE (GetXmlByDocumentKey) and stores it with its XML.
 /// </summary>
 public sealed record LoadReceivedDocumentCommand : ICommand
 {
     [JsonPropertyName("cufe")]
     public string? Cufe { get; init; }
-
-    /// <summary>PHP <c>save</c>: store the document. The Postman collection sends <c>saved</c>, which is read the same way.</summary>
-    [JsonIgnore]
-    public bool Save { get; init; } = true;
 }
 
-/// <summary>What loading found: the document, whether it was stored now and whether it already existed.</summary>
-public sealed record LoadReceivedDocumentResult(ReceivedDocumentResponse Document, bool Saved, bool AlreadyExisted);
+/// <summary>What loading found: the document and whether it already existed.</summary>
+public sealed record LoadReceivedDocumentResult(ReceivedDocumentResponse Document, bool AlreadyExisted);
 
 /// <summary><c>GET /api/v1/received-documents</c>: the company's received documents, newest issue date first.</summary>
 public sealed record ListReceivedDocumentsQuery(string? SupplierNit, DateOnly? From, DateOnly? To, int? Limit, int? Offset);
@@ -40,12 +35,6 @@ public sealed record GetReceivedDocumentQuery(Guid Id);
 
 /// <summary><c>GET /api/v1/received-documents/{id}/xml</c>: the invoice XML as the DIAN or the seller delivered it.</summary>
 public sealed record GetReceivedDocumentXmlQuery(Guid Id);
-
-/// <summary>
-/// PHP <c>GET receivedfile/{nit}/{file}</c>: the XML of a received document by the company NIT and <c>{cufe}.xml</c>. Another
-/// NIT answers 403 and an unknown file 404, without revealing documents of other companies.
-/// </summary>
-public sealed record DownloadReceivedFileQuery(string Nit, string File);
 
 internal sealed class LoadReceivedDocumentCommandValidator : AbstractValidator<LoadReceivedDocumentCommand>
 {
@@ -100,7 +89,7 @@ internal sealed class LoadReceivedDocumentHandler(
         if (await store.FindReceivedByCufeAsync(companyId, cufe, ct) is { } existing)
         {
             return new LoadReceivedDocumentResult(
-                RadianMapping.Received(existing, await store.EventsOfReceivedAsync(companyId, existing.Id, ct)), Saved: false, AlreadyExisted: true);
+                RadianMapping.Received(existing, await store.EventsOfReceivedAsync(companyId, existing.Id, ct)), AlreadyExisted: true);
         }
 
         var issuer = await RadianWorkflow.IssuerAsync(ports, companyId, ct);
@@ -116,35 +105,9 @@ internal sealed class LoadReceivedDocumentHandler(
         }
 
         var (invoice, xml) = downloaded.Value;
-        if (!request.Save)
-        {
-            var preview = RadianMapping.Received(Preview(companyId, invoice), []);
-            return new LoadReceivedDocumentResult(preview, Saved: false, AlreadyExisted: false);
-        }
-
         var document = await RadianWorkflow.AddReceivedAsync(ports, companyId, invoice, xml, ct);
-        return new LoadReceivedDocumentResult(RadianMapping.Received(document, []), Saved: true, AlreadyExisted: false);
+        return new LoadReceivedDocumentResult(RadianMapping.Received(document, []), AlreadyExisted: false);
     }
-
-    private static Domain.Documents.ReceivedDocument Preview(Guid companyId, Dian.Radian.ReceivedInvoice invoice) => new()
-    {
-        CompanyId = companyId,
-        SupplierIdentificationNumber = invoice.SupplierNit,
-        SupplierDv = invoice.SupplierDv,
-        SupplierName = invoice.SupplierName,
-        SupplierEmail = invoice.SupplierEmail,
-        DocumentTypeId = RadianWorkflow.DocumentTypeIdOf(invoice.InvoiceTypeCode) ?? 1,
-        Prefix = invoice.Prefix,
-        Number = invoice.Number,
-        Cufe = invoice.Cufe,
-        IssueDate = invoice.IssueDate,
-        TypeEnvironmentId = invoice.Environment == 1 ? 1 : 2,
-        LineExtensionAmount = invoice.LineExtensionAmount,
-        TaxExclusiveAmount = invoice.TaxExclusiveAmount,
-        AllowanceTotalAmount = invoice.AllowanceTotalAmount,
-        TaxAmount = invoice.TaxInclusiveAmount - invoice.LineExtensionAmount,
-        PayableAmount = invoice.PayableAmount,
-    };
 }
 
 internal sealed class ListReceivedDocumentsHandler(IRadianStore store, ITenantContext tenant)
@@ -188,25 +151,6 @@ internal sealed class GetReceivedDocumentXmlHandler(IRadianStore store, ITenantC
         tenant.CompanyId is { } companyId && await store.FindReceivedAsync(companyId, request.Id, ct) is { } document
             ? await ReceivedXml.ReadAsync(store, companyId, document, ct)
             : RadianErrors.ReceivedNotFound;
-}
-
-internal sealed class DownloadReceivedFileHandler(IRadianStore store, IDocumentReads reads, ITenantContext tenant)
-    : IHandler<DownloadReceivedFileQuery, DocumentFileContent>
-{
-    public async Task<Result<DocumentFileContent>> HandleAsync(DownloadReceivedFileQuery request, CancellationToken ct)
-    {
-        if (tenant.CompanyId is not { } companyId || await reads.FindCompanyAsync(companyId, ct) is not { } company
-            || !string.Equals(company.IdentificationNumber, request.Nit, StringComparison.Ordinal))
-        {
-            return Queries.DocumentErrors.ForeignNit;
-        }
-
-        var file = request.File.Trim();
-        return file.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
-            && await store.FindReceivedByCufeAsync(companyId, file[..^4].ToLowerInvariant(), ct) is { } document
-            ? await ReceivedXml.ReadAsync(store, companyId, document, ct)
-            : RadianErrors.ReceivedNotFound;
-    }
 }
 
 internal static class ReceivedXml

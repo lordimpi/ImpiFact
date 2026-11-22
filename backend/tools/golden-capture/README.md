@@ -46,7 +46,7 @@ La contingencia tipo 04 queda guardada en la base de datos de ApiDian como pendi
 Los casos de las variantes llevan un `case.json` con:
 
 - `variant`: qué variante cubre;
-- `source_request`: la solicitud de la colección de Postman (`backend/tests/ImpiFact.Contract.Tests/collection`) de la que sale la entrada;
+- `source_request`: la solicitud de la colección de Postman de ApiDian Community de la que sale la entrada (la copia de la colección se retiró del repositorio en la fase 7a, T9b2; sus ejemplos de factura y notas quedan en `backend/tests/ImpiFact.Integration.Tests/Documents/PostmanExamples/issue-examples.json`);
 - `derived`: qué se cambió (los datos son ficticios);
 - `task`: la tarea de `odd/tasks/fase-7a-community.md` que escribe su builder;
 - `code_check`: lo escribe `capture.py`.

@@ -56,12 +56,6 @@ public static class DocumentErrors
         "No se pudo generar el PDF en este momento. Intente de nuevo en unos segundos.",
         ErrorType.Unavailable);
 
-    /// <summary>Texto del PHP (<c>download</c>) cuando el archivo pedido por nombre no existe.</summary>
-    public static Error FileNotFoundNamed(string file) => new(
-        "document.file_not_found",
-        $"No se encontro el archivo: {file}",
-        ErrorType.NotFound);
-
     /// <summary>
     /// La operación (descargar el XML validado, regenerar el PDF o el AttachedDocument, reenviar el correo) solo vale
     /// para documentos que la DIAN (la autoridad tributaria de Colombia) aceptó, como el PHP, que solo buscaba

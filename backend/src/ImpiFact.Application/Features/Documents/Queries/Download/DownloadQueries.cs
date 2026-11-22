@@ -1,5 +1,3 @@
-using System.Text.RegularExpressions;
-using FluentValidation;
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Application.Abstractions.Handlers;
@@ -11,23 +9,9 @@ using ImpiFact.Domain.Documents;
 namespace ImpiFact.Application.Features.Documents.Queries.Download;
 
 /// <summary>
-/// <c>GET download/{nit}/{file}</c> del PHP: un archivo guardado de un documento por el nombre con que lo publicaba el
-/// PHP. El NIT (número de identificación tributaria) debe ser el de la empresa de la credencial; el PHP dejaba esta
-/// ruta pública.
-/// </summary>
-/// <remarks>
-/// Nombres que se reconocen, con <c>{número}</c> el prefijo y el número del documento (por ejemplo <c>SETP990000001</c>):
-/// <c>FES-{número}.xml</c> y <c>FES-{número}.pdf</c> (factura; <c>NCS-</c> nota crédito, <c>NDS-</c> nota débito) para
-/// el XML firmado y el PDF, <c>DSS-{número}.xml</c> y <c>.pdf</c> y <c>NDSNS-{número}.xml</c> y <c>.pdf</c> (documento
-/// soporte y su nota de ajuste), <c>Attachment-{número}.xml</c> para el AttachedDocument (contenedor electrónico) y
-/// <c>ZipAttachm-{número}.zip</c> para el ZIP del correo (AttachedDocument y PDF). Cualquier otro nombre, o un archivo
-/// que no exista, responde 404 con el texto del PHP. Siempre se entrega la revisión más reciente.
-/// </remarks>
-public sealed record DownloadDocumentFileQuery(string Nit, string File);
-
-/// <summary>
-/// <c>GET /api/v1/documents/{id}/files/{kind}</c>: el mismo archivo por el id del documento. <paramref name="Kind"/> es
-/// <c>xml</c>, <c>pdf</c>, <c>attached-document</c> o <c>zip</c>.
+/// <c>GET /api/v1/documents/{id}/files/{kind}</c>: la revisión más reciente de un archivo guardado del documento.
+/// <paramref name="Kind"/> es <c>xml</c>, <c>pdf</c>, <c>attached-document</c> o <c>zip</c>. El archivo lleva el nombre con
+/// que lo publicaba el PHP (<c>FES-{número}.xml</c>, <c>Attachment-{número}.xml</c>, <c>ZipAttachm-{número}.zip</c>…).
 /// </summary>
 public sealed record DownloadDocumentFileByIdQuery(Guid Id, string Kind);
 
@@ -41,68 +25,6 @@ internal enum DownloadKind
     Pdf,
     AttachedDocument,
     EmailZip,
-}
-
-internal sealed partial class DownloadDocumentFileHandler(
-    IDocumentReads reads, IDocumentLookups lookups, IDocumentFileReads files, ITenantContext tenant)
-    : IHandler<DownloadDocumentFileQuery, DocumentFileContent>
-{
-    private static readonly int[] InvoiceTypes = [1];
-    private static readonly int[] CreditNoteTypes = [4];
-    private static readonly int[] DebitNoteTypes = [5];
-    private static readonly int[] SupportDocumentTypes = [11];
-    private static readonly int[] AdjustmentNoteTypes = [13];
-    private static readonly int[] AllTypes = [1, 4, 5, 11, 13];
-
-    public async Task<Result<DocumentFileContent>> HandleAsync(DownloadDocumentFileQuery request, CancellationToken ct)
-    {
-        var own = await DocumentAccess.OwnCompanyAsync(reads, tenant, request.Nit, ct);
-        if (!own.IsSuccess)
-        {
-            return own.Error;
-        }
-
-        var notFound = DocumentErrors.FileNotFoundNamed(request.File);
-        if (Parse(request.File) is not { } parsed
-            || await lookups.FindByFullNumberAsync(own.Value.Id, parsed.FullNumber, parsed.Types, ct) is not { } document)
-        {
-            return notFound;
-        }
-
-        var content = await DocumentFileDelivery.ReadAsync(files, own.Value.Id, document, parsed.Kind, ct);
-        return content is null ? notFound : content with { FileName = request.File };
-    }
-
-    /// <summary>Tipo de archivo, número completo y tipos de documento posibles de un nombre del PHP; nulo si no se reconoce.</summary>
-    private static (DownloadKind Kind, string FullNumber, int[] Types)? Parse(string file)
-    {
-        var match = FileNamePattern().Match(file);
-        if (!match.Success)
-        {
-            return null;
-        }
-
-        var fullNumber = match.Groups["number"].Value;
-        return (match.Groups["tag"].Value, match.Groups["ext"].Value) switch
-        {
-            ("FES", "xml") => (DownloadKind.SignedXml, fullNumber, InvoiceTypes),
-            ("NCS", "xml") => (DownloadKind.SignedXml, fullNumber, CreditNoteTypes),
-            ("NDS", "xml") => (DownloadKind.SignedXml, fullNumber, DebitNoteTypes),
-            ("DSS", "xml") => (DownloadKind.SignedXml, fullNumber, SupportDocumentTypes),
-            ("NDSNS", "xml") => (DownloadKind.SignedXml, fullNumber, AdjustmentNoteTypes),
-            ("FES", "pdf") => (DownloadKind.Pdf, fullNumber, InvoiceTypes),
-            ("NCS", "pdf") => (DownloadKind.Pdf, fullNumber, CreditNoteTypes),
-            ("NDS", "pdf") => (DownloadKind.Pdf, fullNumber, DebitNoteTypes),
-            ("DSS", "pdf") => (DownloadKind.Pdf, fullNumber, SupportDocumentTypes),
-            ("NDSNS", "pdf") => (DownloadKind.Pdf, fullNumber, AdjustmentNoteTypes),
-            ("Attachment", "xml") => (DownloadKind.AttachedDocument, fullNumber, AllTypes),
-            ("ZipAttachm", "zip") => (DownloadKind.EmailZip, fullNumber, AllTypes),
-            _ => null,
-        };
-    }
-
-    [GeneratedRegex("^(?<tag>FES|NCS|NDSNS|NDS|DSS|Attachment|ZipAttachm)-(?<number>[A-Za-z0-9]{1,40})\\.(?<ext>xml|pdf|zip)\\z", RegexOptions.CultureInvariant)]
-    private static partial Regex FileNamePattern();
 }
 
 internal sealed class DownloadDocumentFileByIdHandler(IDocumentLookups lookups, IDocumentFileReads files, ITenantContext tenant)
@@ -171,14 +93,4 @@ internal static class DocumentFileDelivery
     private static async Task<DocumentFileContent?> ReadAsync(
         IDocumentFileReads files, Guid companyId, Guid documentId, DocumentFileKind kind, string fileName, string contentType, CancellationToken ct) =>
         await files.ReadLatestAsync(companyId, documentId, kind, ct) is { } content ? new DocumentFileContent(fileName, contentType, content) : null;
-}
-
-internal sealed class DownloadDocumentFileQueryValidator : AbstractValidator<DownloadDocumentFileQuery>
-{
-    public DownloadDocumentFileQueryValidator()
-    {
-        RuleFor(query => query.File)
-            .Must(file => !string.IsNullOrWhiteSpace(file)).WithMessage(QueryMessages.Required("file"))
-            .OverridePropertyName("file");
-    }
 }

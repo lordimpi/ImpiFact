@@ -14,7 +14,7 @@ namespace ImpiFact.Integration.Tests.DocumentIssue;
 
 /// <summary>
 /// Health-sector invoices without RIPS through the real API and PostgreSQL (phase 7a, T7; php-rules 17): the canonical
-/// invoice route and the PHP alias read <c>health_fields</c>, sign after the health extension and reject what the
+/// invoice route reads <c>health_fields</c>, signs after the health extension and rejects what the
 /// Ministerio de Salud's Documento Técnico 2 v001 cannot represent.
 /// </summary>
 [Category("Integration")]
@@ -51,15 +51,15 @@ public sealed class HealthInvoiceIssueApiTests
         Assert.That(document.Extensions?["health_fields"]?["users_info"]?[0]?["provider_code"]?.GetValue<string>(), Is.EqualTo("1100100001"));
     }
 
-    // The Postman case «Factura de salud por capita inicial» (golden capitation-without-users) on the PHP route: operation 5,
+    // The Postman case «Factura de salud por capita inicial» (golden capitation-without-users) on the invoice route: operation 5,
     // SS-Recaudo, carries the billing period but never the extension, so the signature stays in the second slot.
     [Test]
-    public async Task The_php_route_issues_a_collection_invoice_without_the_extension()
+    public async Task The_invoice_route_issues_a_collection_invoice_without_the_extension()
     {
         using var issuer = await NewIssuerAsync();
         var body = Edited(Path.Combine("invoice-health", "capitation-without-users"), _ => { });
 
-        using var response = await PostAsync(issuer.Client, "/api/ubl2.1/invoice", body);
+        using var response = await PostAsync(issuer.Client, "/api/v1/documents/invoices", body);
 
         var text = await response.Content.ReadAsStringAsync();
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), text);
@@ -81,7 +81,7 @@ public sealed class HealthInvoiceIssueApiTests
         using var issuer = await NewIssuerAsync();
         var body = Edited(Path.Combine("invoice-health", "two-users-prepaid"), _ => { });
 
-        using var response = await PostAsync(issuer.Client, "/api/ubl2.1/invoice", body);
+        using var response = await PostAsync(issuer.Client, "/api/v1/documents/invoices", body);
 
         var text = await response.Content.ReadAsStringAsync();
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity), text);

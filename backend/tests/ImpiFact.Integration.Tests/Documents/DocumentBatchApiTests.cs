@@ -356,14 +356,13 @@ public sealed class DocumentBatchApiTests
         using var get = await other.Client.GetAsync($"{BatchesRoute}/{batch}");
         using var add = await AddAsync(other, batch, "invoice", Body("invoice", "single-line-iva19"));
         using var send = await SendAsync(other, batch);
-        using var legacySend = await other.Client.PostAsync("/api/ubl2.1/send-batch/lote-ajeno", null);
         using var list = await other.Client.GetAsync(BatchesRoute);
         await worker.RunOutboxAsync();
 
         using var listJson = JsonDocument.Parse(await list.Content.ReadAsStringAsync());
         Assert.Multiple(async () =>
         {
-            Assert.That(new[] { get.StatusCode, add.StatusCode, send.StatusCode, legacySend.StatusCode }, Is.All.EqualTo(HttpStatusCode.NotFound));
+            Assert.That(new[] { get.StatusCode, add.StatusCode, send.StatusCode }, Is.All.EqualTo(HttpStatusCode.NotFound));
             Assert.That(await CodeAsync(add), Is.EqualTo("batch.not_found"));
             Assert.That(await DocumentsAsync(other), Is.Empty, "Nothing is issued for the caller either.");
             Assert.That(listJson.RootElement.GetProperty("total_count").GetInt64(), Is.Zero);
@@ -414,30 +413,6 @@ public sealed class DocumentBatchApiTests
             Assert.That(invalid.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
             Assert.That(unnamed.StatusCode, Is.EqualTo(HttpStatusCode.Created));
             Assert.That(json.RootElement.GetProperty("name").GetString(), Does.Match("^lote-[0-9a-f]{32}$"));
-        });
-    }
-
-    [Test]
-    public async Task The_php_routes_create_the_batch_by_its_name_add_to_it_and_send_it()
-    {
-        using var issuer = await NewIssuerAsync();
-
-        using var first = await PostAsync(issuer.Client, "/api/ubl2.1/add-to-batch/invoice/lote-php-1", Body("invoice", "single-line-iva19"));
-        using var second = await PostAsync(issuer.Client, "/api/ubl2.1/add-to-batch/credit-note/lote-php-1", Body("credit-note", "without-reference-invoice-period"));
-        using var badName = await PostAsync(issuer.Client, "/api/ubl2.1/add-to-batch/invoice/lote%20php", Body("invoice", "single-line-iva19"));
-        using var sent = await issuer.Client.PostAsync("/api/ubl2.1/send-batch/lote-php-1", null);
-
-        Assert.That(first.StatusCode, Is.EqualTo(HttpStatusCode.OK), await first.Content.ReadAsStringAsync());
-        Assert.That(sent.StatusCode, Is.EqualTo(HttpStatusCode.OK), await sent.Content.ReadAsStringAsync());
-        using var json = JsonDocument.Parse(await sent.Content.ReadAsStringAsync());
-        Assert.Multiple(async () =>
-        {
-            Assert.That(second.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(badName.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
-            Assert.That(json.RootElement.GetProperty("name").GetString(), Is.EqualTo("lote-php-1"));
-            Assert.That(json.RootElement.GetProperty("status").GetString(), Is.EqualTo("Queued"));
-            Assert.That(json.RootElement.GetProperty("document_count").GetInt32(), Is.EqualTo(2));
-            Assert.That((await DocumentsAsync(issuer)).Select(row => row.BatchId).Distinct().Single(), Is.EqualTo(json.RootElement.GetProperty("id").GetGuid()));
         });
     }
 

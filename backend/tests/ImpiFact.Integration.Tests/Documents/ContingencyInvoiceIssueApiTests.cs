@@ -19,8 +19,8 @@ namespace ImpiFact.Integration.Tests.DocumentIssue;
 /// <summary>
 /// Contingency invoices through the real API and the database (phase 7a, T5; php-rules, section 12): type 03 on its own
 /// type 3 resolution, answered with its <c>cude</c>; type 04 on the invoice resolution and consecutive, stored
-/// <c>ContingencyPending</c> without any DIAN call; <c>send-pending</c>, which only touches the caller's company; the PHP
-/// aliases; the per-company duplicate check and the invoice plan quota.
+/// <c>ContingencyPending</c> without any DIAN call; <c>send-pending</c>, which only touches the caller's company; the
+/// per-company duplicate check and the invoice plan quota.
 /// </summary>
 [Category("Integration")]
 public sealed class ContingencyInvoiceIssueApiTests
@@ -76,14 +76,13 @@ public sealed class ContingencyInvoiceIssueApiTests
         });
     }
 
-    [TestCase("/api/ubl2.1/invoice-contingency")]
-    [TestCase("/api/ubl2.1/invoice-contingency/" + TestSetId)]
-    [TestCase(PaperBackupRoute + "/test-set/" + TestSetId)]
-    public async Task The_other_type_03_routes_issue_it_too(string path)
+    [Test]
+    public async Task The_type_03_test_set_route_issues_it_too()
     {
         using var issuer = await NewIssuerAsync();
 
-        using var response = await PostAsync(issuer.Client, path, Body("invoice-contingency", "paper-backup-reference"));
+        using var response = await PostAsync(issuer.Client, PaperBackupRoute + "/test-set/" + TestSetId,
+            Body("invoice-contingency", "paper-backup-reference"));
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
         Assert.That((await SingleDocumentAsync(issuer)).DocumentTypeId, Is.EqualTo(3));
@@ -105,14 +104,13 @@ public sealed class ContingencyInvoiceIssueApiTests
         Assert.That(await DocumentsAsync(issuer), Is.Empty);
     }
 
-    [TestCase(DianContingencyRoute)]
-    [TestCase("/api/ubl2.1/invoice-contingency-4")]
-    public async Task A_type_04_is_stored_pending_on_the_invoice_resolution_without_calling_the_dian(string path)
+    [Test]
+    public async Task A_type_04_is_stored_pending_on_the_invoice_resolution_without_calling_the_dian()
     {
         using var issuer = await NewIssuerAsync();
         var requests = Api.Dian.Requests.Count;
 
-        using var response = await PostAsync(issuer.Client, path, Body("invoice-contingency-4", "pending-transmission"));
+        using var response = await PostAsync(issuer.Client, DianContingencyRoute, Body("invoice-contingency-4", "pending-transmission"));
 
         var text = await response.Content.ReadAsStringAsync();
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), text);
@@ -203,10 +201,9 @@ public sealed class ContingencyInvoiceIssueApiTests
     }
 
     [TestCase(SendPendingRoute + "?prefix=SETP&number=990000301")]
-    [TestCase("/api/ubl2.1/invoice-contingency-4/send_pendings/SETP/990000301")]
-    [TestCase("/api/ubl2.1/invoice-contingency-4/send_pendings/SETP")]
-    [TestCase("/api/ubl2.1/invoice-contingency-4/send_pendings")]
-    public async Task Send_pending_takes_the_prefix_and_number_of_the_query_or_of_the_php_path(string path)
+    [TestCase(SendPendingRoute + "?prefix=SETP")]
+    [TestCase(SendPendingRoute)]
+    public async Task Send_pending_takes_the_prefix_and_number_of_the_query(string path)
     {
         using var issuer = await NewIssuerAsync();
         using var issued = await PostAsync(issuer.Client, DianContingencyRoute, Body("invoice-contingency-4", "pending-transmission"));
