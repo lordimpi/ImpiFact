@@ -54054,6 +54054,476 @@
         ]
       }
     },
+    "/api/v1/received-documents": {
+      "get": {
+        "tags": [
+          "RADIAN"
+        ],
+        "summary": "Listar las facturas recibidas",
+        "description": "Facturas que la empresa recibi\u00F3 de sus proveedores, de la fecha de emisi\u00F3n m\u00E1s reciente a la m\u00E1s antigua, cada una con sus eventos. Filtros: \u0060supplier_nit\u0060 (NIT exacto del proveedor), \u0060from\u0060 y \u0060to\u0060 (fechas de emisi\u00F3n \u0060yyyy-MM-dd\u0060, inclusive). Pagina con \u0060limit\u0060 (50 si no llega, m\u00E1ximo 200) y \u0060offset\u0060; \u0060total_count\u0060 es la cantidad que cumple los filtros.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "listReceivedDocuments",
+        "parameters": [
+          {
+            "name": "supplier_nit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-30"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceivedDocumentListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "RADIAN"
+        ],
+        "summary": "Cargar una factura recibida por su CUFE",
+        "description": "Descarga de la DIAN (GetXmlByDocumentKey) la factura con ese \u0060cufe\u0060 y la guarda con su XML: 201 con la factura. Si la empresa ya la tiene, 200 con la guardada, sin llamar a la DIAN. La factura debe estar dirigida a la empresa de la credencial (su adquiriente): si no, 422 (\u0060radian.wrong_buyer\u0060). Un CUFE que no es de una factura responde 422 (\u0060radian.not_an_invoice\u0060) y uno que la DIAN no encuentra, 422 (\u0060radian.dian_document_not_found\u0060); si la DIAN no est\u00E1 disponible, 503.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "loadReceivedDocument",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoadReceivedDocumentCommand"
+              },
+              "examples": {
+                "por-cufe": {
+                  "summary": "Factura recibida por su CUFE",
+                  "description": "Use el CUFE de una factura que un proveedor le emiti\u00F3 a su empresa.",
+                  "value": {
+                    "cufe": "83c3ba93981ccf3d79c246498209c7762962faccc62b1328e3be207da45569b7dac74cac108cae80addd7e2e4c4e9f9e"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceivedDocumentResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceivedDocumentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/received-documents/{id}": {
+      "get": {
+        "tags": [
+          "RADIAN"
+        ],
+        "summary": "Detalle de una factura recibida",
+        "description": "La factura recibida con sus eventos, del m\u00E1s antiguo al m\u00E1s reciente. Un documento que no existe o es de otra empresa responde 404.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "getReceivedDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceivedDocumentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/received-documents/{id}/xml": {
+      "get": {
+        "tags": [
+          "RADIAN"
+        ],
+        "summary": "XML de una factura recibida",
+        "description": "Descarga el XML de la factura tal como lo entreg\u00F3 la DIAN o el proveedor, con el nombre \u0060{cufe}.xml\u0060. Un documento que no existe o es de otra empresa responde 404.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "downloadReceivedDocumentXml",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/received-documents/{id}/dian-events": {
+      "get": {
+        "tags": [
+          "RADIAN"
+        ],
+        "summary": "Eventos registrados en la DIAN de una factura recibida",
+        "description": "Consulta a la DIAN (GetStatusEvent) los eventos que tiene registrados la factura, tambi\u00E9n los de otros participantes. Si la DIAN no responde: 503. Un documento que no existe o es de otra empresa responde 404.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "getReceivedDocumentDianEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DianEventListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/received-documents/{id}/events": {
+      "post": {
+        "tags": [
+          "RADIAN"
+        ],
+        "summary": "Registrar un evento sobre una factura recibida",
+        "description": "Arma, firma y env\u00EDa a la DIAN (SendEventUpdateStatus) el evento \u0060event_code\u0060 de la empresa como adquiriente: \u0060030\u0060 acuse de recibo, \u0060031\u0060 reclamo (con \u0060claim_reason\u0060 \u006001\u0060 a \u006004\u0060), \u0060032\u0060 recibo del bien o prestaci\u00F3n del servicio, \u0060033\u0060 aceptaci\u00F3n expresa. \u0060issuer_party\u0060 es la persona que recibe o decide; sin \u00E9l va la empresa. ImpiFact revisa antes el orden del anexo t\u00E9cnico 1.9 (reglas LGC01 a LGC14): un evento de cada tipo, 030 antes del 032, el 031 y el 033 solo despu\u00E9s del 032, el reclamo y la aceptaci\u00F3n se excluyen, y el 034 lo registra el emisor pasados 3 d\u00EDas h\u00E1biles del 032. Si no se cumple responde 422 con el motivo, sin llamar a la DIAN. La respuesta trae \u0060success\u0060 verdadero solo si la DIAN registr\u00F3 el evento; con un rechazo, \u0060success\u0060 falso, \u0060event.status\u0060 \u0060rejected\u0060 y las reglas en \u0060event.error_messages\u0060 (el evento rechazado se puede volver a enviar). Si la DIAN no responde, \u0060event.status\u0060 es \u0060unconfirmed\u0060 y un nuevo env\u00EDo reenv\u00EDa el mismo XML firmado. Cuenta en \u0060qty_docs_radian\u0060 del plan cuando la DIAN lo registra. Un documento que no existe o es de otra empresa responde 404.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "sendReceivedDocumentEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendEventBody"
+              },
+              "examples": {
+                "acuse-de-recibo": {
+                  "summary": "030: acuse de recibo, con la persona que recibe",
+                  "value": {
+                    "event_code": "030",
+                    "issuer_party": {
+                      "identification_number": "1000000001",
+                      "first_name": "PERSONA",
+                      "last_name": "DE PRUEBA",
+                      "organization_department": "CONTABILIDAD",
+                      "job_title": "AUXILIAR CONTABLE"
+                    }
+                  }
+                },
+                "recibo-del-bien": {
+                  "summary": "032: recibo del bien o prestaci\u00F3n del servicio",
+                  "description": "Requiere el 030.",
+                  "value": {
+                    "event_code": "032"
+                  }
+                },
+                "aceptacion-expresa": {
+                  "summary": "033: aceptaci\u00F3n expresa",
+                  "description": "Requiere el 030 y el 032.",
+                  "value": {
+                    "event_code": "033"
+                  }
+                },
+                "reclamo": {
+                  "summary": "031: reclamo por mercanc\u00EDa no entregada totalmente",
+                  "description": "Requiere el 030 y el 032. \u0060claim_reason\u0060: 01 documento con inconsistencias, 02 mercanc\u00EDa no entregada totalmente, 03 mercanc\u00EDa no entregada parcialmente, 04 servicio no prestado.",
+                  "value": {
+                    "event_code": "031",
+                    "claim_reason": "02"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadianEventResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/documents/{id}/events": {
+      "get": {
+        "tags": [
+          "RADIAN"
+        ],
+        "summary": "Eventos enviados sobre una factura propia",
+        "description": "Los eventos que la empresa envi\u00F3 sobre su factura (la aceptaci\u00F3n t\u00E1cita, 034), con su estado en la DIAN. Un documento que no existe o es de otra empresa responde 404.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "listDocumentEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentEventListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "RADIAN"
+        ],
+        "summary": "Registrar la aceptaci\u00F3n t\u00E1cita de una factura propia",
+        "description": "Arma, firma y env\u00EDa la aceptaci\u00F3n t\u00E1cita (\u0060event_code\u0060 \u0060034\u0060) de una factura de venta propia aceptada por la DIAN, con la nota de declaraci\u00F3n bajo juramento y la DIAN como receptor. Antes consulta a la DIAN (GetStatusEvent) los eventos del adquiriente: el 034 requiere el 032 y que no haya reclamo ni aceptaci\u00F3n expresa. ImpiFact revisa antes el orden del anexo t\u00E9cnico 1.9 (reglas LGC01 a LGC14): un evento de cada tipo, 030 antes del 032, el 031 y el 033 solo despu\u00E9s del 032, el reclamo y la aceptaci\u00F3n se excluyen, y el 034 lo registra el emisor pasados 3 d\u00EDas h\u00E1biles del 032. Si no se cumple responde 422 con el motivo, sin llamar a la DIAN. La respuesta trae \u0060success\u0060 verdadero solo si la DIAN registr\u00F3 el evento; con un rechazo, \u0060success\u0060 falso, \u0060event.status\u0060 \u0060rejected\u0060 y las reglas en \u0060event.error_messages\u0060 (el evento rechazado se puede volver a enviar). Si la DIAN no responde, \u0060event.status\u0060 es \u0060unconfirmed\u0060 y un nuevo env\u00EDo reenv\u00EDa el mismo XML firmado. Cuenta en \u0060qty_docs_radian\u0060 del plan cuando la DIAN lo registra. Un documento que no existe o es de otra empresa responde 404.\n\n**Permiso:** alcance \u0060documents:write\u0060.",
+        "operationId": "sendDocumentEvent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendEventBody"
+              },
+              "examples": {
+                "aceptacion-tacita": {
+                  "summary": "034: aceptaci\u00F3n t\u00E1cita de una factura propia",
+                  "description": "Pasados 3 d\u00EDas h\u00E1biles desde el 032 del adquiriente, sin reclamo ni aceptaci\u00F3n expresa.",
+                  "value": {
+                    "event_code": "034"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadianEventResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/documents/{id}/dian-events": {
+      "get": {
+        "tags": [
+          "RADIAN"
+        ],
+        "summary": "Eventos registrados en la DIAN de una factura propia",
+        "description": "Consulta a la DIAN (GetStatusEvent) los eventos de la factura, entre ellos los que registr\u00F3 el adquiriente (030 a 033). Si la DIAN no responde: 503. Un documento que no existe o es de otra empresa responde 404.\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "getDocumentDianEvents",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "0196f3a2-7c41-7d2e-9b8a-3c4d5e6f7a8b"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DianEventListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/plans": {
       "get": {
         "tags": [
@@ -57323,6 +57793,75 @@
           }
         }
       },
+      "DianEventListResponse": {
+        "required": [
+          "success",
+          "message",
+          "cufe",
+          "events"
+        ],
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "cufe": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DianEventResponse"
+            }
+          }
+        }
+      },
+      "DianEventResponse": {
+        "required": [
+          "dian_code"
+        ],
+        "type": "object",
+        "properties": {
+          "event_number": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dian_code": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "date": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "time": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "time"
+          },
+          "cude": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "DianStatusResponse": {
         "type": "object",
         "properties": {
@@ -57651,6 +58190,83 @@
           },
           "email_status": {
             "type": "string"
+          }
+        }
+      },
+      "DocumentEventListResponse": {
+        "required": [
+          "data"
+        ],
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentEventResponse"
+            }
+          }
+        }
+      },
+      "DocumentEventResponse": {
+        "required": [
+          "id",
+          "event_code",
+          "event_name",
+          "status",
+          "cude",
+          "issued_at"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "event_code": {
+            "type": "string"
+          },
+          "event_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "cude": {
+            "type": "string"
+          },
+          "number": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "claim_reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dian_status_code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "dian_status_description": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "error_messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -58080,6 +58696,41 @@
           }
         }
       },
+      "EventPersonBody": {
+        "type": "object",
+        "properties": {
+          "identification_number": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "first_name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "last_name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "organization_department": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "job_title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "IFormFile": {
         "type": "string",
         "format": "binary"
@@ -58478,6 +59129,17 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "LoadReceivedDocumentCommand": {
+        "type": "object",
+        "properties": {
+          "cufe": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -59200,6 +59862,266 @@
           }
         }
       },
+      "RadianEventResponse": {
+        "required": [
+          "success",
+          "message",
+          "cude",
+          "event"
+        ],
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "cude": {
+            "type": "string"
+          },
+          "event": {
+            "$ref": "#/components/schemas/DocumentEventResponse"
+          },
+          "received_document_id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "document_id": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "transmitter_id": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "transmitter_name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiver_id": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "receiver_name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "invoice_number": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "invoice_date": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "invoice_cufe": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "invoice_total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "invoice_tax": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "ReceivedDocumentListResponse": {
+        "required": [
+          "data",
+          "total_count",
+          "limit",
+          "offset"
+        ],
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReceivedDocumentResponse"
+            }
+          },
+          "total_count": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "limit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "offset": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "ReceivedDocumentResponse": {
+        "required": [
+          "id",
+          "supplier_identification_number",
+          "supplier_dv",
+          "supplier_name",
+          "type_document_id",
+          "prefix",
+          "number",
+          "cufe",
+          "issue_date",
+          "type_environment_id",
+          "line_extension_amount",
+          "tax_exclusive_amount",
+          "allowance_total_amount",
+          "tax_amount",
+          "payable_amount",
+          "created_at"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supplier_identification_number": {
+            "type": "string"
+          },
+          "supplier_dv": {
+            "type": "string"
+          },
+          "supplier_name": {
+            "type": "string"
+          },
+          "supplier_email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "type_document_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "cufe": {
+            "type": "string"
+          },
+          "issue_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "type_environment_id": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "line_extension_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_exclusive_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "allowance_total_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "tax_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "payable_amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentEventResponse"
+            }
+          }
+        }
+      },
       "RefreshBody": {
         "required": [
           "refresh_token",
@@ -59469,6 +60391,33 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "SendEventBody": {
+        "type": "object",
+        "properties": {
+          "event_code": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "claim_reason": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "issuer_party": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EventPersonBody"
+              }
+            ]
           }
         }
       },
@@ -60370,6 +61319,10 @@
     {
       "name": "Documentos",
       "description": "Emisi\u00F3n de facturas, notas cr\u00E9dito y notas d\u00E9bito; consulta de documentos y de su estado en la DIAN; descarga de archivos (XML, PDF, AttachedDocument, ZIP) y tareas de mantenimiento (regenerar el PDF o el AttachedDocument, reenviar el correo)."
+    },
+    {
+      "name": "RADIAN",
+      "description": "Eventos RADIAN (registro de la factura electr\u00F3nica como t\u00EDtulo valor): facturas recibidas de proveedores, que se cargan desde la DIAN por su CUFE, y sus eventos de acuse de recibo (030), reclamo (031), recibo del bien (032) y aceptaci\u00F3n expresa (033); la aceptaci\u00F3n t\u00E1cita (034) de las facturas propias y la consulta de los eventos que la DIAN tiene registrados. ImpiFact revisa el orden de los eventos del anexo t\u00E9cnico antes de enviarlos."
     },
     {
       "name": "Planes",
