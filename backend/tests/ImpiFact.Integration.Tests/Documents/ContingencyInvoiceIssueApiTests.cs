@@ -193,8 +193,9 @@ public sealed class ContingencyInvoiceIssueApiTests
             Assert.That(json.RootElement.GetProperty("documents").EnumerateArray()
                     .Select(row => (row.GetProperty("id").GetGuid(), row.GetProperty("full_number").GetString(), row.GetProperty("status").GetString())),
                 Is.EqualTo(new[] { (ownDocument.Id, (string?)"SETP990000301", (string?)"ContingencyPending") }));
-            Assert.That(ownMessages.Select(message => message.NextAttemptAt),
-                Is.EquivalentTo(new[] { Api.Clock.UtcNow.AddMinutes(30), Api.Clock.UtcNow }), "send-pending adds a message due now.");
+            // End-of-7a verification, M1: the message of the issue is brought forward; a second one would race it to the DIAN.
+            Assert.That(ownMessages.Select(message => (DocumentOf(message), message.NextAttemptAt)),
+                Is.EqualTo(new[] { (ownDocument.Id, Api.Clock.UtcNow) }), "send-pending makes the queued message due now.");
             Assert.That(foreignMessages.Select(message => (DocumentOf(message), message.NextAttemptAt)),
                 Is.EqualTo(new[] { (foreignDocument.Id, Api.Clock.UtcNow.AddMinutes(30)) }), "Another company's documents are not touched.");
         });

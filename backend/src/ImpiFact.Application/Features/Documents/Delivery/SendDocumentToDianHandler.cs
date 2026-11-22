@@ -33,7 +33,9 @@ namespace ImpiFact.Application.Features.Documents.Delivery;
 /// ZipKey del set de pruebas, <c>Sent</c> y se programa GetStatusZip; con un SOAP Fault del que envía,
 /// <c>Failed</c> y aviso, salvo que un intento anterior (de esta llamada o de un mensaje anterior) haya podido llegar
 /// a la DIAN: entonces cuenta como «sin respuesta». Un documento que ya no está en <c>Queued</c> no se vuelve a
-/// enviar: el mensaje repetido no hace nada.
+/// enviar: el mensaje repetido no hace nada. Two messages of the same document that run at the same time make one call:
+/// before calling, each one claims the document row (<see cref="IDocumentDelivery.Claim"/>) in the short transaction, and
+/// the one whose claim fails ends without side effects.
 /// </para>
 /// <para>
 /// An invoice type 04 (phase 7a, T5) is sent from <c>ContingencyPending</c> with the XML signed when it was issued, through
@@ -80,9 +82,12 @@ internal sealed class SendDocumentToDianHandler(
             ?? throw new PermanentOutboxFailureException($"Document {document.Id} has no signed XML.");
         var issuer = await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct)
             ?? throw new PermanentOutboxFailureException($"Company {companyId} does not exist.");
+        // The version read now is the one the claim below (or the hold) saves over: if another message of the same document
+        // saves first, this one sees a newer stored version and ends without side effects.
+        var readVersion = document.RowVersion;
         if (!issuer.Company.IsActive)
         {
-            await InactiveCompanyHold.HoldAsync(message, payload, companyId, outbox, unitOfWork, clock, logger, ct);
+            await HoldAsync(message, payload, document, readVersion, ct);
             return;
         }
 
@@ -100,17 +105,34 @@ internal sealed class SendDocumentToDianHandler(
         var endpoint = new DianEndpoint(urls.ForEnvironment(document.TypeEnvironmentId), certificate);
         var startedAt = clock.UtcNow;
 
-        // Transacción corta: el consecutivo de nombres de archivo y la fila del intento con el ZIP enviado.
+        // Transacción corta: el documento reclamado (claim), el consecutivo de nombres de archivo y la fila del intento con el
+        // ZIP enviado. The claim saves the document row with a new row_version: a second message of the same document running
+        // at the same time (end-of-7a verification, M1) fails this save, before calling the DIAN, and ends.
         DianSubmission submission;
         byte[] zip;
-        await using (var transaction = await unitOfWork.BeginTransactionAsync(ct))
+        try
         {
+            await using var transaction = await unitOfWork.BeginTransactionAsync(ct);
+            documents.Claim(document);
             var year = ColombiaTime.Today(startedAt).Year;
             var counter = await DianFileCounters.TakeAsync(numbering, unitOfWork, companyId, DianFileNames.Prefix(kind), year, ct);
             var entry = DianFileNames.XmlEntry(kind, issuer.Company.IdentificationNumber, year, counter);
             zip = DianZip.Create(entry, signedXml, ColombiaTime.Local(startedAt));
             submission = await delivery.BeginAsync(document, operation, zipKey: null, zip, ct);
             await transaction.CommitAsync(ct);
+        }
+        catch (PersistenceConflictException) when (!ct.IsCancellationRequested)
+        {
+            if (await ClaimedElsewhereAsync(document, readVersion, ct))
+            {
+                logger.LogInformation(
+                    "Document {DocumentId} was claimed by another send message at the same time; outbox message {MessageId} sends nothing.",
+                    document.Id, message.MessageId);
+                return;
+            }
+
+            // Another conflict, such as two first sends of the year creating the file counter at once: the message retries.
+            throw;
         }
 
         var fileName = DianFileNames.SoapFileName(document.Prefix, document.Number);
@@ -194,6 +216,48 @@ internal sealed class SendDocumentToDianHandler(
         await unitOfWork.SaveChangesAsync(ct);
         logger.LogWarning("Document {DocumentId} could not be sent to the DIAN after every attempt; it is marked Failed.", document.Id);
     }
+
+    /// <summary>
+    /// The company is inactive: the document keeps its status and one message waits for the next look (see
+    /// <see cref="InactiveCompanyHold"/>). A repeated message of the same document (end-of-7a verification, M1) does not
+    /// carry on: when another one already waits it simply ends, and when two are held at the same time the claim lets only
+    /// one of them schedule the next look.
+    /// </summary>
+    private async Task HoldAsync(OutboxMessageContext message, SendDocumentToDianPayload payload, Document document, long readVersion, CancellationToken ct)
+    {
+        var others = (await documents.LiveSendsAsync(document.CompanyId, [document.Id], ct))
+            .Where(send => send.MessageId != message.MessageId)
+            .ToList();
+        if (others.Any(send => !send.Running))
+        {
+            logger.LogInformation(
+                "Company {CompanyId} is inactive and document {DocumentId} already has another send waiting; outbox message {MessageId} ends.",
+                document.CompanyId, document.Id, message.MessageId);
+            return;
+        }
+
+        documents.Claim(document);
+        try
+        {
+            await InactiveCompanyHold.HoldAsync(message, payload, document.CompanyId, outbox, unitOfWork, clock, logger, ct);
+        }
+        catch (PersistenceConflictException) when (!ct.IsCancellationRequested)
+        {
+            if (await ClaimedElsewhereAsync(document, readVersion, ct))
+            {
+                logger.LogInformation(
+                    "Document {DocumentId} was held or sent by another message at the same time; outbox message {MessageId} ends.",
+                    document.Id, message.MessageId);
+                return;
+            }
+
+            throw;
+        }
+    }
+
+    /// <summary>Whether another message saved the document after this one read it (the stored version is not the one read).</summary>
+    private async Task<bool> ClaimedElsewhereAsync(Document document, long readVersion, CancellationToken ct) =>
+        await documents.StoredRowVersionAsync(document.CompanyId, document.Id, ct) != readVersion;
 
     /// <summary>
     /// No attempt of an invoice type 04 reached the DIAN: it stays <c>ContingencyPending</c> (never <c>Failed</c>: it was

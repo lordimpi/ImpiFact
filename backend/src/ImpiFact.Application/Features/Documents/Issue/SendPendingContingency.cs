@@ -92,8 +92,10 @@ internal sealed class SendPendingContingencyInvoicesCommandValidator : AbstractV
 }
 
 /// <summary>
-/// Queues a <c>SendDocumentToDian</c> message, due now, for each pending invoice type 04 of the company of the credential
-/// (never another company's, unlike the PHP lookups of php-rules 12.2, item 2). Like the PHP (php-rules 12.3, item 2) it
+/// Makes a <c>SendDocumentToDian</c> message due now for each pending invoice type 04 of the company of the credential
+/// (never another company's, unlike the PHP lookups of php-rules 12.2, item 2): the one already queued is brought forward,
+/// and only a document without one gets a new message, so a document never has two sends racing to the DIAN (end-of-7a
+/// verification, M1). Like the PHP (php-rules 12.3, item 2) it
 /// checks the company and its certificate but not the plan: the quota was checked when issuing and counts on acceptance.
 /// The documents stay <c>ContingencyPending</c> until the Worker sends them; one the DIAN rejects ends <c>Rejected</c>
 /// with its notice, never pending again (the PHP left it in state 2 and sent it again on every call, item 5).
@@ -124,8 +126,32 @@ internal sealed class SendPendingContingencyInvoicesHandler(
         var prefix = string.IsNullOrWhiteSpace(request.Prefix) ? null : request.Prefix.Trim();
         long? number = string.IsNullOrWhiteSpace(request.Number) ? null : long.Parse(request.Number, NumberStyles.None, CultureInfo.InvariantCulture);
         var pending = await documents.ListContingencyPendingAsync(companyId, prefix, number, ct);
+        var live = await documents.LiveSendsAsync(companyId, pending.Select(document => document.Id).ToList(), ct);
+        var now = clock.UtcNow;
         foreach (var document in pending)
         {
+            var sends = live.Where(send => send.DocumentId == document.Id).ToList();
+            if (sends.Count > 0)
+            {
+                // Already queued (the automatic attempt of the issue, a retry, or an earlier call): the waiting message is
+                // made due now and a running one is left alone. A second message would race the first one to the DIAN.
+                foreach (var send in sends.Where(send => !send.Running))
+                {
+                    await documents.ExpediteSendAsync(send.MessageId, now, ct);
+                }
+
+                continue;
+            }
+
+            // No message left (the automatic window ended): a new one, with the document claimed in the same save, so two
+            // calls at the same time cannot both add one (the second answers 409).
+            var tracked = await documents.FindForUpdateAsync(companyId, document.Id, ct);
+            if (tracked is null)
+            {
+                continue;
+            }
+
+            documents.Claim(tracked);
             await outbox.EnqueueAsync(
                 OutboxMessageTypes.SendDocumentToDian, new SendDocumentToDianPayload(document.Id, null), companyId, notBefore: null, ct);
         }

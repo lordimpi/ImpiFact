@@ -12,7 +12,9 @@ namespace ImpiFact.Application.Features.Documents.Delivery;
 /// keeps its status and the same message is scheduled again after <see cref="RetryInterval"/>, so the work issued before
 /// the deactivation is sent by itself once the company is reactivated, and never while it is inactive. Nothing fails, so
 /// no notice is sent and the document never ends <c>Failed</c>. The status polls (<c>PollDianStatus</c>,
-/// <c>PollDocumentBatchStatus</c>) keep running: those documents already reached the DIAN.
+/// <c>PollDocumentBatchStatus</c>) keep running: those documents already reached the DIAN. A document keeps a single held
+/// message: <c>SendDocumentToDianHandler</c> ends a repeated one instead of scheduling it again (end-of-7a verification, M1:
+/// the duplicates waited together and both called the DIAN after the reactivation).
 /// </summary>
 internal static class InactiveCompanyHold
 {

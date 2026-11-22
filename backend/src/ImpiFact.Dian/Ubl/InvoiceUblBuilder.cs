@@ -298,7 +298,10 @@ public static class InvoiceUblBuilder
     /// Resolución 948 de 2026), section 6.a, defines it: the responsible and the administrative act as Name/Value pairs of
     /// CustomTagGeneral, then one Collection «Usuario» with CODIGO_PRESTADOR, MODALIDAD_PAGO, COBERTURA_PLAN_BENEFICIOS,
     /// NUMERO_CONTRATO and NUMERO_POLIZA (empty when absent) and, when present, FACTURA_SIN_CONTRATO. Unprefixed elements, like
-    /// the supplement K. The DIAN does not validate it (annex 1.9, section 19.1); the Ministry's validator does.
+    /// the supplement K. The DIAN does not validate it (annex 1.9, section 19.1); the Ministry's validator does. The
+    /// <c>@schemeName</c> literals of the coded values are the document's own: «salud_modalidad_pago.gc» and «salud_cobertura.gc»
+    /// (page 16) and «salud_facturaSinContrato.gc» (page 19); a plain text extraction of the PDF drops the «salud_» and «.gc»
+    /// pieces, PyMuPDF reads them whole.
     /// </summary>
     private static UblElement HealthExtension(HealthSectorFields fields)
     {

@@ -185,6 +185,31 @@ public sealed class ContingencyInvoiceTests
             Assert.That(harness.Db.Messages.Select(message => ((message.Payload as SendDocumentToDianPayload)?.DocumentId, message.CompanyId)),
                 Is.EqualTo(new[] { ((Guid?)first.Id, (Guid?)companyId), (second.Id, companyId) }));
             Assert.That(harness.Db.NotBefore, Is.EqualTo(new DateTimeOffset?[] { null, null }));
+            Assert.That(delivery.Claimed, Is.EqualTo(new[] { first.Id, second.Id }), "A new message claims its document.");
+        });
+    }
+
+    // End-of-7a verification, M1: a second message for the same document raced the first one to the DIAN.
+    [Test]
+    public async Task Sending_pending_brings_the_queued_message_forward_instead_of_adding_another()
+    {
+        var delivery = new FakePendingDelivery();
+        using var harness = IssueHarness.Create();
+        var waiting = delivery.AddPending(harness.CompanyId, "SETP", 990000301);
+        var running = delivery.AddPending(harness.CompanyId, "SETP", 990000302);
+        var waitingMessage = new LiveDianSend(Guid.CreateVersion7(), waiting.Id, Running: false);
+        delivery.Live.Add(waitingMessage);
+        delivery.Live.Add(new LiveDianSend(Guid.CreateVersion7(), running.Id, Running: true));
+
+        var result = await SendPendingAsync(harness, delivery, harness.CompanyId, new SendPendingContingencyInvoicesCommand(null, null));
+
+        Assert.That(result.IsSuccess, Is.True, Describe(result));
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Value.Documents.Select(document => document.Id), Is.EqualTo(new[] { waiting.Id, running.Id }));
+            Assert.That(harness.Db.Messages, Is.Empty, "No second message for a document that already has one.");
+            Assert.That(delivery.Expedited, Is.EqualTo(new[] { (waitingMessage.MessageId, harness.Clock.UtcNow) }));
+            Assert.That(delivery.Claimed, Is.Empty);
         });
     }
 
@@ -317,7 +342,29 @@ public sealed class ContingencyInvoiceTests
                 .ToList());
         }
 
-        public Task<Document?> FindForUpdateAsync(Guid companyId, Guid documentId, CancellationToken ct) => throw new NotSupportedException();
+        /// <summary>Waiting or running sends per document; the test adds them.</summary>
+        public List<LiveDianSend> Live { get; } = [];
+
+        /// <summary>The messages brought forward, with the time they were made due.</summary>
+        public List<(Guid MessageId, DateTimeOffset Now)> Expedited { get; } = [];
+
+        public List<Guid> Claimed { get; } = [];
+
+        public Task<Document?> FindForUpdateAsync(Guid companyId, Guid documentId, CancellationToken ct) =>
+            Task.FromResult(documents.FirstOrDefault(document => document.CompanyId == companyId && document.Id == documentId));
+
+        public void Claim(Document document) => Claimed.Add(document.Id);
+
+        public Task<long?> StoredRowVersionAsync(Guid companyId, Guid documentId, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task<IReadOnlyList<LiveDianSend>> LiveSendsAsync(Guid companyId, IReadOnlyCollection<Guid> documentIds, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<LiveDianSend>>(Live.Where(send => documentIds.Contains(send.DocumentId)).ToList());
+
+        public Task ExpediteSendAsync(Guid messageId, DateTimeOffset now, CancellationToken ct)
+        {
+            Expedited.Add((messageId, now));
+            return Task.CompletedTask;
+        }
 
         public Task<int> NextSubmissionAttemptAsync(Guid companyId, Guid documentId, CancellationToken ct) => throw new NotSupportedException();
 

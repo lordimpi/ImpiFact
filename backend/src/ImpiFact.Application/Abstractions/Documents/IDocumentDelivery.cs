@@ -48,4 +48,31 @@ public interface IDocumentDelivery
     /// <paramref name="number"/>. Only that company's documents, never another company's.
     /// </summary>
     Task<IReadOnlyList<Document>> ListContingencyPendingAsync(Guid companyId, string? prefix, long? number, CancellationToken ct);
+
+    /// <summary>
+    /// Claims a tracked document: the next save writes its row with a new <c>row_version</c> even when no column changed.
+    /// Two senders that read the same version cannot both save it: the second gets
+    /// <see cref="Persistence.PersistenceConflictException"/> and can tell with <see cref="StoredRowVersionAsync"/> that
+    /// another one claimed it (end-of-7a verification, M1: two messages of one invoice type 04 both called SendBillSync).
+    /// </summary>
+    void Claim(Document document);
+
+    /// <summary>The <c>row_version</c> stored now for the document, read again from the database; null if it does not exist.</summary>
+    Task<long?> StoredRowVersionAsync(Guid companyId, Guid documentId, CancellationToken ct);
+
+    /// <summary>
+    /// The <c>SendDocumentToDian</c> messages of these documents of the company that have not ended: waiting
+    /// (<c>Pending</c>, due or not) or running (<c>Processing</c>). Empty for a document with none.
+    /// </summary>
+    Task<IReadOnlyList<LiveDianSend>> LiveSendsAsync(Guid companyId, IReadOnlyCollection<Guid> documentIds, CancellationToken ct);
+
+    /// <summary>
+    /// Makes a waiting <c>SendDocumentToDian</c> message due at <paramref name="now"/>; one already due, running or ended is
+    /// left as it is.
+    /// </summary>
+    Task ExpediteSendAsync(Guid messageId, DateTimeOffset now, CancellationToken ct);
 }
+
+/// <summary>A <c>SendDocumentToDian</c> message that has not ended (see <see cref="IDocumentDelivery.LiveSendsAsync"/>).</summary>
+/// <param name="Running">True while the Worker processes it (<c>Processing</c>); false while it waits (<c>Pending</c>).</param>
+public sealed record LiveDianSend(Guid MessageId, Guid DocumentId, bool Running);
