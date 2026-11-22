@@ -244,6 +244,10 @@ async function mockDocuments(page: Page): Promise<DocumentsApi> {
     if (url.pathname === '/api/v1/documents/doc-1') {
       return route.fulfill({ json: ACCEPTED_INVOICE });
     }
+    // The «Eventos RADIAN» section of an accepted invoice reads its events; none were sent yet.
+    if (url.pathname === '/api/v1/documents/doc-1/events') {
+      return route.fulfill({ json: { data: [] } });
+    }
     if (url.pathname === '/api/v1/documents/note-1') {
       return route.fulfill({
         json: {
@@ -283,7 +287,7 @@ test.beforeEach(async ({ page }) => {
 test('keeps the list filters in the URL and sends them to the API', async ({ page }) => {
   const api = await mockDocuments(page);
   await logIn(page);
-  await page.getByRole('link', { name: 'Documentos' }).click();
+  await page.getByRole('link', { name: 'Documentos', exact: true }).click();
 
   await expect(page.getByRole('heading', { level: 1, name: 'Documentos' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'SETP990000001', exact: true })).toBeVisible();
@@ -434,7 +438,7 @@ test(
     const api = await mockDocuments(page);
     api.holdDetail = true;
     await logIn(page);
-    await page.getByRole('link', { name: 'Documentos' }).click();
+    await page.getByRole('link', { name: 'Documentos', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Documentos' })).toBeVisible();
     expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
     await page.getByRole('link', { name: 'Emitir factura' }).click();
@@ -558,7 +562,7 @@ test('previews the invoice PDF in a dialog and explains when the PDF service is 
 test('issues a credit note from an accepted invoice with its lines', CRITICAL, async ({ page }) => {
   const api = await mockDocuments(page);
   await logIn(page);
-  await page.getByRole('link', { name: 'Documentos' }).click();
+  await page.getByRole('link', { name: 'Documentos', exact: true }).click();
   await page.getByRole('link', { name: 'SETP990000001', exact: true }).click();
   await expect(page).toHaveURL('/documentos/doc-1');
   await expect(

@@ -161,6 +161,17 @@
             }
           </dl>
         </ui-card>
+
+        <!-- RADIAN events exist only on an accepted sale invoice: the buyer registers 030 to 033, the company the 034. -->
+        @if (accepted() && doc.kind === 'invoice' && doc.id) {
+          <ui-card [title]="'documents.radian.title' | transloco">
+            <feat-own-document-events
+              [documentId]="doc.id"
+              [number]="doc.full_number ?? ''"
+              [canSend]="canWrite()"
+            />
+          </ui-card>
+        }
       </div>
 
       <div class="doc-stack">

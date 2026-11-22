@@ -19,6 +19,7 @@ import {
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { EMPTY, Subject, catchError, combineLatest, startWith, switchMap, tap } from 'rxjs';
 import { CopCurrencyPipe } from '../components/cop-currency.pipe';
+import { OwnDocumentEventsComponent } from '../components/own-document-events.component';
 import { StatusBadgeComponent } from '../components/status-badge.component';
 import { TotalsPanelComponent } from '../components/totals-panel.component';
 import { DOCUMENTS_I18N_SCOPE, provideDocumentsI18n } from '../documents-i18n';
@@ -37,8 +38,9 @@ type DocumentLine = NonNullable<DocumentDetailResponse['lines']>[number];
 
 /**
  * Detalle de un documento (`/documentos/:id`): encabezado, cliente, líneas, totales, estado en la DIAN con su
- * mensaje, archivos y acciones. Mientras la DIAN no da una respuesta final, el estado se consulta con retroceso
- * (sección 9), en pausa con la pestaña oculta y hasta salir de la página.
+ * mensaje, archivos, acciones y, en una factura de venta aceptada, sus eventos RADIAN. Mientras la DIAN no da una
+ * respuesta final, el estado se consulta con retroceso (sección 9), en pausa con la pestaña oculta y hasta salir de la
+ * página.
  */
 @Component({
   selector: 'feat-document-detail-page',
@@ -55,6 +57,7 @@ type DocumentLine = NonNullable<DocumentDetailResponse['lines']>[number];
     TableComponent,
     TableCellDirective,
     CopCurrencyPipe,
+    OwnDocumentEventsComponent,
     StatusBadgeComponent,
     TotalsPanelComponent,
   ],

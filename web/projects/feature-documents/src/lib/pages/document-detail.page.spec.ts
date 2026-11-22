@@ -225,3 +225,130 @@ describe('DocumentDetailPage', () => {
     expect(await screen.findByText('Aceptado')).toBeTruthy();
   });
 });
+
+describe('DocumentDetailPage RADIAN events', { timeout: 15_000 }, () => {
+  const EVENTS = '/api/v1/documents/doc-1/events';
+  const isEvents = (request: { method: string; url: string }) =>
+    request.method === 'GET' && request.url === EVENTS;
+  const isSend = (request: { method: string; url: string }) =>
+    request.method === 'POST' && request.url === EVENTS;
+  const TACIT = {
+    id: 'ev-34',
+    event_code: '034',
+    event_name: 'Aceptación Tácita',
+    status: 'accepted',
+    cude: 'f'.repeat(96),
+    number: 'AT1',
+    issued_at: '2026-11-25T15:00:00Z',
+  };
+
+  async function openAccepted(events: object[] = [], session = {}) {
+    const route = await renderDocumentsRoute('/documentos/doc-1', session);
+    (await waitFor(() => route.http.expectOne('/api/v1/documents/doc-1'))).flush({
+      ...DETAIL,
+      status: 'Accepted',
+    });
+    (await waitFor(() => route.http.expectOne(isEvents))).flush({ data: events });
+    await screen.findByRole('heading', { name: 'Eventos RADIAN' });
+    return route;
+  }
+
+  const tacitButton = () =>
+    screen.getByRole('button', { name: 'Aceptación tácita' }) as HTMLButtonElement;
+
+  afterEach(() => {
+    document.body.querySelectorAll('ui-confirm-dialog').forEach((host) => host.remove());
+  });
+
+  it('shows the events of an accepted invoice and offers the tacit acceptance', async () => {
+    await openAccepted();
+
+    expect(
+      screen.getByText('La empresa no ha registrado eventos sobre esta factura.'),
+    ).toBeTruthy();
+    expect(tacitButton().disabled).toBe(false);
+    expect(screen.getByRole('button', { name: 'Consultar en la DIAN' })).toBeTruthy();
+  });
+
+  it('has no RADIAN events on an invoice the DIAN has not accepted, nor on a note', async () => {
+    const { http } = await renderDocumentsRoute('/documentos/doc-1');
+    (await waitFor(() => http.expectOne('/api/v1/documents/doc-1'))).flush({
+      ...DETAIL,
+      status: 'Rejected',
+    });
+    await screen.findByText('Rechazado');
+    expect(screen.queryByRole('heading', { name: 'Eventos RADIAN' })).toBeNull();
+    http.expectNone(isEvents);
+  });
+
+  it('has no RADIAN events on an accepted credit note', async () => {
+    const { http } = await renderDocumentsRoute('/documentos/doc-1');
+    (await waitFor(() => http.expectOne('/api/v1/documents/doc-1'))).flush({
+      ...DETAIL,
+      kind: 'credit_note',
+      status: 'Accepted',
+    });
+    await screen.findByRole('button', { name: 'Regenerar PDF' });
+    expect(screen.queryByRole('button', { name: 'Aceptación tácita' })).toBeNull();
+    http.expectNone(isEvents);
+  });
+
+  it('offers no tacit acceptance to a session that cannot issue', async () => {
+    await openAccepted([], { scopes: ['documents:read'] });
+
+    expect(screen.queryByRole('button', { name: 'Aceptación tácita' })).toBeNull();
+  });
+
+  it('does not offer the tacit acceptance twice', async () => {
+    await openAccepted([TACIT]);
+
+    expect(tacitButton().disabled).toBe(true);
+    expect(screen.getByText('Ya está registrado.')).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Historial de eventos RADIAN' }).textContent).toContain(
+      'Aceptación tácita (034)',
+    );
+  });
+
+  it('confirms and sends the tacit acceptance, shows the 422 of the API and reads the events again', async () => {
+    const { http, toasts } = await openAccepted();
+
+    fireEvent.click(tacitButton());
+    const confirm = await screen.findByRole('alertdialog', {}, { timeout: 8000 });
+    expect(within(confirm).getByText(/no se puede deshacer ni anular/)).toBeTruthy();
+    fireEvent.click(within(confirm).getByRole('button', { name: 'Registrar en la DIAN' }));
+
+    const send = await waitFor(() => http.expectOne(isSend));
+    expect(send.request.body).toEqual({ event_code: '034' });
+    const message =
+      'La aceptación tácita (034) solo se puede registrar pasados 3 días hábiles desde el evento 032 (Recibo del bien y/o prestación del servicio): no antes del 2026-11-26, sin contar los festivos, que valida la DIAN.';
+    send.flush(
+      { code: 'radian.tacit_acceptance_too_early', message },
+      { status: 422, statusText: 'Unprocessable Entity' },
+    );
+
+    await waitFor(() => expect(toasts.toasts().map((toast) => toast.text)).toEqual([message]));
+    (await waitFor(() => http.expectOne(isEvents))).flush({ data: [] });
+  });
+
+  it('closes the tacit acceptance when the DIAN lists a claim of the buyer', async () => {
+    const { http } = await openAccepted();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Consultar en la DIAN' }));
+    (await waitFor(() => http.expectOne('/api/v1/documents/doc-1/dian-events'))).flush({
+      success: true,
+      message: 'Consulta de eventos generada con exito',
+      cufe: 'cufe-123',
+      events: [
+        { dian_code: '030', description: 'Acuse de recibo', date: '2026-11-15' },
+        { dian_code: '032', description: 'Recibo del bien', date: '2026-11-16' },
+        { dian_code: '031', description: 'Reclamo', date: '2026-11-17' },
+      ],
+    });
+
+    expect(await screen.findByText('Reclamo')).toBeTruthy();
+    expect(tacitButton().disabled).toBe(true);
+    expect(
+      screen.getByText('No disponible: la factura ya tiene «Reclamo de la factura».'),
+    ).toBeTruthy();
+  });
+});
