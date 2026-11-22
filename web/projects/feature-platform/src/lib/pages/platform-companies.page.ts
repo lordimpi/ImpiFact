@@ -2,8 +2,15 @@ import { HttpContext } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormField, submit } from '@angular/forms/signals';
 import { Router } from '@angular/router';
-import { Api, PlatformCompanyItem, assignCompanyPlan } from '@impifact/api';
-import { AppError, SKIP_ERROR_TOAST } from '@impifact/core';
+import {
+  Api,
+  CompanyActivationResponse,
+  PlatformCompanyItem,
+  assignCompanyPlan,
+  deactivatePlatformCompany,
+  reactivatePlatformCompany,
+} from '@impifact/api';
+import { AppError, SKIP_ERROR_TOAST, ToastStore } from '@impifact/core';
 import {
   BadgeComponent,
   ButtonComponent,
@@ -17,6 +24,7 @@ import {
   SelectComponent,
   TableCellDirective,
   TableComponent,
+  UiConfirm,
   UiMenuItem,
   UiTableColumn,
   UiTableLabels,
@@ -49,7 +57,11 @@ const DATE = new Intl.DateTimeFormat('es-CO', {
 const ASSIGN_FIELDS: readonly (keyof AssignModel & string)[] = ['plan_id'];
 
 /** Ids of the options of the «Acciones» menu of every row. */
-type RowAction = 'assign' | 'user' | 'users';
+type RowAction = 'assign' | 'user' | 'users' | 'deactivate' | 'reactivate';
+
+const FORBIDDEN = 403;
+const NOT_FOUND = 404;
+const CONFLICT = 409;
 
 /**
  * Página `/plataforma/empresas`: las empresas de la plataforma con su plan actual (`listPlatformCompanies`), con
@@ -58,6 +70,11 @@ type RowAction = 'assign' | 'user' | 'users';
  * store del feature. También desde cada fila se crea el primer dueño o un vendedor de la empresa, «Usuarios» abre
  * la página de sus usuarios (`/plataforma/empresas/:nit/usuarios`, de feature-companies), y «Nueva empresa»
  * lleva al alta (`/plataforma/empresas/nueva`); al volver, la lista se pide de nuevo.
+ *
+ * «Desactivar» (`deactivatePlatformCompany`) y «Reactivar» (`reactivatePlatformCompany`) preguntan antes con el diálogo
+ * de confirmación de ui (`UiConfirm`, cargado al primer uso), que explica los efectos: no emite, sus API keys se revocan,
+ * sus usuarios pierden el acceso y los documentos se conservan. La fila muestra el estado que devuelve el Api, sin
+ * recargar a mano; un 404 o un 409 vuelven a pedir la lista. Los errores salen en un aviso (toast).
  *
  * The row actions live in one «Acciones» menu per row (`ui-menu-button`), so the table fits on one line per row at
  * 1366 px; the NIT column never wraps.
@@ -93,6 +110,8 @@ export class PlatformCompaniesPage {
   private readonly api = inject(Api);
   private readonly router = inject(Router);
   private readonly transloco = inject(TranslocoService);
+  private readonly confirm = inject(UiConfirm);
+  private readonly toasts = inject(ToastStore);
 
   /** Empresa para la que se crea un usuario (diálogo abierto). */
   protected readonly userCompany = signal<UserCompany | null>(null);
@@ -123,11 +142,23 @@ export class PlatformCompaniesPage {
     { key: 'active', header: this.text('companies.status') },
     { key: 'actions', header: this.text('common.actions') },
   ]);
-  protected readonly rowActions = computed<UiMenuItem[]>(() => [
+  private readonly commonActions = computed<UiMenuItem[]>(() => [
     { id: 'assign' satisfies RowAction, label: this.text('assign.submit') },
     { id: 'user' satisfies RowAction, label: this.text('user.open') },
     { id: 'users' satisfies RowAction, label: this.text('companies.users') },
   ]);
+  /** Menu of an active company: it can be deactivated. */
+  protected readonly activeRowActions = computed<UiMenuItem[]>(() => [
+    ...this.commonActions(),
+    { id: 'deactivate' satisfies RowAction, label: this.text('activation.deactivate') },
+  ]);
+  /** Menu of an inactive company: it can be reactivated. */
+  protected readonly inactiveRowActions = computed<UiMenuItem[]>(() => [
+    ...this.commonActions(),
+    { id: 'reactivate' satisfies RowAction, label: this.text('activation.reactivate') },
+  ]);
+  /** Company whose deactivation or reactivation is on its way; its menu shows a spinner meanwhile. */
+  protected readonly changing = signal<string | null>(null);
   protected readonly tableLabels = computed<UiTableLabels>(() => ({
     loading: this.text('common.loading'),
     emptyTitle: this.text(this.companies.term() ? 'companies.noMatch' : 'companies.empty'),
@@ -173,6 +204,93 @@ export class PlatformCompaniesPage {
       case 'users':
         void this.router.navigate(['/plataforma/empresas', row.nit, 'usuarios']);
         break;
+      case 'deactivate':
+        void this.changeActivation(row, false);
+        break;
+      case 'reactivate':
+        void this.changeActivation(row, true);
+        break;
+    }
+  }
+
+  /** Asks with the confirm dialog and, on yes, deactivates or reactivates the company of the row. */
+  protected async changeActivation(row: PlatformCompanyItem, activate: boolean): Promise<void> {
+    const name = row.name ?? '';
+    const nit = row.nit ?? '';
+    const kind = activate ? 'reactivate' : 'deactivate';
+    const go = await this.confirm.ask({
+      header: this.text(`activation.${kind}Header`, { name }),
+      message: this.text(`activation.${kind}Message`, { name, nit }),
+      acceptLabel: this.text(`activation.${kind}Accept`),
+      rejectLabel: this.text('common.cancel'),
+    });
+    if (!go) {
+      return;
+    }
+    this.done.set(null);
+    this.changing.set(row.id ?? null);
+    const context = new HttpContext().set(SKIP_ERROR_TOAST, true);
+    try {
+      const result: CompanyActivationResponse = await firstValueFrom(
+        activate
+          ? this.api.invoke(reactivatePlatformCompany, { nit }, context)
+          : this.api.invoke(deactivatePlatformCompany, { nit }, context),
+      );
+      this.companies.setActive(row.id ?? '', result.is_active ?? activate);
+      this.done.set(this.activationText(result, activate, name, nit));
+    } catch (error) {
+      this.activationFailed(error);
+    } finally {
+      this.changing.set(null);
+    }
+  }
+
+  private activationText(
+    result: CompanyActivationResponse,
+    activate: boolean,
+    name: string,
+    nit: string,
+  ): string {
+    if (result.changed === false) {
+      return this.text(activate ? 'activation.alreadyActive' : 'activation.alreadyInactive', {
+        name,
+      });
+    }
+    return activate
+      ? this.text('activation.reactivated', { name, nit })
+      : this.text('activation.deactivated', {
+          name,
+          nit,
+          keys: Number(result.revoked_api_keys ?? 0),
+          users: Number(result.signed_out_users ?? 0),
+        });
+  }
+
+  private activationFailed(error: unknown): void {
+    const status = error instanceof AppError ? error.status : null;
+    if (status === CONFLICT || status === NOT_FOUND) {
+      // The list no longer tells the truth: ask for it again.
+      this.companies.retry();
+    }
+    this.toasts.show({
+      kind: 'error',
+      text: this.activationError(error, status),
+      correlationId: error instanceof AppError ? error.correlationId : null,
+    });
+  }
+
+  private activationError(error: unknown, status: number | null): string {
+    switch (status) {
+      case FORBIDDEN:
+        return this.text('activation.forbidden');
+      case NOT_FOUND:
+        return this.text('activation.notFound');
+      case CONFLICT:
+        return this.text('activation.conflict');
+      default:
+        return error instanceof AppError && error.message
+          ? error.message
+          : this.text('common.unexpected');
     }
   }
 

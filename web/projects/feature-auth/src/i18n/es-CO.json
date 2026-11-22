@@ -63,12 +63,14 @@
     "nit": "NIT {{ nit }}-{{ dv }}",
     "selectPrefix": "Trabajar con",
     "inactive": "Empresa inactiva",
+    "inactiveReason": "La plataforma desactivó esta empresa: nadie puede trabajar en ella hasta que la reactive.",
     "active": "Empresa activa",
     "emptyTitle": "No tiene empresas asignadas",
     "emptyDescription": "Pida al propietario de una empresa que le dé acceso, o comuníquese con soporte.",
     "goHome": "Ir al inicio",
     "errors": {
-      "notAllowed": "No tiene acceso a esa empresa. Elija otra."
+      "notAllowed": "No tiene acceso a esa empresa. Elija otra.",
+      "inactive": "La plataforma desactivó esa empresa. Elija otra o comuníquese con el administrador de la plataforma."
     }
   },
   "inactivity": {

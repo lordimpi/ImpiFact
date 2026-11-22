@@ -15,7 +15,8 @@ const FORBIDDEN = 403;
  *
  * La razón social y el NIT (Número de Identificación Tributaria) salen de `MyCompaniesStore`
  * (`GET /api/v1/me/companies`). Si esa lista no cargó o no trae una empresa, esa empresa se numera y se muestra su
- * identificador. Una empresa inactiva aparece deshabilitada.
+ * identificador. Una empresa que la plataforma desactivó aparece deshabilitada, con el motivo; si se desactiva mientras
+ * la página está abierta, el Api responde 403 `identity.company_inactive` y se dice eso mismo.
  */
 @Component({
   selector: 'feat-company-selection-page',
@@ -98,6 +99,9 @@ const FORBIDDEN = 403;
                     }
                     @if (company.inactive) {
                       <ui-badge>{{ 'auth.selectCompany.inactive' | transloco }}</ui-badge>
+                      <span class="company-card__reason">{{
+                        'auth.selectCompany.inactiveReason' | transloco
+                      }}</span>
                     }
                   </span>
                 </span>
@@ -180,6 +184,9 @@ export class CompanySelectionPage {
   }
 
   private messageFor(error: unknown): string {
+    if (error instanceof AppError && error.code === 'identity.company_inactive') {
+      return this.transloco.translate(`${AUTH_I18N_SCOPE}.selectCompany.errors.inactive`);
+    }
     if (error instanceof AppError && error.status !== FORBIDDEN) {
       return error.message;
     }

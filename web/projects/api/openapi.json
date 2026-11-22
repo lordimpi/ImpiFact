@@ -61,6 +61,82 @@
         ]
       }
     },
+    "/api/v1/platform/companies/{nit}/deactivate": {
+      "post": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Desactivar una empresa",
+        "description": "Deja inactiva la empresa del NIT (\u0060is_active\u0060 falso) en una sola transacci\u00F3n: revoca para siempre sus API keys y cierra las sesiones del panel de sus usuarios (deben volver a iniciar sesi\u00F3n; la empresa les aparece deshabilitada y no pueden elegirla). Desde ese momento no emite nada: facturas, notas, documento soporte, eventos RADIAN, lotes y contingencia responden 403 (\u0060company.inactive\u0060) antes de numerar o llamar a la DIAN. Los documentos y archivos guardados se conservan y la plataforma sigue viendo la empresa, su plan y sus usuarios; el Worker sigue consultando en la DIAN el estado de lo ya enviado, pero no env\u00EDa nada nuevo mientras est\u00E9 inactiva. Nunca borra la empresa. Responde la empresa con \u0060changed\u0060, \u0060revoked_api_keys\u0060 y \u0060signed_out_users\u0060; si ya estaba inactiva responde 200 con \u0060changed\u0060 falso y no hace nada. NIT inexistente: 404 (\u0060company.not_found\u0060). Solo el administrador de la plataforma (\u0060platform:*\u0060 sin empresa); otra credencial: 403.\n\n**Permiso:** alcance \u0060platform:*\u0060 con una llave de plataforma (sin empresa).",
+        "operationId": "deactivatePlatformCompany",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyActivationResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/platform/companies/{nit}/reactivate": {
+      "post": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Reactivar una empresa",
+        "description": "Vuelve a dejar activa la empresa del NIT: sus usuarios pueden elegirla de nuevo y vuelve a emitir. No restaura nada m\u00E1s: las API keys revocadas al desactivarla siguen revocadas (un due\u00F1o crea llaves nuevas) y las sesiones cerradas siguen cerradas. Si ya estaba activa responde 200 con \u0060changed\u0060 falso y no hace nada. NIT inexistente: 404 (\u0060company.not_found\u0060). Solo el administrador de la plataforma (\u0060platform:*\u0060 sin empresa); otra credencial: 403.\n\n**Permiso:** alcance \u0060platform:*\u0060 con una llave de plataforma (sin empresa).",
+        "operationId": "reactivatePlatformCompany",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyActivationResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/companies/{nit}/plan": {
       "put": {
         "tags": [
@@ -65605,6 +65681,46 @@
             "items": {
               "$ref": "#/components/schemas/CertificateResponse"
             }
+          }
+        }
+      },
+      "CompanyActivationResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "nit": {
+            "type": "string"
+          },
+          "dv": {
+            "type": "string"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "changed": {
+            "type": "boolean"
+          },
+          "revoked_api_keys": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "signed_out_users": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

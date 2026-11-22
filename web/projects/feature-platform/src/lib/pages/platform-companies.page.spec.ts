@@ -1,6 +1,7 @@
 import { HttpTestingController, TestRequest } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
+import { ToastStore } from '@impifact/core';
 import { fireEvent, screen, waitFor, within } from '@testing-library/angular';
 import { pickMenuItem, pickOption, stubOptimusDom } from '../testing/optimus-testing';
 import { expectRequest, problem, renderPlatformRoute } from '../testing/platform-testing';
@@ -209,7 +210,7 @@ describe('PlatformCompaniesPage', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((item) => item.textContent?.trim()),
-    ).toEqual(['Asignar plan', 'Crear usuario', 'Usuarios']);
+    ).toEqual(['Asignar plan', 'Crear usuario', 'Usuarios', 'Reactivar']);
   });
 
   it('opens the users of the company from its row menu', async () => {
@@ -350,5 +351,126 @@ describe('PlatformCompaniesPage', () => {
       expect((await within(dialog).findAllByText('Este campo es obligatorio.')).length).toBe(3);
       http.expectNone('/api/v1/users');
     });
+  });
+});
+
+describe('PlatformCompaniesPage activation', { timeout: 15_000 }, () => {
+  const DEACTIVATE = '/api/v1/platform/companies/900123456/deactivate';
+  const REACTIVATE = '/api/v1/platform/companies/800111222/reactivate';
+
+  afterEach(() => {
+    // The confirm dialog lives under <body>, outside any test fixture.
+    document.body.querySelectorAll('ui-confirm-dialog').forEach((host) => host.remove());
+  });
+
+  /** The confirm dialog; the first question loads its chunk, which can take longer than the default wait. */
+  const confirmDialog = (name: string) =>
+    screen.findByRole('alertdialog', { name }, { timeout: 8000 });
+
+  // The inactive company (Beta) gets «Reactivar»: see «gathers the actions of every row in one «Acciones» menu».
+  it('offers Desactivar to an active company', async () => {
+    await open();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Acciones de Acme SAS' }));
+    const menu = await screen.findByRole('menu', { name: 'Acciones de Acme SAS' });
+
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent?.trim()),
+    ).toEqual(['Asignar plan', 'Crear usuario', 'Usuarios', 'Desactivar']);
+  });
+
+  it('deactivates after the confirmation that explains the effects and updates the row by itself', async () => {
+    const { http } = await open();
+
+    await pickMenuItem('Acciones de Acme SAS', 'Desactivar');
+    const dialog = await confirmDialog('¿Desactivar Acme SAS?');
+    expect(dialog.textContent).toContain('dejará de emitir documentos');
+    expect(dialog.textContent).toContain('Sus API keys se revocan para siempre');
+    expect(dialog.textContent).toContain('sus usuarios pierden el acceso');
+    expect(dialog.textContent).toContain('Las facturas y demás documentos se conservan');
+    within(dialog).getByRole('button', { name: 'Desactivar empresa' }).click();
+
+    const request = await expectRequest(http, DEACTIVATE);
+    expect(request.request.method).toBe('POST');
+    request.flush({
+      ...ACME,
+      is_active: false,
+      changed: true,
+      revoked_api_keys: 2,
+      signed_out_users: 3,
+    });
+
+    expect(
+      await screen.findByText(
+        'Se desactivó Acme SAS (NIT 900123456). API keys revocadas: 2. Usuarios con la sesión cerrada: 3.',
+      ),
+    ).toBeTruthy();
+    await waitFor(() => expect(rowsOf()[0]?.[4]).toBe('Inactiva'));
+    http.expectNone(isList);
+  });
+
+  it('does not call the API when the person cancels', async () => {
+    const { http } = await open();
+
+    await pickMenuItem('Acciones de Acme SAS', 'Desactivar');
+    const dialog = await confirmDialog('¿Desactivar Acme SAS?');
+    within(dialog).getByRole('button', { name: 'Cancelar' }).click();
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    http.expectNone(DEACTIVATE);
+    expect(rowsOf()[0]?.[4]).toBe('Activa');
+  });
+
+  it('reactivates an inactive company and says the old keys stay revoked', async () => {
+    const { http } = await open();
+
+    await pickMenuItem('Acciones de Beta Ltda', 'Reactivar');
+    const dialog = await confirmDialog('¿Reactivar Beta Ltda?');
+    expect(dialog.textContent).toContain('Las API keys revocadas no vuelven');
+    within(dialog).getByRole('button', { name: 'Reactivar empresa' }).click();
+    (await expectRequest(http, REACTIVATE)).flush({ ...BETA, is_active: true, changed: true });
+
+    expect(await screen.findByText(/Se reactivó Beta Ltda \(NIT 800111222\)/)).toBeTruthy();
+    await waitFor(() => expect(rowsOf()[1]?.[4]).toBe('Activa'));
+  });
+
+  it('shows a toast when the credential is not the platform admin', async () => {
+    const { http } = await open();
+
+    await pickMenuItem('Acciones de Acme SAS', 'Desactivar');
+    within(await confirmDialog('¿Desactivar Acme SAS?'))
+      .getByRole('button', { name: 'Desactivar empresa' })
+      .click();
+    const error = problem(403, 'company.platform_only', 'Solo la plataforma.');
+    (await expectRequest(http, DEACTIVATE)).flush(error.body, error.options);
+
+    const toasts = TestBed.inject(ToastStore);
+    await waitFor(() =>
+      expect(toasts.toasts().map((toast) => toast.text)).toContain(
+        'Solo el administrador de la plataforma puede desactivar o reactivar empresas.',
+      ),
+    );
+    expect(rowsOf()[0]?.[4]).toBe('Activa');
+    http.expectNone(isList);
+  });
+
+  it('shows a toast and reads the list again on a conflict', async () => {
+    const { http } = await open();
+
+    await pickMenuItem('Acciones de Acme SAS', 'Desactivar');
+    within(await confirmDialog('¿Desactivar Acme SAS?'))
+      .getByRole('button', { name: 'Desactivar empresa' })
+      .click();
+    const error = problem(409, 'concurrency.conflict', 'Conflicto.');
+    (await expectRequest(http, DEACTIVATE)).flush(error.body, error.options);
+
+    await respondList(http, [{ ...ACME, is_active: false }, BETA]);
+    const toasts = TestBed.inject(ToastStore);
+    expect(toasts.toasts().map((toast) => toast.text)).toContain(
+      'Otra persona cambió la empresa al mismo tiempo. La lista se actualizó; revise su estado e intente de nuevo.',
+    );
+    await waitFor(() => expect(rowsOf()[0]?.[4]).toBe('Inactiva'));
   });
 });

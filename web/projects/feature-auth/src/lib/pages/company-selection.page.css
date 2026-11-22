@@ -86,6 +86,12 @@
   gap: var(--if-space-2);
 }
 
+.company-card__reason {
+  flex-basis: 100%;
+  font-size: var(--if-font-size-sm);
+  color: var(--if-color-text-muted);
+}
+
 .company-card__id {
   font-family: var(--if-font-family-mono);
   font-size: var(--if-font-size-sm);

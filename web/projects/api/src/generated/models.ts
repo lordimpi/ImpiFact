@@ -22,6 +22,7 @@ export type { CertificateEndDateResponse } from './models/certificate-end-date-r
 export type { CertificateResponse } from './models/certificate-response';
 export type { CertificateSavedResponse } from './models/certificate-saved-response';
 export type { CertificatesResponse } from './models/certificates-response';
+export type { CompanyActivationResponse } from './models/company-activation-response';
 export type { CompanyEnvironmentsResponse } from './models/company-environments-response';
 export type { CompanyLogoResponse } from './models/company-logo-response';
 export type { CompanyMailSettingsResponse } from './models/company-mail-settings-response';
