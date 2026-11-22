@@ -4,11 +4,12 @@ import { documentsTextsResolver } from './documents-i18n';
 
 /*
  * Rutas del feature (sección 7 de la arquitectura del frontend): `/documentos`, `/documentos/nuevo`,
- * `/documentos/documento-soporte`, `/documentos/nota-credito`, `/documentos/nota-debito`, `/documentos/nota-ajuste`
- * y `/documentos/:id`, para el propietario y el vendedor con una empresa activa; emitir pide además el alcance
- * `documents:write`. Las notas son rutas propias (y no `nuevo?tipo=`) porque su formulario es otro (documento de
- * referencia y concepto, sin pago) y así cada una tiene su enlace; las tres usan la misma página con el tipo en
- * `data`. Este archivo entra en el bundle inicial y es mínimo: las páginas se cargan con
+ * `/documentos/documento-soporte`, `/documentos/nota-credito`, `/documentos/nota-debito`, `/documentos/nota-ajuste`,
+ * `/documentos/recibidos`, `/documentos/recibidos/:id` (facturas recibidas y sus eventos RADIAN) y `/documentos/:id`,
+ * para el propietario y el vendedor con una empresa activa; emitir pide además el alcance `documents:write` (en las
+ * recibidas, cargar una y registrar eventos también: sin él las páginas solo muestran). Las notas son rutas propias
+ * (y no `nuevo?tipo=`) porque su formulario es otro (documento de referencia y concepto, sin pago) y así cada una
+ * tiene su enlace; las tres usan la misma página con el tipo en `data`. Este archivo entra en el bundle inicial y es mínimo: las páginas se cargan con
  * `import('./feature-documents')`, un solo chunk perezoso llamado `feature-documents` con su presupuesto en
  * `angular.json`.
  */
@@ -54,6 +55,14 @@ export const documentsRoutes: Routes = [
         canDeactivate: [unsavedChangesGuard],
         loadComponent: () => loadFeature().then((m) => m.NoteIssuePage),
       })),
+      {
+        path: 'recibidos',
+        loadComponent: () => loadFeature().then((m) => m.ReceivedDocumentListPage),
+      },
+      {
+        path: 'recibidos/:id',
+        loadComponent: () => loadFeature().then((m) => m.ReceivedDocumentDetailPage),
+      },
       {
         path: ':id',
         loadComponent: () => loadFeature().then((m) => m.DocumentDetailPage),

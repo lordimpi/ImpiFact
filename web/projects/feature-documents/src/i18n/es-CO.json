@@ -396,5 +396,220 @@
       "emailFormat": "Escriba un correo válido, por ejemplo proveedor@ejemplo.com.",
       "postalFormat": "El código postal solo lleva dígitos."
     }
+  },
+  "received": {
+    "list": {
+      "title": "Documentos recibidos",
+      "description": "Facturas que la empresa recibió de sus proveedores, de la más reciente a la más antigua, con sus eventos RADIAN.",
+      "caption": "Facturas recibidas",
+      "count": "{{ count }} facturas con estos filtros",
+      "load": "Cargar por CUFE",
+      "columns": {
+        "number": "Número",
+        "supplier": "Proveedor",
+        "issueDate": "Fecha",
+        "total": "Total",
+        "stage": "Eventos RADIAN",
+        "actions": "Acciones"
+      },
+      "actions": {
+        "view": "Ver {{ number }}",
+        "viewShort": "Ver",
+        "downloadXml": "Descargar XML de {{ number }}",
+        "xmlShort": "XML"
+      },
+      "loading": "Cargando las facturas recibidas",
+      "emptyTitle": "No hay facturas recibidas",
+      "emptyDescription": "Cargue una factura con su CUFE para registrar sus eventos ante la DIAN, o cambie los filtros.",
+      "errorTitle": "No se pudieron cargar las facturas recibidas",
+      "errorDescription": "Revise su conexión e intente de nuevo."
+    },
+    "filters": {
+      "title": "Filtros",
+      "supplier": "NIT del proveedor",
+      "supplierHint": "Sin dígito de verificación.",
+      "supplierPlaceholder": "900123456",
+      "from": "Desde",
+      "to": "Hasta",
+      "datePlaceholder": "dd/mm/aaaa",
+      "datesHint": "Fecha de emisión de la factura, inclusive.",
+      "more": "Más filtros",
+      "less": "Menos filtros",
+      "datesActive": "Fechas",
+      "rangeError": "La fecha «Hasta» debe ser igual o posterior a «Desde».",
+      "apply": "Aplicar filtros",
+      "clear": "Limpiar filtros"
+    },
+    "load": {
+      "header": "Cargar factura por CUFE",
+      "help": "ImpiFact descarga la factura de la DIAN. Debe estar dirigida a la empresa activa como adquiriente.",
+      "field": "CUFE",
+      "fieldHelp": "El código único de la factura electrónica: aparece en el PDF y en el código QR que entrega el proveedor.",
+      "placeholder": "Pegue los 96 caracteres del CUFE",
+      "submit": "Cargar factura",
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "required": "Escriba el CUFE de la factura.",
+      "format": "El CUFE es un código hexadecimal (0-9 y a-f) de hasta 96 caracteres.",
+      "loaded": "Factura {{ number }} cargada.",
+      "alreadyLoaded": "La factura {{ number }} ya estaba cargada."
+    },
+    "detail": {
+      "loading": "Cargando la factura recibida",
+      "errorTitle": "No se pudo cargar la factura recibida",
+      "errorDescription": "Revise su conexión e intente de nuevo.",
+      "back": "Volver a documentos recibidos",
+      "title": "Factura recibida {{ number }}",
+      "issuedOn": "Emitida el {{ date }} por {{ supplier }}",
+      "supplier": "Proveedor",
+      "name": "Razón social",
+      "identification": "NIT",
+      "email": "Correo",
+      "invoice": "Factura",
+      "type": "Tipo de documento",
+      "environment": "Ambiente",
+      "environments": {
+        "1": "Producción",
+        "2": "Habilitación",
+        "unknown": "Sin dato"
+      },
+      "types": {
+        "1": "Factura electrónica de venta",
+        "2": "Factura de exportación",
+        "3": "Factura por contingencia del facturador",
+        "12": "Factura por contingencia DIAN (tipo 04)",
+        "unknown": "Factura"
+      },
+      "issueDate": "Fecha de emisión",
+      "loadedAt": "Cargada en ImpiFact",
+      "cufe": "CUFE (código único de la factura)",
+      "copyCufe": "Copiar CUFE",
+      "copied": "CUFE copiado.",
+      "copyFailed": "No se pudo copiar. Seleccione el código y cópielo a mano.",
+      "downloadXml": "Descargar XML",
+      "totals": "Totales",
+      "lineExtension": "Subtotal",
+      "allowance": "Descuentos",
+      "taxExclusive": "Base gravable",
+      "tax": "Impuestos",
+      "payable": "Total a pagar"
+    }
+  },
+  "radian": {
+    "title": "Eventos RADIAN",
+    "ownDescription": "El adquiriente registra el acuse, el recibo del bien y la aceptación o el reclamo. La empresa registra la aceptación tácita pasados 3 días hábiles del recibo del bien, si el adquiriente no aceptó ni reclamó.",
+    "description": "Los eventos que la empresa registró ante la DIAN sobre esta factura, del más antiguo al más reciente.",
+    "timelineLabel": "Historial de eventos RADIAN",
+    "noEvents": "Todavía no hay eventos registrados.",
+    "noOwnEvents": "La empresa no ha registrado eventos sobre esta factura.",
+    "loadFailed": "No se pudieron cargar los eventos.",
+    "number": "Evento {{ number }}",
+    "claimReason": "Motivo: {{ reason }}",
+    "errors": "Reglas de la DIAN",
+    "statuses": {
+      "accepted": "Registrado",
+      "rejected": "Rechazado",
+      "unconfirmed": "Sin confirmar",
+      "unknown": "Desconocido"
+    },
+    "events": {
+      "030": "Acuse de recibo de la factura",
+      "031": "Reclamo de la factura",
+      "032": "Recibo del bien o prestación del servicio",
+      "033": "Aceptación expresa",
+      "034": "Aceptación tácita",
+      "unknown": "Evento {{ code }}"
+    },
+    "stages": {
+      "none": "Sin eventos",
+      "acknowledged": "Acuse de recibo",
+      "received": "Bien recibido",
+      "accepted": "Aceptada",
+      "tacitlyAccepted": "Aceptada tácitamente",
+      "claimed": "Reclamada"
+    },
+    "claimReasons": {
+      "01": "Documento con inconsistencias",
+      "02": "Mercancía no entregada totalmente",
+      "03": "Mercancía no entregada parcialmente",
+      "04": "Servicio no prestado"
+    },
+    "actions": {
+      "title": "Registrar un evento",
+      "help": "Los eventos van en orden: primero el acuse de recibo, luego el recibo del bien o servicio y al final la aceptación o el reclamo.",
+      "030": "Acuse de recibo",
+      "031": "Reclamar",
+      "032": "Recibo del bien o servicio",
+      "033": "Aceptar",
+      "034": "Aceptación tácita"
+    },
+    "blocked": {
+      "registered": "Ya está registrado.",
+      "needs": "Requiere antes: {{ event }}.",
+      "excludedBy": "No disponible: la factura ya tiene «{{ event }}»."
+    },
+    "dialog": {
+      "header": {
+        "030": "Acuse de recibo",
+        "031": "Reclamar la factura",
+        "032": "Recibo del bien o servicio",
+        "033": "Aceptar la factura",
+        "034": "Aceptación tácita"
+      },
+      "explain": {
+        "030": "Informa a la DIAN y al proveedor que la empresa recibió la factura.",
+        "031": "Informa que la empresa no acepta la factura. Después no podrá aceptarla.",
+        "032": "Informa que la empresa recibió la mercancía o el servicio facturado.",
+        "033": "Informa que la empresa acepta la factura. Después no podrá reclamarla.",
+        "034": "Declara bajo juramento que el adquiriente no aceptó ni reclamó la factura en los 3 días hábiles siguientes al recibo del bien o servicio."
+      },
+      "reason": "Motivo del reclamo",
+      "reasonPlaceholder": "Elija el motivo",
+      "reasonRequired": "Elija el motivo del reclamo.",
+      "withPerson": "Indicar la persona que recibe o decide",
+      "withoutPerson": "Si no la indica, el evento va a nombre de la empresa.",
+      "person": "Persona que recibe o decide",
+      "identification": "Número de documento",
+      "identificationPlaceholder": "1000000001",
+      "firstName": "Nombres",
+      "firstNamePlaceholder": "Ana María",
+      "lastName": "Apellidos",
+      "lastNamePlaceholder": "Pérez Gómez",
+      "jobTitle": "Cargo",
+      "jobTitlePlaceholder": "Auxiliar contable",
+      "department": "Área o dependencia",
+      "departmentPlaceholder": "Contabilidad",
+      "required": "Este dato es obligatorio si indica la persona.",
+      "tooLong": "Máximo 100 caracteres.",
+      "submit": "Continuar",
+      "cancel": "Cancelar",
+      "close": "Cerrar"
+    },
+    "confirm": {
+      "header": "¿Registrar «{{ event }}» ante la DIAN?",
+      "message": "Se enviará el evento «{{ event }}» de la factura {{ number }} a la DIAN. Un evento registrado no se puede deshacer ni anular.",
+      "accept": "Registrar en la DIAN",
+      "reject": "Volver"
+    },
+    "sent": {
+      "accepted": "La DIAN registró el evento «{{ event }}».",
+      "rejected": "La DIAN rechazó el evento «{{ event }}». Revise las reglas en el historial y vuelva a enviarlo si corresponde.",
+      "unconfirmed": "La DIAN no confirmó el evento «{{ event }}». Vuelva a enviarlo: se reenvía el mismo XML firmado."
+    },
+    "quota": "El plan de la empresa no tiene eventos RADIAN disponibles. Renueve o amplíe el plan para registrar más eventos.",
+    "dian": {
+      "title": "Lo que reporta la DIAN",
+      "consult": "Consultar en la DIAN",
+      "help": "La DIAN lista los eventos de todos los participantes de la factura, también los del proveedor y de terceros.",
+      "none": "La DIAN no tiene eventos registrados para esta factura.",
+      "caption": "Eventos registrados en la DIAN",
+      "columns": {
+        "code": "Código",
+        "description": "Evento",
+        "date": "Fecha",
+        "number": "Número"
+      },
+      "unavailable": "La DIAN no respondió. Intente de nuevo en unos minutos."
+    }
   }
 }

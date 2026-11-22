@@ -1,0 +1,160 @@
+<section class="doc-page">
+  @if (document(); as doc) {
+    <ui-page-title
+      [subtitle]="
+        'documents.received.detail.issuedOn'
+          | transloco: { date: doc.issue_date, supplier: doc.supplier_name }
+      "
+      [breadcrumb]="[
+        { label: 'documents.received.list.title' | transloco, link: '/documentos/recibidos' },
+        { label: doc.number },
+      ]"
+    >
+      {{ 'documents.received.detail.title' | transloco: { number: doc.number } }}
+      <div uiPageTitleActions class="doc-actions">
+        <ui-button
+          variant="secondary"
+          [label]="'documents.received.detail.downloadXml' | transloco"
+          (pressed)="downloadXml()"
+        />
+      </div>
+    </ui-page-title>
+
+    <ui-card padding="compact">
+      <dl class="detail-summary">
+        <div class="detail-summary__item">
+          <dt>{{ 'documents.radian.title' | transloco }}</dt>
+          <dd aria-live="polite">
+            <ui-badge [tone]="stageTone()">{{
+              'documents.radian.stages.' + stage() | transloco
+            }}</ui-badge>
+          </dd>
+        </div>
+        <div class="detail-summary__item">
+          <dt>{{ 'documents.received.detail.payable' | transloco }}</dt>
+          <dd class="detail-summary__total">{{ doc.payable_amount | cop }}</dd>
+        </div>
+        <div class="detail-summary__item">
+          <dt>{{ 'documents.received.detail.issueDate' | transloco }}</dt>
+          <dd>{{ doc.issue_date }}</dd>
+        </div>
+      </dl>
+      <dl class="received-cufe">
+        <dt class="received-cufe__label">{{ 'documents.received.detail.cufe' | transloco }}</dt>
+        <dd class="received-cufe__row">
+          <code class="received-cufe__value">{{ doc.cufe }}</code>
+          <ui-button
+            variant="ghost"
+            size="small"
+            [label]="'documents.received.detail.copyCufe' | transloco"
+            (pressed)="copyCufe()"
+          />
+        </dd>
+      </dl>
+    </ui-card>
+
+    <div class="detail-layout">
+      <div class="doc-stack">
+        <ui-card
+          [title]="'documents.radian.title' | transloco"
+          [subtitle]="'documents.radian.description' | transloco"
+        >
+          <feat-radian-timeline [events]="doc.events ?? []" />
+        </ui-card>
+
+        @if (canWrite()) {
+          <ui-card
+            [title]="'documents.radian.actions.title' | transloco"
+            [subtitle]="'documents.radian.actions.help' | transloco"
+          >
+            <ul class="radian-actions">
+              @for (action of eventActions(); track action.code) {
+                <li class="radian-actions__item">
+                  <ui-button
+                    block
+                    [variant]="action.code === suggested() ? 'primary' : 'secondary'"
+                    [label]="'documents.radian.actions.' + action.code | transloco"
+                    [disabled]="!!action.block || busy()"
+                    (pressed)="openEvent(action.code)"
+                  />
+                  @if (action.block; as block) {
+                    <p class="radian-actions__why">{{ blockText(block) }}</p>
+                  }
+                </li>
+              }
+            </ul>
+          </ui-card>
+        }
+
+        <ui-card [title]="'documents.radian.dian.title' | transloco">
+          <feat-dian-events [result]="dian()" [busy]="consulting()" (consult)="consultDian()" />
+        </ui-card>
+      </div>
+
+      <div class="doc-stack">
+        <ui-card [title]="'documents.received.detail.supplier' | transloco">
+          <dl class="doc-data doc-data--stacked">
+            <dt>{{ 'documents.received.detail.name' | transloco }}</dt>
+            <dd>{{ doc.supplier_name }}</dd>
+            <dt>{{ 'documents.received.detail.identification' | transloco }}</dt>
+            <dd>{{ doc.supplier_identification_number }}-{{ doc.supplier_dv }}</dd>
+            @if (doc.supplier_email) {
+              <dt>{{ 'documents.received.detail.email' | transloco }}</dt>
+              <dd>{{ doc.supplier_email }}</dd>
+            }
+          </dl>
+        </ui-card>
+
+        <ui-card [title]="'documents.received.detail.totals' | transloco">
+          <dl class="received-totals">
+            <dt>{{ 'documents.received.detail.lineExtension' | transloco }}</dt>
+            <dd>{{ doc.line_extension_amount | cop }}</dd>
+            <dt>{{ 'documents.received.detail.allowance' | transloco }}</dt>
+            <dd>{{ doc.allowance_total_amount | cop }}</dd>
+            <dt>{{ 'documents.received.detail.taxExclusive' | transloco }}</dt>
+            <dd>{{ doc.tax_exclusive_amount | cop }}</dd>
+            <dt>{{ 'documents.received.detail.tax' | transloco }}</dt>
+            <dd>{{ doc.tax_amount | cop }}</dd>
+            <dt class="received-totals__payable">
+              {{ 'documents.received.detail.payable' | transloco }}
+            </dt>
+            <dd class="received-totals__payable">{{ doc.payable_amount | cop }}</dd>
+          </dl>
+        </ui-card>
+
+        <ui-card [title]="'documents.received.detail.invoice' | transloco">
+          <dl class="doc-data doc-data--stacked">
+            <dt>{{ 'documents.received.detail.type' | transloco }}</dt>
+            <dd>{{ 'documents.received.detail.types.' + typeKey() | transloco }}</dd>
+            <dt>{{ 'documents.received.detail.environment' | transloco }}</dt>
+            <dd>{{ 'documents.received.detail.environments.' + environmentKey() | transloco }}</dd>
+            <dt>{{ 'documents.received.detail.loadedAt' | transloco }}</dt>
+            <dd>{{ doc.created_at | colombiaTime }}</dd>
+          </dl>
+        </ui-card>
+      </div>
+    </div>
+
+    <feat-radian-event-dialog
+      [code]="dialogCode()"
+      [(visible)]="dialogOpen"
+      [busy]="busy()"
+      (submitted)="send($event)"
+    />
+  } @else if (failed()) {
+    <a class="detail-back" routerLink="/documentos/recibidos">{{
+      'documents.received.detail.back' | transloco
+    }}</a>
+    <ui-error-state
+      [title]="'documents.received.detail.errorTitle' | transloco"
+      [description]="'documents.received.detail.errorDescription' | transloco"
+      [retryLabel]="'ui.retry' | transloco"
+      (retry)="retry()"
+    />
+  } @else {
+    <a class="detail-back" routerLink="/documentos/recibidos">{{
+      'documents.received.detail.back' | transloco
+    }}</a>
+    <ui-loading [label]="'documents.received.detail.loading' | transloco" [lines]="6" />
+  }
+</section>

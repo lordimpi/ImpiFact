@@ -225,7 +225,7 @@ test('has no serious accessibility violations with the create dialog open, in bo
 test('a seller does not see the entry and cannot open the page', async ({ page }) => {
   await signInAt(page, '/', { roles: ['seller'], scopes: ['documents:read', 'documents:write'] });
 
-  await expect(mainNav(page).getByRole('link', { name: 'Documentos' })).toBeVisible();
+  await expect(mainNav(page).getByRole('link', { name: 'Documentos', exact: true })).toBeVisible();
   await expect(mainNav(page).getByRole('link', { name: 'Usuarios' })).toHaveCount(0);
 
   await page.goto('/empresa/usuarios');

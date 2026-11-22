@@ -35,6 +35,7 @@ test('shows the owner menu grouped by section and marks the current page', async
   ]);
   await expect(nav.getByRole('list', { name: 'Consulta' }).getByRole('link')).toHaveText([
     'Documentos',
+    'Documentos recibidos',
     'Clientes',
     'Productos',
   ]);
@@ -88,7 +89,7 @@ test('hides the issuing entries from a seller without the issuing scope', async 
   await signInAt(page, '/', { roles: ['seller'], scopes: ['documents:read'] });
 
   const nav = mainNav(page);
-  await expect(nav.getByRole('link', { name: 'Documentos' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Documentos', exact: true })).toBeVisible();
   await expect(nav.getByRole('list', { name: 'Emisión' })).toHaveCount(0);
   await expect(nav.getByRole('link', { name: 'Llaves de API' })).toHaveCount(0);
 });

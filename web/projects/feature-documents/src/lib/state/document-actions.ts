@@ -6,6 +6,7 @@ import {
   ApiConfiguration,
   StrictHttpResponse,
   downloadDocumentFile$Pdf,
+  downloadReceivedDocumentXml,
   downloadDocumentFile$Xml,
   downloadDocumentFile$Zip,
   exportDocumentsCsv,
@@ -144,6 +145,19 @@ export class DocumentActions {
         response.body as unknown as Blob,
         fileNameFrom(response, `${base}.${EXTENSIONS[kind]}`),
       );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Downloads the XML of a received invoice (`{cufe}.xml`, as the API names it). Returns whether it was saved. */
+  async downloadReceivedXml(doc: { id: string; cufe: string }): Promise<boolean> {
+    try {
+      const response = await firstValueFrom(
+        this.api.invoke$Response(downloadReceivedDocumentXml, { id: doc.id }),
+      );
+      this.save(response.body as unknown as Blob, fileNameFrom(response, `${doc.cufe}.xml`));
       return true;
     } catch {
       return false;

@@ -148,6 +148,9 @@ describe('App shell', () => {
     ).toBe('/documentos/documento-soporte');
     const query = within(nav).getByRole('list', { name: 'Consulta' });
     expect(within(query).getByRole('link', { name: 'Documentos' })).toBeTruthy();
+    expect(
+      within(query).getByRole('link', { name: 'Documentos recibidos' }).getAttribute('href'),
+    ).toBe('/documentos/recibidos');
     expect(within(nav).getByRole('list', { name: 'Ajustes' })).toBeTruthy();
     expect(within(nav).queryByRole('list', { name: 'Plataforma' })).toBeNull();
 
