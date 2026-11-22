@@ -211,6 +211,12 @@ internal sealed class DocumentEventConfiguration : IEntityTypeConfiguration<Docu
         builder.Property(documentEvent => documentEvent.Cude).HasMaxLength(96);
         builder.Property(documentEvent => documentEvent.TrackId).HasMaxLength(64);
         builder.Property(documentEvent => documentEvent.DianStatusCode).HasMaxLength(10);
+        builder.Property(documentEvent => documentEvent.Number).HasMaxLength(120);
+        builder.Property(documentEvent => documentEvent.DianStatusDescription).HasMaxLength(500);
+        builder.Property(documentEvent => documentEvent.ErrorMessages).HasJsonConversion();
+        builder.Property(documentEvent => documentEvent.RejectionCode).HasMaxLength(2);
+        builder.Property(documentEvent => documentEvent.XmlFileKey).HasMaxLength(500);
+        builder.Property(documentEvent => documentEvent.ResponseFileKey).HasMaxLength(500);
         builder.BelongsToCompany();
         builder.ReferencesInCompany<DocumentEvent, Document>(nameof(DocumentEvent.DocumentId));
         builder.ReferencesInCompany<DocumentEvent, ReceivedDocument>(nameof(DocumentEvent.ReceivedDocumentId));
@@ -230,6 +236,9 @@ internal sealed class ReceivedDocumentConfiguration : IEntityTypeConfiguration<R
         builder.Property(received => received.SupplierIdentificationNumber).HasMaxLength(20);
         builder.Property(received => received.SupplierDv).IsFixed(1);
         builder.Property(received => received.SupplierName).HasMaxLength(255);
+        builder.Property(received => received.SupplierOrganizationTypeCode).HasMaxLength(2);
+        builder.Property(received => received.SupplierRegimeCode).HasMaxLength(2);
+        builder.Property(received => received.SupplierEmail).HasMaxLength(255);
         builder.Property(received => received.Prefix).HasMaxLength(10).HasStoreDefault("");
         builder.Property(received => received.Number).HasMaxLength(20);
         builder.Property(received => received.Cufe).HasMaxLength(96);

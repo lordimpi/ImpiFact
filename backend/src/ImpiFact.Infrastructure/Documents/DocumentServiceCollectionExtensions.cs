@@ -26,6 +26,8 @@ public static class DocumentServiceCollectionExtensions
         services.TryAddSingleton<IDianQrUrls, DianQrUrls>();
         services.TryAddScoped<IDocumentFileReads, EfDocumentFileReads>();
         services.TryAddScoped<IDocumentLookups, EfDocumentLookups>();
+        // RADIAN (phase 7a, T6): received documents, events and their files.
+        services.TryAddScoped<IRadianStore, Radian.EfRadianStore>();
         // Excel workbook of the document export.
         services.TryAddSingleton<ISpreadsheetWriter, OpenXmlSpreadsheetWriter>();
         // PDF report of the document export; its Gotenberg client is registered with the PDF rendering (AddPdfRendering).

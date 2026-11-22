@@ -2,7 +2,7 @@ namespace ImpiFact.Dian.Soap;
 
 /// <summary>
 /// Lo que respondió el servicio web de la DIAN (la autoridad tributaria de Colombia), ya interpretado por
-/// <see cref="DianResponseReader"/>. Es una de seis posibilidades: <see cref="DianResultResponse"/>,
+/// <see cref="DianResponseReader"/>. Es una de siete posibilidades: <see cref="DianResultResponse"/>, <see cref="DianXmlDocumentResponse"/>,
 /// <see cref="DianNumberingRangeResponse"/>, <see cref="DianAcquirerResponse"/>, <see cref="DianSoapFaultResponse"/>,
 /// <see cref="DianServiceUnavailableResponse"/> o <see cref="DianUnrecognizedResponse"/>.
 /// </summary>
@@ -60,6 +60,14 @@ public sealed record DianNumberingRange(
 /// recepción de facturas; quedan en <see langword="null"/> si no vienen o vienen vacíos.
 /// </summary>
 public sealed record DianAcquirerResponse(string? StatusCode, string? Message, string? ReceiverName, string? ReceiverEmail) : DianSoapResponse;
+
+/// <summary>
+/// Answer of GetXmlByDocumentKey (Anexo Técnico 1.9, section 7.14.3): <paramref name="Code"/> <c>100</c> when the document
+/// was found, <c>205</c> when it was not, <c>206</c> for an XML with errors in the issuer or receiver number and <c>401</c> when
+/// the certificate is not the issuer's or the receiver's. <paramref name="Xml"/> holds the document bytes, already decoded
+/// from Base64; null when the answer brings none.
+/// </summary>
+public sealed record DianXmlDocumentResponse(string? Code, string? Message, byte[]? Xml) : DianSoapResponse;
 
 /// <summary>
 /// Error SOAP (soap:Fault): el servicio no procesó la operación, por ejemplo porque la firma del sobre no es

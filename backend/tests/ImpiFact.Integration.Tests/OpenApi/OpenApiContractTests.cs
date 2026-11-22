@@ -155,6 +155,15 @@ public sealed class OpenApiContractTests
     [TestCase("POST /api/v1/products/{id}/deactivate", "deactivateProduct")]
     [TestCase("GET /api/v1/dashboard/summary", "getDashboardSummary")]
     [TestCase("GET /api/v1/catalogs/{name}", "listCatalog")]
+    [TestCase("GET /api/v1/received-documents", "listReceivedDocuments")]
+    [TestCase("POST /api/v1/received-documents", "loadReceivedDocument")]
+    [TestCase("GET /api/v1/received-documents/{id}", "getReceivedDocument")]
+    [TestCase("GET /api/v1/received-documents/{id}/xml", "downloadReceivedDocumentXml")]
+    [TestCase("GET /api/v1/received-documents/{id}/dian-events", "getReceivedDocumentDianEvents")]
+    [TestCase("POST /api/v1/received-documents/{id}/events", "sendReceivedDocumentEvent")]
+    [TestCase("GET /api/v1/documents/{id}/events", "listDocumentEvents")]
+    [TestCase("POST /api/v1/documents/{id}/events", "sendDocumentEvent")]
+    [TestCase("GET /api/v1/documents/{id}/dian-events", "getDocumentDianEvents")]
     public void An_operation_keeps_its_pinned_operation_id(string name, string operationId)
     {
         var operation = Operations().Where(candidate => candidate.Name == name).Select(candidate => candidate.Operation).ToList();

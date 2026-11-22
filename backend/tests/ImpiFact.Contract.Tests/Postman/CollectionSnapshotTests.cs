@@ -67,10 +67,10 @@ public sealed partial class CollectionSnapshotTests
                     "Factura de contingencia (tipo 03)", "Enviar una factura de contingencia tipo 4", "Transmitir las facturas de contingencia pendientes",
                 }), "Only the phase 7a T5 contingency requests reach the contingency routes.");
             Assert.That(inScope.Select(request => request.Name), Is.Unique, "Known deviations name requests, so names must be unique.");
-            Assert.That(inScope, Has.Count.EqualTo(110),
+            Assert.That(inScope, Has.Count.EqualTo(113),
                 "91 requests of the first delivery, the 4 phase 7a invoice variants, the 10 support-document ones (3 of folder 01D, 7 of " +
                 "folder 02) and the 5 contingency ones (the type 3 resolution of folder 01, the type 03 invoice of folder 07 and the 3 " +
-                "requests of «Contingencia tipo 4» in folder 02).");
+                "requests of «Contingencia tipo 4» in folder 02) and the 3 RADIAN ones of folder 08.");
         });
     }
 

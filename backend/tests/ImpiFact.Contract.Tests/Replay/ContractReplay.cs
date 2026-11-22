@@ -62,6 +62,7 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
     public async Task<ReplayOutcome> RunAsync(PostmanRequest request)
     {
         platform ??= await api.ClientWithNewKeyAsync(null, ApiScopes.Platform);
+        RouteRadian();
         if (NeedsZipKey(request) && zipKey is null)
         {
             zipKey = await SendTestSetAsync();
@@ -85,6 +86,32 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
         }
 
         return outcome;
+    }
+
+    private bool radianRouted;
+
+    /// <summary>
+    /// RADIAN (folder 08, phase 7a T6): the fake DIAN returns, for any CUFE, an invoice addressed to the company of this
+    /// session (GetXmlByDocumentKey), accepts every event (SendEventUpdateStatus) and lists no events (GetStatusEvent; the
+    /// replay points the CUFE of «Eventos registrados de un documento por CUFE» to the last invoice); everything else goes to the route of
+    /// <see cref="ContractHost"/>.
+    /// </summary>
+    private void RouteRadian()
+    {
+        if (radianRouted)
+        {
+            return;
+        }
+
+        radianRouted = true;
+        var accepting = api.Dian.Route;
+        api.Dian.Route = request => request.Operation switch
+        {
+            "GetXmlByDocumentKey" => FakeDian.Response(RadianReplies.XmlByDocumentKey(RadianReplies.Invoice(company.Nit, request.Parameter("trackId")!))),
+            "SendEventUpdateStatus" => FakeDian.Response(RadianReplies.SendEvent(true)),
+            "GetStatusEvent" => FakeDian.Response(RadianReplies.StatusEvents()),
+            _ => accepting?.Invoke(request),
+        };
     }
 
     /// <summary>Servidor, NIT y referencias de la sesión en la ruta, y el cuerpo sin comentarios con los datos de la sesión.</summary>

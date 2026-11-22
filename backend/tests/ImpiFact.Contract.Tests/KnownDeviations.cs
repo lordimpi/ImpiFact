@@ -47,10 +47,12 @@ public static class KnownDeviations
         KnownDeviation.Keys("POST /api/ubl2.1/debit-note",
             "Respuesta inmediata con el documento en cola (decisión C5), como la factura.",
             "send_email_success", "send_email_date_time", "reqfe", "rptafe", "attacheddocument"),
-        KnownDeviation.StatusCode("Eventos registrados de un documento por CUFE", 404,
-            "Eventos RADIAN (RF-10): fase 7."),
         KnownDeviation.StatusCode("Descargar un documento recibido", 404,
-            "Documentos recibidos de proveedores (recepción RADIAN, RF-10): fase 7."),
+            "El archivo del ejemplo no es de un documento recibido de la empresa: ImpiFact nombra el XML recibido {cufe}.xml y nunca " +
+            "con el nombre que manda el cliente (php-rules 7, fila 16; fase 7a, T6)."),
+        KnownDeviation.StatusCode("Enviar un evento desde el AttachedDocument", 422,
+            "La colección trae el AttachedDocument redactado (REDACTED_BASE64): ImpiFact responde 422 con «El archivo no se pudo " +
+            "cargar, revise los problemas asociados», como el PHP (php-rules 16.2, ítem 4)."),
         KnownDeviation.StatusCode("Factura con anticipo (pago previo)", 422,
             "El anticipo ya se escribe (cac:PrepaidPayment) y cuadra con pre_paid_amount (regla FAU12), pero el ejemplo resta el " +
             "anticipo del valor a pagar (900000.00 = 1000000.00 − 100000.00). La regla FAU14 del anexo técnico 1.9 no lo resta " +

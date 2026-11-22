@@ -77,6 +77,30 @@ public static class DianFileNames
     public static string SoapFileName(string? documentPrefix, long number) =>
         (documentPrefix ?? string.Empty) + number.ToString(CultureInfo.InvariantCulture) + ".xml";
 
+    /// <summary>
+    /// Name of the XML of a RADIAN event inside its ZIP, as ApiDian's <c>getFileNameSendEvent</c> (php-rules 16.6, item 2):
+    /// <c>ar</c>, the event code, the NIT of the sender padded to 10 digits, <c>000</c>, the two last digits of the year and
+    /// the number of the referenced document padded to 8 characters, for example <c>ar030080000000200026FPRU1001.xml</c>.
+    /// The PHP writes the prefix twice for a received invoice (its number already carries it); here the number is written
+    /// once, and only its letters and digits.
+    /// </summary>
+    public static string EventXmlEntry(string eventCode, string nit, int year, string documentNumber) =>
+        "ar" + EventStem(eventCode, nit, year, documentNumber) + ".xml";
+
+    /// <summary>Name of the ZIP of a RADIAN event: the same rule with the prefix <c>z</c>.</summary>
+    public static string EventZip(string eventCode, string nit, int year, string documentNumber) =>
+        "z" + EventStem(eventCode, nit, year, documentNumber) + ".zip";
+
+    private static string EventStem(string eventCode, string nit, int year, string documentNumber)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(eventCode);
+        ArgumentNullException.ThrowIfNull(documentNumber);
+        var number = new string(documentNumber.Where(char.IsAsciiLetterOrDigit).ToArray());
+        // Compose checks the NIT and the year; its counter slot is unused here (0), so it is cut and the number goes in.
+        var head = Compose(string.Empty, nit, year, 0)[..^8];
+        return eventCode + head + number.PadLeft(8, '0');
+    }
+
     private static string Compose(string prefix, string nit, int year, long counter)
     {
         ArgumentNullException.ThrowIfNull(nit);

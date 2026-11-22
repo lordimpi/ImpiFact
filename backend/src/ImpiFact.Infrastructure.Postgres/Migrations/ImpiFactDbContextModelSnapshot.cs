@@ -2484,9 +2484,19 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("dian_status_code");
 
+                    b.Property<string>("DianStatusDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("dian_status_description");
+
                     b.Property<Guid?>("DocumentId")
                         .HasColumnType("uuid")
                         .HasColumnName("document_id");
+
+                    b.Property<string>("ErrorMessages")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("error_messages")
+                        .HasAnnotation("ImpiFact:JsonColumn", true);
 
                     b.Property<int>("EventId")
                         .HasColumnType("integer")
@@ -2496,6 +2506,11 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("issued_at");
 
+                    b.Property<string>("Number")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("number");
+
                     b.Property<Guid?>("PayloadFileId")
                         .HasColumnType("uuid")
                         .HasColumnName("payload_file_id");
@@ -2503,6 +2518,16 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                     b.Property<Guid?>("ReceivedDocumentId")
                         .HasColumnType("uuid")
                         .HasColumnName("received_document_id");
+
+                    b.Property<string>("RejectionCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("rejection_code");
+
+                    b.Property<string>("ResponseFileKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("response_file_key");
 
                     b.Property<long>("RowVersion")
                         .IsConcurrencyToken()
@@ -2521,6 +2546,11 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
+
+                    b.Property<string>("XmlFileKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("xml_file_key");
 
                     b.HasKey("Id")
                         .HasName("pk_document_events");
@@ -3131,6 +3161,11 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                         .HasColumnName("supplier_dv")
                         .IsFixedLength();
 
+                    b.Property<string>("SupplierEmail")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("supplier_email");
+
                     b.Property<string>("SupplierIdentificationNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -3142,6 +3177,16 @@ namespace ImpiFact.Infrastructure.Postgres.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("supplier_name");
+
+                    b.Property<string>("SupplierOrganizationTypeCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("supplier_organization_type_code");
+
+                    b.Property<string>("SupplierRegimeCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("supplier_regime_code");
 
                     b.Property<decimal>("TaxAmount")
                         .HasPrecision(18, 2)

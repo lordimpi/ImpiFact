@@ -16,12 +16,12 @@ public sealed class VariantGoldenTests
         .. InvoiceVariantGoldenTests.Types.Select(type => type.Type),
         .. SupportDocumentGoldenTests.Types,
         .. ContingencyGoldenTests.Types,
+        .. EventGoldenTests.Types,
     ];
 
     /// <summary>Carpeta de tests/golden -> tarea de odd/tasks/fase-7a-community.md que escribe su builder.</summary>
     private static readonly (string Type, string Task, string Builder)[] Pending =
     [
-        ("event", "T6", "RADIAN event (ApplicationResponse) builder"),
         ("invoice-health", "T7", "health-sector invoice builder"),
     ];
 

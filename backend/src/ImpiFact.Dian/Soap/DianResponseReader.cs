@@ -29,9 +29,15 @@ public static class DianResponseReader
     private const string StatusZipOperation = "GetStatusZip";
     private const string NumberingRangeOperation = "GetNumberingRange";
     private const string AcquirerOperation = "GetAcquirer";
+    private const string XmlByDocumentKeyOperation = "GetXmlByDocumentKey";
 
     private static readonly HashSet<string> KnownOperations =
-        new(["SendBillSync", "SendTestSetAsync", "GetStatus", StatusZipOperation, NumberingRangeOperation, AcquirerOperation], StringComparer.Ordinal);
+        new(
+            [
+                "SendBillSync", "SendTestSetAsync", "GetStatus", StatusZipOperation, NumberingRangeOperation, AcquirerOperation,
+                "SendEventUpdateStatus", "GetStatusEvent", XmlByDocumentKeyOperation,
+            ],
+            StringComparer.Ordinal);
 
     /// <summary>Interpreta <paramref name="body"/>, el cuerpo HTTP de la respuesta de la DIAN.</summary>
     public static DianSoapResponse Read(string body)
@@ -94,6 +100,20 @@ public static class DianResponseReader
         {
             return new DianAcquirerResponse(
                 Text(result, "StatusCode")?.Trim(), Text(result, "Message"), Text(result, "ReceiverName")?.Trim(), Text(result, "ReceiverEmail")?.Trim());
+        }
+
+        if (operation == XmlByDocumentKeyOperation)
+        {
+            var xml = Text(result, "XmlBytesBase64");
+            try
+            {
+                return new DianXmlDocumentResponse(
+                    Text(result, "Code")?.Trim(), Text(result, "Message"), xml is null ? null : Convert.FromBase64String(xml.Trim()));
+            }
+            catch (FormatException)
+            {
+                return new DianUnrecognizedResponse(body);
+            }
         }
 
         // GetStatusZip trae un elemento DianResponse por documento; las demás operaciones traen el resultado directo.

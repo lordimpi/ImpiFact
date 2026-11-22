@@ -13,6 +13,8 @@ public static class ApiTags
 
     public const string Documents = "Documentos";
 
+    public const string Radian = "RADIAN";
+
     public const string Plans = "Planes";
 
     public const string Notifications = "Notificaciones";
@@ -36,6 +38,11 @@ public static class ApiTags
             "Emisión de facturas, notas crédito y notas débito; consulta de documentos y de su estado en la DIAN; " +
             "descarga de archivos (XML, PDF, AttachedDocument, ZIP) y tareas de mantenimiento (regenerar el PDF o el " +
             "AttachedDocument, reenviar el correo)."),
+        (Radian,
+            "Eventos RADIAN (registro de la factura electrónica como título valor): facturas recibidas de proveedores, que se " +
+            "cargan desde la DIAN por su CUFE, y sus eventos de acuse de recibo (030), reclamo (031), recibo del bien (032) y " +
+            "aceptación expresa (033); la aceptación tácita (034) de las facturas propias y la consulta de los eventos que la " +
+            "DIAN tiene registrados. ImpiFact revisa el orden de los eventos del anexo técnico antes de enviarlos."),
         (Plans,
             "Planes de documentos y su consumo. La plataforma crea los planes y los asigna a las empresas; cada empresa " +
             "consulta su plan vigente y los documentos que le quedan."),

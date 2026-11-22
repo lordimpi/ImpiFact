@@ -2609,9 +2609,20 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .HasColumnName("dian_status_code")
                         .UseCollation("Latin1_General_100_CS_AS_SC");
 
+                    b.Property<string>("DianStatusDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("dian_status_description")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
                     b.Property<Guid?>("DocumentId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("document_id");
+
+                    b.Property<string>("ErrorMessages")
+                        .HasColumnType("nvarchar(max)")
+                        .HasColumnName("error_messages")
+                        .HasAnnotation("ImpiFact:JsonColumn", true);
 
                     b.Property<int>("EventId")
                         .HasColumnType("int")
@@ -2621,6 +2632,12 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("issued_at");
 
+                    b.Property<string>("Number")
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)")
+                        .HasColumnName("number")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
                     b.Property<Guid?>("PayloadFileId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("payload_file_id");
@@ -2628,6 +2645,18 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                     b.Property<Guid?>("ReceivedDocumentId")
                         .HasColumnType("uniqueidentifier")
                         .HasColumnName("received_document_id");
+
+                    b.Property<string>("RejectionCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)")
+                        .HasColumnName("rejection_code")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<string>("ResponseFileKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("response_file_key")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
 
                     b.Property<long>("RowVersion")
                         .IsConcurrencyToken()
@@ -2647,6 +2676,12 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset")
                         .HasColumnName("updated_at");
+
+                    b.Property<string>("XmlFileKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)")
+                        .HasColumnName("xml_file_key")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
 
                     b.HasKey("Id")
                         .HasName("pk_document_events");
@@ -2675,6 +2710,8 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
 
                     b.ToTable("document_events", null, t =>
                         {
+                            t.HasCheckConstraint("ck_document_events_error_messages_json", "ISJSON([error_messages]) = 1");
+
                             t.HasCheckConstraint("ck_document_events_target", "(document_id IS NOT NULL AND received_document_id IS NULL) OR (document_id IS NULL AND received_document_id IS NOT NULL)");
                         });
                 });
@@ -3275,6 +3312,12 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .IsFixedLength()
                         .UseCollation("Latin1_General_100_CS_AS_SC");
 
+                    b.Property<string>("SupplierEmail")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)")
+                        .HasColumnName("supplier_email")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
                     b.Property<string>("SupplierIdentificationNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -3287,6 +3330,18 @@ namespace ImpiFact.Infrastructure.SqlServer.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)")
                         .HasColumnName("supplier_name")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<string>("SupplierOrganizationTypeCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)")
+                        .HasColumnName("supplier_organization_type_code")
+                        .UseCollation("Latin1_General_100_CS_AS_SC");
+
+                    b.Property<string>("SupplierRegimeCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)")
+                        .HasColumnName("supplier_regime_code")
                         .UseCollation("Latin1_General_100_CS_AS_SC");
 
                     b.Property<decimal>("TaxAmount")

@@ -293,6 +293,43 @@ internal static class ExampleBodies
         new("plan-1", "Asignar el plan 1", Parse("""{ "plan_id": 1 }""")),
     ];
 
+    /// <summary>RADIAN (phase 7a, T6): the CUFE of an invoice addressed to the company, to load it from the DIAN.</summary>
+    public static RequestExample[] ReceivedDocument { get; } =
+    [
+        new("por-cufe", "Factura recibida por su CUFE", Parse("""
+            { "cufe": "83c3ba93981ccf3d79c246498209c7762962faccc62b1328e3be207da45569b7dac74cac108cae80addd7e2e4c4e9f9e" }
+            """), "Use el CUFE de una factura que un proveedor le emitió a su empresa."),
+    ];
+
+    /// <summary>The buyer's events in the order of Anexo Técnico 1.9: 030, 032 and then 031 or 033.</summary>
+    public static RequestExample[] ReceivedDocumentEvents { get; } =
+    [
+        new("acuse-de-recibo", "030: acuse de recibo, con la persona que recibe", Parse("""
+            {
+              "event_code": "030",
+              "issuer_party": {
+                "identification_number": "1000000001",
+                "first_name": "PERSONA",
+                "last_name": "DE PRUEBA",
+                "organization_department": "CONTABILIDAD",
+                "job_title": "AUXILIAR CONTABLE"
+              }
+            }
+            """)),
+        new("recibo-del-bien", "032: recibo del bien o prestación del servicio", Parse("""{ "event_code": "032" }"""),
+            "Requiere el 030."),
+        new("aceptacion-expresa", "033: aceptación expresa", Parse("""{ "event_code": "033" }"""), "Requiere el 030 y el 032."),
+        new("reclamo", "031: reclamo por mercancía no entregada totalmente", Parse("""{ "event_code": "031", "claim_reason": "02" }"""),
+            "Requiere el 030 y el 032. `claim_reason`: 01 documento con inconsistencias, 02 mercancía no entregada totalmente, " +
+            "03 mercancía no entregada parcialmente, 04 servicio no prestado."),
+    ];
+
+    public static RequestExample[] TacitAcceptance { get; } =
+    [
+        new("aceptacion-tacita", "034: aceptación tácita de una factura propia", Parse("""{ "event_code": "034" }"""),
+            "Pasados 3 días hábiles desde el 032 del adquiriente, sin reclamo ni aceptación expresa."),
+    ];
+
     public static RequestExample[] Login { get; } =
     [
         new("usuario", "Correo y contraseña de un usuario del panel", Parse($$"""

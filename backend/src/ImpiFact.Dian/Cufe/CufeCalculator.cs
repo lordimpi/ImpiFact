@@ -80,6 +80,39 @@ public static class CufeCalculator
         return Convert.ToHexStringLower(SHA384.HashData(Encoding.UTF8.GetBytes(text)));
     }
 
+    /// <summary>
+    /// CUDE of a RADIAN event (ApplicationResponse, Anexo Técnico 1.9, section 11.1.5): SHA-384 of the event number, its
+    /// issue date and time (with <c>-05:00</c>), the NITs of the sender and the receiver, the event code, the number and
+    /// the type code of the referenced document and the PIN of the invoice software. Unlike the CUFE it carries neither
+    /// amounts nor the environment (php-rules 16.5, item 1).
+    /// </summary>
+    public static string ComputeEventCude(
+        string eventNumber,
+        DateOnly issueDate,
+        TimeOnly issueTime,
+        string senderNit,
+        string receiverNit,
+        string responseCode,
+        string referenceNumber,
+        string referenceTypeCode,
+        string softwarePin)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(eventNumber);
+        ArgumentException.ThrowIfNullOrEmpty(softwarePin);
+        var text = string.Concat(
+            eventNumber,
+            issueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            issueTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + ColombiaOffset,
+            senderNit,
+            receiverNit,
+            responseCode,
+            referenceNumber,
+            referenceTypeCode,
+            softwarePin);
+
+        return Convert.ToHexStringLower(SHA384.HashData(Encoding.UTF8.GetBytes(text)));
+    }
+
     private static string Compute(CufeInput input, string secret)
     {
         ArgumentNullException.ThrowIfNull(input);

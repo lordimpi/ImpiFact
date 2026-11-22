@@ -2492,9 +2492,19 @@ namespace ImpiFact.Infrastructure.MySql.Migrations
                         .HasColumnType("varchar(10)")
                         .HasColumnName("dian_status_code");
 
+                    b.Property<string>("DianStatusDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasColumnName("dian_status_description");
+
                     b.Property<Guid?>("DocumentId")
                         .HasColumnType("char(36)")
                         .HasColumnName("document_id");
+
+                    b.Property<string>("ErrorMessages")
+                        .HasColumnType("json")
+                        .HasColumnName("error_messages")
+                        .HasAnnotation("ImpiFact:JsonColumn", true);
 
                     b.Property<int>("EventId")
                         .HasColumnType("int")
@@ -2504,6 +2514,11 @@ namespace ImpiFact.Infrastructure.MySql.Migrations
                         .HasColumnType("datetime(6)")
                         .HasColumnName("issued_at");
 
+                    b.Property<string>("Number")
+                        .HasMaxLength(120)
+                        .HasColumnType("varchar(120)")
+                        .HasColumnName("number");
+
                     b.Property<Guid?>("PayloadFileId")
                         .HasColumnType("char(36)")
                         .HasColumnName("payload_file_id");
@@ -2511,6 +2526,16 @@ namespace ImpiFact.Infrastructure.MySql.Migrations
                     b.Property<Guid?>("ReceivedDocumentId")
                         .HasColumnType("char(36)")
                         .HasColumnName("received_document_id");
+
+                    b.Property<string>("RejectionCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("varchar(2)")
+                        .HasColumnName("rejection_code");
+
+                    b.Property<string>("ResponseFileKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasColumnName("response_file_key");
 
                     b.Property<long>("RowVersion")
                         .IsConcurrencyToken()
@@ -2529,6 +2554,11 @@ namespace ImpiFact.Infrastructure.MySql.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetime(6)")
                         .HasColumnName("updated_at");
+
+                    b.Property<string>("XmlFileKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)")
+                        .HasColumnName("xml_file_key");
 
                     b.HasKey("Id")
                         .HasName("pk_document_events");
@@ -3139,6 +3169,11 @@ namespace ImpiFact.Infrastructure.MySql.Migrations
                         .HasColumnName("supplier_dv")
                         .IsFixedLength();
 
+                    b.Property<string>("SupplierEmail")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)")
+                        .HasColumnName("supplier_email");
+
                     b.Property<string>("SupplierIdentificationNumber")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -3150,6 +3185,16 @@ namespace ImpiFact.Infrastructure.MySql.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("varchar(255)")
                         .HasColumnName("supplier_name");
+
+                    b.Property<string>("SupplierOrganizationTypeCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("varchar(2)")
+                        .HasColumnName("supplier_organization_type_code");
+
+                    b.Property<string>("SupplierRegimeCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("varchar(2)")
+                        .HasColumnName("supplier_regime_code");
 
                     b.Property<decimal>("TaxAmount")
                         .HasPrecision(18, 2)

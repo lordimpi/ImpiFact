@@ -45,6 +45,9 @@ public static class ContractScope
         "Enviar una factura de contingencia tipo 4",
         "Transmitir las facturas de contingencia pendientes",
         "Crear la resolucion de contingencia tipo 4",
+        "Enviar un evento desde el AttachedDocument",
+        "Enviar un evento indicando el CUFE",
+        "Cargar un documento recibido por CUFE",
     };
 
     /// <summary>Palabra buscada (sin tildes y en minúsculas) y motivo de la exclusión.</summary>
