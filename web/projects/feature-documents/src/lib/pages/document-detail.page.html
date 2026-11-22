@@ -9,8 +9,19 @@
         { label: doc.full_number ?? '' },
       ]"
     >
-      {{ 'documents.' + kindKey(doc.kind) | transloco }} {{ doc.full_number }}
-      <!-- Una nota corrige una factura aceptada: los enlaces la llevan elegida. -->
+      {{ 'documents.' + kindKey(kind()) | transloco }} {{ doc.full_number }}
+      <!-- Una nota corrige una factura o un documento soporte aceptado: los enlaces lo llevan elegido. -->
+      @if (accepted() && canWrite() && kind() === 'support_document') {
+        <div uiPageTitleActions class="doc-actions">
+          <a
+            uiButtonLink
+            variant="secondary"
+            routerLink="/documentos/nota-ajuste"
+            [queryParams]="{ soporte: doc.id }"
+            >{{ 'documents.detail.adjustmentNote' | transloco }}</a
+          >
+        </div>
+      }
       @if (accepted() && canWrite() && doc.kind === 'invoice') {
         <div uiPageTitleActions class="doc-actions">
           <a
@@ -52,7 +63,14 @@
           <dd class="detail-summary__total">{{ doc.totals?.payable_amount | cop }}</dd>
         </div>
         <div class="detail-summary__item">
-          <dt>{{ 'documents.detail.emailStatus' | transloco }}</dt>
+          <dt>
+            {{
+              (supportFamily()
+                ? 'documents.detail.emailStatusSeller'
+                : 'documents.detail.emailStatus'
+              ) | transloco
+            }}
+          </dt>
           <dd>
             {{
               'documents.emailStatuses.' +
@@ -126,7 +144,11 @@
               <dd>{{ 'documents.detail.noDianResponse' | transloco }}</dd>
             }
             @if (doc.cufe) {
-              <dt>{{ 'documents.detail.cufe' | transloco }}</dt>
+              <dt>
+                {{
+                  (supportFamily() ? 'documents.detail.cuds' : 'documents.detail.cufe') | transloco
+                }}
+              </dt>
               <dd class="detail-code">{{ doc.cufe }}</dd>
             }
             @if (doc.track_id) {
@@ -142,10 +164,10 @@
       </div>
 
       <div class="doc-stack">
-        <ui-card [title]="'documents.detail.customer' | transloco">
+        <ui-card [title]="partyKey() | transloco">
           @if (doc.customer; as customer) {
             <dl class="doc-data doc-data--stacked">
-              <dt>{{ 'documents.detail.customer' | transloco }}</dt>
+              <dt>{{ partyKey() | transloco }}</dt>
               <dd>{{ customer.name }}</dd>
               <dt>{{ 'documents.detail.identification' | transloco }}</dt>
               <dd>
@@ -177,7 +199,12 @@
               <ui-button
                 variant="secondary"
                 block
-                [label]="'documents.detail.resendEmail' | transloco"
+                [label]="
+                  (supportFamily()
+                    ? 'documents.detail.resendEmailSeller'
+                    : 'documents.detail.resendEmail'
+                  ) | transloco
+                "
                 [disabled]="busy()"
                 (pressed)="resendEmail()"
               />

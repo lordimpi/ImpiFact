@@ -23,7 +23,13 @@ import { StatusBadgeComponent } from '../components/status-badge.component';
 import { TotalsPanelComponent } from '../components/totals-panel.component';
 import { DOCUMENTS_I18N_SCOPE, provideDocumentsI18n } from '../documents-i18n';
 import { ISSUE_SCOPE } from '../documents.routes';
-import { filesAvailable, isPendingStatus, kindKey } from '../models/document-status';
+import {
+  documentKindOf,
+  filesAvailable,
+  isPendingStatus,
+  isSupportDocumentFamily,
+  kindKey,
+} from '../models/document-status';
 import { DocumentActions, DocumentFileKind } from '../state/document-actions';
 import { pageVisibility, pollWhilePending } from '../state/document-polling';
 
@@ -84,6 +90,13 @@ export class DocumentDetailPage {
     return !!status && status !== 'Received' && status !== 'Draft';
   });
   protected readonly kindKey = kindKey;
+  /** Tipo del documento; el Api no lo da para el documento soporte ni su nota (sale de `document_type_id`). */
+  protected readonly kind = computed(() => documentKindOf(this.document()));
+  /** En el documento soporte y su nota la empresa compra: el tercero es el proveedor y el código, el CUDS. */
+  protected readonly supportFamily = computed(() => isSupportDocumentFamily(this.document()));
+  protected readonly partyKey = computed(() =>
+    this.supportFamily() ? 'documents.detail.seller' : 'documents.detail.customer',
+  );
 
   protected readonly acceptedFiles: DocumentFileKind[] = ['pdf', 'attached-document', 'zip'];
 

@@ -140,6 +140,14 @@
     "pinFormat": "El PIN tiene 5 dígitos.",
     "pinConfigured": "PIN configurado",
     "pinMissing": "Sin PIN",
+    "support": {
+      "title": "Software del documento soporte",
+      "description": "Solo si la empresa compra a proveedores no obligados a facturar: el software que la DIAN le asignó al documento soporte, distinto del de la factura.",
+      "id": "Identificador (documento soporte)",
+      "idHint": "El del software de documento soporte en el portal de la DIAN, en «Configurar modos de operación».",
+      "pin": "PIN (documento soporte)",
+      "save": "Guardar el software del documento soporte"
+    },
     "registered": "Software registrado",
     "registeredEmpty": "La empresa aún no tiene software registrado.",
     "loadError": "No se pudo consultar el software guardado.",
@@ -321,6 +329,16 @@
           "Failed": "Falló el envío",
           "ContingencyPending": "En contingencia",
           "unknown": "Estado desconocido"
+        }
+      },
+      "supportDocument": {
+        "title": "Documento soporte (opcional)",
+        "done": "El documento soporte tiene software y una resolución vigente en {{ environment }}.",
+        "missing": "Solo si la empresa compra a proveedores no obligados a facturar: guarde el software del documento soporte en la sección Software y su resolución (tipo 11) en la sección Resoluciones.",
+        "missingResolution": "Falta una resolución vigente de documento soporte (tipo 11) en el ambiente actual del documento soporte: guárdela en la sección Resoluciones.",
+        "environments": {
+          "1": "producción",
+          "2": "habilitación"
         }
       },
       "production": {

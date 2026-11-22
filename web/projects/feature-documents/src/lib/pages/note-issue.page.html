@@ -1,11 +1,6 @@
 <form class="doc-page" novalidate (submit)="issue($event)" [attr.aria-busy]="submitting() || null">
-  <ui-page-title
-    [subtitle]="
-      (kind() === 'credit' ? 'documents.note.creditDescription' : 'documents.note.debitDescription')
-        | transloco
-    "
-  >
-    {{ 'documents.' + titleKey() | transloco }}
+  <ui-page-title [subtitle]="'documents.' + noteKey('Description') | transloco">
+    {{ 'documents.' + noteKey('Title') | transloco }}
     <a uiPageTitleActions uiButtonLink variant="secondary" routerLink="/documentos">{{
       'documents.issue.cancel' | transloco
     }}</a>
@@ -13,10 +8,19 @@
 
   <div class="issue-layout">
     <div class="issue-main">
-      <ui-card [title]="'documents.note.invoice' | transloco">
+      <ui-card
+        [title]="
+          (adjustment() ? 'documents.note.supportDocument' : 'documents.note.invoice') | transloco
+        "
+      >
         @switch (original().status) {
           @case ('loading') {
-            <p class="doc-muted" role="status">{{ 'documents.note.invoiceLoading' | transloco }}</p>
+            <p class="doc-muted" role="status">
+              {{
+                (adjustment() ? 'documents.note.supportLoading' : 'documents.note.invoiceLoading')
+                  | transloco
+              }}
+            </p>
           }
           @case ('ready') {
             @if (originalDocument(); as invoice) {
@@ -26,20 +30,57 @@
                   <dd>{{ invoice.full_number }}</dd>
                   <dt>{{ 'documents.note.invoiceDate' | transloco }}</dt>
                   <dd>{{ invoice.issue_date }}</dd>
-                  <dt>{{ 'documents.detail.customer' | transloco }}</dt>
+                  <dt>
+                    {{
+                      (adjustment() ? 'documents.detail.seller' : 'documents.detail.customer')
+                        | transloco
+                    }}
+                  </dt>
                   <dd>{{ invoice.customer?.name }}</dd>
-                  <dt>{{ 'documents.note.invoiceTotal' | transloco }}</dt>
+                  <dt>
+                    {{
+                      (adjustment() ? 'documents.note.supportTotal' : 'documents.note.invoiceTotal')
+                        | transloco
+                    }}
+                  </dt>
                   <dd class="note-total">{{ invoice.totals?.payable_amount | cop }}</dd>
                 </dl>
                 @if (notAccepted()) {
                   <p class="doc-error" role="status">
-                    {{ 'documents.note.notAccepted' | transloco }}
+                    {{
+                      (adjustment()
+                        ? 'documents.note.supportNotAccepted'
+                        : 'documents.note.notAccepted'
+                      ) | transloco
+                    }}
                   </p>
+                }
+                @if (adjustment()) {
+                  <ui-field
+                    [label]="'documents.note.sellerPostalCode' | transloco"
+                    [hint]="'documents.note.sellerPostalCodeHint' | transloco"
+                    [error]="postalCodeError()"
+                    required
+                  >
+                    <input
+                      uiInput
+                      type="text"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      [placeholder]="
+                        'documents.supportDocument.placeholders.postalZoneCode' | transloco
+                      "
+                      [formField]="noteForm.sellerPostalCode"
+                    />
+                  </ui-field>
                 }
                 <ui-button
                   variant="ghost"
                   size="small"
-                  [label]="'documents.note.invoiceChange' | transloco"
+                  [label]="
+                    (adjustment() ? 'documents.note.supportChange' : 'documents.note.invoiceChange')
+                      | transloco
+                  "
                   (pressed)="clearInvoice()"
                 />
               </div>
@@ -53,7 +94,7 @@
             }
           }
           <feat-search-picker
-            [labels]="invoiceLabels"
+            [labels]="invoiceLabels()"
             [term]="invoiceSearch().term"
             [options]="invoiceOptions()"
             [loading]="invoiceSearch().loading"
@@ -85,7 +126,10 @@
             <ui-button
               variant="ghost"
               size="small"
-              [label]="'documents.note.copyLines' | transloco"
+              [label]="
+                (adjustment() ? 'documents.note.copySupportLines' : 'documents.note.copyLines')
+                  | transloco
+              "
               (pressed)="copyOriginalLines()"
             />
           }
@@ -106,7 +150,12 @@
               (remove)="removeLine(index)"
             />
           } @empty {
-            <p class="issue-empty">{{ 'documents.note.noLines' | transloco }}</p>
+            <p class="issue-empty">
+              {{
+                (adjustment() ? 'documents.note.adjustmentNoLines' : 'documents.note.noLines')
+                  | transloco
+              }}
+            </p>
           }
         </div>
       </ui-card>
@@ -114,25 +163,40 @@
       <ui-card [title]="'documents.issue.notes' | transloco">
         <ui-field
           [label]="'documents.issue.notes' | transloco"
-          [hint]="'documents.note.notesHint' | transloco"
+          [hint]="
+            (adjustment() ? 'documents.note.adjustmentNotesHint' : 'documents.note.notesHint')
+              | transloco
+          "
         >
           <textarea
             uiInput
             rows="3"
-            [placeholder]="'documents.note.notesPlaceholder' | transloco"
+            [placeholder]="
+              (adjustment()
+                ? 'documents.note.adjustmentNotesPlaceholder'
+                : 'documents.note.notesPlaceholder'
+              ) | transloco
+            "
             [formField]="noteForm.notes"
           ></textarea>
         </ui-field>
+        <!-- The adjustment note goes to the seller of the support document. -->
         <ui-checkbox
           class="issue-check"
           [formField]="noteForm.sendEmail"
-          [label]="'documents.note.sendEmail' | transloco"
+          [label]="
+            (adjustment() ? 'documents.note.adjustmentSendEmail' : 'documents.note.sendEmail')
+              | transloco
+          "
         />
         <p class="doc-muted doc-small issue-check__hint">
           @if (customerEmail(); as email) {
             {{ 'documents.issue.sendEmailHint' | transloco: { email } }}
           } @else if (originalDocument()) {
-            {{ 'documents.issue.sendEmailNoAddress' | transloco }}
+            {{
+              (adjustment() ? 'documents.note.sellerNoEmail' : 'documents.issue.sendEmailNoAddress')
+                | transloco
+            }}
           }
         </p>
       </ui-card>
@@ -161,7 +225,12 @@
         }
 
         @if (!canIssue() && !submitting()) {
-          <p class="doc-muted doc-small">{{ 'documents.note.notReady' | transloco }}</p>
+          <p class="doc-muted doc-small">
+            {{
+              (adjustment() ? 'documents.note.adjustmentNotReady' : 'documents.note.notReady')
+                | transloco
+            }}
+          </p>
         }
         @if (previewError(); as message) {
           <p class="doc-error" role="alert">{{ message }}</p>
@@ -171,21 +240,21 @@
             type="submit"
             size="large"
             block
-            [label]="
-              (kind() === 'credit' ? 'documents.note.creditSubmit' : 'documents.note.debitSubmit')
-                | transloco
-            "
+            [label]="'documents.' + noteKey('Submit') | transloco"
             [loading]="submitting()"
             [disabled]="!canIssue()"
           />
-          <ui-button
-            variant="secondary"
-            block
-            [label]="'documents.issue.preview' | transloco"
-            [loading]="previewing()"
-            [disabled]="!canIssue() || previewing()"
-            (pressed)="preview()"
-          />
+          <!-- The API has no preview for the adjustment note. -->
+          @if (!adjustment()) {
+            <ui-button
+              variant="secondary"
+              block
+              [label]="'documents.issue.preview' | transloco"
+              [loading]="previewing()"
+              [disabled]="!canIssue() || previewing()"
+              (pressed)="preview()"
+            />
+          }
         </div>
       </div>
     </ui-card>

@@ -13,6 +13,8 @@ export interface MonthBar {
   invoice: number;
   creditNote: number;
   debitNote: number;
+  supportDocument: number;
+  adjustmentNote: number;
   other: number;
 }
 
@@ -25,13 +27,16 @@ export interface MonthChartLabels {
   invoice: string;
   creditNote: string;
   debitNote: string;
+  supportDocument: string;
+  adjustmentNote: string;
   other: string;
   total: string;
 }
 
 /**
- * Barras de documentos por mes (componente de presentación). Una sola serie, así que no lleva leyenda: el título de
- * la tarjeta la nombra. Son barras de CSS (sin librería de gráficos, para no pesar en el bundle); el gráfico tiene
+ * Barras de documentos por mes (componente de presentación). Una sola serie (el total del mes, con facturas, notas y
+ * documentos soporte), así que no lleva leyenda: el título de la tarjeta la nombra; el detalle por tipo va en el
+ * título de cada barra y en la tabla. Son barras de CSS (sin librería de gráficos, para no pesar en el bundle); el gráfico tiene
  * un nombre accesible con el resumen y los números exactos van en una tabla que se despliega.
  */
 @Component({
@@ -64,6 +69,8 @@ export interface MonthChartLabels {
               <th scope="col">{{ labels().invoice }}</th>
               <th scope="col">{{ labels().creditNote }}</th>
               <th scope="col">{{ labels().debitNote }}</th>
+              <th scope="col">{{ labels().supportDocument }}</th>
+              <th scope="col">{{ labels().adjustmentNote }}</th>
               <th scope="col">{{ labels().other }}</th>
               <th scope="col">{{ labels().total }}</th>
             </tr>
@@ -75,6 +82,8 @@ export interface MonthChartLabels {
                 <td>{{ bar.invoice }}</td>
                 <td>{{ bar.creditNote }}</td>
                 <td>{{ bar.debitNote }}</td>
+                <td>{{ bar.supportDocument }}</td>
+                <td>{{ bar.adjustmentNote }}</td>
                 <td>{{ bar.other }}</td>
                 <td>{{ bar.total }}</td>
               </tr>
@@ -170,6 +179,7 @@ export interface MonthChartLabels {
     }
     .chart-table th:first-child {
       text-align: start;
+      white-space: nowrap;
     }
   `,
 })

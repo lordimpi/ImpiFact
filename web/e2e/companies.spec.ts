@@ -194,7 +194,7 @@ test('the software screen never shows the PIN and keeps it when left empty', asy
   expect(await seriousViolations(page)).toEqual([]);
 
   await page.getByRole('textbox', { name: /Identificador del set de pruebas/ }).fill('set-new');
-  await page.getByRole('button', { name: 'Guardar' }).click();
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
 
   await expect(page.getByText('Los cambios se guardaron.')).toBeVisible();
   expect(bodies).toEqual([{ test_set_id: 'set-new' }]);

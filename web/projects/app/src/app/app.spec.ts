@@ -143,6 +143,9 @@ describe('App shell', () => {
     expect(within(issue).getByRole('link', { name: 'Nota débito' }).getAttribute('href')).toBe(
       '/documentos/nota-debito',
     );
+    expect(
+      within(issue).getByRole('link', { name: 'Documento soporte' }).getAttribute('href'),
+    ).toBe('/documentos/documento-soporte');
     const query = within(nav).getByRole('list', { name: 'Consulta' });
     expect(within(query).getByRole('link', { name: 'Documentos' })).toBeTruthy();
     expect(within(nav).getByRole('list', { name: 'Ajustes' })).toBeTruthy();
@@ -152,6 +155,7 @@ describe('App shell', () => {
     view.session.scopes.set(['documents:read']);
     await waitFor(() => expect(within(nav).queryByRole('list', { name: 'Emisión' })).toBeNull());
     expect(within(nav).queryByRole('link', { name: 'Nueva factura' })).toBeNull();
+    expect(within(nav).queryByRole('link', { name: 'Documento soporte' })).toBeNull();
   });
 
   it('marks the entry of the current page', async () => {

@@ -35,7 +35,7 @@ import {
 import { MyCompaniesStore, SKIP_ERROR_TOAST } from '@impifact/core';
 import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
-import { HABILITATION, INVOICE_KIND } from '../models/dian';
+import { HABILITATION, INVOICE_KIND, SUPPORT_DOCUMENT_KIND } from '../models/dian';
 
 /** Empresa con la que se trabaja: la activa de la sesión, con el NIT y el DV que piden las rutas del Api. */
 export interface CompanyRef {
@@ -112,27 +112,31 @@ const IN_FORM = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 export const CompanySetupStore = signalStore(
   { providedIn: 'root' },
   withState<CompanySetupState>({ company: null, ...EMPTY }),
-  withComputed((store) => ({
-    activeCertificate: computed(
-      () => store.certificates().find((certificate) => certificate.is_active) ?? null,
-    ),
+  withComputed((store) => {
     /**
-     * Software de la factura electrónica en su ambiente actual; si los ambientes aún no se leyeron, el de
-     * habilitación (o el primero que haya).
+     * Software de una familia en su ambiente actual; si los ambientes aún no se leyeron, el de habilitación (o el
+     * primero que haya).
      */
-    invoiceSoftware: computed(() => {
-      const rows = (store.software() ?? []).filter(
-        (entry) => Number(entry.document_kind) === INVOICE_KIND,
-      );
+    const currentSoftware = (kind: number) => {
+      const rows = (store.software() ?? []).filter((entry) => Number(entry.document_kind) === kind);
       const current = store
         .environments()
-        ?.find((entry) => Number(entry.document_kind) === INVOICE_KIND)?.type_environment_id;
+        ?.find((entry) => Number(entry.document_kind) === kind)?.type_environment_id;
       const environment = current === undefined ? HABILITATION : Number(current);
       return (
         rows.find((entry) => Number(entry.type_environment_id) === environment) ?? rows[0] ?? null
       );
-    }),
-  })),
+    };
+    return {
+      activeCertificate: computed(
+        () => store.certificates().find((certificate) => certificate.is_active) ?? null,
+      ),
+      /** Software de la factura electrónica en su ambiente actual. */
+      invoiceSoftware: computed(() => currentSoftware(INVOICE_KIND)),
+      /** Software del documento soporte en su ambiente actual. */
+      supportSoftware: computed(() => currentSoftware(SUPPORT_DOCUMENT_KIND)),
+    };
+  }),
   withComputed((store) => ({
     /** Set de pruebas para el asistente: el escrito allí o el del software guardado. */
     effectiveTestSetId: computed(

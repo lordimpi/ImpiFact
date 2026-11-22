@@ -22,7 +22,7 @@ import { DocumentFiltersComponent } from '../components/document-filters.compone
 import { StatusBadgeComponent } from '../components/status-badge.component';
 import { DOCUMENTS_I18N_SCOPE, provideDocumentsI18n } from '../documents-i18n';
 import { ISSUE_SCOPE } from '../documents.routes';
-import { filesAvailable, kindKey } from '../models/document-status';
+import { documentKindOf, filesAvailable, kindKey } from '../models/document-status';
 import {
   DocumentActions,
   DocumentFileKind,
@@ -84,6 +84,7 @@ export class DocumentListPage {
   protected readonly busyRow = signal<string | null>(null);
 
   protected readonly kindKey = kindKey;
+  protected readonly documentKindOf = documentKindOf;
   protected readonly filesAvailable = filesAvailable;
   protected readonly trackById = (_: number, row: DocumentSummaryResponse) => row.id;
 

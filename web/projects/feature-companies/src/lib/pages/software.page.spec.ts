@@ -134,6 +134,90 @@ describe('SoftwarePage', () => {
     expect(field(/^PIN del software/).value).toBe('');
   });
 
+  describe('support document software', () => {
+    const SUPPORT_SOFTWARE = {
+      document_kind: 4,
+      type_environment_id: 2,
+      identifier: 'sd-123',
+      url: 'https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc',
+      test_set_id: null,
+      has_pin: true,
+    };
+    const saveSupport = () =>
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Guardar el software del documento soporte' }),
+      );
+
+    it('writes its PIN in a password field with example placeholders', async () => {
+      await open();
+
+      const card = screen.getByRole('heading', { name: 'Software del documento soporte' });
+      expect(card).toBeTruthy();
+      expect(field(/^PIN \(documento soporte\)/).type).toBe('password');
+      expect(field(/^PIN \(documento soporte\)/).placeholder).toBe('PIN de cinco dígitos');
+      expect(field(/^Identificador \(documento soporte\)/).placeholder).toBe(
+        'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      );
+      // The PIN field has the show/hide toggle of the panel (uiPasswordToggle).
+      expect(
+        field(/^PIN \(documento soporte\)/).parentElement?.querySelector('button[aria-pressed]'),
+      ).toBeTruthy();
+    });
+
+    it('saves the identifier and PIN in the support document fields and forgets the PIN', async () => {
+      const { http } = await open();
+      type(/^Identificador \(documento soporte\)/, 'sd-123');
+      type(/^PIN \(documento soporte\)/, '54321');
+
+      saveSupport();
+      const request = await expectRequest(http, isSave);
+      expect(request.request.body).toEqual({
+        idsupportdocument: 'sd-123',
+        pinsupportdocument: '54321',
+      });
+      request.flush({ success: true, software: [SUPPORT_SOFTWARE] });
+      await respond(http, URL, { software: [SUPPORT_SOFTWARE] });
+
+      const table = await screen.findByRole('table', { name: 'Software registrado' });
+      expect(cells(table)).toEqual([
+        'Documento soporte',
+        'Habilitación (pruebas)',
+        'sd-123',
+        '',
+        'PIN configurado',
+      ]);
+      expect(field(/^PIN \(documento soporte\)/).value).toBe('');
+      // The invoice software form is untouched.
+      expect(field(/^Identificador del software/).value).toBe('');
+    });
+
+    it('keeps the saved PIN when it is left empty and asks for it with another identifier', async () => {
+      const { http } = await open([INVOICE_SOFTWARE, SUPPORT_SOFTWARE]);
+      await waitFor(() =>
+        expect(field(/^Identificador \(documento soporte\)/).value).toBe('sd-123'),
+      );
+      expect(field(/^Identificador del software/).value).toBe('soft-123');
+      expect(field(/^PIN \(documento soporte\)/).getAttribute('aria-required')).not.toBe('true');
+
+      type(/^Identificador \(documento soporte\)/, 'sd-999');
+      saveSupport();
+
+      expect(await screen.findByText('Este campo es obligatorio.')).toBeTruthy();
+      http.expectNone(isSave);
+    });
+
+    it('checks the PIN format before calling the API', async () => {
+      const { http } = await open();
+      type(/^Identificador \(documento soporte\)/, 'sd-123');
+      type(/^PIN \(documento soporte\)/, '12');
+
+      saveSupport();
+
+      expect(await screen.findByText('El PIN tiene 5 dígitos.')).toBeTruthy();
+      http.expectNone(isSave);
+    });
+  });
+
   it('explains when the software could not be read', async () => {
     const { http } = await renderCompaniesRoute('/empresas/company-1/software');
     const error = problem(503, 'unavailable', 'No disponible.');

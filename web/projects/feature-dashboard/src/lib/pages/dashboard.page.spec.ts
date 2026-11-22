@@ -90,6 +90,65 @@ describe('DashboardPage', () => {
     expect(within(resolutions).getByText('Quedan 41 números.')).toBeTruthy();
   });
 
+  it('counts the support documents and their adjustment notes in each month', async () => {
+    const { http } = await renderDashboardRoute('/');
+    const withSupport = months({ '2026-11': 42 }).map((month) =>
+      month.month === '2026-11'
+        ? {
+            ...month,
+            invoice: 30,
+            credit_note: 2,
+            debit_note: 1,
+            support_document: 6,
+            support_document_adjustment_note: 1,
+            other: 2,
+          }
+        : month,
+    );
+    (await expectRequest(http, SUMMARY_URL)).flush({
+      ...SUMMARY,
+      months: withSupport,
+      resolutions: [
+        {
+          ...SUMMARY.resolutions[0],
+          id: 'r-2',
+          document_type_id: 13,
+          kind: 'support_document_adjustment_note',
+          prefix: 'NDS',
+        },
+      ],
+    });
+
+    const table = await screen.findByRole('table', { name: 'Documentos por mes' });
+    const headers = within(table)
+      .getAllByRole('columnheader')
+      .map((cell) => cell.textContent?.trim());
+    expect(headers).toEqual([
+      'Mes',
+      'Facturas',
+      'Notas crédito',
+      'Notas débito',
+      'Documentos soporte',
+      'Notas de ajuste DS',
+      'Otros',
+      'Total',
+    ]);
+    const november = within(table)
+      .getByRole('rowheader', { name: /nov\.? 2026/ })
+      .closest('tr')!;
+    expect(
+      within(november)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent?.trim()),
+    ).toEqual(['30', '2', '1', '6', '1', '2', '42']);
+    const bar = screen
+      .getByRole('img', { name: /Documentos por mes/ })
+      .querySelector('[title*="6 documentos soporte"]');
+    expect(bar?.getAttribute('title')).toContain('1 notas de ajuste DS');
+    const resolutions = screen.getByRole('region', { name: 'Resoluciones por agotarse' });
+    expect(within(resolutions).getByText(/Nota de ajuste DS NDS/)).toBeTruthy();
+  });
+
   it('shows the empty states of a new company', async () => {
     const { http } = await renderDashboardRoute('/');
     (await expectRequest(http, SUMMARY_URL)).flush({

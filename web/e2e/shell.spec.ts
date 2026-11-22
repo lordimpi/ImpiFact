@@ -31,6 +31,7 @@ test('shows the owner menu grouped by section and marks the current page', async
     'Nueva factura',
     'Nota crédito',
     'Nota débito',
+    'Documento soporte',
   ]);
   await expect(nav.getByRole('list', { name: 'Consulta' }).getByRole('link')).toHaveText([
     'Documentos',

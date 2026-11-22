@@ -47,6 +47,51 @@ export function createSoftwareForm(
 }
 
 /**
+ * Software del documento soporte (otro registro en la DIAN, con su propio identificador y PIN): firma y envía el
+ * documento soporte y su nota de ajuste. El Api no recibe un set de pruebas propio para él.
+ */
+export interface SupportSoftwareModel {
+  idsupportdocument: string;
+  pinsupportdocument: string;
+}
+
+export const SUPPORT_SOFTWARE_FIELDS: readonly (keyof SupportSoftwareModel)[] = [
+  'idsupportdocument',
+  'pinsupportdocument',
+];
+
+export function emptySupportSoftware(): SupportSoftwareModel {
+  return { idsupportdocument: '', pinsupportdocument: '' };
+}
+
+export function createSupportSoftwareForm(
+  model: WritableSignal<SupportSoftwareModel> = signal(emptySupportSoftware()),
+  saved: () => SavedSoftware | null = () => null,
+) {
+  return form(model, (path) => {
+    required(path.idsupportdocument);
+    maxLength(path.idsupportdocument, 64);
+    required(path.pinsupportdocument, {
+      when: ({ valueOf }) => !keepsPin(saved(), valueOf(path.idsupportdocument)),
+    });
+    pattern(path.pinsupportdocument, /^\d{5}$/);
+  });
+}
+
+/**
+ * Cuerpo de `setCompanySoftware` para el documento soporte (`idsupportdocument` y `pinsupportdocument`); `null` si
+ * no hay nada que guardar (PIN vacío: el Api exige el PIN junto con el identificador, y vacío conserva el guardado).
+ */
+export function supportSoftwareCommand(model: SupportSoftwareModel): SetSoftwareCommand | null {
+  return model.pinsupportdocument
+    ? {
+        idsupportdocument: optionalText(model.idsupportdocument),
+        pinsupportdocument: model.pinsupportdocument,
+      }
+    : null;
+}
+
+/**
  * Cuerpo de `setCompanySoftware`. Con el PIN vacío no se envían ni el PIN ni el identificador (el Api exige el PIN
  * junto con el identificador), así el software guardado los conserva.
  */

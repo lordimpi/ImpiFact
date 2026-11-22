@@ -34,6 +34,7 @@ import {
   EnvironmentField,
   INVOICE_KIND,
   PRODUCTION,
+  SUPPORT_DOCUMENT_TYPE,
   isAcceptedStatus,
   isPendingStatus,
   kindKey,
@@ -47,7 +48,14 @@ import { pageVisibility, pollWhilePending } from '../state/polling';
 export type StepStatus = 'done' | 'missing' | 'locked' | 'inProgress';
 
 interface Step {
-  id: 'company' | 'certificate' | 'resolution' | 'software' | 'testSet' | 'production';
+  id:
+    | 'company'
+    | 'certificate'
+    | 'resolution'
+    | 'software'
+    | 'testSet'
+    | 'supportDocument'
+    | 'production';
   title: string;
   status: StepStatus;
   detail: string;
@@ -69,7 +77,8 @@ const silent = () => new HttpContext().set(SKIP_ERROR_TOAST, true);
 
 /**
  * Asistente de paso a producción (`/empresas/:id/produccion`, sección 8.2 de la arquitectura del frontend): empresa,
- * certificado, resolución, software y set de pruebas, envío al set de pruebas y producción por familia de documentos.
+ * certificado, resolución, software y set de pruebas, envío al set de pruebas, la familia del documento soporte
+ * (opcional: su software y su resolución, del bloque `support_document`) y producción por familia de documentos.
  *
  * El estado de cada paso sale de `getCompanySetupStatus`, que el Api calcula con lo guardado; el certificado y el
  * software se leen además para mostrar sus datos. El estado se vuelve a pedir después de cada guardado, al terminar
@@ -168,6 +177,46 @@ export class ProductionWizardPage {
     })),
   );
 
+  /** Familia del documento soporte (opcional): su software y una resolución vigente en su ambiente actual. */
+  private readonly supportDocumentStep = computed<Step>(() => {
+    const support = this.setup.readiness()?.support_document;
+    const software = support?.software_configured === true;
+    const resolution = !!support?.resolutions?.some(
+      (entry) => Number(entry.type_document_id) === SUPPORT_DOCUMENT_TYPE && entry.valid,
+    );
+    const section = (path: string, label: string) => ({
+      path: `../${path}`,
+      label: this.text('wizard.open', { section: this.text(`layout.tabs.${label}`) }),
+    });
+    const base = {
+      id: 'supportDocument',
+      title: this.text('wizard.steps.supportDocument.title'),
+    } as const;
+    if (software && resolution) {
+      const environment = Number(support?.type_environment_id) === PRODUCTION ? 1 : 2;
+      return {
+        ...base,
+        status: 'done',
+        detail: this.text('wizard.steps.supportDocument.done', {
+          environment: this.text(`wizard.steps.supportDocument.environments.${environment}`),
+        }),
+      };
+    }
+    return software
+      ? {
+          ...base,
+          status: 'missing',
+          detail: this.text('wizard.steps.supportDocument.missingResolution'),
+          section: section('resoluciones', 'resolutions'),
+        }
+      : {
+          ...base,
+          status: 'missing',
+          detail: this.text('wizard.steps.supportDocument.missing'),
+          section: section('software', 'software'),
+        };
+  });
+
   protected readonly steps = computed<Step[]>(() => {
     const readiness = this.setup.readiness();
     const locked = !this.unlocked();
@@ -247,6 +296,7 @@ export class ProductionWizardPage {
                   : 'wizard.steps.testSet.setRejected',
               ),
       },
+      this.supportDocumentStep(),
       {
         id: 'production',
         title: this.text('wizard.steps.production.title'),

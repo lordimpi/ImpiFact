@@ -7,3 +7,4 @@ export { DocumentDetailPage } from './pages/document-detail.page';
 export { DocumentListPage } from './pages/document-list.page';
 export { InvoiceIssuePage } from './pages/invoice-issue.page';
 export { NoteIssuePage } from './pages/note-issue.page';
+export { SupportDocumentIssuePage } from './pages/support-document-issue.page';

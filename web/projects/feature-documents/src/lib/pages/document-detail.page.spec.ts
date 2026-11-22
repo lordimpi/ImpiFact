@@ -165,6 +165,50 @@ describe('DocumentDetailPage', () => {
     await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
   });
 
+  it('offers the adjustment note on an accepted support document and names its seller', async () => {
+    const { http } = await renderDocumentsRoute('/documentos/ds-1');
+    (await waitFor(() => http.expectOne('/api/v1/documents/ds-1'))).flush({
+      ...DETAIL,
+      id: 'ds-1',
+      full_number: 'SEDS984000001',
+      kind: 'support_document',
+      document_type_id: 11,
+      status: 'Accepted',
+      cufe: 'cuds-1',
+      customer: { name: 'PROVEEDOR NO OBLIGADO', identification_number: '800000003', dv: '4' },
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /Documento soporte SEDS984000001/ }),
+    ).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Emitir nota de ajuste' }).getAttribute('href')).toBe(
+      '/documentos/nota-ajuste?soporte=ds-1',
+    );
+    expect(screen.queryByRole('link', { name: 'Emitir nota crédito' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Proveedor' })).toBeTruthy();
+    expect(screen.getByText('CUDS (código único del documento soporte)')).toBeTruthy();
+    expect(screen.getByText('Correo al proveedor')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reenviar correo al proveedor' })).toBeTruthy();
+  });
+
+  // A row without `kind` (as the API sent it before 91adc38) is named by its document type.
+  it('offers no adjustment note on an adjustment note, even without kind', async () => {
+    const { http } = await renderDocumentsRoute('/documentos/nds-1');
+    (await waitFor(() => http.expectOne('/api/v1/documents/nds-1'))).flush({
+      ...DETAIL,
+      id: 'nds-1',
+      full_number: 'NDS1',
+      kind: null,
+      document_type_id: 13,
+      status: 'Accepted',
+    });
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /Nota de ajuste DS NDS1/ }),
+    ).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Emitir nota de ajuste' })).toBeNull();
+  });
+
   it('shows an error with retry when the document cannot be loaded', async () => {
     const { http } = await renderDocumentsRoute('/documentos/doc-1');
     (await waitFor(() => http.expectOne('/api/v1/documents/doc-1'))).flush(
