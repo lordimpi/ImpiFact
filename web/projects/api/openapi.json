@@ -1639,6 +1639,145 @@
         ]
       }
     },
+    "/api/v1/companies/{nit}/mail-settings": {
+      "get": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Ver el servidor de correo de la empresa",
+        "description": "Responde el servidor de correo (SMTP) propio de la empresa: \u0060host\u0060, \u0060port\u0060, \u0060username\u0060, \u0060encryption\u0060, \u0060from_address\u0060, \u0060from_name\u0060, \u0060use_platform_default\u0060 y \u0060has_password\u0060 (si hay contrase\u00F1a guardada; la contrase\u00F1a nunca se devuelve). \u0060in_use\u0060 dice por d\u00F3nde sale el correo de los documentos: \u0060company\u0060 si el servidor propio est\u00E1 completo (servidor, puerto, usuario, contrase\u00F1a y cifrado) y no se eligi\u00F3 el de la plataforma, o \u0060platform\u0060. Sin servidor propio, los datos llegan nulos y \u0060in_use\u0060 es \u0060platform\u0060. Los datos del servidor de la plataforma no se muestran. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "operationId": "getCompanyMailSettings",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyMailSettingsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Guardar el servidor de correo de la empresa",
+        "description": "Crea o reemplaza el servidor de correo propio con que salen los correos de los documentos de la empresa: \u0060host\u0060 (nombre o direcci\u00F3n IP, sin protocolo), \u0060port\u0060 (1 a 65535), \u0060username\u0060, \u0060password\u0060, \u0060encryption\u0060 (\u0060ssl\u0060, \u0060tls\u0060, \u0060starttls\u0060 o \u0060none\u0060), y si quiere \u0060from_address\u0060 y \u0060from_name\u0060 (sin ellos sale con el remitente de la plataforma) y \u0060use_platform_default\u0060 (verdadero: lo guarda pero env\u00EDa por la plataforma). La contrase\u00F1a es obligatoria la primera vez; despu\u00E9s, si no llega, queda la guardada. Se guarda cifrada y nunca se devuelve ni se registra. Datos inv\u00E1lidos: 422 con el motivo en \u0060errors.\u003Ccampo\u003E\u0060. Responde lo mismo que \u0060GET .../mail-settings\u0060. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "operationId": "saveCompanyMailSettings",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveCompanyMailSettingsCommand"
+              },
+              "examples": {
+                "starttls": {
+                  "summary": "Servidor propio con STARTTLS en el puerto 587",
+                  "description": "Reemplace el servidor, el usuario y la contrase\u00F1a por los de su proveedor de correo.",
+                  "value": {
+                    "host": "smtp.empresa-prueba.com",
+                    "port": 587,
+                    "username": "facturacion@empresa-prueba.com",
+                    "password": "Cambie-esta-clave-SMTP",
+                    "encryption": "tls",
+                    "from_address": "facturacion@empresa-prueba.com",
+                    "from_name": "Facturaci\u00F3n Empresa de Pruebas"
+                  }
+                },
+                "plataforma": {
+                  "summary": "Guardar el servidor propio pero enviar por la plataforma",
+                  "description": "Sin \u0060password\u0060 queda la contrase\u00F1a guardada; la primera vez es obligatoria.",
+                  "value": {
+                    "host": "smtp.empresa-prueba.com",
+                    "port": 465,
+                    "username": "facturacion@empresa-prueba.com",
+                    "encryption": "ssl",
+                    "use_platform_default": true
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanyMailSettingsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Empresas"
+        ],
+        "summary": "Quitar el servidor de correo de la empresa",
+        "description": "Borra el servidor de correo propio, contrase\u00F1a incluida, y responde 204 sin cuerpo, tambi\u00E9n si la empresa no ten\u00EDa. Desde ese momento los correos salen por el servidor de la plataforma. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "operationId": "deleteCompanyMailSettings",
+        "parameters": [
+          {
+            "name": "nit",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "900123456"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/companies/{nit}/numbering-ranges": {
       "get": {
         "tags": [
@@ -60420,6 +60559,49 @@
         ]
       }
     },
+    "/api/v1/documents/pdf/merge": {
+      "post": {
+        "tags": [
+          "Documentos"
+        ],
+        "summary": "Unir los PDF de varios documentos",
+        "description": "Une en un solo PDF (\u0060documentos-unidos.pdf\u0060) la versi\u00F3n m\u00E1s reciente del PDF de cada documento de \u0060document_ids\u0060 (de 1 a 50 ids, los que devuelve \u0060GET /api/v1/documents\u0060), en el orden de la lista; un id repetido repite sus p\u00E1ginas. Es lo mismo que \u0060join-pdfs\u0060 del PHP, que un\u00EDa los archivos por prefijo y n\u00FAmero. Un documento que no existe o es de otra empresa responde 404 (\u0060document.not_found\u0060) para toda la solicitud, sin unir nada. Si alg\u00FAn documento todav\u00EDa no tiene PDF (se genera despu\u00E9s de la aceptaci\u00F3n de la DIAN), responde 422 (\u0060documents.pdf_missing\u0060) con sus n\u00FAmeros. Si el conversor de PDF no responde: 503 (\u0060pdf.unavailable\u0060, reintente despu\u00E9s de \u0060Retry-After\u0060).\n\n**Permiso:** alcance \u0060documents:read\u0060.",
+        "operationId": "mergeDocumentPdfs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeDocumentPdfsQuery"
+              },
+              "examples": {
+                "tres-documentos": {
+                  "summary": "Unir los PDF de tres documentos",
+                  "description": "Reemplace los ids por los de documentos de su empresa que ya tengan PDF (los devuelve \u0060GET /api/v1/documents\u0060).",
+                  "value": {
+                    "document_ids": [
+                      "0193a1b2-7c3d-7e4f-8a5b-6c7d8e9f0a1b",
+                      "0193a1b2-7c3d-7e4f-8a5b-6c7d8e9f0a1c",
+                      "0193a1b2-7c3d-7e4f-8a5b-6c7d8e9f0a1d"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "Bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/documents/{id}/pdf/regenerate": {
       "post": {
         "tags": [
@@ -65453,6 +65635,59 @@
           }
         }
       },
+      "CompanyMailSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "in_use": {
+            "type": "string"
+          },
+          "use_platform_default": {
+            "type": "boolean"
+          },
+          "host": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "port": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "username": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "encryption": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "from_address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "from_name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "has_password": {
+            "type": "boolean"
+          }
+        }
+      },
       "CompanyResolutionsResponse": {
         "type": "object",
         "properties": {
@@ -68570,6 +68805,21 @@
           }
         }
       },
+      "MergeDocumentPdfsQuery": {
+        "type": "object",
+        "properties": {
+          "document_ids": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "MyCompanies": {
         "required": [
           "items"
@@ -69761,6 +70011,62 @@
               "string"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "SaveCompanyMailSettingsCommand": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "port": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "username": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "password": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "encryption": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "from_address": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "from_name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "use_platform_default": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },

@@ -24,6 +24,7 @@ export type { CertificateSavedResponse } from './models/certificate-saved-respon
 export type { CertificatesResponse } from './models/certificates-response';
 export type { CompanyEnvironmentsResponse } from './models/company-environments-response';
 export type { CompanyLogoResponse } from './models/company-logo-response';
+export type { CompanyMailSettingsResponse } from './models/company-mail-settings-response';
 export type { CompanyResolutionsResponse } from './models/company-resolutions-response';
 export type { CompanyResponse } from './models/company-response';
 export type { CompanySavedResponse } from './models/company-saved-response';
@@ -86,6 +87,7 @@ export type { LoadReceivedDocumentCommand } from './models/load-received-documen
 export type { LoginBody } from './models/login-body';
 export type { LogoutBody } from './models/logout-body';
 export type { MaintenanceQueuedResponse } from './models/maintenance-queued-response';
+export type { MergeDocumentPdfsQuery } from './models/merge-document-pdfs-query';
 export type { MyCompanies } from './models/my-companies';
 export type { MyCompany } from './models/my-company';
 export type { NotificationListResponse } from './models/notification-list-response';
@@ -117,6 +119,7 @@ export type { ResolutionReadiness } from './models/resolution-readiness';
 export type { ResolutionResponse } from './models/resolution-response';
 export type { ResolutionSavedResponse } from './models/resolution-saved-response';
 export type { ResolutionStatusResponse } from './models/resolution-status-response';
+export type { SaveCompanyMailSettingsCommand } from './models/save-company-mail-settings-command';
 export type { SendEventBody } from './models/send-event-body';
 export type { SendPendingContingencyInvoicesResponse } from './models/send-pending-contingency-invoices-response';
 export type { SessionTokens } from './models/session-tokens';

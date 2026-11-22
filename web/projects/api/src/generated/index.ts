@@ -30,6 +30,7 @@ export type { CertificateSavedResponse } from './models/certificate-saved-respon
 export type { CertificatesResponse } from './models/certificates-response';
 export type { CompanyEnvironmentsResponse } from './models/company-environments-response';
 export type { CompanyLogoResponse } from './models/company-logo-response';
+export type { CompanyMailSettingsResponse } from './models/company-mail-settings-response';
 export type { CompanyResolutionsResponse } from './models/company-resolutions-response';
 export type { CompanyResponse } from './models/company-response';
 export type { CompanySavedResponse } from './models/company-saved-response';
@@ -92,6 +93,7 @@ export type { LoadReceivedDocumentCommand } from './models/load-received-documen
 export type { LoginBody } from './models/login-body';
 export type { LogoutBody } from './models/logout-body';
 export type { MaintenanceQueuedResponse } from './models/maintenance-queued-response';
+export type { MergeDocumentPdfsQuery } from './models/merge-document-pdfs-query';
 export type { MyCompanies } from './models/my-companies';
 export type { MyCompany } from './models/my-company';
 export type { NotificationListResponse } from './models/notification-list-response';
@@ -123,6 +125,7 @@ export type { ResolutionReadiness } from './models/resolution-readiness';
 export type { ResolutionResponse } from './models/resolution-response';
 export type { ResolutionSavedResponse } from './models/resolution-saved-response';
 export type { ResolutionStatusResponse } from './models/resolution-status-response';
+export type { SaveCompanyMailSettingsCommand } from './models/save-company-mail-settings-command';
 export type { SendEventBody } from './models/send-event-body';
 export type { SendPendingContingencyInvoicesResponse } from './models/send-pending-contingency-invoices-response';
 export type { SessionTokens } from './models/session-tokens';
@@ -182,6 +185,12 @@ export type { SaveCompanyLogo$Params as SaveCompanyLogo$Params } from './fn/empr
 export { saveCompanyLogo as saveCompanyLogo } from './fn/empresas/save-company-logo';
 export type { DeleteCompanyLogo$Params as DeleteCompanyLogo$Params } from './fn/empresas/delete-company-logo';
 export { deleteCompanyLogo as deleteCompanyLogo } from './fn/empresas/delete-company-logo';
+export type { GetCompanyMailSettings$Params as GetCompanyMailSettings$Params } from './fn/empresas/get-company-mail-settings';
+export { getCompanyMailSettings as getCompanyMailSettings } from './fn/empresas/get-company-mail-settings';
+export type { SaveCompanyMailSettings$Params as SaveCompanyMailSettings$Params } from './fn/empresas/save-company-mail-settings';
+export { saveCompanyMailSettings as saveCompanyMailSettings } from './fn/empresas/save-company-mail-settings';
+export type { DeleteCompanyMailSettings$Params as DeleteCompanyMailSettings$Params } from './fn/empresas/delete-company-mail-settings';
+export { deleteCompanyMailSettings as deleteCompanyMailSettings } from './fn/empresas/delete-company-mail-settings';
 export type { GetNumberingRanges$Params as GetNumberingRanges$Params } from './fn/empresas/get-numbering-ranges';
 export { getNumberingRanges as getNumberingRanges } from './fn/empresas/get-numbering-ranges';
 export type { AssignCompanyPlan$Params as AssignCompanyPlan$Params } from './fn/planes/assign-company-plan';
@@ -310,6 +319,8 @@ export type { DownloadDocumentFile$Pdf$Params as DownloadDocumentFile$Pdf$Params
 export { downloadDocumentFile$Pdf as downloadDocumentFile$Pdf } from './fn/documentos/download-document-file-pdf';
 export type { DownloadDocumentFile$Zip$Params as DownloadDocumentFile$Zip$Params } from './fn/documentos/download-document-file-zip';
 export { downloadDocumentFile$Zip as downloadDocumentFile$Zip } from './fn/documentos/download-document-file-zip';
+export type { MergeDocumentPdfs$Params as MergeDocumentPdfs$Params } from './fn/documentos/merge-document-pdfs';
+export { mergeDocumentPdfs as mergeDocumentPdfs } from './fn/documentos/merge-document-pdfs';
 export type { RegenerateDocumentPdf$Params as RegenerateDocumentPdf$Params } from './fn/documentos/regenerate-document-pdf';
 export { regenerateDocumentPdf as regenerateDocumentPdf } from './fn/documentos/regenerate-document-pdf';
 export type { RegenerateAttachedDocument$Params as RegenerateAttachedDocument$Params } from './fn/documentos/regenerate-attached-document';

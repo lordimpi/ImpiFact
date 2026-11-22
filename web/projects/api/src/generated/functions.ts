@@ -41,6 +41,12 @@ export type { SaveCompanyLogo$Params as SaveCompanyLogo$Params } from './fn/empr
 export { saveCompanyLogo as saveCompanyLogo } from './fn/empresas/save-company-logo';
 export type { DeleteCompanyLogo$Params as DeleteCompanyLogo$Params } from './fn/empresas/delete-company-logo';
 export { deleteCompanyLogo as deleteCompanyLogo } from './fn/empresas/delete-company-logo';
+export type { GetCompanyMailSettings$Params as GetCompanyMailSettings$Params } from './fn/empresas/get-company-mail-settings';
+export { getCompanyMailSettings as getCompanyMailSettings } from './fn/empresas/get-company-mail-settings';
+export type { SaveCompanyMailSettings$Params as SaveCompanyMailSettings$Params } from './fn/empresas/save-company-mail-settings';
+export { saveCompanyMailSettings as saveCompanyMailSettings } from './fn/empresas/save-company-mail-settings';
+export type { DeleteCompanyMailSettings$Params as DeleteCompanyMailSettings$Params } from './fn/empresas/delete-company-mail-settings';
+export { deleteCompanyMailSettings as deleteCompanyMailSettings } from './fn/empresas/delete-company-mail-settings';
 export type { GetNumberingRanges$Params as GetNumberingRanges$Params } from './fn/empresas/get-numbering-ranges';
 export { getNumberingRanges as getNumberingRanges } from './fn/empresas/get-numbering-ranges';
 export type { AssignCompanyPlan$Params as AssignCompanyPlan$Params } from './fn/planes/assign-company-plan';
@@ -169,6 +175,8 @@ export type { DownloadDocumentFile$Pdf$Params as DownloadDocumentFile$Pdf$Params
 export { downloadDocumentFile$Pdf as downloadDocumentFile$Pdf } from './fn/documentos/download-document-file-pdf';
 export type { DownloadDocumentFile$Zip$Params as DownloadDocumentFile$Zip$Params } from './fn/documentos/download-document-file-zip';
 export { downloadDocumentFile$Zip as downloadDocumentFile$Zip } from './fn/documentos/download-document-file-zip';
+export type { MergeDocumentPdfs$Params as MergeDocumentPdfs$Params } from './fn/documentos/merge-document-pdfs';
+export { mergeDocumentPdfs as mergeDocumentPdfs } from './fn/documentos/merge-document-pdfs';
 export type { RegenerateDocumentPdf$Params as RegenerateDocumentPdf$Params } from './fn/documentos/regenerate-document-pdf';
 export { regenerateDocumentPdf as regenerateDocumentPdf } from './fn/documentos/regenerate-document-pdf';
 export type { RegenerateAttachedDocument$Params as RegenerateAttachedDocument$Params } from './fn/documentos/regenerate-attached-document';
