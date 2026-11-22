@@ -109,6 +109,7 @@ export type { SetSoftwareCommand } from './models/set-software-command';
 export type { SoftwareResponse } from './models/software-response';
 export type { SoftwareSavedResponse } from './models/software-saved-response';
 export type { StorePlanCommand } from './models/store-plan-command';
+export type { SupportDocumentReadiness } from './models/support-document-readiness';
 export type { TotalDocumentsResponse } from './models/total-documents-response';
 export type { UpdateCompanyCommand } from './models/update-company-command';
 export type { UpdateCompanyUserBody } from './models/update-company-user-body';

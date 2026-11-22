@@ -187,6 +187,103 @@ export interface IssueTestSetExportInvoice$Params {
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
  */
 'merchant_registration'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'postal_zone_code'?: (boolean | number | string | null);
+};
+'seller'?: {
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'identification_number'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'dv'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'type_document_identification_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'type_organization_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'type_regime_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'type_liability_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'tax_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'language_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'country_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'municipality_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'municipality_name'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'state_name'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'name'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'phone'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'address'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'email'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'merchant_registration'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'postal_zone_code'?: (boolean | number | string | null);
 };
 'payment_form'?: (Array<{
 
@@ -583,6 +680,16 @@ export interface IssueTestSetExportInvoice$Params {
 /**
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
  */
+'type_generation_transmition_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'start_date'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
 'agentparty'?: (boolean | number | string | null);
 
 /**
@@ -692,6 +799,16 @@ export interface IssueTestSetExportInvoice$Params {
 /**
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
  */
+'type_generation_transmition_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'start_date'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
 'agentparty'?: (boolean | number | string | null);
 
 /**
@@ -797,6 +914,16 @@ export interface IssueTestSetExportInvoice$Params {
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
  */
 'modelname'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'type_generation_transmition_id'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'start_date'?: (boolean | number | string | null);
 
 /**
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.

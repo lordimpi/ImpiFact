@@ -133,6 +133,14 @@ export type { IssueDebitNote$Params as IssueDebitNote$Params } from './fn/docume
 export { issueDebitNote as issueDebitNote } from './fn/documentos/issue-debit-note';
 export type { IssueTestSetDebitNote$Params as IssueTestSetDebitNote$Params } from './fn/documentos/issue-test-set-debit-note';
 export { issueTestSetDebitNote as issueTestSetDebitNote } from './fn/documentos/issue-test-set-debit-note';
+export type { IssueSupportDocument$Params as IssueSupportDocument$Params } from './fn/documentos/issue-support-document';
+export { issueSupportDocument as issueSupportDocument } from './fn/documentos/issue-support-document';
+export type { IssueTestSetSupportDocument$Params as IssueTestSetSupportDocument$Params } from './fn/documentos/issue-test-set-support-document';
+export { issueTestSetSupportDocument as issueTestSetSupportDocument } from './fn/documentos/issue-test-set-support-document';
+export type { IssueSupportDocumentAdjustmentNote$Params as IssueSupportDocumentAdjustmentNote$Params } from './fn/documentos/issue-support-document-adjustment-note';
+export { issueSupportDocumentAdjustmentNote as issueSupportDocumentAdjustmentNote } from './fn/documentos/issue-support-document-adjustment-note';
+export type { IssueTestSetSupportDocumentAdjustmentNote$Params as IssueTestSetSupportDocumentAdjustmentNote$Params } from './fn/documentos/issue-test-set-support-document-adjustment-note';
+export { issueTestSetSupportDocumentAdjustmentNote as issueTestSetSupportDocumentAdjustmentNote } from './fn/documentos/issue-test-set-support-document-adjustment-note';
 export type { PreviewInvoice$Params as PreviewInvoice$Params } from './fn/documentos/preview-invoice';
 export { previewInvoice as previewInvoice } from './fn/documentos/preview-invoice';
 export type { PreviewCreditNote$Params as PreviewCreditNote$Params } from './fn/documentos/preview-credit-note';
