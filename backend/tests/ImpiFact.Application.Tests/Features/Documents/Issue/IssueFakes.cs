@@ -29,6 +29,9 @@ public sealed class FakeDocumentDb : IDocumentStore, IDocumentFiles, INumberingS
 
     public List<(string Type, object? Payload, Guid? CompanyId)> Messages { get; } = [];
 
+    /// <summary>The <c>notBefore</c> of each message, in the order of <see cref="Messages"/>.</summary>
+    public List<DateTimeOffset?> NotBefore { get; } = [];
+
     public List<string> Calls { get; } = [];
 
     public void Add(DocumentGraph graph) => Graphs.Add(graph);
@@ -99,6 +102,7 @@ public sealed class FakeDocumentDb : IDocumentStore, IDocumentFiles, INumberingS
     public Task<Guid> EnqueueAsync<TPayload>(string type, TPayload payload, Guid? companyId, DateTimeOffset? notBefore, CancellationToken ct)
     {
         Messages.Add((type, payload, companyId));
+        NotBefore.Add(notBefore);
         return Task.FromResult(Guid.CreateVersion7());
     }
 

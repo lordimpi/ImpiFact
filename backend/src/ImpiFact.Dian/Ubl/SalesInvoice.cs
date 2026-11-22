@@ -118,6 +118,14 @@ public sealed record SalesInvoice
     /// </summary>
     public SupportDocumentTerms? SupportDocument { get; init; }
 
+    /// <summary>
+    /// The paper invoice that a contingency invoice type 03 transcribes (ApiDian template <c>03.blade.php</c>); null for the
+    /// other invoices. With it the builder writes cac:AdditionalDocumentReference right after cbc:LineCountNumeric and the
+    /// CUDE with <see cref="Software"/>'s PIN (schemeName <c>CUDE-SHA384</c>): annex 1.9, section 11.1.4, Nota-2, says
+    /// the transcription of a contingency invoice never uses a technical key, because its numbering has none.
+    /// </summary>
+    public PaperInvoiceReference? PaperInvoice { get; init; }
+
     /// <summary>Número del documento tal como se escribe en cbc:ID.</summary>
     public string DocumentNumber => Resolution.Prefix + Number.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
@@ -138,6 +146,12 @@ public sealed record NumberingResolution(
 /// (the day of the issue request, php-rules 13.2, item 4).
 /// </summary>
 public sealed record SupportDocumentTerms(DateOnly ExchangeRateDate);
+
+/// <summary>
+/// The paper (or manual) invoice behind a contingency invoice type 03: its number (cbc:ID), date (cbc:IssueDate) and
+/// document type code (cbc:DocumentTypeCode, for example <c>01</c>). Annex 1.9 rule FAI01 requires the group for type 03.
+/// </summary>
+public sealed record PaperInvoiceReference(string Id, DateOnly IssueDate, string DocumentTypeCode);
 
 /// <summary>
 /// cac:InvoicePeriod of a support-document line: when the purchase was made (cbc:StartDate) and how it is reported
@@ -360,6 +374,12 @@ public sealed record InvoiceLine
     public required bool IsFreeOfCharge { get; init; }
 
     public required string Description { get; init; }
+
+    /// <summary>
+    /// Free note of the line (<c>notes</c>), written by the invoice builder as a cbc:Note after the AIU note, like ApiDian's
+    /// <c>_invoice_lines.blade.php</c>; null when not sent. The credit and debit notes do not write it.
+    /// </summary>
+    public string? Note { get; init; }
 
     public required string ItemCode { get; init; }
 

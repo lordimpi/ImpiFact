@@ -88,8 +88,8 @@ public sealed class GoldenCodeTests
 
     // Mismas fórmulas que check_code en tools/golden-capture/capture.py (anexo técnico de la DIAN): el SHA-384 de la
     // concatenación de valores del XML. Cada impuesto va como código + valor (01 IVA, 04 INC, 03 ICA), con 0.00 si
-    // el documento no lo tiene; el CUDS solo lleva el IVA.
-    private static string Recompute(XElement root, string formula, string secret)
+    // el documento no lo tiene; el CUDS solo lleva el IVA. ContingencyGoldenTests also recomputes ImpiFact's own code.
+    internal static string Recompute(XElement root, string formula, string secret)
     {
         var parts = new List<string> { Child(root, Cbc + "ID"), Child(root, Cbc + "IssueDate"), Child(root, Cbc + "IssueTime") };
         if (formula == "EVENT")

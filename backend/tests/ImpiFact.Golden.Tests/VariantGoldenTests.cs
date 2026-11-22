@@ -15,13 +15,12 @@ public sealed class VariantGoldenTests
         "attached-document", "credit-note", "debit-note", "invoice",
         .. InvoiceVariantGoldenTests.Types.Select(type => type.Type),
         .. SupportDocumentGoldenTests.Types,
+        .. ContingencyGoldenTests.Types,
     ];
 
     /// <summary>Carpeta de tests/golden -> tarea de odd/tasks/fase-7a-community.md que escribe su builder.</summary>
     private static readonly (string Type, string Task, string Builder)[] Pending =
     [
-        ("invoice-contingency", "T5", "contingency type 03 invoice builder"),
-        ("invoice-contingency-4", "T5", "contingency type 04 invoice builder"),
         ("event", "T6", "RADIAN event (ApplicationResponse) builder"),
         ("invoice-health", "T7", "health-sector invoice builder"),
     ];

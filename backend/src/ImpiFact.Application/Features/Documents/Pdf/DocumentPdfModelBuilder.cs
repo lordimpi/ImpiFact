@@ -72,7 +72,9 @@ internal sealed class DocumentPdfModelBuilder(
             throw new PdfSourceException($"The stored request of document {documentId} is not valid JSON.");
         }
 
-        var issuer = await issuers.GetAsync(companyId, header.DocumentTypeId, DocumentFamilies.Of(header.DocumentTypeId), ct)
+        // The invoice type 04 prints the type 1 resolution that numbered it (annex 1.9, section 12.2).
+        var issuer = await issuers.GetAsync(
+                companyId, DocumentFamilies.ResolutionTypeOf(header.DocumentTypeId), DocumentFamilies.Of(header.DocumentTypeId), ct)
             ?? throw new PdfSourceException($"Company {companyId} does not exist.");
         var (validationDate, validationTime) = detail.AcceptedAt is { } acceptedAt
             ? (ColombiaTime.Format(DateOnly.FromDateTime(ColombiaTime.Local(acceptedAt).DateTime)), Time(TimeOnly.FromDateTime(ColombiaTime.Local(acceptedAt).DateTime)))
@@ -242,8 +244,8 @@ internal sealed class DocumentPdfModelBuilder(
     /// </summary>
     private static PdfDocumentKind? KindOf(int documentTypeId) => documentTypeId switch
     {
-        // Factura de venta nacional, de exportación y de contingencia.
-        1 or 2 or 3 => PdfDocumentKind.Invoice,
+        // Factura de venta nacional, de exportación y de contingencia (tipos 03 y 04).
+        1 or 2 or DocumentFamilies.ContingencyInvoiceType or DocumentFamilies.DianContingencyInvoiceType => PdfDocumentKind.Invoice,
         4 => PdfDocumentKind.CreditNote,
         5 => PdfDocumentKind.DebitNote,
         DocumentFamilies.SupportDocumentType => PdfDocumentKind.SupportDocument,

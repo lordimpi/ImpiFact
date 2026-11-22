@@ -137,7 +137,10 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
                 resolution.Prefix ?? "",
                 resolution.From,
                 resolution.To,
-                resolution.TechnicalKey ?? throw new InvalidOperationException("An invoice resolution needs a technical key.")),
+                // The CUDE of a contingency type 03 ignores the technical key, which that numbering does not have.
+                resolution.TechnicalKey ?? (frame.Spec.NeedsTechnicalKey
+                    ? throw new InvalidOperationException("An invoice resolution needs a technical key.")
+                    : "")),
             Number = frame.Number,
             IssueDate = frame.IssueDate,
             IssueTime = frame.IssueTime,
@@ -146,6 +149,12 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             ForeignCurrency = foreignCurrency,
             AmountsInDocumentCurrency = isExport && foreignCurrency is not null,
             Export = isExport ? MapExport(body) : null,
+            PaperInvoice = frame.Spec.Variant == InvoiceVariant.Contingency
+                ? new PaperInvoiceReference(
+                    PhpText.Clean(body.AdditionalDocumentReferenceId!.Value.Text),
+                    Date(body.AdditionalDocumentReferenceDate!.Value),
+                    PhpText.Clean(body.AdditionalDocumentReferenceTypeDocument!.Value.Text))
+                : null,
             Supplier = MapSupplier(frame.Issuer),
             Customer = MapCustomer(body.Customer!, foreignAddress: isExport),
             Payments = PaymentFormsOf(body).Select(form => MapPayment(form.Body)).ToList(),
@@ -562,6 +571,9 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             LineExtensionAmount = line.LineExtensionAmount!.Value.Decimal,
             IsFreeOfCharge = line.FreeOfChargeIndicator!.Value.Boolean,
             Description = PhpText.Clean(line.Description!.Value.Text),
+
+            // Like _invoice_lines.blade.php (isset): the invoices write it, the credit and debit notes ignore it.
+            Note = PhpText.CleanOrNull(line.Notes),
             ItemCode = PhpText.Clean(line.Code!.Value.Text),
             ItemScheme = new ItemIdentificationScheme(itemType.Code, itemType.Name, itemType.CodeAgency ?? ""),
             PriceAmount = line.PriceAmount!.Value.Decimal,

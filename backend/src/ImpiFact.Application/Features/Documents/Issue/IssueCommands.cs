@@ -1,6 +1,7 @@
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Features.Documents.Totals;
 using ImpiFact.Domain.Common;
+using ImpiFact.Domain.Documents;
 
 namespace ImpiFact.Application.Features.Documents.Issue;
 
@@ -60,6 +61,24 @@ public sealed record IssueExportInvoiceCommand(IssueDocumentBody Body, byte[] Ra
     : IIssueDocumentCommand;
 
 /// <summary>
+/// <c>POST /api/v1/documents/invoices/contingency</c> (<c>/api/ubl2.1/invoice-contingency[/{testSetId}]</c>): contingency
+/// invoice type 03, the transcription of a paper invoice (type 3, template 03, CUDE; php-rules 12.1).
+/// </summary>
+public sealed record IssueContingencyInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
+    : IIssueDocumentCommand;
+
+/// <summary>
+/// <c>POST /api/v1/documents/invoices/dian-contingency</c> (<c>/api/ubl2.1/invoice-contingency-4</c>): invoice type 04,
+/// issued while the DIAN cannot validate (type 12, template 04; php-rules 12.2). It is stored signed and pending; the
+/// Worker sends it later. There is no test-set route, as in the PHP.
+/// </summary>
+public sealed record IssueDianContingencyInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null)
+    : IIssueDocumentCommand
+{
+    public string? TestSetId => null;
+}
+
+/// <summary>
 /// <c>POST /api/v1/documents/support-documents</c> (<c>/api/ubl2.1/support-document[/{testSetId}]</c>): support document in
 /// purchases from sellers not obliged to invoice (type 11, template 05, CUDS; php-rules 13).
 /// </summary>
@@ -107,6 +126,18 @@ public enum InvoiceVariant
 
     /// <summary>Export invoice (type 2, operation 10, code 10) with Incoterms and, optionally, the supplement K.</summary>
     Export,
+
+    /// <summary>
+    /// Contingency invoice type 03 (type 3, template 03): the transcription of a paper invoice, with its own type 3
+    /// resolution and the CUDE with the software PIN (annex 1.9, 11.1.4, Nota-2).
+    /// </summary>
+    Contingency,
+
+    /// <summary>
+    /// Invoice type 04 (type 12, template 04): the sales invoice numbering and CUFE (annex 1.9, 12.2), stored pending until
+    /// the DIAN answers again.
+    /// </summary>
+    DianContingency,
 }
 
 /// <summary>Lo que cambia entre la factura, sus variantes y las notas (php-rules, secciones 3, 4, 9 y 10).</summary>
@@ -151,6 +182,28 @@ internal sealed record IssueSpec(
         DocumentTypeId = 2, Variant = InvoiceVariant.Export, DefaultOperationTypeId = 10, AllowedOperationTypeIds = [10],
     };
 
+    /// <summary>
+    /// Type 3 with its own contingency resolution (php-rules 12.1, item 1), the fixed operation 10 (item 4) and the CUDE
+    /// with the software PIN (item 3; annex 1.9, 11.1.4, Nota-2).
+    /// </summary>
+    public static readonly IssueSpec ContingencyInvoice = Invoice with
+    {
+        DocumentTypeId = DocumentFamilies.ContingencyInvoiceType, Variant = InvoiceVariant.Contingency, DefaultOperationTypeId = 10,
+        AllowedOperationTypeIds = [10], UuidAlgorithm = "CUDE-SHA384",
+    };
+
+    /// <summary>
+    /// Type 12 (code 04) on the resolution and consecutive of the sales invoice (type 1): annex 1.9, section 12.2, «La
+    /// numeración utilizada para este tipo de documento es la de Factura electrónica de venta», so its code is the CUFE
+    /// with that technical key. The PHP used a type 12 resolution and computed the code with the PIN (php-rules 12.2, item
+    /// 3). Fixed operation 10, like the PHP.
+    /// </summary>
+    public static readonly IssueSpec DianContingencyInvoice = Invoice with
+    {
+        DocumentTypeId = DocumentFamilies.DianContingencyInvoiceType, Variant = InvoiceVariant.DianContingency, DefaultOperationTypeId = 10,
+        AllowedOperationTypeIds = [10],
+    };
+
     /// <summary>Operaciones 7, 8, 12, 30, 31, 32; por defecto 12 (código 20); sin referencia, la 8 (código 22).</summary>
     public static readonly IssueSpec CreditNote = new(
         IssueKind.CreditNote, 4, "credit_note_lines", "legal_monetary_totals", 12, [7, 8, 12, 30, 31, 32], 8, 6, "CUDE-SHA384",
@@ -178,6 +231,23 @@ internal sealed record IssueSpec(
         TotalsDocumentKind.CreditNote);
 
     public bool IsNote => Kind is IssueKind.CreditNote or IssueKind.DebitNote or IssueKind.SupportDocumentAdjustmentNote;
+
+    /// <summary>Document type whose resolutions and consecutive the document uses: its own, except the invoice type 04.</summary>
+    public int ResolutionTypeId => DocumentFamilies.ResolutionTypeOf(DocumentTypeId);
+
+    /// <summary>
+    /// Other document types that share this one's numbering, so a number used by one of them is taken: the sales invoice
+    /// (type 1, with its variants) and the invoice type 04 (type 12) share the type 1 resolution (annex 1.9, 12.2).
+    /// </summary>
+    public IReadOnlyList<int> SharedNumberTypeIds => DocumentTypeId switch
+    {
+        1 => [DocumentFamilies.DianContingencyInvoiceType],
+        DocumentFamilies.DianContingencyInvoiceType => [1],
+        _ => [],
+    };
+
+    /// <summary>The CUFE needs the technical key of the resolution; the CUDE and the CUDS do not.</summary>
+    public bool NeedsTechnicalKey => Kind == IssueKind.Invoice && UuidAlgorithm == "CUFE-SHA384";
 
     /// <summary>The support document and its adjustment note: the support-document family (software, environment, plan).</summary>
     public bool IsSupportDocumentFamily => Kind is IssueKind.SupportDocument or IssueKind.SupportDocumentAdjustmentNote;

@@ -65,6 +65,12 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         legacy.MapPost("/invoice-transport/{testSetId:guid}", TransportInvoice);
         legacy.MapPost("/invoice-export", ExportInvoice);
         legacy.MapPost("/invoice-export/{testSetId:guid}", ExportInvoice);
+        legacy.MapPost("/invoice-contingency", ContingencyInvoice);
+        legacy.MapPost("/invoice-contingency/{testSetId:guid}", ContingencyInvoice);
+        legacy.MapPost("/invoice-contingency-4", DianContingencyInvoice);
+        legacy.MapPost("/invoice-contingency-4/send_pendings", SendPendingContingency);
+        legacy.MapPost("/invoice-contingency-4/send_pendings/{prefix}", SendPendingContingency);
+        legacy.MapPost("/invoice-contingency-4/send_pendings/{prefix}/{number}", SendPendingContingency);
         legacy.MapPost("/credit-note", CreditNote);
         legacy.MapPost("/credit-note/{testSetId:guid}", CreditNote);
         legacy.MapPost("/debit-note", DebitNote);
@@ -117,6 +123,25 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
             .WithOperationId("issueTestSetExportInvoice")
             .WithSummary("Emitir una factura de exportación del set de pruebas")
             .WithDescription(ExportInvoiceText + ExportRules + TestSetRules + IssueRules);
+        // Contingency invoices (php-rules, section 12): type 03, the transcription of a paper invoice, and type 04, issued
+        // while the DIAN does not answer; «dian-contingency» names who has the problem, like the annex (section 12).
+        Issue(canonical.MapPost("/invoices/contingency", ContingencyInvoice), OpenApiExamples.ContingencyInvoices)
+            .WithOperationId("issueContingencyInvoice")
+            .WithSummary("Emitir una factura de contingencia (tipo 03)")
+            .WithDescription(ContingencyInvoiceText + IssueRules);
+        Issue(canonical.MapPost("/invoices/contingency/test-set/{testSetId}", ContingencyInvoice), OpenApiExamples.ContingencyInvoices)
+            .WithOperationId("issueTestSetContingencyInvoice")
+            .WithSummary("Emitir una factura de contingencia (tipo 03) del set de pruebas")
+            .WithDescription(ContingencyInvoiceText + TestSetRules + IssueRules);
+        Issue(canonical.MapPost("/invoices/dian-contingency", DianContingencyInvoice), OpenApiExamples.DianContingencyInvoices)
+            .WithOperationId("issueDianContingencyInvoice")
+            .WithSummary("Emitir una factura tipo 04 (contingencia de la DIAN)")
+            .WithDescription(DianContingencyInvoiceText);
+        canonical.MapPost("/invoices/dian-contingency/send-pending", SendPendingContingency)
+            .Produces<SendPendingContingencyInvoicesResponse>()
+            .WithOperationId("sendPendingContingencyInvoices")
+            .WithSummary("Enviar las facturas tipo 04 pendientes")
+            .WithDescription(SendPendingText);
         Issue(canonical.MapPost("/credit-notes", CreditNote), OpenApiExamples.CreditNotes)
             .WithOperationId("issueCreditNote")
             .WithSummary("Emitir una nota crédito")
@@ -276,6 +301,37 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         "Todos los valores del cuerpo van en esa moneda, como pide el anexo técnico (regla FAD15b), y el XML lleva " +
         "`cac:PaymentExchangeRate` con la tasa y su fecha.";
 
+    private const string ContingencyInvoiceText =
+        "Emite una factura de contingencia tipo 03 (tipo de documento 3, código `03`, operación 10): la transcripción de una " +
+        "factura de talonario o de papel que usted expidió mientras no pudo facturar electrónicamente (anexo técnico 1.9, " +
+        "sección 12.1). El cuerpo es el de `issueInvoice` con `type_document_id` 3 más, obligatorios, `number` (el de la " +
+        "factura de papel, del rango de su resolución de contingencia), `time`, `AdditionalDocumentReferenceID` (el número de " +
+        "la factura de papel), `AdditionalDocumentReferenceDate` (su fecha, `yyyy-MM-dd`) y " +
+        "`AdditionalDocumentReferenceTypeDocument` (su tipo de documento DIAN, dos dígitos, por ejemplo `01`). Usa su propia " +
+        "resolución de tipo 3 (con número y vigencia; sin clave técnica) y cuenta en el plan como una factura. El código es " +
+        "el CUDE con el PIN del software, como pide el anexo (sección 11.1.4): la respuesta lo trae en `cude`. La operación " +
+        "es fija: puede omitir `type_operation_id` o enviar 10; otra responde 422.";
+
+    private const string DianContingencyInvoiceText =
+        "Emite una factura tipo 04 (tipo de documento 12, código `04`, operación 10) cuando la DIAN no responde (anexo técnico " +
+        "1.9, sección 12.2). El cuerpo es el de `issueInvoice` con `type_document_id` 12. Usa la resolución, el consecutivo y " +
+        "el CUFE (con la clave técnica) de la factura de venta, como pide el anexo: un número que ya usa una factura de la " +
+        "empresa responde 409 (`document.number_in_use`). La respuesta es inmediata: el documento queda firmado y pendiente " +
+        "(`ContingencyPending`), sin llamar a la DIAN. El Worker lo envía solo con SendBillSync 30 minutos después y, mientras " +
+        "la DIAN no lo reciba, lo sigue intentando hasta 48 horas; `sendPendingContingencyInvoices` lo envía de inmediato. Cuando " +
+        "la DIAN lo acepta se generan su AttachedDocument, su PDF y el correo (con `sendmail`); si lo rechaza queda `Rejected` " +
+        "con su aviso. Antes de emitir se revisa: empresa activa (403 `company.inactive`), resolución de factura activa con el " +
+        "prefijo, certificado vigente (422 `certificate.missing` o `certificate.expired`), software (422 `software.missing`), " +
+        "plan (403 `plan.inactive` o `plan.limit_reached`) y los totales (422 `validation.failed`). Acepta `Idempotency-Key`.";
+
+    private const string SendPendingText =
+        "Envía ya a la DIAN las facturas tipo 04 pendientes (`ContingencyPending`) de la empresa de la credencial: todas, las " +
+        "del prefijo `prefix` o la de `prefix` y `number` (`number` sin `prefix` responde 422). Revisa la empresa activa (403 " +
+        "`company.inactive`) y su certificado (422 `certificate.missing` o `certificate.expired`), pero no el plan, que se " +
+        "revisó al emitir. La respuesta es inmediata y lista los documentos que quedaron en cola, todavía `ContingencyPending`: " +
+        "el Worker los envía con SendBillSync y cada uno queda `Accepted` (con su PDF) o `Rejected` (con su aviso); consulte " +
+        "el resultado con `GET /api/v1/documents/{id}`. Sin pendientes, `documents` va vacío. Pide `documents:write`.";
+
     private const string SupportDocumentText =
         "Emite un documento soporte en adquisiciones a no obligados a facturar (tipo de documento 11, código `05`): la " +
         "empresa compra a un vendedor que no factura. El cuerpo es el de `issueInvoice` con `type_document_id` 11 y " +
@@ -401,6 +457,23 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
     private static Task<IResult> ExportInvoice(
         HttpRequest request, string? testSetId, IHandler<IssueExportInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
         IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueExportInvoiceCommand(body, raw, key, testSetId), ct), ct);
+
+    private static Task<IResult> ContingencyInvoice(
+        HttpRequest request, string? testSetId, IHandler<IssueContingencyInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
+        IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueContingencyInvoiceCommand(body, raw, key, testSetId), ct), ct);
+
+    private static Task<IResult> DianContingencyInvoice(
+        HttpRequest request, IHandler<IssueDianContingencyInvoiceCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
+        IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueDianContingencyInvoiceCommand(body, raw, key), ct), ct);
+
+    /// <summary>
+    /// <c>prefix</c> and <c>number</c> come from the query in <c>/api/v1</c> and from the path in the PHP alias
+    /// (<c>send_pendings/{prefix}/{number}</c>); the request has no body.
+    /// </summary>
+    private static async Task<IResult> SendPendingContingency(
+        string? prefix, string? number, IHandler<SendPendingContingencyInvoicesCommand, SendPendingContingencyInvoicesResponse> handler,
+        CancellationToken ct) =>
+        (await handler.HandleAsync(new SendPendingContingencyInvoicesCommand(prefix, number), ct)).ToHttpResult();
 
     private static Task<IResult> CreditNote(
         HttpRequest request, string? testSetId, IHandler<IssueCreditNoteCommand, IssueDocumentResponse> handler, CancellationToken ct) =>

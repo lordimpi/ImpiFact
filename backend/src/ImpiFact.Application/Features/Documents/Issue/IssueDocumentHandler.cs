@@ -81,7 +81,7 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
 
         // The family decides the environment and the software: the support document and its adjustment note use the
         // support-document ones (php-rules 13.1, item 6), never the invoice ones.
-        var issuer = await ports.Issuers.GetAsync(companyId, spec.DocumentTypeId, spec.Family, ct);
+        var issuer = await ports.Issuers.GetAsync(companyId, spec.ResolutionTypeId, spec.Family, ct);
         if (issuer is null || !issuer.Company.IsActive)
         {
             return IssueErrors.CompanyInactive;
@@ -173,9 +173,14 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         ports.Store.Add(graph);
         await ports.Files.AddAsync(new NewDocumentFile(companyId, document.Id, DocumentFileKind.RequestJson, storedRequest, "application/json"), ct);
         await ports.Files.AddAsync(new NewDocumentFile(companyId, document.Id, DocumentFileKind.SignedXml, Utf8.GetBytes(signedXml), "application/xml"), ct);
-        document.MoveTo(DocumentStatus.Queued);
+
+        // The invoice type 04 is issued because the DIAN does not answer (php-rules 12.2, item 4): it waits signed, without
+        // any DIAN call nor simulated answer, and the Worker makes its first automatic attempt after the monitoring interval.
+        var pending = spec.Variant == InvoiceVariant.DianContingency;
+        document.MoveTo(pending ? DocumentStatus.ContingencyPending : DocumentStatus.Queued);
         await ports.Outbox.EnqueueAsync(
-            OutboxMessageTypes.SendDocumentToDian, new SendDocumentToDianPayload(document.Id, request.TestSetId), companyId, null, ct);
+            OutboxMessageTypes.SendDocumentToDian, new SendDocumentToDianPayload(document.Id, request.TestSetId), companyId,
+            pending ? now + ContingencyDelivery.RetryInterval : null, ct);
         if (key is not null)
         {
             ports.IdempotencyKeys.Add(companyId, key, requestHash, document.Id, now + IdempotencyWindow);
@@ -316,7 +321,9 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
                         ? new TakenNumber(number, existing)
                         : IssueErrors.NumberInUse(prefix + number.ToString(CultureInfo.InvariantCulture));
                 default:
-                    return new TakenNumber(number, null);
+                    return await UsedBySharedTypeAsync(companyId, key, ct)
+                        ? IssueErrors.NumberInUse(prefix + number.ToString(CultureInfo.InvariantCulture))
+                        : new TakenNumber(number, null);
             }
         }
 
@@ -339,13 +346,32 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             }
 
             var key = new DocumentNumberKey(spec.DocumentTypeId, issuer.TypeEnvironmentId, prefix, next);
-            if (await ports.Store.FindByNumberAsync(companyId, key, ct) is null)
+            if (await ports.Store.FindByNumberAsync(companyId, key, ct) is null && !await UsedBySharedTypeAsync(companyId, key, ct))
             {
                 return new TakenNumber(next, null);
             }
         }
 
         return IssueErrors.SequenceBlocked(prefix);
+    }
+
+    /// <summary>
+    /// Whether a document of the company of a type that shares this numbering (<see cref="IssueSpec.SharedNumberTypeIds"/>:
+    /// the sales invoice and the invoice type 04) already uses the number. Only the company's documents count, unlike the
+    /// PHP, which searched every company and told the caller the type and date of other companies' documents (php-rules
+    /// 12.2, item 2).
+    /// </summary>
+    private async Task<bool> UsedBySharedTypeAsync(Guid companyId, DocumentNumberKey key, CancellationToken ct)
+    {
+        foreach (var typeId in spec.SharedNumberTypeIds)
+        {
+            if (await ports.Store.FindByNumberAsync(companyId, key with { DocumentTypeId = typeId }, ct) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Traduce el resultado de <see cref="NumberingRange.Check"/> a los mensajes de validación del PHP.</summary>
@@ -380,9 +406,10 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             UrlInvoiceXml = $"{LegacyFileTag(spec.Kind)}-{document.FullNumber}.xml",
             UrlInvoicePdf = $"{LegacyFileTag(spec.Kind)}-{document.FullNumber}.pdf",
             UrlInvoiceAttached = $"Attachment-{document.FullNumber}.xml",
-            Cufe = spec.IsNote || spec.IsSupportDocumentFamily ? null : uuid,
-            Cude = spec.IsNote && !spec.IsSupportDocumentFamily ? uuid : null,
-            Cuds = spec.IsSupportDocumentFamily ? uuid : null,
+            // The name of the code follows its algorithm: the contingency type 03 answers cude, like the PHP (php-rules 12.1).
+            Cufe = spec.UuidAlgorithm == "CUFE-SHA384" ? uuid : null,
+            Cude = spec.UuidAlgorithm == "CUDE-SHA384" ? uuid : null,
+            Cuds = spec.UuidAlgorithm == "CUDS-SHA384" ? uuid : null,
             QrStr = ports.QrUrls.ForEnvironment(document.TypeEnvironmentId) + uuid,
             CertificateDaysLeft = issuer.Certificate is { } certificate ? CertificateDaysLeft(certificate) : 0,
             ResolutionDaysLeft = !spec.IsNote && resolution?.ValidTo is { } validTo ? ColombiaTime.DaysLeft(validTo, ports.Clock.UtcNow) : null,
@@ -434,7 +461,8 @@ internal static class IssueChecks
         // A support-document resolution needs its number and validity (they go in sts:InvoiceControl) but never its
         // technical key: the CUDS ignores it (php-rules 13.3, item 2).
         if (candidates.Count == 0
-            || (spec.Kind == IssueKind.Invoice && candidates[0] is { TechnicalKey: null } or { ValidFrom: null } or { ValidTo: null })
+            || (spec.Kind == IssueKind.Invoice && candidates[0] is { ValidFrom: null } or { ValidTo: null })
+            || (spec.NeedsTechnicalKey && candidates[0] is { TechnicalKey: null })
             || (spec.Kind == IssueKind.SupportDocument && candidates[0] is { ValidFrom: null } or { ValidTo: null } or { ResolutionNumber: null or "" }))
         {
             return Error.Validation([new FieldError("type_document_id", IssueMessages.ResolutionNotConfigured)]);
@@ -512,6 +540,22 @@ internal sealed class IssueExportInvoiceHandler(
     : IssueDocumentHandler<IssueExportInvoiceCommand>(
         new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
         IssueSpec.ExportInvoice);
+
+internal sealed class IssueContingencyInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    : IssueDocumentHandler<IssueContingencyInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        IssueSpec.ContingencyInvoice);
+
+internal sealed class IssueDianContingencyInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    : IssueDocumentHandler<IssueDianContingencyInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        IssueSpec.DianContingencyInvoice);
 
 internal sealed class IssueSupportDocumentHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,

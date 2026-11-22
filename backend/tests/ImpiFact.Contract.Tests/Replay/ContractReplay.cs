@@ -33,7 +33,10 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
     private const string TestSetId = "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f";
 
     private readonly (string Nit, string Dv) company = CompaniesHost.NewNit();
-    private readonly Dictionary<int, long> nextNumber = new() { [1] = 990000001, [2] = 990000001, [4] = 1, [5] = 1, [11] = 984000000, [13] = 1 };
+    private readonly Dictionary<int, long> nextNumber = new()
+    {
+        [1] = 990000001, [2] = 990000001, [3] = 990000001, [4] = 1, [5] = 1, [11] = 984000000, [13] = 1,
+    };
     private HttpClient? platform;
     private HttpClient? companyClient;
     private string? zipKey;
@@ -41,6 +44,11 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
 
     /// <summary>La última factura aceptada: sus datos reemplazan las referencias a facturas de la colección.</summary>
     public IssuedDocument? LastInvoice { get; private set; }
+
+    /// <summary>
+    /// CUFE of the last invoice type 04, stored pending until «Transmitir las facturas de contingencia pendientes» sends it.
+    /// </summary>
+    private string? pendingContingencyCufe;
 
     /// <summary>The last accepted support document: it replaces the references of the adjustment note of the collection.</summary>
     public IssuedDocument? LastSupportDocument { get; private set; }
@@ -137,7 +145,8 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
 
     private void PrepareIssue(JsonObject body, int documentType)
     {
-        var number = nextNumber[documentType]++;
+        // The invoice type 04 (type 12) uses the numbering of the sales invoice (annex 1.9, 12.2).
+        var number = nextNumber[documentType == 12 ? 1 : documentType]++;
         body["number"] = number;
         if (documentType is 11 or 13)
         {
@@ -225,6 +234,12 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
             planId = outcome.Body?["plan"]?["id"]?.GetValue<int>();
         }
 
+        if (IsSendPending(request))
+        {
+            await AfterSendPendingAsync(outcome);
+            return;
+        }
+
         if (prepared.IssuedType is not { } type)
         {
             return;
@@ -234,6 +249,19 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
         if (cufe is null)
         {
             outcome.Problems.Add("the issue response has no cufe, cude or cuds");
+            return;
+        }
+
+        if (type == 12)
+        {
+            // php-rules 12.2: the type 04 is stored pending, signed and without any DIAN call. The Worker is not run here:
+            // its clock is later than the API one, so the automatic attempt scheduled 30 minutes after the issue is due.
+            if (await StatusOfAsync(cufe) is var pending && pending != "ContingencyPending")
+            {
+                outcome.Problems.Add($"status/document says '{pending}' instead of ContingencyPending");
+            }
+
+            pendingContingencyCufe = cufe;
             return;
         }
 
@@ -263,6 +291,26 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
             }
         }
     }
+
+    /// <summary>send_pendings queues the pending type 04 for the Worker, which sends it and must leave it accepted.</summary>
+    private async Task AfterSendPendingAsync(ReplayOutcome outcome)
+    {
+        if (pendingContingencyCufe is null)
+        {
+            outcome.Problems.Add("send_pendings ran before any invoice type 04 was issued");
+            return;
+        }
+
+        await RunWorkerAsync();
+        var status = await StatusOfAsync(pendingContingencyCufe);
+        if (status is not ("Accepted" or "AcceptedWithWarnings"))
+        {
+            outcome.Problems.Add($"after send_pendings and the Worker, status/document says '{status}' instead of Accepted");
+        }
+    }
+
+    private static bool IsSendPending(PostmanRequest request) =>
+        request.Method == "POST" && request.ApiPath.StartsWith("/api/ubl2.1/invoice-contingency-4/send_pendings", StringComparison.Ordinal);
 
     /// <summary>Ejecuta el outbox del Worker hasta que no quede nada listo para tomar.</summary>
     private async Task RunWorkerAsync()
@@ -314,8 +362,8 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
         request.Method == "POST" && CompanyRoute().IsMatch(request.ApiPath);
 
     /// <summary>
-    /// Tipo de documento que emite la solicitud (1 factura, 2 exportación, 4 nota crédito, 5 nota débito, 11 documento
-    /// soporte, 13 nota de ajuste); nulo si no emite.
+    /// Tipo de documento que emite la solicitud (1 factura, 2 exportación, 3 contingencia tipo 03, 4 nota crédito, 5 nota
+    /// débito, 11 documento soporte, 12 factura tipo 04, 13 nota de ajuste); nulo si no emite.
     /// </summary>
     private static int? IssuedType(PostmanRequest request) => request.Method != "POST" ? null : request.ApiPath switch
     {
@@ -323,6 +371,8 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
         "/api/ubl2.1/sd-credit-note" => 13,
         "/api/ubl2.1/invoice" or "/api/ubl2.1/invoice-aiu" or "/api/ubl2.1/invoice-mandate" or "/api/ubl2.1/invoice-transport" => 1,
         "/api/ubl2.1/invoice-export" => 2,
+        "/api/ubl2.1/invoice-contingency" => 3,
+        "/api/ubl2.1/invoice-contingency-4" => 12,
         "/api/ubl2.1/credit-note" => 4,
         "/api/ubl2.1/debit-note" => 5,
         _ => null,

@@ -82,9 +82,11 @@
   "documentTypes": {
     "1": { "name": "Factura de Venta Nacional", "code": "01" },
     "2": { "name": "Factura de Exportación", "code": "02" },
+    "3": { "name": "Factura de Contingencia", "code": "03" },
     "4": { "name": "Nota Crédito", "code": "91" },
     "5": { "name": "Nota Débito", "code": "92" },
     "11": { "name": "Documento Soporte Electrónico", "code": "05" },
+    "12": { "name": "Factura electrónica de Venta - tipo 04", "code": "04" },
     "13": { "name": "Nota de Ajuste al Documento Soporte Electrónico", "code": "95" }
   },
   "creditNoteDiscrepancies": {

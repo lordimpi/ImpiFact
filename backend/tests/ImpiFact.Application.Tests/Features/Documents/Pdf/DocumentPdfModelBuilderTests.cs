@@ -105,6 +105,24 @@ public sealed class DocumentPdfModelBuilderTests
         });
     }
 
+    // Phase 7a, T5: an accepted invoice type 04 prints as an invoice, with its CUFE and the type 1 resolution that numbered
+    // it (annex 1.9, section 12.2).
+    [Test]
+    public async Task An_accepted_type_04_prints_as_an_invoice_with_the_invoice_resolution()
+    {
+        var model = await new PdfScenario()
+            .WithGolden("invoice-contingency-4/pending-transmission", ImpiFact.Domain.Documents.DocumentFamilies.DianContingencyInvoiceType, "SETP", 990000301, WithholdingsTotals)
+            .BuildAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.Kind, Is.EqualTo(PdfDocumentKind.Invoice));
+            Assert.That(model.UuidLabel, Is.EqualTo("CUFE"));
+            Assert.That(model.Resolution, Is.EqualTo(new PdfResolution(
+                "18760000001", "2019-01-19", "SETP", "990000000", "995000000", "2019-01-19", "2030-01-19")));
+        });
+    }
+
     [Test]
     public async Task Lines_show_the_unit_price_tax_and_discount_per_unit()
     {

@@ -157,6 +157,20 @@ internal static class DocumentGraphBuilder
             });
         }
 
+        // The paper invoice that a contingency type 03 transcribes (cac:AdditionalDocumentReference of the XML).
+        if (spec.Variant == InvoiceVariant.Contingency
+            && body is { AdditionalDocumentReferenceId: { } paperId, AdditionalDocumentReferenceDate: { } paperDate })
+        {
+            references.Add(new DocumentReference
+            {
+                CompanyId = companyId,
+                DocumentId = documentId,
+                Kind = DocumentReferenceKind.AdditionalDocumentReference,
+                Number = paperId.Text,
+                IssueDate = LegacyDocumentMapper.Date(paperDate),
+            });
+        }
+
         return new DocumentGraph(document, lines, taxes, lineTaxes, charges, payments, references);
     }
 
@@ -170,6 +184,13 @@ internal static class DocumentGraphBuilder
         InvoiceVariant.Aiu => new JsonObject { ["variant"] = "aiu", ["note_aiu"] = body.NoteAiu?.Text },
         InvoiceVariant.Mandate => new JsonObject { ["variant"] = "mandate" },
         InvoiceVariant.Export => ExportExtensions(body),
+
+        // The number and date of the paper invoice go to document_references; its document type code has no column there.
+        InvoiceVariant.Contingency => new JsonObject
+        {
+            ["variant"] = "contingency", ["paper_document_type_code"] = body.AdditionalDocumentReferenceTypeDocument?.Text,
+        },
+        InvoiceVariant.DianContingency => new JsonObject { ["variant"] = "dian_contingency" },
         _ => new JsonObject { ["variant"] = "transport" },
     };
 

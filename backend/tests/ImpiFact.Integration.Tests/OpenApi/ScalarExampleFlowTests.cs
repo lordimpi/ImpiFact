@@ -96,6 +96,22 @@ public sealed class ScalarExampleFlowTests
 
         Assert.That(exportNumbers, Is.EqualTo(new[] { "SETP990000000", "SETP990000001" }));
 
+        // The contingency examples (phase 7a, T5): type 03 on the type 3 resolution example, queued; type 04 on the invoice
+        // resolution, pending until send-pending.
+        foreach (var (path, status, type) in new[]
+        {
+            ("/api/v1/documents/invoices/contingency", "Queued", 3), ("/api/v1/documents/invoices/dian-contingency", "ContingencyPending", 12),
+        })
+        {
+            using var contingency = await SendAsync(company, HttpMethod.Post, path, Example(path, "post"));
+            var text = await contingency.Content.ReadAsStringAsync();
+            Assert.That(contingency.StatusCode, Is.EqualTo(HttpStatusCode.OK), $"{path}: {text}");
+            using var json = JsonDocument.Parse(text);
+            var issuedContingency = json.RootElement.GetProperty("document");
+            Assert.That((issuedContingency.GetProperty("status").GetString(), issuedContingency.GetProperty("document_type_id").GetInt32()),
+                Is.EqualTo((status, type)), path);
+        }
+
         // The support document example (phase 7a, T4) needs the support-document software example and the SEDS resolution.
         await OkAsync(company, HttpMethod.Put, $"/api/v1/companies/{nit}/software", Example("/api/v1/companies/{nit}/software", "put", "documento-soporte"));
         using var supportDocument = await SendAsync(company, HttpMethod.Post, "/api/v1/documents/support-documents",

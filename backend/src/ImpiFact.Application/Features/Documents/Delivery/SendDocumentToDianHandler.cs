@@ -35,6 +35,12 @@ namespace ImpiFact.Application.Features.Documents.Delivery;
 /// a la DIAN: entonces cuenta como «sin respuesta». Un documento que ya no está en <c>Queued</c> no se vuelve a
 /// enviar: el mensaje repetido no hace nada.
 /// </para>
+/// <para>
+/// An invoice type 04 (phase 7a, T5) is sent from <c>ContingencyPending</c> with the XML signed when it was issued, through
+/// this same path: the DIAN decision leaves it <c>Accepted</c> (with its AttachedDocument, PDF and email) or
+/// <c>Rejected</c> (with its notice). While the DIAN does not receive it, it stays pending: a SOAP Fault leaves a notice
+/// instead of <c>Failed</c>, and when the attempts run out another one is scheduled (see <see cref="ContingencyDelivery"/>).
+/// </para>
 /// </remarks>
 internal sealed class SendDocumentToDianHandler(
     DianDelivery delivery,
@@ -44,6 +50,7 @@ internal sealed class SendDocumentToDianHandler(
     ICertificateStore certificates,
     IDianServiceUrls urls,
     INumberingSequences numbering,
+    IOutbox outbox,
     IUnitOfWork unitOfWork,
     IClock clock,
     ImpiFactMetrics metrics,
@@ -61,7 +68,8 @@ internal sealed class SendDocumentToDianHandler(
             ?? throw new PermanentOutboxFailureException($"Outbox message {message.MessageId} has no company.");
         var document = await documents.FindForUpdateAsync(companyId, payload.DocumentId, ct)
             ?? throw new PermanentOutboxFailureException($"Document {payload.DocumentId} does not exist.");
-        if (document.Status != DocumentStatus.Queued)
+        // An invoice type 04 waits as ContingencyPending and is sent from that status (ContingencyPending → Sent).
+        if (document.Status is not (DocumentStatus.Queued or DocumentStatus.ContingencyPending))
         {
             logger.LogInformation("Document {DocumentId} is already {Status}; it is not sent again.", document.Id, document.Status);
             return;
@@ -121,7 +129,8 @@ internal sealed class SendDocumentToDianHandler(
 
         if (answer is DianAnswer.NotDelivered notDelivered)
         {
-            // Se guarda el intento con su resultado; el documento sigue en Queued y el Worker reintenta el mensaje.
+            // Se guarda el intento con su resultado; el documento sigue en Queued (o ContingencyPending) y el Worker reintenta
+            // el mensaje.
             await unitOfWork.SaveChangesAsync(ct);
             throw new DianNotDeliveredException($"The DIAN did not receive document {document.Id}: {notDelivered.Reason}");
         }
@@ -149,7 +158,8 @@ internal sealed class SendDocumentToDianHandler(
     {
         var payload = message.GetPayload<SendDocumentToDianPayload>();
         if (message.CompanyId is not { } companyId
-            || await documents.FindForUpdateAsync(companyId, payload.DocumentId, ct) is not { Status: DocumentStatus.Queued } document)
+            || await documents.FindForUpdateAsync(companyId, payload.DocumentId, ct) is not
+                { Status: DocumentStatus.Queued or DocumentStatus.ContingencyPending } document)
         {
             return;
         }
@@ -167,16 +177,52 @@ internal sealed class SendDocumentToDianHandler(
             return;
         }
 
+        if (document.Status == DocumentStatus.ContingencyPending)
+        {
+            await KeepContingencyPendingAsync(document, payload, ct);
+            await unitOfWork.SaveChangesAsync(ct);
+            return;
+        }
+
         document.MoveTo(DocumentStatus.Failed);
         await unitOfWork.SaveChangesAsync(ct);
         logger.LogWarning("Document {DocumentId} could not be sent to the DIAN after every attempt; it is marked Failed.", document.Id);
+    }
+
+    /// <summary>
+    /// No attempt of an invoice type 04 reached the DIAN: it stays <c>ContingencyPending</c> (never <c>Failed</c>: it was
+    /// issued and must still be transmitted, annex 1.9, 12.2) and, within <see cref="ContingencyDelivery.AutomaticWindow"/>
+    /// of being stored, another attempt is scheduled after <see cref="ContingencyDelivery.RetryInterval"/>; after that the
+    /// company gets a notice and only <c>send-pending</c> sends it.
+    /// </summary>
+    private async Task KeepContingencyPendingAsync(Document document, SendDocumentToDianPayload payload, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        if (now >= document.CreatedAt + ContingencyDelivery.AutomaticWindow)
+        {
+            delivery.NotifyContingencyStillPending(document);
+            return;
+        }
+
+        await outbox.EnqueueAsync(OutboxMessageTypes.SendDocumentToDian, payload, document.CompanyId, now + ContingencyDelivery.RetryInterval, ct);
+        logger.LogWarning(
+            "Contingency invoice {DocumentId} did not reach the DIAN after every attempt; it stays pending and is sent again in {Interval}.",
+            document.Id, ContingencyDelivery.RetryInterval);
     }
 
     private async Task ApplyAsync(Document document, DianAnswer answer, DateTimeOffset startedAt, DianEndpoint endpoint, CancellationToken ct)
     {
         if (answer is DianAnswer.Refused refused)
         {
-            delivery.Refuse(document, refused.Reason);
+            if (document.Status == DocumentStatus.ContingencyPending)
+            {
+                delivery.RefuseContingency(document, refused.Reason);
+            }
+            else
+            {
+                delivery.Refuse(document, refused.Reason);
+            }
+
             return;
         }
 
@@ -221,8 +267,8 @@ internal sealed class SendDocumentToDianHandler(
 
     private static DianFileKind FileKindOf(Document document) => document.DocumentTypeId switch
     {
-        // Factura de venta nacional, de exportación y de contingencia.
-        1 or 2 or 3 => DianFileKind.Invoice,
+        // Factura de venta nacional, de exportación y de contingencia (tipos 03 y 04).
+        1 or 2 or DocumentFamilies.ContingencyInvoiceType or DocumentFamilies.DianContingencyInvoiceType => DianFileKind.Invoice,
         4 => DianFileKind.CreditNote,
         5 => DianFileKind.DebitNote,
         DocumentFamilies.SupportDocumentType => DianFileKind.SupportDocument,

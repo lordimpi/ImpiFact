@@ -74,4 +74,25 @@ internal sealed class EfDocumentDelivery(ImpiFactDbContext db, ITenantContext te
                 .OfType<string>(),
         ];
     }
+
+    public async Task<IReadOnlyList<Document>> ListContingencyPendingAsync(Guid companyId, string? prefix, long? number, CancellationToken ct)
+    {
+        var query = db.Set<Document>()
+            .IgnoreQueryFilters([QueryFilters.Tenant])
+            .AsNoTracking()
+            .Where(document => document.CompanyId == companyId
+                && document.DocumentTypeId == DocumentFamilies.DianContingencyInvoiceType
+                && document.Status == DocumentStatus.ContingencyPending);
+        if (prefix is not null)
+        {
+            query = query.Where(document => document.Prefix == prefix);
+        }
+
+        if (number is not null)
+        {
+            query = query.Where(document => document.Number == number);
+        }
+
+        return await query.OrderBy(document => document.Prefix).ThenBy(document => document.Number).ToListAsync(ct);
+    }
 }

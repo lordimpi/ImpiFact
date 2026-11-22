@@ -52,6 +52,24 @@ public sealed record IssueDocumentBody
     public LegacyScalar? NoteAiu { get; init; }
 
     /// <summary>
+    /// Contingency invoice type 03 only (required there): number of the paper invoice it transcribes
+    /// (cac:AdditionalDocumentReference/cbc:ID). The other documents ignore it.
+    /// </summary>
+    [JsonPropertyName("AdditionalDocumentReferenceID")]
+    public LegacyScalar? AdditionalDocumentReferenceId { get; init; }
+
+    /// <summary>Contingency invoice type 03 only (required there): date of the paper invoice (<c>yyyy-MM-dd</c>).</summary>
+    [JsonPropertyName("AdditionalDocumentReferenceDate")]
+    public LegacyScalar? AdditionalDocumentReferenceDate { get; init; }
+
+    /// <summary>
+    /// Contingency invoice type 03 only (required there): DIAN document type code of the paper invoice, two digits (for
+    /// example <c>01</c>, sales invoice).
+    /// </summary>
+    [JsonPropertyName("AdditionalDocumentReferenceTypeDocument")]
+    public LegacyScalar? AdditionalDocumentReferenceTypeDocument { get; init; }
+
+    /// <summary>
     /// Export invoice only (required there): delivery terms with the Incoterm. The other documents ignore it.
     /// </summary>
     [JsonPropertyName("deliveryterms")]

@@ -41,4 +41,11 @@ public interface IDocumentDelivery
     /// no hay. Sirve para saber si un envío recibió la regla 90.
     /// </summary>
     Task<IReadOnlyList<string>> InvalidSendMessagesAsync(Guid companyId, Guid documentId, CancellationToken ct);
+
+    /// <summary>
+    /// The company's invoices type 04 (type 12) still in <see cref="DocumentStatus.ContingencyPending"/>, without tracking,
+    /// ordered by prefix and number: all of them, those of <paramref name="prefix"/>, or the one with that prefix and
+    /// <paramref name="number"/>. Only that company's documents, never another company's.
+    /// </summary>
+    Task<IReadOnlyList<Document>> ListContingencyPendingAsync(Guid companyId, string? prefix, long? number, CancellationToken ct);
 }

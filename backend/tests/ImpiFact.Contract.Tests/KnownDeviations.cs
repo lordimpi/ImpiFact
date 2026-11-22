@@ -36,6 +36,11 @@ public static class KnownDeviations
         KnownDeviation.Keys("POST /api/ubl2.1/invoice-export",
             "Respuesta inmediata con el documento en cola (decisión C5), como la factura (php-rules 9.2, ítem 3).",
             "send_email_success", "send_email_date_time", "reqfe", "rptafe", "attacheddocument", "whatsapp_response"),
+        KnownDeviation.Keys("POST /api/ubl2.1/invoice-contingency-4",
+            "Respuesta inmediata con el documento firmado y pendiente (ContingencyPending), sin llamar a la DIAN: el PHP inventaba una " +
+            "respuesta válida de la DIAN y un AttachedDocument con el ApplicationResponse vacío (php-rules 7, fila 15). El envío, el " +
+            "AttachedDocument y el correo llegan cuando la DIAN lo acepta (send_pendings o el Worker).",
+            "send_email_success", "send_email_date_time", "reqfe", "rptafe", "attacheddocument", "whatsapp_response"),
         KnownDeviation.Keys("POST /api/ubl2.1/credit-note",
             "Respuesta inmediata con el documento en cola (decisión C5), como la factura.",
             "send_email_success", "send_email_date_time", "reqfe", "rptafe", "attacheddocument"),

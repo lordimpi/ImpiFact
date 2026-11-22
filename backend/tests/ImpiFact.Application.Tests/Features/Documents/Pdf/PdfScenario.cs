@@ -89,8 +89,8 @@ internal sealed class PdfScenario
             totals);
         Reads.Details.Add(new DocumentDetail(
             header,
-            documentTypeId switch { 1 => "CUFE-SHA384", 11 or 13 => "CUDS-SHA384", _ => "CUDE-SHA384" },
-            documentTypeId is 1 or 11 ? ResolutionId : null,
+            documentTypeId switch { 1 or 12 => "CUFE-SHA384", 11 or 13 => "CUDS-SHA384", _ => "CUDE-SHA384" },
+            documentTypeId is 1 or 11 or 12 ? ResolutionId : null,
             null,
             10,
             null,
@@ -130,7 +130,8 @@ internal sealed class PdfScenario
             Db.Files.Add(new NewDocumentFile(CompanyId, DocumentId, DocumentFileKind.SignedXml, Encoding.UTF8.GetBytes(signedXml), "application/xml"));
         }
 
-        Issuers.Contexts[(CompanyId, documentTypeId)] = new IssuerContext(
+        // The invoice type 04 (type 12) reads the type 1 resolutions that number it.
+        Issuers.Contexts[(CompanyId, DocumentFamilies.ResolutionTypeOf(documentTypeId))] = new IssuerContext(
             new IssuerCompany(CompanyId, "900123456", "7", "EMPRESA EMISORA SAS", "facturacion@emisora.example", "6015550000", "CALLE 1 # 2-03",
                 null, 79, 46, 149, 1, 35, 6, 1, 1, true),
             [14, 117],

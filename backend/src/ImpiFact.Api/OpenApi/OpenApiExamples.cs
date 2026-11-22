@@ -93,6 +93,36 @@ internal static class OpenApiExamples
             "LIBRE A BORDO", currency: ("4100.50", "2026-11-14")),
     ];
 
+    /// <summary>
+    /// The contingency type 03 example transcribes a paper invoice of the type 3 resolution example, so it carries the number
+    /// printed on that paper invoice and its time.
+    /// </summary>
+    public static IReadOnlyList<RequestExample> ContingencyInvoices { get; } =
+    [
+        Variant("contingency-paper-backup", "Factura de contingencia (tipo 03): transcripción de la factura de papel CTG201", body =>
+        {
+            body["type_document_id"] = 3;
+            body["number"] = 990000201;
+            body["AdditionalDocumentReferenceID"] = "CTG201";
+            body["AdditionalDocumentReferenceDate"] = "2026-11-14";
+            body["AdditionalDocumentReferenceTypeDocument"] = "01";
+        }) with
+        {
+            Description = "Parte de la factura simple (`single-line-iva19`). `number` es el de la factura de papel (del rango de la " +
+                "resolución de tipo 3) y `AdditionalDocumentReference*`, su número, su fecha y su tipo de documento (`01`).",
+        },
+    ];
+
+    /// <summary>The invoice type 04 example is the simple invoice with type 12 and a note; it takes the next invoice number.</summary>
+    public static IReadOnlyList<RequestExample> DianContingencyInvoices { get; } =
+    [
+        Variant("dian-contingency", "Factura tipo 04: emitida mientras la DIAN no responde", body =>
+        {
+            body["type_document_id"] = 12;
+            body["notes"] = "FACTURA EXPEDIDA EN CONTINGENCIA";
+        }),
+    ];
+
     public static IReadOnlyList<RequestExample> CreditNotes { get; } =
     [
         Golden("credit-note/partial-return-with-reference", "Devolución parcial de la factura SETP990000001",

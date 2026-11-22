@@ -30,6 +30,8 @@ public static class InvoiceUblBuilder
 
     private const string CudsAlgorithm = "CUDS-SHA384";
 
+    private const string CudeAlgorithm = "CUDE-SHA384";
+
     /// <summary>
     /// cbc:ProfileID of template 05, with its final period: the library compares this exact text to choose the CUDS
     /// (php-rules 13.2, item 1).
@@ -65,9 +67,10 @@ public static class InvoiceUblBuilder
             invoice.Supplier, invoice.Customer, invoice.Environment);
 
         // php-rules 13.3, item 2: the PHP wrote a CUFE when the type 11 resolution had a technical key; a support document
-        // always gets its CUDS.
-        var cufe = isSupport
-            ? CufeCalculator.ComputeCuds(codeInput, invoice.Software.Pin)
+        // always gets its CUDS. A contingency type 03 transcription gets the CUDE with the PIN (annex 1.9, 11.1.4, Nota-2).
+        var isTranscription = invoice.PaperInvoice is not null;
+        var cufe = isSupport ? CufeCalculator.ComputeCuds(codeInput, invoice.Software.Pin)
+            : isTranscription ? CufeCalculator.ComputeCude(codeInput, invoice.Software.Pin)
             : CufeCalculator.ComputeCufe(codeInput, invoice.Resolution.TechnicalKey);
         var root = Root("Invoice",
             "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2     http://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/maindoc/UBL-Invoice-2.1.xsd");
@@ -87,7 +90,7 @@ public static class InvoiceUblBuilder
         root.Add("cbc:ID", invoice.DocumentNumber);
         root.Add(new UblElement("cbc:UUID", cufe)
             .Attr("schemeID", EnvironmentCode(invoice.Environment))
-            .Attr("schemeName", isSupport ? CudsAlgorithm : CufeAlgorithm));
+            .Attr("schemeName", isSupport ? CudsAlgorithm : isTranscription ? CudeAlgorithm : CufeAlgorithm));
         root.Add("cbc:IssueDate", Date(invoice.IssueDate));
         root.Add("cbc:IssueTime", Time(invoice.IssueTime));
         root.Add("cbc:InvoiceTypeCode", invoice.InvoiceTypeCode);
@@ -100,6 +103,17 @@ public static class InvoiceUblBuilder
         var currency = invoice.AmountsInDocumentCurrency ? documentCurrency : invoice.LocalCurrencyCode;
         root.Add("cbc:DocumentCurrencyCode", documentCurrency);
         root.Add("cbc:LineCountNumeric", invoice.Lines.Count.ToString(CultureInfo.InvariantCulture));
+
+        // Template 03 writes the paper invoice right after cbc:LineCountNumeric (php-rules 12.1, item 2; open question 2 of
+        // section 18: the UBL 2.1 schema orders cac:OrderReference first, which no ImpiFact invoice writes yet).
+        if (invoice.PaperInvoice is { } paper)
+        {
+            root.Add(new UblElement("cac:AdditionalDocumentReference")
+                .Add("cbc:ID", paper.Id)
+                .Add("cbc:IssueDate", Date(paper.IssueDate))
+                .Add("cbc:DocumentTypeCode", paper.DocumentTypeCode));
+        }
+
         root.Add(Party("cac:AccountingSupplierParty", invoice.Supplier, isSupplier: !isSupport, invoice.Resolution.Prefix, isSupport));
         root.Add(Party("cac:AccountingCustomerParty", invoice.Customer, isSupplier: isSupport, invoice.Resolution.Prefix, isSupport));
         if (invoice.Export is { } export)
@@ -270,6 +284,11 @@ public static class InvoiceUblBuilder
         if (invoice.AiuContractObject is { } aiuObject && line.Description == AiuAdministrationLine)
         {
             element.Add("cbc:Note", AiuNotePrefix + aiuObject);
+        }
+
+        if (line.Note is not null)
+        {
+            element.Add("cbc:Note", line.Note);
         }
 
         element

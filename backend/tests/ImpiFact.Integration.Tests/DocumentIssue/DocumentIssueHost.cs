@@ -25,6 +25,10 @@ public sealed class DocumentIssueHost
 
     public static CompanyApiFactory Api => factory ?? throw new InvalidOperationException("The document issue API host is not running.");
 
+    /// <summary>Connection string of the database, for a Worker host on the same data (see ContingencyDeliveryApiTests).</summary>
+    public static string ConnectionString =>
+        container?.GetConnectionString() ?? throw new InvalidOperationException("The document issue database is not running.");
+
     [OneTimeSetUp]
     public async Task StartAsync()
     {

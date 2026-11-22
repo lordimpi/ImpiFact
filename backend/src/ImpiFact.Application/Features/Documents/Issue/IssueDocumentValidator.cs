@@ -393,6 +393,12 @@ internal static class IssueDocumentRules
             return;
         }
 
+        if (spec.Variant == InvoiceVariant.Contingency)
+        {
+            ValidateContingency(check, body);
+            return;
+        }
+
         foreach (var (line, index) in (spec.LinesOf(body) ?? []).Select((line, index) => (line, index)))
         {
             var at = $"{spec.LinesField}.{index}";
@@ -404,6 +410,38 @@ internal static class IssueDocumentRules
             {
                 ValidateConsignment(check, at, line);
             }
+        }
+    }
+
+    /// <summary>
+    /// Fields of the contingency invoice type 03 (php-rules 12.1, item 1; <c>InvoiceContingencyRequest</c>): the paper invoice
+    /// it transcribes (<c>AdditionalDocumentReferenceID</c>, <c>AdditionalDocumentReferenceDate</c> as <c>Y-m-d</c> and
+    /// <c>AdditionalDocumentReferenceTypeDocument</c>, a two-digit DIAN document type code where the PHP checked
+    /// <c>exists:type_documents,code</c>), its <c>number</c> (the one printed on the paper invoice, from the contingency
+    /// range) and its <c>time</c>, all required as in the PHP. Annex 1.9 rule FAI01 requires the reference for type 03.
+    /// </summary>
+    private static void ValidateContingency(Checker check, IssueDocumentBody body)
+    {
+        check.RequiredText("AdditionalDocumentReferenceID", body.AdditionalDocumentReferenceId, 50);
+        if (check.RequiredText("AdditionalDocumentReferenceDate", body.AdditionalDocumentReferenceDate, 10) is not null)
+        {
+            check.Date("AdditionalDocumentReferenceDate", body.AdditionalDocumentReferenceDate);
+        }
+
+        if (check.RequiredText("AdditionalDocumentReferenceTypeDocument", body.AdditionalDocumentReferenceTypeDocument, 10) is { } code
+            && !(code.Length == 2 && code.All(char.IsAsciiDigit)))
+        {
+            check.Fail("AdditionalDocumentReferenceTypeDocument", IssueMessages.Invalid("AdditionalDocumentReferenceTypeDocument"));
+        }
+
+        if (LegacyScalar.IsMissing(body.Number))
+        {
+            check.Fail("number", IssueMessages.Required("number"));
+        }
+
+        if (LegacyScalar.IsMissing(body.Time))
+        {
+            check.Fail("time", IssueMessages.Required("time"));
         }
     }
 
@@ -842,6 +880,20 @@ internal sealed class IssueTransportInvoiceCommandValidator : AbstractValidator<
     public IssueTransportInvoiceCommandValidator() =>
         RuleFor(command => command).Custom((command, context) =>
             IssueDocumentRules.Validate(IssueSpec.TransportInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueContingencyInvoiceCommandValidator : AbstractValidator<IssueContingencyInvoiceCommand>
+{
+    public IssueContingencyInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.ContingencyInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
+}
+
+internal sealed class IssueDianContingencyInvoiceCommandValidator : AbstractValidator<IssueDianContingencyInvoiceCommand>
+{
+    public IssueDianContingencyInvoiceCommandValidator() =>
+        RuleFor(command => command).Custom((command, context) =>
+            IssueDocumentRules.Validate(IssueSpec.DianContingencyInvoice, command.Body, (field, message) => context.AddFailure(new ValidationFailure(field, message))));
 }
 
 internal sealed class IssueExportInvoiceCommandValidator : AbstractValidator<IssueExportInvoiceCommand>

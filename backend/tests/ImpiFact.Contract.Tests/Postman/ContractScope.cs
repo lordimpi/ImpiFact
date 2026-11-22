@@ -19,8 +19,10 @@ public static class ContractScope
 
     /// <summary>
     /// Requests that phase 7a already covers, by their name in the collection (odd/tasks/fase-7a-community.md): folder 07
-    /// variants implemented in T2 and T3, and the support-document configuration (folder 01D) and requests (folder 02)
-    /// implemented in T4. These names skip the exclusions below, which still hold for every other request.
+    /// variants implemented in T2 and T3, the support-document configuration (folder 01D) and requests (folder 02)
+    /// implemented in T4, and the contingency invoices of T5: the type 3 resolution (folder 01), the type 03 invoice (folder
+    /// 07) and the «Contingencia tipo 4» folder of folder 02 (its resolution, the type 04 invoice and send_pendings). These
+    /// names skip the exclusions below, which still hold for every other request.
     /// </summary>
     public static readonly IReadOnlySet<string> PhaseSevenRequests = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -38,6 +40,11 @@ public static class ContractScope
         "Nota de ajuste de documento soporte",
         "Documento soporte con impuesto",
         "Documento soporte exento con retencion del 11%",
+        "Crear la resolucion de factura de contingencia",
+        "Factura de contingencia (tipo 03)",
+        "Enviar una factura de contingencia tipo 4",
+        "Transmitir las facturas de contingencia pendientes",
+        "Crear la resolucion de contingencia tipo 4",
     };
 
     /// <summary>Palabra buscada (sin tildes y en minúsculas) y motivo de la exclusión.</summary>

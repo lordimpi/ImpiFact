@@ -42,6 +42,14 @@ public sealed class IssueHarness : IDisposable
         Guid.CreateVersion7(), "SETP", "18760000001", new DateOnly(2019, 1, 19), TechnicalKey, 990000000, 995000000,
         new DateOnly(2019, 1, 19), new DateOnly(2030, 1, 19), true);
 
+    /// <summary>
+    /// Contingency resolution (type 3) of the golden capture: the same SETP data, without a technical key, because annex 1.9
+    /// (section 11.1.4, Nota-2) says a contingency range has none.
+    /// </summary>
+    public IssuerResolution ContingencyResolution { get; } = new(
+        Guid.CreateVersion7(), "SETP", "18760000001", new DateOnly(2019, 1, 19), null, 990000000, 995000000,
+        new DateOnly(2019, 1, 19), new DateOnly(2030, 1, 19), true);
+
     public IssuerResolution CreditResolution { get; } = new(Guid.CreateVersion7(), "NC", null, null, null, 1, 99999999, null, null, true);
 
     public IssuerResolution DebitResolution { get; } = new(Guid.CreateVersion7(), "ND", null, null, null, 1, 99999999, null, null, true);
@@ -76,7 +84,11 @@ public sealed class IssueHarness : IDisposable
             new IssuerSoftware("3f9d8c2e-5b1a-4e7f-9c3d-2a6b8e1f0d47", SecretPurposes.SoftwarePin + ":12345", null),
             new IssuerCertificate("cert-ref", new DateTimeOffset(2036, 1, 1, 0, 0, 0, TimeSpan.Zero)),
             []);
-        foreach (var resolution in new[] { InvoiceResolution, ExportResolution, CreditResolution, DebitResolution, SupportDocumentResolution, AdjustmentNoteResolution })
+        foreach (var resolution in new[]
+        {
+            InvoiceResolution, ExportResolution, ContingencyResolution, CreditResolution, DebitResolution, SupportDocumentResolution,
+            AdjustmentNoteResolution,
+        })
         {
             Db.Sequences[NumberingScope.ForResolution(resolution.Id)] = resolution.From;
         }
@@ -88,6 +100,7 @@ public sealed class IssueHarness : IDisposable
         Context = change(Context);
         Issuers.Contexts[(CompanyId, 1)] = Context with { Resolutions = Resolutions(1) };
         Issuers.Contexts[(CompanyId, 2)] = Context with { Resolutions = Resolutions(2) };
+        Issuers.Contexts[(CompanyId, 3)] = Context with { Resolutions = Resolutions(3) };
         Issuers.Contexts[(CompanyId, 4)] = Context with { Resolutions = Resolutions(4) };
         Issuers.Contexts[(CompanyId, 5)] = Context with { Resolutions = Resolutions(5) };
 
@@ -111,6 +124,7 @@ public sealed class IssueHarness : IDisposable
         {
             1 => [InvoiceResolution],
             2 => [ExportResolution],
+            3 => [ContingencyResolution],
             4 => [CreditResolution],
             11 => [SupportDocumentResolution],
             13 => [AdjustmentNoteResolution],
@@ -142,6 +156,12 @@ public sealed class IssueHarness : IDisposable
                 new IssueTransportInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
             "invoice-export" => await Run(new IssueExportInvoiceCommandValidator(), new IssueExportInvoiceCommand(body!, json, idempotencyKey, testSetId),
                 new IssueExportInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+            "invoice-contingency" => await Run(new IssueContingencyInvoiceCommandValidator(),
+                new IssueContingencyInvoiceCommand(body!, json, idempotencyKey, testSetId),
+                new IssueContingencyInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
+            "invoice-contingency-4" => await Run(new IssueDianContingencyInvoiceCommandValidator(),
+                new IssueDianContingencyInvoiceCommand(body!, json, idempotencyKey),
+                new IssueDianContingencyInvoiceHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),
             "support-document" => await Run(new IssueSupportDocumentCommandValidator(),
                 new IssueSupportDocumentCommand(body!, json, idempotencyKey, testSetId),
                 new IssueSupportDocumentHandler(tenant, Issuers, Catalogs, Db, Db, Db, Db, Db, Certificates, secrets, qr, Plans, Clock).HandleAsync),

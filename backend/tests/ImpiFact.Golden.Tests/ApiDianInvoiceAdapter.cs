@@ -108,6 +108,19 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         };
     }
 
+    /// <summary>
+    /// A contingency invoice type 03 of InvoiceContingencyController::store (php-rules 12.1): template 03, the invoice
+    /// mapping plus the paper invoice it transcribes (<c>AdditionalDocumentReference*</c>). The capture resolution keeps
+    /// its technical key, which the CUDE never uses.
+    /// </summary>
+    public SalesInvoice MapContingency(JsonElement request) => Map(request) with
+    {
+        PaperInvoice = new PaperInvoiceReference(
+            RequiredText(request, "AdditionalDocumentReferenceID"),
+            DateOnly.ParseExact(RequiredText(request, "AdditionalDocumentReferenceDate"), "yyyy-MM-dd", CultureInfo.InvariantCulture),
+            RequiredText(request, "AdditionalDocumentReferenceTypeDocument")),
+    };
+
     /// <summary>deliveryterms and, when sent, the k_supplement of InvoiceExportController (php-rules 11).</summary>
     private static ExportTerms MapExport(JsonElement request)
     {
@@ -304,6 +317,9 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             LineExtensionAmount = RequiredDecimal(line, "line_extension_amount"),
             IsFreeOfCharge = line.GetProperty("free_of_charge_indicator").GetBoolean(),
             Description = RequiredText(line, "description"),
+
+            // _invoice_lines.blade.php writes the line notes (isset); the credit and debit note templates do not.
+            Note = OptionalText(line, "notes"),
             ItemCode = RequiredText(line, "code"),
             ItemScheme = new ItemIdentificationScheme(itemType.Code, itemType.Name, itemType.CodeAgency ?? ""),
             PriceAmount = RequiredDecimal(line, "price_amount"),

@@ -55,6 +55,19 @@ public sealed class InvoiceVariantGoldenTests
         Assert.That(xml, Does.Contain("<cbc:ID>2</cbc:ID>\n    <cbc:Note>Contrato de servicios AIU"));
     }
 
+    // _invoice_lines.blade.php writes the AIU note first and then the line's own note (php-rules 10.1, item 3; phase 7a, T5).
+    [Test]
+    public void The_line_note_follows_the_aiu_note()
+    {
+        var invoice = Map(GoldenCases.OfType("invoice-aiu")[0], ApiDianInvoiceVariant.Aiu);
+        invoice = invoice with { Lines = [invoice.Lines[0] with { Description = "Administración", Note = "NOTA PROPIA" }] };
+
+        var xml = InvoiceUblBuilder.Build(invoice).Xml;
+
+        Assert.That(xml, Does.Contain(
+            "<cbc:Note>Contrato de servicios AIU por concepto de: OBRA DE PRUEBA GOLDEN</cbc:Note>\n    <cbc:Note>NOTA PROPIA</cbc:Note>\n    <cbc:InvoicedQuantity"));
+    }
+
     // A standard invoice whose lines say «Administración» gets no AIU note: only the AIU variant writes it.
     [Test]
     public void A_standard_invoice_writes_no_aiu_note_nor_line_scheme()

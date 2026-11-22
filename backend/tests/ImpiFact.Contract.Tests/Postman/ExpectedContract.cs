@@ -25,6 +25,9 @@ public sealed partial class ExpectedContract
         ["POST /api/ubl2.1/invoice-transport"] = "POST /api/ubl2.1/invoice",
         // Section 11: the export invoice answers like the invoice too.
         ["POST /api/ubl2.1/invoice-export"] = "POST /api/ubl2.1/invoice",
+        // Section 12.2: the invoice type 04 answers like the invoice (with its cufe). The type 03 has no sibling: the PHP
+        // answers it with cude instead of cufe (section 12.1, item 3), like ImpiFact, so only its HTTP code is checked.
+        ["POST /api/ubl2.1/invoice-contingency-4"] = "POST /api/ubl2.1/invoice",
         // Sección 5.4.1: StateController arma la misma respuesta para status/document y status/zip.
         ["POST /api/ubl2.1/status/document/{}"] = "POST /api/ubl2.1/status/zip/{}",
         // ConfigurationController responde igual al guardar el software de cada tipo de documento.

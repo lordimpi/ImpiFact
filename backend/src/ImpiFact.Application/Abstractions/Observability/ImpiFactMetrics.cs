@@ -106,8 +106,8 @@ public sealed class ImpiFactMetrics
     /// <summary>Tipo de documento de la DIAN (catálogo <c>type_documents</c>) como etiqueta.</summary>
     public static string KindName(int documentTypeId) => documentTypeId switch
     {
-        // Factura de venta nacional, de exportación y de contingencia.
-        1 or 2 or 3 => "invoice",
+        // Factura de venta nacional, de exportación y de contingencia (tipos 03 y 04, este con el id 12).
+        1 or 2 or 3 or 12 => "invoice",
         4 => "credit_note",
         5 => "debit_note",
         _ => "other",

@@ -43,6 +43,18 @@ public sealed class NoteGoldenTests
         }
     }
 
+    // The invoice templates write the line notes (phase 7a, T5); the credit and debit note templates never did, so a line
+    // note leaves a note's XML as it was.
+    [TestCaseSource(nameof(Cases))]
+    public void A_line_note_does_not_change_the_note_xml(string caseDir)
+    {
+        var note = Map(caseDir);
+
+        var withLineNotes = note with { Lines = note.Lines.Select(line => line with { Note = "NOTA DE LINEA" }).ToList() };
+
+        Assert.That(NoteUblBuilder.Build(withLineNotes).Xml, Is.EqualTo(NoteUblBuilder.Build(note).Xml));
+    }
+
     // XmlSigner ubica el lugar de la firma por posición (el segundo ext:ExtensionContent), así que firma una
     // nota igual que una factura.
     [TestCaseSource(nameof(Cases))]
