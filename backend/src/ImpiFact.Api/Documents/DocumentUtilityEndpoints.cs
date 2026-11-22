@@ -8,6 +8,7 @@ using ImpiFact.Application.Features.Documents.Issue;
 using ImpiFact.Application.Features.Documents.Maintenance;
 using ImpiFact.Application.Features.Documents.Queries.DianStatus;
 using ImpiFact.Application.Features.Documents.Queries.Download;
+using ImpiFact.Application.Features.Documents.Queries.MergePdfs;
 
 namespace ImpiFact.Api.Documents;
 
@@ -85,6 +86,20 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
                 "correo, con el AttachedDocument y el PDF). El PDF, el AttachedDocument y el ZIP existen después de la " +
                 "aceptación. Archivo que todavía no existe: 404 (`document.file_not_found`).");
 
+        canonical.MapPost("/pdf/merge", MergePdfs)
+            .Produces(StatusCodes.Status200OK, contentType: MergeDocumentPdfsQuery.ContentType)
+            .WithRequestExamples(ExampleBodies.MergePdfs)
+            .WithOperationId("mergeDocumentPdfs")
+            .WithSummary("Unir los PDF de varios documentos")
+            .WithDescription(
+                "Une en un solo PDF (`documentos-unidos.pdf`) la versión más reciente del PDF de cada documento de " +
+                "`document_ids` (de 1 a 50 ids, los que devuelve `GET /api/v1/documents`), en el orden de la lista; un id " +
+                "repetido repite sus páginas. Es lo mismo que `join-pdfs` del PHP, que unía los archivos por prefijo y " +
+                "número. Un documento que no existe o es de otra empresa responde 404 (`document.not_found`) para toda la " +
+                "solicitud, sin unir nada. Si algún documento todavía no tiene PDF (se genera después de la aceptación de " +
+                "la DIAN), responde 422 (`documents.pdf_missing`) con sus números. Si el conversor de PDF no responde: 503 " +
+                "(`pdf.unavailable`, reintente después de `Retry-After`).");
+
         var legacyWrite = endpoints.MapGroup("/api/ubl2.1").WithTags(ApiTags.Documents)
             .RequireAuthorization(ApiScopes.DocumentsWrite).ExcludeFromDescription();
         legacyWrite.MapPost("/regeneratepdf", (RegeneratePdfCommand body, IHandler<RegeneratePdfCommand, MaintenanceQueuedResponse> handler,
@@ -129,6 +144,11 @@ internal sealed class DocumentUtilityEndpoints : IEndpointModule
                 "es el consumidor final sin `email_pos_customer` (`email.final_consumer`) o si no tiene un correo válido " +
                 "(`email.no_recipient`)." + QueuedRules);
     }
+
+    private static async Task<IResult> MergePdfs(
+        MergeDocumentPdfsQuery body, IHandler<MergeDocumentPdfsQuery, byte[]> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(body, ct)).ToHttpResult(pdf =>
+            TypedResults.File(pdf, MergeDocumentPdfsQuery.ContentType, MergeDocumentPdfsQuery.FileName));
 
     private static async Task<IResult> Queue<TCommand>(
         TCommand command, IHandler<TCommand, MaintenanceQueuedResponse> handler, CancellationToken ct) =>

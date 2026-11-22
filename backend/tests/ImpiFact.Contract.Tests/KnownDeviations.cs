@@ -89,10 +89,14 @@ public static class KnownDeviations
             Todo + "GET /api/documents con filtros y paginación de Laravel no existe; el listado canónico es GET /api/v1/documents."),
         KnownDeviation.StatusCode("Registrar o actualizar un cliente", 404, Todo + "clientes (RF-13): register-update-customer no existe."),
         KnownDeviation.StatusCode("Buscar un cliente por tipo y numero de documento", 404, Todo + "clientes (RF-13): GET /api/customer/{tipo}/{numero} no existe."),
-        KnownDeviation.StatusCode("Consultar los parametros de correo de la empresa", 404, Todo + "GET emailconfig (correo por empresa, RF-01) no existe."),
+        KnownDeviation.StatusCode("Consultar los parametros de correo de la empresa", 404,
+            "Reemplazo deliberado sin alias: el servidor de correo de la empresa se consulta, guarda y quita con GET, PUT y DELETE " +
+            "/api/v1/companies/{nit}/mail-settings; la contraseña nunca se devuelve y el servidor de la plataforma no se muestra (fase 7a, T9a)."),
         KnownDeviation.StatusCode("Consultar la razon social por NIT", 404, Todo + "GET name-by-nit/{nit} no existe."),
         KnownDeviation.StatusCode("Consultar los datos de una empresa por NIT", 404, Todo + "GET SearchCompany/{nit} no existe."),
-        KnownDeviation.StatusCode("Unir varios PDF en un solo archivo", 404, Todo + "POST join-pdfs (RF-12) no existe."),
+        KnownDeviation.StatusCode("Unir varios PDF en un solo archivo", 404,
+            "Reemplazo deliberado sin alias: POST /api/v1/documents/pdf/merge une los PDF por id de documento, en el orden pedido, " +
+            "y responde el PDF (no un JSON con pdfbase64 ni un archivo con name_joined_pdfs guardado en el servidor; fase 7a, T9a)."),
         KnownDeviation.StatusCode("Descargar el PDF de un documento", 404,
             Todo + "el alias GET /api/invoice/{nit}/{archivo} no existe; el mismo archivo se descarga con /api/download/{nit}/{archivo}."),
         KnownDeviation.StatusCode("Reenviar un documento al correo del cliente", 404, Todo + "POST /api/send-email-customer/{x} no existe; existe send-email."),

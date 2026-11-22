@@ -54,6 +54,9 @@ public sealed class FakeCompanyRepository : ICompanyRepository
     public Task<Resolution?> FindResolutionAsync(Guid companyId, Guid resolutionId, CancellationToken ct) =>
         Task.FromResult(Stored.OfType<Resolution>().SingleOrDefault(row => row.CompanyId == companyId && row.Id == resolutionId));
 
+    public Task<CompanyMailSettings?> GetMailSettingsAsync(Guid companyId, CancellationToken ct) =>
+        Task.FromResult(Stored.OfType<CompanyMailSettings>().SingleOrDefault(row => row.CompanyId == companyId));
+
     public void Add<TEntity>(TEntity entity)
         where TEntity : class => Added.Add(entity);
 

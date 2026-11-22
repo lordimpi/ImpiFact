@@ -22,7 +22,20 @@ public sealed record CompanyMailServerSettings(
     string? PasswordCipher,
     string? Encryption,
     string? FromAddress,
-    string? FromName);
+    string? FromName)
+{
+    /// <summary>
+    /// True when the email of the company goes out through this server: it is complete (host, port, user, password and
+    /// encryption, as <c>validate_mail_server</c> of ApiDian) and the company did not choose the platform server.
+    /// </summary>
+    public bool SendsThroughCompany =>
+        !UsePlatformDefault
+        && !string.IsNullOrWhiteSpace(Host)
+        && Port > 0
+        && !string.IsNullOrWhiteSpace(Username)
+        && !string.IsNullOrEmpty(PasswordCipher)
+        && !string.IsNullOrWhiteSpace(Encryption);
+}
 
 /// <summary>
 /// Servidor de correo por defecto de la plataforma (sección «Email» de la configuración), con que sale el correo de

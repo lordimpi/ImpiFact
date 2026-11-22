@@ -468,6 +468,27 @@ El logo va en el encabezado del PDF (la representación gráfica) de los documen
 - Se guarda en `company_logos` (una fila por empresa con `storage_key` y `content_type`, tabla de la migración inicial) y el archivo en `IBlobStorage` con la clave `{empresa}/company/logo-{id}.{png|jpg}`. Cada subida escribe un archivo nuevo y la fila le apunta en la transacción del comando; el archivo reemplazado queda huérfano, como en `document_files`. Quitar el logo borra la fila y el archivo.
 - El PDF lo pide por el puerto `ICompanyLogos` (`Application/Abstractions/Companies`), así Documents no usa el módulo Company. `GotenbergPdfRenderer` manda la imagen a Gotenberg como `logo.png` o `logo.jpg` junto al HTML, y la plantilla la muestra arriba del título solo si existe.
 
+### 9.9.1 Servidor de correo de la empresa (fase 7a, T9a)
+
+Es el `emailconfig` del PHP (RF-01 «correo»; php-rules 5.4, ítem 10), con su propio recurso y sin alias heredado. La fila de `company_mail_settings` (tabla de la migración inicial, una por empresa; sin migración nueva) es la que lee `MailServerSelector` al enviar el correo de un documento.
+
+| Ruta | `operationId` | Alcance | Qué hace |
+| --- | --- | --- | --- |
+| `GET /api/v1/companies/{nit}/mail-settings` | `getCompanyMailSettings` | `config:write` | `{in_use, use_platform_default, host, port, username, encryption, from_address, from_name, has_password}`; sin servidor propio, datos nulos e `in_use: platform` |
+| `PUT /api/v1/companies/{nit}/mail-settings` | `saveCompanyMailSettings` | `config:write` | Crea o reemplaza el servidor; 422 por campo (`host` sin protocolo, `port` 1-65535, `username`, `encryption` `ssl`/`tls`/`starttls`/`none` sin distinguir mayúsculas, `from_address` correo, largos de las columnas, `password` hasta 100 caracteres) |
+| `DELETE /api/v1/companies/{nit}/mail-settings` | `deleteCompanyMailSettings` | `config:write` | 204, también sin servidor; el correo vuelve a salir por la plataforma |
+
+- El `{nit}` debe ser el de la credencial (403 `company.forbidden`), como el resto del módulo Company.
+- La contraseña solo se escribe: `ISecretProtector` con `SecretPurposes.SmtpPassword` (Data Protection, sección 19.2) en `password_cipher`; la primera vez es obligatoria y después, si no llega, queda la guardada. Nunca se devuelve ni se registra (`has_password` dice si existe).
+- `in_use` usa la misma regla que el Worker (`CompanyMailServerSettings.SendsThroughCompany`): `company` si el servidor está completo (servidor, puerto, usuario, contraseña y cifrado) y no se eligió `use_platform_default`; si no, `platform`. Los datos del servidor de la plataforma no se muestran.
+
+### 9.9.2 Unir los PDF de varios documentos (fase 7a, T9a)
+
+`POST /api/v1/documents/pdf/merge` (`mergeDocumentPdfs`, `documents:read`) es el `join-pdfs` del PHP (RF-12 «unir PDFs»; php-rules 5.4, ítem 11), sin alias heredado. Recibe `{document_ids}` (de 1 a 50) y responde un PDF (`documentos-unidos.pdf`) con la versión más reciente del PDF de cada documento, en el orden de la lista.
+
+- Cada id se busca en la empresa de la credencial: uno que no existe o es de otra empresa responde 404 `document.not_found` para toda la solicitud. Los documentos sin PDF (todavía no aceptados o sin generar) responden 422 `documents.pdf_missing` con sus números. Un solo documento responde su PDF sin llamar al conversor.
+- Une con el puerto `IPdfMerger` (`GotenbergPdfMerger`), el mismo cliente de Gotenberg de los PDF (ADR-04) con su ruta `POST /forms/pdfengines/merge`; los archivos van como `0001.pdf`, `0002.pdf`… porque Gotenberg los une en orden alfabético. Sin librería de PDF nueva. Si Gotenberg falla, 503 `pdf.unavailable` con `Retry-After`, como la exportación en PDF. No es un comando: no abre transacción ni guarda nada.
+
 ### 9.10 Vista previa del PDF de la factura y de las notas (fase 5)
 
 `POST /api/v1/documents/invoices/preview` (`previewInvoice`, `documents:write`) es el `invoice/preeliminar-view` del PHP: recibe el mismo cuerpo de `issueInvoice` y responde el PDF (`application/pdf`, `Content-Disposition: inline`, `Cache-Control: no-store`) en la misma solicitud. El botón «Vista previa» del formulario de emisión (Arquitectura frontend, sección 8.1) lo abre sin consumir consecutivo.

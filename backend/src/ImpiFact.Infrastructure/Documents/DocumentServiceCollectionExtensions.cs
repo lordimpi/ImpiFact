@@ -34,6 +34,8 @@ public static class DocumentServiceCollectionExtensions
         services.TryAddSingleton<ISpreadsheetWriter, OpenXmlSpreadsheetWriter>();
         // PDF report of the document export; its Gotenberg client is registered with the PDF rendering (AddPdfRendering).
         services.TryAddScoped<IHtmlPdfConverter, GotenbergHtmlPdfConverter>();
+        // Merge of the PDFs of several documents (RF-12), with the same Gotenberg client.
+        services.TryAddScoped<IPdfMerger, GotenbergPdfMerger>();
         return services;
     }
 }

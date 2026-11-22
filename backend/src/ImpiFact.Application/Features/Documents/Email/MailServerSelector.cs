@@ -18,7 +18,7 @@ internal sealed class MailServerSelector(ICompanyMailSettingsReads settings, IPl
     public async Task<MailServer> SelectAsync(Guid companyId, CancellationToken ct)
     {
         var company = await settings.GetAsync(companyId, ct);
-        if (company is not { UsePlatformDefault: false, Port: { } port } || !IsComplete(company))
+        if (company is not { SendsThroughCompany: true, Port: { } port })
         {
             return platform.Default;
         }
@@ -34,12 +34,6 @@ internal sealed class MailServerSelector(ICompanyMailSettingsReads settings, IPl
             string.IsNullOrWhiteSpace(company.FromName) ? fallback.FromName : company.FromName.Trim());
     }
 
-    private static bool IsComplete(CompanyMailServerSettings company) =>
-        !string.IsNullOrWhiteSpace(company.Host)
-        && company.Port > 0
-        && !string.IsNullOrWhiteSpace(company.Username)
-        && !string.IsNullOrEmpty(company.PasswordCipher)
-        && !string.IsNullOrWhiteSpace(company.Encryption);
 
     /// <summary>
     /// Cifrado como lo guarda el PHP: <c>ssl</c> es TLS desde el inicio, <c>tls</c> (o <c>starttls</c>) es STARTTLS,

@@ -263,6 +263,43 @@ internal static class ExampleBodies
             """), "El número debe estar dentro del rango de la resolución y no puede ser menor que su próximo número actual."),
     ];
 
+    public static RequestExample[] MailSettings { get; } =
+    [
+        new("starttls", "Servidor propio con STARTTLS en el puerto 587", Parse("""
+            {
+              "host": "smtp.empresa-prueba.com",
+              "port": 587,
+              "username": "facturacion@empresa-prueba.com",
+              "password": "Cambie-esta-clave-SMTP",
+              "encryption": "tls",
+              "from_address": "facturacion@empresa-prueba.com",
+              "from_name": "Facturación Empresa de Pruebas"
+            }
+            """), "Reemplace el servidor, el usuario y la contraseña por los de su proveedor de correo."),
+        new("plataforma", "Guardar el servidor propio pero enviar por la plataforma", Parse("""
+            {
+              "host": "smtp.empresa-prueba.com",
+              "port": 465,
+              "username": "facturacion@empresa-prueba.com",
+              "encryption": "ssl",
+              "use_platform_default": true
+            }
+            """), "Sin `password` queda la contraseña guardada; la primera vez es obligatoria."),
+    ];
+
+    public static RequestExample[] MergePdfs { get; } =
+    [
+        new("tres-documentos", "Unir los PDF de tres documentos", Parse("""
+            {
+              "document_ids": [
+                "0193a1b2-7c3d-7e4f-8a5b-6c7d8e9f0a1b",
+                "0193a1b2-7c3d-7e4f-8a5b-6c7d8e9f0a1c",
+                "0193a1b2-7c3d-7e4f-8a5b-6c7d8e9f0a1d"
+              ]
+            }
+            """), "Reemplace los ids por los de documentos de su empresa que ya tengan PDF (los devuelve `GET /api/v1/documents`)."),
+    ];
+
     public static RequestExample[] Plan { get; } =
     [
         new("mensual", "Plan mensual de 100 facturas", Parse("""

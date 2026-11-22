@@ -9,6 +9,7 @@ using ImpiFact.Application.Features.Companies.CreateCompany;
 using ImpiFact.Application.Features.Companies.ListCertificates;
 using ImpiFact.Application.Features.Companies.ListPlatformCompanies;
 using ImpiFact.Application.Features.Companies.Logo;
+using ImpiFact.Application.Features.Companies.MailSettings;
 using ImpiFact.Application.Features.Companies;
 using ImpiFact.Application.Features.Companies.NumberingRange;
 using ImpiFact.Application.Features.Companies.Reads;
@@ -252,6 +253,40 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "Borra el logo y responde 204 sin cuerpo, también si la empresa no tenía. Los PDF que se generen después " +
                 "salen sin logo; los ya generados no cambian." + OwnNit);
 
+        // Servidor de correo propio (RF-01 «correo»; el GET emailconfig del PHP): la contraseña solo se escribe.
+        canonical.MapGet("/{nit}/mail-settings", (string nit, IHandler<GetCompanyMailSettingsQuery, CompanyMailSettingsResponse> handler,
+            CancellationToken ct) => Read(new GetCompanyMailSettingsQuery(nit), handler, ct)).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces<CompanyMailSettingsResponse>()
+            .WithOperationId("getCompanyMailSettings")
+            .WithSummary("Ver el servidor de correo de la empresa")
+            .WithDescription(
+                "Responde el servidor de correo (SMTP) propio de la empresa: `host`, `port`, `username`, `encryption`, " +
+                "`from_address`, `from_name`, `use_platform_default` y `has_password` (si hay contraseña guardada; la " +
+                "contraseña nunca se devuelve). `in_use` dice por dónde sale el correo de los documentos: `company` si el " +
+                "servidor propio está completo (servidor, puerto, usuario, contraseña y cifrado) y no se eligió el de la " +
+                "plataforma, o `platform`. Sin servidor propio, los datos llegan nulos y `in_use` es `platform`. Los datos " +
+                "del servidor de la plataforma no se muestran." + OwnNit);
+        canonical.MapPut("/{nit}/mail-settings", SaveMailSettings).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces<CompanyMailSettingsResponse>()
+            .WithRequestExamples(ExampleBodies.MailSettings)
+            .WithOperationId("saveCompanyMailSettings")
+            .WithSummary("Guardar el servidor de correo de la empresa")
+            .WithDescription(
+                "Crea o reemplaza el servidor de correo propio con que salen los correos de los documentos de la empresa: " +
+                "`host` (nombre o dirección IP, sin protocolo), `port` (1 a 65535), `username`, `password`, `encryption` " +
+                "(`ssl`, `tls`, `starttls` o `none`), y si quiere `from_address` y `from_name` (sin ellos sale con el " +
+                "remitente de la plataforma) y `use_platform_default` (verdadero: lo guarda pero envía por la plataforma). " +
+                "La contraseña es obligatoria la primera vez; después, si no llega, queda la guardada. Se guarda cifrada y " +
+                "nunca se devuelve ni se registra. Datos inválidos: 422 con el motivo en `errors.<campo>`. Responde lo mismo " +
+                "que `GET .../mail-settings`." + OwnNit);
+        canonical.MapDelete("/{nit}/mail-settings", DeleteMailSettings).RequireAuthorization(ApiScopes.ConfigWrite)
+            .Produces(StatusCodes.Status204NoContent)
+            .WithOperationId("deleteCompanyMailSettings")
+            .WithSummary("Quitar el servidor de correo de la empresa")
+            .WithDescription(
+                "Borra el servidor de correo propio, contraseña incluida, y responde 204 sin cuerpo, también si la empresa no " +
+                "tenía. Desde ese momento los correos salen por el servidor de la plataforma." + OwnNit);
+
         // Todas las empresas, para la pantalla de la plataforma: operación de plataforma, fuera del grupo de la empresa.
         endpoints.MapGet("/api/v1/platform/companies", (
                 [FromQuery(Name = "search")] string? search,
@@ -394,6 +429,15 @@ internal sealed class CompanyEndpoints : IEndpointModule
 
     private static async Task<IResult> DeleteLogo(string nit, IHandler<DeleteCompanyLogoCommand, bool> handler, CancellationToken ct) =>
         (await handler.HandleAsync(new DeleteCompanyLogoCommand(nit), ct)).ToHttpResult(_ => TypedResults.NoContent());
+
+    private static async Task<IResult> SaveMailSettings(
+        string nit, SaveCompanyMailSettingsCommand body, IHandler<SaveCompanyMailSettingsCommand, CompanyMailSettingsResponse> handler,
+        CancellationToken ct) =>
+        (await handler.HandleAsync(body with { Nit = nit }, ct)).ToHttpResult();
+
+    private static async Task<IResult> DeleteMailSettings(
+        string nit, IHandler<DeleteCompanyMailSettingsCommand, bool> handler, CancellationToken ct) =>
+        (await handler.HandleAsync(new DeleteCompanyMailSettingsCommand(nit), ct)).ToHttpResult(_ => TypedResults.NoContent());
 
     private static async Task CopyAtMostAsync(Stream source, Stream destination, int maxBytes, CancellationToken ct)
     {
