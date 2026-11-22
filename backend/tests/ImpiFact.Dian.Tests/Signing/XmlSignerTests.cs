@@ -107,6 +107,38 @@ public class XmlSignerTests
         Assert.That(signature.SelectNodes("../../../ext:UBLExtension", ns), Has.Count.EqualTo(2));
     }
 
+    // php-rules 17, item 3: with the health-sector extension in the second ext:UBLExtension (Ministerio de Salud,
+    // Documento Técnico 2 v001, section 6: DIAN data, then the health data, then the signature), the signature goes in the
+    // third ext:ExtensionContent, as the PHP library does (SignInvoice.php:197-198) when the XML mentions www.minsalud.gov.co.
+    [Test]
+    public void Signature_goes_in_the_third_extension_content_after_the_health_extension()
+    {
+        var unsigned = HealthSectorSample();
+
+        var signed = Sign(unsigned);
+        var (doc, ns, _) = LoadSigned(signed);
+
+        var signature = doc.SelectSingleNode("/*/ext:UBLExtensions/ext:UBLExtension[3]/ext:ExtensionContent/ds:Signature", ns) as XmlElement;
+        Assert.That(signature, Is.Not.Null);
+        Assert.That(doc.SelectNodes("/*/ext:UBLExtensions/ext:UBLExtension[2]/ext:ExtensionContent/ds:Signature", ns), Has.Count.EqualTo(0));
+        var checker = new SignedXml(doc);
+        checker.LoadXml(signature!);
+        Assert.That(checker.CheckSignature(TestCertificates.Signer, verifySignatureOnly: true), Is.True);
+        var start = signed.IndexOf("<ds:Signature ", StringComparison.Ordinal);
+        var end = signed.IndexOf("</ds:Signature>", StringComparison.Ordinal) + "</ds:Signature>".Length;
+        Assert.That(signed.Remove(start, end - start), Is.EqualTo(unsigned));
+    }
+
+    // A filled second extension without an empty third one has no place for the signature: it fails as before.
+    [Test]
+    public void A_filled_second_extension_without_a_third_one_is_rejected()
+    {
+        var unsigned = SampleInvoice().Replace(
+            "<ext:ExtensionContent></ext:ExtensionContent>", "<ext:ExtensionContent><CustomTagGeneral/></ext:ExtensionContent>", StringComparison.Ordinal);
+
+        Assert.That(() => Sign(unsigned), Throws.InvalidOperationException);
+    }
+
     // SignedInfo lista las partes firmadas y la huella SHA-256 de cada una; luego se firma SignedInfo con RSA.
     // Son tres partes: el documento completo (excluyendo la propia firma, porque va dentro de él), el
     // certificado (KeyInfo) y los datos XAdES (SignedProperties).
@@ -281,6 +313,14 @@ public class XmlSignerTests
 
     private static string SampleInvoice() =>
         GoldenFixtures.All().Single(f => f.DocumentType == "invoice" && f.Name == "single-line-iva19").ExpectedXml;
+
+    /// <summary>The sample invoice with a health-sector extension as its second ext:UBLExtension and an empty third one.</summary>
+    private static string HealthSectorSample() => SampleInvoice().Replace(
+        "<ext:ExtensionContent></ext:ExtensionContent>",
+        "<ext:ExtensionContent>\n        <CustomTagGeneral>\n          <Name>Responsable</Name>\n          <Value>url www.minsalud.gov.co</Value>\n" +
+        "        </CustomTagGeneral>\n      </ext:ExtensionContent>\n    </ext:UBLExtension>\n    <ext:UBLExtension>\n" +
+        "      <ext:ExtensionContent></ext:ExtensionContent>",
+        StringComparison.Ordinal);
 
     private static string Sign(string unsigned) => XmlSigner.Sign(unsigned, TestCertificates.Signer, SigningTime);
 
