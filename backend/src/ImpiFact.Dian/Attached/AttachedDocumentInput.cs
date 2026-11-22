@@ -14,6 +14,9 @@ public enum AttachedDocumentKind
 
     /// <summary>Nota débito: se identifica con su CUDE.</summary>
     DebitNote,
+
+    /// <summary>Support document or its adjustment note: identified by its CUDS.</summary>
+    SupportDocument,
 }
 
 /// <summary>

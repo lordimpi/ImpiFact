@@ -193,6 +193,38 @@ public sealed class SendEmailTests
         });
     }
 
+    /// <summary>
+    /// The server saved through the public API (<c>PUT /api/v1/companies/{nit}/mail-settings</c>) is the one the Worker
+    /// uses: the API encrypts the password and the Worker decrypts it with the same key ring, kept in the database.
+    /// </summary>
+    [Test]
+    public async Task A_server_saved_through_the_api_is_the_one_the_email_of_the_company_goes_through()
+    {
+        await using var api = new Companies.CompanyApiFactory(EmailEnvironment.ConnectionString);
+        await using var host = await StartAsync(new Dictionary<string, string?>(api.SharedSettings));
+        var issuer = await host.CreateIssuerAsync();
+        var (smtpHost, smtpPort) = EmailEnvironment.Smtp;
+        using var client = await api.ClientWithNewKeyAsync(issuer.CompanyId, Application.Abstractions.Identity.ApiScopes.ConfigWrite);
+        using var saved = await client.PutAsync($"/api/v1/companies/{issuer.Nit}/mail-settings", new StringContent(
+            $$"""
+            { "host": "{{smtpHost}}", "port": {{smtpPort}}, "username": "mailer", "password": "{{SmtpPassword}}", "encryption": "none",
+              "from_address": "api-billing@company{{issuer.Nit}}.test", "from_name": "Billing from the API" }
+            """, Encoding.UTF8, "application/json"));
+        Assert.That(saved.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.OK), await saved.Content.ReadAsStringAsync());
+        var document = await AcceptedDocumentAsync(host, issuer, """{ "sendmail": true }""");
+
+        await host.RunOutboxAsync();
+
+        var email = (await EmailEnvironment.EmailsAsync(document.FullNumber)).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(email.EnvelopeFrom, Is.EqualTo($"api-billing@company{issuer.Nit}.test"));
+            Assert.That(email.Message.From.Mailboxes.Single().Name, Is.EqualTo("Billing from the API"));
+            Assert.That(host.Logs.Entries, Has.None.Contains(SmtpPassword));
+            Assert.That(api.Logs.Entries, Has.None.Contains(SmtpPassword));
+        });
+    }
+
     [Test]
     public async Task A_company_that_chose_the_platform_server_sends_through_the_platform()
     {

@@ -140,7 +140,7 @@ public class DianResponseReaderTests
 
     [TestCase("<root/>")]
     [TestCase("<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\"><s:Body/></s:Envelope>")]
-    [TestCase("<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\"><s:Body><GetXmlByDocumentKeyResponse xmlns=\"http://wcf.dian.colombia\"><GetXmlByDocumentKeyResult/></GetXmlByDocumentKeyResponse></s:Body></s:Envelope>")]
+    [TestCase("<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\"><s:Body><GetReferenceNotesResponse xmlns=\"http://wcf.dian.colombia\"><GetReferenceNotesResult/></GetReferenceNotesResponse></s:Body></s:Envelope>")]
     public void Xml_without_a_known_result_is_unrecognized(string body)
     {
         var response = Read<DianUnrecognizedResponse>(body);

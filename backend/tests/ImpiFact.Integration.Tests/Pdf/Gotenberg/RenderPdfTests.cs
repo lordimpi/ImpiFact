@@ -25,6 +25,9 @@ public sealed class RenderPdfTests
         yield return new TestCaseData(PdfSamples.Invoice(), "invoice.pdf").SetArgDisplayNames("invoice");
         yield return new TestCaseData(PdfSamples.CreditNote(), "credit-note.pdf").SetArgDisplayNames("credit-note");
         yield return new TestCaseData(PdfSamples.DebitNote(), "debit-note.pdf").SetArgDisplayNames("debit-note");
+        yield return new TestCaseData(PdfSamples.SupportDocument(), "support-document.pdf").SetArgDisplayNames("support-document");
+        yield return new TestCaseData(PdfSamples.SupportDocumentAdjustmentNote(), "support-document-adjustment-note.pdf")
+            .SetArgDisplayNames("support-document-adjustment-note");
         yield return new TestCaseData(
                 PdfSamples.Invoice() with { Logo = new PdfImage(Companies.CompanyLogoApiTests.Png, "image/png") }, "invoice-with-logo.pdf")
             .SetArgDisplayNames("invoice-with-logo");

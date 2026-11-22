@@ -33,8 +33,8 @@ public interface IDashboardReads
 /// <summary>Documentos de un mes, un tipo y un estado.</summary>
 /// <param name="Month">Mes del calendario de Colombia, <c>yyyy-MM</c>.</param>
 /// <param name="Kind">
-/// Familia del tipo de documento como la nombra el listado (<c>invoice</c>, <c>credit_note</c>, <c>debit_note</c>); nula
-/// para los demás tipos.
+/// Familia del tipo de documento como la nombra el listado (<c>invoice</c>, <c>credit_note</c>, <c>debit_note</c>,
+/// <c>support_document</c>, <c>support_document_adjustment_note</c>); nula para los demás tipos.
 /// </param>
 /// <param name="Status">Nombre del estado (<c>Accepted</c>, <c>Rejected</c>…).</param>
 public sealed record DocumentCountRow(string Month, int DocumentTypeId, string? Kind, string Status, long Count);

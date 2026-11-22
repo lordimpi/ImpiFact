@@ -119,6 +119,16 @@ export const PlatformCompaniesStore = signalStore(
             ),
         });
       },
+      /** Muestra en la fila el estado que devolvió el Api al desactivar o reactivar la empresa. */
+      setActive(companyId: string, isActive: boolean): void {
+        patchState(store, {
+          items: store
+            .items()
+            .map((company) =>
+              company.id === companyId ? { ...company, is_active: isActive } : company,
+            ),
+        });
+      },
     };
   }),
 );

@@ -73,6 +73,15 @@ public enum DianCatalog
 
     /// <summary><c>debit_note_discrepancy_responses</c>.</summary>
     DebitNoteDiscrepancy,
+
+    /// <summary><c>credit_note_discrepancy_responses_sd</c>: reasons of a support-document adjustment note (1 to 5).</summary>
+    SupportDocumentDiscrepancy,
+
+    /// <summary><c>type_generation_transmitions</c>: how a support-document line is reported (per operation, weekly).</summary>
+    GenerationTransmition,
+
+    /// <summary><c>prepaid_payment_types</c>: collection concepts of a health-sector prepaid payment (copago, cuota moderadora…).</summary>
+    PrepaidPaymentType,
 }
 
 /// <summary>Una fila pedida: el catálogo y el id.</summary>

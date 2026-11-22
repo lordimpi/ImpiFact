@@ -104,6 +104,9 @@ internal sealed class EfDocumentCatalogs(ImpiFactDbContext db) : IDocumentCatalo
                 DianCatalog.ReferencePrice => await Simple<ReferencePrice>(ids, ct),
                 DianCatalog.CreditNoteDiscrepancy => await Simple<CreditNoteDiscrepancyResponse>(ids, ct),
                 DianCatalog.DebitNoteDiscrepancy => await Simple<DebitNoteDiscrepancyResponse>(ids, ct),
+                DianCatalog.SupportDocumentDiscrepancy => await Simple<CreditNoteDiscrepancyResponseSd>(ids, ct),
+                DianCatalog.GenerationTransmition => await Simple<TypeGenerationTransmition>(ids, ct),
+                DianCatalog.PrepaidPaymentType => await Simple<PrepaidPaymentType>(ids, ct),
                 _ => throw new ArgumentOutOfRangeException(nameof(keys), group.Key, "Unknown catalog."),
             };
             foreach (var (id, item) in rows)
@@ -200,7 +203,7 @@ internal sealed class EfDocumentStore(ImpiFactDbContext db, IBlobStorage storage
             .FirstOrDefaultAsync(ct);
         return new StoredDocument(
             document.Id, document.DocumentTypeId, document.TypeEnvironmentId, document.ResolutionId, document.Prefix, document.Number,
-            document.FullNumber, document.Status, document.Cufe, document.UuidAlgorithm, requestHash);
+            document.FullNumber, document.Status, document.Cufe, document.UuidAlgorithm, requestHash, document.BatchId);
     }
 }
 

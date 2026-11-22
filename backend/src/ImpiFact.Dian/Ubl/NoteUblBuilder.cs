@@ -31,22 +31,30 @@ public sealed record NoteUblResult(string Xml, string Cude);
 public static class NoteUblBuilder
 {
     private const string CudeAlgorithm = "CUDE-SHA384";
+    private const string CudsAlgorithm = "CUDS-SHA384";
     private const string CreditNoteTypeCode = "91";
+    private const string AdjustmentNoteTypeCode = "95";
+
+    /// <summary>cbc:ProfileID of template 95 (php-rules 14, item 5).</summary>
+    public const string AdjustmentNoteProfile =
+        "DIAN 2.1: Nota de ajuste al documento soporte en adquisiciones efectuadas a sujetos no obligados a expedir factura o documento equivalente";
 
     public static NoteUblResult Build(SalesNote note)
     {
         ArgumentNullException.ThrowIfNull(note);
-        RequireSupplierAddress(note.Supplier, nameof(note));
+        RequireSupplierAddress(note.Kind == NoteKind.SupportDocumentAdjustment ? note.Customer : note.Supplier, nameof(note));
         if (note.Lines.Any(line => line.IsFreeOfCharge && string.IsNullOrEmpty(line.ReferencePriceCode)))
         {
             throw new ArgumentException("A free-of-charge note line needs a reference price code.", nameof(note));
         }
 
-        var isCredit = note.Kind == NoteKind.Credit;
-        var cude = CufeCalculator.ComputeCude(
-            CufeInputOf(note.DocumentNumber, note.IssueDate, note.IssueTime, note.Totals, note.TaxSubtotals,
-                note.Supplier, note.Customer, note.Environment),
-            note.Software.Pin);
+        var isSupport = note.Kind == NoteKind.SupportDocumentAdjustment;
+        var isCredit = note.Kind is NoteKind.Credit or NoteKind.SupportDocumentAdjustment;
+        var codeInput = CufeInputOf(note.DocumentNumber, note.IssueDate, note.IssueTime, note.Totals, note.TaxSubtotals,
+            note.Supplier, note.Customer, note.Environment);
+
+        // php-rules 14, item 6: the adjustment note is identified by its CUDS, with the support-document software PIN.
+        var cude = isSupport ? CufeCalculator.ComputeCuds(codeInput, note.Software.Pin) : CufeCalculator.ComputeCude(codeInput, note.Software.Pin);
 
         // Los espacios entre el espacio de nombres y la URL del XSD son los de cada plantilla: 5 en la nota
         // crédito y 4 en la débito.
@@ -54,22 +62,27 @@ public static class NoteUblBuilder
             ? Root("CreditNote", "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2     http://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/maindoc/UBL-CreditNote-2.1.xsd")
             : Root("DebitNote", "urn:oasis:names:specification:ubl:schema:xsd:DebitNote-2    http://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/maindoc/UBL-DebitNote-2.1.xsd");
 
-        root.Add(Extensions(invoiceControl: null, note.Supplier, note.Software, note.DocumentNumber, note.QrCodeBaseUrl + cude));
+        // In the adjustment note the issuing company (the software provider) is the customer of the XML.
+        root.Add(Extensions(invoiceControl: null, isSupport ? note.Customer : note.Supplier, note.Software, note.DocumentNumber,
+            note.QrCodeBaseUrl + cude));
         root.Add("cbc:UBLVersionID", "UBL 2.1");
         root.Add("cbc:CustomizationID", note.OperationTypeCode);
-        root.Add("cbc:ProfileID", isCredit
-            ? "DIAN 2.1: Nota Crédito de Factura Electrónica de Venta"
-            : "DIAN 2.1: Nota Débito de Factura Electrónica de Venta");
+        root.Add("cbc:ProfileID", note.Kind switch
+        {
+            NoteKind.Credit => "DIAN 2.1: Nota Crédito de Factura Electrónica de Venta",
+            NoteKind.Debit => "DIAN 2.1: Nota Débito de Factura Electrónica de Venta",
+            _ => AdjustmentNoteProfile,
+        });
         root.Add("cbc:ProfileExecutionID", EnvironmentCode(note.Environment));
         root.Add("cbc:ID", note.DocumentNumber);
         root.Add(new UblElement("cbc:UUID", cude)
             .Attr("schemeID", EnvironmentCode(note.Environment))
-            .Attr("schemeName", CudeAlgorithm));
+            .Attr("schemeName", isSupport ? CudsAlgorithm : CudeAlgorithm));
         root.Add("cbc:IssueDate", Date(note.IssueDate));
         root.Add("cbc:IssueTime", Time(note.IssueTime));
         if (isCredit)
         {
-            root.Add("cbc:CreditNoteTypeCode", CreditNoteTypeCode);
+            root.Add("cbc:CreditNoteTypeCode", isSupport ? AdjustmentNoteTypeCode : CreditNoteTypeCode);
         }
 
         if (note.Note is not null)
@@ -104,8 +117,8 @@ public static class NoteUblBuilder
                     .Add("cbc:IssueDate", Date(reference.IssueDate))));
         }
 
-        root.Add(Party("cac:AccountingSupplierParty", note.Supplier, isSupplier: true, note.Prefix));
-        root.Add(Party("cac:AccountingCustomerParty", note.Customer, isSupplier: false, note.Prefix));
+        root.Add(Party("cac:AccountingSupplierParty", note.Supplier, isSupplier: !isSupport, note.Prefix, isSupport));
+        root.Add(Party("cac:AccountingCustomerParty", note.Customer, isSupplier: isSupport, note.Prefix, isSupport));
         if (isCredit)
         {
             AddPaymentAndExchangeRate(root, note);
@@ -162,7 +175,7 @@ public static class NoteUblBuilder
     /// </summary>
     private static UblElement Line(NoteKind kind, int number, InvoiceLine line, string localCurrency, string documentCurrency)
     {
-        var isCredit = kind == NoteKind.Credit;
+        var isCredit = kind is NoteKind.Credit or NoteKind.SupportDocumentAdjustment;
         var element = new UblElement(isCredit ? "cac:CreditNoteLine" : "cac:DebitNoteLine")
             .Add("cbc:ID", number.ToString(CultureInfo.InvariantCulture))
             .Add(new UblElement(isCredit ? "cbc:CreditedQuantity" : "cbc:DebitedQuantity", DianRounding.FormatQuantity(line.Quantity))
@@ -186,11 +199,20 @@ public static class NoteUblBuilder
         AddAllowanceCharges(element, line.AllowanceCharges, localCurrency);
 
         // La nota crédito escribe el nombre del esquema de identificación del artículo en schemeName; la
-        // débito escribe su código.
-        element.Add(new UblElement("cac:Item")
-            .Add("cbc:Description", line.Description)
-            .Add(StandardItemIdentification(line.ItemCode, line.ItemScheme.Code,
-                isCredit ? line.ItemScheme.Name : line.ItemScheme.Code, line.ItemScheme.AgencyId)));
+        // débito escribe su código. Only the adjustment note writes the brand and the model (template 95 lines).
+        var item = new UblElement("cac:Item").Add("cbc:Description", line.Description);
+        if (kind == NoteKind.SupportDocumentAdjustment && line.BrandName is not null)
+        {
+            item.Add("cbc:BrandName", line.BrandName);
+        }
+
+        if (kind == NoteKind.SupportDocumentAdjustment && line.ModelName is not null)
+        {
+            item.Add("cbc:ModelName", line.ModelName);
+        }
+
+        element.Add(item.Add(StandardItemIdentification(line.ItemCode, line.ItemScheme.Code,
+            isCredit ? line.ItemScheme.Name : line.ItemScheme.Code, line.ItemScheme.AgencyId)));
 
         // Una línea gratuita escribe 0 como precio; su valor real va en el precio de referencia.
         return element.Add(new UblElement("cac:Price")

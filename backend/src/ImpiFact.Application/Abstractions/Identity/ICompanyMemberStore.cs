@@ -26,6 +26,12 @@ public interface ICompanyMemberStore
     /// concurrency conflict instead of leaving the company without an active owner.
     /// </summary>
     Task<CompanyMemberChange> ChangeAsync(Guid companyId, Guid userId, string role, bool isActive, CancellationToken ct);
+
+    /// <returns>
+    /// The distinct users with an active membership in the company, whatever their role (staff and customers of the
+    /// portal): the ones whose sessions close when the platform deactivates the company.
+    /// </returns>
+    Task<IReadOnlyList<Guid>> ListActiveUserIdsAsync(Guid companyId, CancellationToken ct);
 }
 
 /// <summary>Outcome of <see cref="ICompanyMemberStore.ChangeAsync"/>.</summary>

@@ -248,6 +248,7 @@ documents
   pdf_template_id int null
   extensions json null               — exportación, AIU, mandato, transporte, contingencia
   created_by_type smallint, created_by_id uuid null  — usuario o api key
+  batch_id uuid null                 — lote al que se agregó (FK compuesta (company_id, batch_id) → document_batches; fase 7a, T8)
   deleted_at ts null                 — [verificar] sin uso mientras `Draft` no se persista; se elimina si la fase 2 no le encuentra uso
   UQ ux_documents_number (company_id, document_type_id, type_environment_id, prefix, number)
   UQ filtrado ux_documents_cufe (company_id, cufe) WHERE cufe IS NOT NULL
@@ -317,6 +318,9 @@ document_events                    — eventos RADIAN emitidos o recibidos
   id uuid PK, company_id, document_id uuid null FK, received_document_id uuid null FK
   event_id int FK events, cude varchar(96), issued_at ts, track_id varchar(64) null
   status smallint, dian_status_code varchar(10) null, payload_file_id uuid null
+  number varchar(120) null, dian_status_description varchar(500) null, error_messages json null,
+  rejection_code varchar(2) null, xml_file_key varchar(500) null, response_file_key varchar(500) null
+                                     — fase 7a, T6a (migración RadianEvents): XML del evento y respuesta de la DIAN
   UQ (company_id, cude)  IX (document_id)  IX (received_document_id)
   CK ck_document_events_target: exactamente uno de document_id / received_document_id no es nulo
 
@@ -327,7 +331,18 @@ received_documents                 — facturas recibidas de proveedores
   line_extension_amount numeric(18,2), tax_exclusive_amount numeric(18,2),
   allowance_total_amount numeric(18,2), tax_amount numeric(18,2), payable_amount numeric(18,2)
   xml_file_key varchar(500) null, pdf_file_key varchar(500) null
+  supplier_organization_type_code varchar(2) null, supplier_regime_code varchar(2) null,
+  supplier_email varchar(255) null   — fase 7a, T6a (migración RadianEvents): datos del emisor para los eventos
   UQ (company_id, cufe)  IX (company_id, issue_date DESC)  IX (company_id, supplier_identification_number)
+
+document_batches                   — lotes enviados con SendBillAsync (fase 7a, T8; migración DocumentBatches)
+  — PHP: solo el archivo zip/{company_id}/{batch}.zip, sin tabla
+  id uuid PK, company_id FK, name varchar(50), status smallint, document_count int,
+  type_environment_id int null, zip_file_name varchar(100) null, zip_key varchar(64) null,
+  entries json null, dian_status_code varchar(10) null, dian_status_description varchar(500) null,
+  error_messages json null, zip_file_key varchar(500) null, response_file_key varchar(500) null,
+  queued_at ts null, sent_at ts null, completed_at ts null, row_version
+  UQ (company_id, id)  UQ (company_id, name)
 
 numbering_sequences                — PHP: sends (consecutivo por resolución; ver scope_key)
   id uuid PK, company_id FK, scope_key varchar(120), next_number bigint, row_version
@@ -460,7 +475,7 @@ Reglas: toda consulta Dapper incluye `company_id` en el `WHERE` (una prueba de a
 ## 7. Multi-tenant
 
 - Filtro global EF por `CompanyId` desde `ITenantContext` (resuelto de la API key o del JWT + empresa activa).
-- FKs compuestas `(company_id, X_id)` en `document_lines`, `document_taxes`, `document_files`, `dian_submissions`, `document_events` y desde `documents` hacia `customers` y `documents` (notas). Requiere `UQ (company_id, id)` en las tablas padre.
+- FKs compuestas `(company_id, X_id)` en `document_lines`, `document_taxes`, `document_files`, `dian_submissions`, `document_events` y desde `documents` hacia `customers`, `documents` (notas) y `document_batches`. Requiere `UQ (company_id, id)` en las tablas padre.
 - PostgreSQL: *row level security* opcional como segunda barrera (`current_setting('app.company_id')`); en SQL Server y MySQL la protección es el filtro de aplicación y la prueba de aislamiento.
 - Una prueba por cada entidad con `company_id`: crear datos en dos empresas y verificar que ninguna consulta cruza.
 - Los trabajos del Worker establecen el tenant del mensaje antes de abrir el `DbContext`.

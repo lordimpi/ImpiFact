@@ -8,6 +8,7 @@ using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Application.Abstractions.Protection;
 using ImpiFact.Application.Abstractions.Results;
+using ImpiFact.Application.Features.Documents.Batches;
 using ImpiFact.Application.Features.Documents.Totals;
 using ImpiFact.Dian.Signing;
 using ImpiFact.Dian.Ubl;
@@ -30,7 +31,8 @@ internal sealed record IssuePorts(
     ISecretProtector Secrets,
     IDianQrUrls QrUrls,
     IPlanGate Plans,
-    IClock Clock);
+    IClock Clock,
+    IDocumentBatches Batches);
 
 /// <summary>Mensaje <c>SendDocumentToDian</c> de la bandeja de salida (supuesto B7: el envío lo hará el Worker).</summary>
 /// <param name="TestSetId">Set de pruebas de habilitación cuando el documento llegó por la ruta <c>/{testSetId}</c>.</param>
@@ -79,18 +81,35 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         var storedRequest = IssueDocumentJson.ForStorage(request.RawBody);
         var requestHash = Convert.ToHexStringLower(SHA256.HashData(storedRequest));
 
-        var issuer = await ports.Issuers.GetAsync(companyId, spec.DocumentTypeId, DocumentKind.Invoice, ct);
+        // The family decides the environment and the software: the support document and its adjustment note use the
+        // support-document ones (php-rules 13.1, item 6), never the invoice ones.
+        var issuer = await ports.Issuers.GetAsync(companyId, spec.ResolutionTypeId, spec.Family, ct);
         if (issuer is null || !issuer.Company.IsActive)
         {
             return IssueErrors.CompanyInactive;
         }
 
+        // A batch of another company answers like a missing one, before anything else is read (phase 7a, T8).
+        DocumentBatch? batch = null;
+        if (request.BatchId is { } batchId && (batch = await ports.Batches.FindAsync(companyId, batchId, ct)) is null)
+        {
+            return BatchErrors.NotFound;
+        }
+
         if (key is not null && await ports.IdempotencyKeys.FindAsync(companyId, key, ct) is { } previous)
         {
+            // A repeated addition answers with its document even if the batch was sent since; a key used for a document
+            // outside this batch is another request.
             return previous.RequestSha256 == requestHash && previous.DocumentId is { } previousId
                 && await ports.Store.FindByIdAsync(companyId, previousId, ct) is { } existing
-                ? await ReplayAsync(existing, issuer, ct)
+                && existing.BatchId == batch?.Id
+                ? await ReplayAsync(existing, issuer, batch, ct)
                 : IssueErrors.IdempotencyKeyReused;
+        }
+
+        if (batch is not null && BatchChecks.RefuseAddition(batch, issuer.TypeEnvironmentId) is { } refusedAddition)
+        {
+            return refusedAddition;
         }
 
         var resolution = IssueChecks.SelectResolution(spec, issuer, body);
@@ -106,8 +125,9 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         }
 
         // Como el PHP: el plan se revisa justo después del certificado, y el set de pruebas (testSetStore) no lo revisa.
-        // Facturas y notas (tipos 1 a 5) son la familia «factura» de las cuotas del plan.
-        if (request.TestSetId is null && await ports.Plans.CheckIssueAsync(companyId, DocumentKind.Invoice, ct) is { } refused)
+        // Facturas y notas (tipos 1 a 5) son la familia «factura» de las cuotas del plan; el documento soporte y su nota de
+        // ajuste, la familia «documento soporte» (qty_docs_ds, php-rules 13.1, item 7).
+        if (request.TestSetId is null && await ports.Plans.CheckIssueAsync(companyId, spec.Family, ct) is { } refused)
         {
             return refused;
         }
@@ -141,7 +161,10 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
 
         if (number.Value.Existing is { } repeated)
         {
-            return await ReplayAsync(repeated, issuer, ct);
+            // The same body again answers with its document, but only where it was issued: alone or in this same batch.
+            return repeated.BatchId == batch?.Id
+                ? await ReplayAsync(repeated, issuer, batch, ct)
+                : IssueErrors.NumberInUse(repeated.FullNumber);
         }
 
         var frame = new IssueFrame(
@@ -152,9 +175,10 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             issueDate,
             issueTime,
             ports.Secrets.Unprotect(SecretPurposes.SoftwarePin, issuer.Software!.PinCipher),
-            ports.QrUrls.ForEnvironment(issuer.TypeEnvironmentId));
+            ports.QrUrls.ForEnvironment(issuer.TypeEnvironmentId),
+            ColombiaTime.Today(now));
         var mapper = new LegacyDocumentMapper(catalogs.Value);
-        var (unsignedXml, uuid) = spec.Kind == IssueKind.Invoice
+        var (unsignedXml, uuid) = spec.IsInvoiceDocument
             ? Unpack(InvoiceUblBuilder.Build(mapper.MapInvoice(frame, body)))
             : Unpack(NoteUblBuilder.Build(mapper.MapNote(frame, body)));
 
@@ -169,9 +193,24 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         ports.Store.Add(graph);
         await ports.Files.AddAsync(new NewDocumentFile(companyId, document.Id, DocumentFileKind.RequestJson, storedRequest, "application/json"), ct);
         await ports.Files.AddAsync(new NewDocumentFile(companyId, document.Id, DocumentFileKind.SignedXml, Utf8.GetBytes(signedXml), "application/xml"), ct);
-        document.MoveTo(DocumentStatus.Queued);
-        await ports.Outbox.EnqueueAsync(
-            OutboxMessageTypes.SendDocumentToDian, new SendDocumentToDianPayload(document.Id, request.TestSetId), companyId, null, ct);
+
+        // The invoice type 04 is issued because the DIAN does not answer (php-rules 12.2, item 4): it waits signed, without
+        // any DIAN call nor simulated answer, and the Worker makes its first automatic attempt after the monitoring interval.
+        var pending = spec.Variant == InvoiceVariant.DianContingency;
+        document.MoveTo(pending ? DocumentStatus.ContingencyPending : DocumentStatus.Queued);
+        if (batch is not null)
+        {
+            // Phase 7a, T8: the document waits in the batch, signed and Queued, with no message of its own; the batch is
+            // sent whole with SendBillAsync. Counting it changes the batch row, so a send saved meanwhile makes this fail.
+            document.BatchId = batch.Id;
+            batch.Add(document.TypeEnvironmentId);
+        }
+        else
+        {
+            await ports.Outbox.EnqueueAsync(
+                OutboxMessageTypes.SendDocumentToDian, new SendDocumentToDianPayload(document.Id, request.TestSetId), companyId,
+                pending ? now + ContingencyDelivery.RetryInterval : null, ct);
+        }
         if (key is not null)
         {
             ports.IdempotencyKeys.Add(companyId, key, requestHash, document.Id, now + IdempotencyWindow);
@@ -180,8 +219,8 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         var typeName = catalogs.Value[new CatalogKey(DianCatalog.DocumentType, spec.DocumentTypeId)].Name;
         var stored = new StoredDocument(
             document.Id, document.DocumentTypeId, document.TypeEnvironmentId, document.ResolutionId, document.Prefix, document.Number,
-            document.FullNumber, document.Status, uuid, document.UuidAlgorithm, requestHash);
-        return Respond(typeName, stored, issuer, signedXml, unsignedXml, replayed: false);
+            document.FullNumber, document.Status, uuid, document.UuidAlgorithm, requestHash, document.BatchId);
+        return Respond(typeName, stored, issuer, batch, signedXml, unsignedXml, replayed: false);
     }
 
     /// <summary>
@@ -195,6 +234,11 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
     /// <returns>El id del documento referenciado, o nulo si la solicitud no es una nota o no lo encuentra.</returns>
     private async Task<Result<Guid?>> FindReferenceAsync(Guid companyId, IssueDocumentBody body, string? testSetId, CancellationToken ct)
     {
+        if (spec.Kind == IssueKind.SupportDocumentAdjustmentNote)
+        {
+            return await FindSupportDocumentAsync(companyId, body, testSetId, ct);
+        }
+
         if (!spec.IsNote || body.BillingReference?.Uuid is not { } referenced
             || await ports.Store.FindIdByCufeAsync(companyId, PhpText.Clean(referenced.Text), ct) is not { } referenceId)
         {
@@ -210,6 +254,32 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         return original?.Status is DocumentStatus.Accepted or DocumentStatus.AcceptedWithWarnings
             ? referenceId
             : IssueErrors.ReferenceNotAccepted;
+    }
+
+    /// <summary>
+    /// php-rules 14, item 2 (Mejora): the adjustment note must reference a support document (type 11) of the company, found
+    /// by its CUDS, with the same number, and accepted by the DIAN (except in the test set, like the notes). A CUDS the
+    /// company does not have, also one of another company, gets the same 422, so nothing about other companies leaks.
+    /// </summary>
+    private async Task<Result<Guid?>> FindSupportDocumentAsync(Guid companyId, IssueDocumentBody body, string? testSetId, CancellationToken ct)
+    {
+        var reference = body.BillingReference!;
+        var original = await ports.Store.FindIdByCufeAsync(companyId, PhpText.Clean(reference.Uuid!.Value.Text), ct) is { } id
+            ? await ports.Store.FindByIdAsync(companyId, id, ct)
+            : null;
+        if (original is not { DocumentTypeId: DocumentFamilies.SupportDocumentType })
+        {
+            return IssueErrors.SupportDocumentReferenceNotFound;
+        }
+
+        if (!string.Equals(original.FullNumber, PhpText.Clean(reference.Number!.Value.Text).Trim(), StringComparison.Ordinal))
+        {
+            return IssueErrors.SupportDocumentReferenceNumberMismatch;
+        }
+
+        return testSetId is not null || original.Status is DocumentStatus.Accepted or DocumentStatus.AcceptedWithWarnings
+            ? original.Id
+            : IssueErrors.SupportDocumentReferenceNotAccepted;
     }
 
     private static (string Xml, string Uuid) Unpack(InvoiceUblResult result) => (result.Xml, result.Cufe);
@@ -229,7 +299,9 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             return IssueErrors.CertificateExpired;
         }
 
-        return issuer.Software is null ? IssueErrors.SoftwareMissing : true;
+        return issuer.Software is not null ? true
+            : spec.IsSupportDocumentFamily ? IssueErrors.SupportDocumentSoftwareMissing
+            : IssueErrors.SoftwareMissing;
     }
 
     /// <summary>Prefijo de los nombres de archivo del PHP por tipo de documento (inventario de reglas 3.8).</summary>
@@ -237,6 +309,8 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
     {
         IssueKind.CreditNote => "NCS",
         IssueKind.DebitNote => "NDS",
+        IssueKind.SupportDocument => "DSS",
+        IssueKind.SupportDocumentAdjustmentNote => "NDSNS",
         _ => "FES",
     };
 
@@ -277,7 +351,9 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
                         ? new TakenNumber(number, existing)
                         : IssueErrors.NumberInUse(prefix + number.ToString(CultureInfo.InvariantCulture));
                 default:
-                    return new TakenNumber(number, null);
+                    return await UsedBySharedTypeAsync(companyId, key, ct)
+                        ? IssueErrors.NumberInUse(prefix + number.ToString(CultureInfo.InvariantCulture))
+                        : new TakenNumber(number, null);
             }
         }
 
@@ -300,13 +376,32 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             }
 
             var key = new DocumentNumberKey(spec.DocumentTypeId, issuer.TypeEnvironmentId, prefix, next);
-            if (await ports.Store.FindByNumberAsync(companyId, key, ct) is null)
+            if (await ports.Store.FindByNumberAsync(companyId, key, ct) is null && !await UsedBySharedTypeAsync(companyId, key, ct))
             {
                 return new TakenNumber(next, null);
             }
         }
 
         return IssueErrors.SequenceBlocked(prefix);
+    }
+
+    /// <summary>
+    /// Whether a document of the company of a type that shares this numbering (<see cref="IssueSpec.SharedNumberTypeIds"/>:
+    /// the sales invoice and the invoice type 04) already uses the number. Only the company's documents count, unlike the
+    /// PHP, which searched every company and told the caller the type and date of other companies' documents (php-rules
+    /// 12.2, item 2).
+    /// </summary>
+    private async Task<bool> UsedBySharedTypeAsync(Guid companyId, DocumentNumberKey key, CancellationToken ct)
+    {
+        foreach (var typeId in spec.SharedNumberTypeIds)
+        {
+            if (await ports.Store.FindByNumberAsync(companyId, key with { DocumentTypeId = typeId }, ct) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Traduce el resultado de <see cref="NumberingRange.Check"/> a los mensajes de validación del PHP.</summary>
@@ -321,28 +416,35 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
     };
 
     /// <summary>Responde por un documento ya emitido con el XML firmado que se guardó.</summary>
-    private async Task<Result<IssueDocumentResponse>> ReplayAsync(StoredDocument existing, IssuerContext issuer, CancellationToken ct)
+    private async Task<Result<IssueDocumentResponse>> ReplayAsync(
+        StoredDocument existing, IssuerContext issuer, DocumentBatch? batch, CancellationToken ct)
     {
         var signed = await ports.Store.ReadFileAsync(issuer.Company.Id, existing.Id, DocumentFileKind.SignedXml, ct);
         var types = await ports.Catalogs.FindAsync([new CatalogKey(DianCatalog.DocumentType, existing.DocumentTypeId)], ct);
         var typeName = types.Values.FirstOrDefault()?.Name ?? "";
-        return Respond(typeName, existing, issuer, signed is null ? null : Utf8.GetString(signed), unsignedXml: null, replayed: true);
+        return Respond(typeName, existing, issuer, batch, signed is null ? null : Utf8.GetString(signed), unsignedXml: null, replayed: true);
     }
 
     private IssueDocumentResponse Respond(
-        string typeName, StoredDocument document, IssuerContext issuer, string? signedXml, string? unsignedXml, bool replayed)
+        string typeName, StoredDocument document, IssuerContext issuer, DocumentBatch? batch, string? signedXml, string? unsignedXml,
+        bool replayed)
     {
         var uuid = document.Cufe ?? "";
         var resolution = issuer.Resolutions.FirstOrDefault(row => row.Id == document.ResolutionId);
         return new IssueDocumentResponse
         {
             Success = spec.IsNote ? null : true,
-            Message = $"{typeName} #{document.FullNumber} generada con éxito",
+            // The PHP said «… generada y agregada con éxito al batch {batch}.zip» (php-rules 15.1, item 7).
+            Message = batch is null
+                ? $"{typeName} #{document.FullNumber} generada con éxito"
+                : $"{typeName} #{document.FullNumber} generada y agregada con éxito al lote {batch.Name}",
             UrlInvoiceXml = $"{LegacyFileTag(spec.Kind)}-{document.FullNumber}.xml",
             UrlInvoicePdf = $"{LegacyFileTag(spec.Kind)}-{document.FullNumber}.pdf",
             UrlInvoiceAttached = $"Attachment-{document.FullNumber}.xml",
-            Cufe = spec.IsNote ? null : uuid,
-            Cude = spec.IsNote ? uuid : null,
+            // The name of the code follows its algorithm: the contingency type 03 answers cude, like the PHP (php-rules 12.1).
+            Cufe = spec.UuidAlgorithm == "CUFE-SHA384" ? uuid : null,
+            Cude = spec.UuidAlgorithm == "CUDE-SHA384" ? uuid : null,
+            Cuds = spec.UuidAlgorithm == "CUDS-SHA384" ? uuid : null,
             QrStr = ports.QrUrls.ForEnvironment(document.TypeEnvironmentId) + uuid,
             CertificateDaysLeft = issuer.Certificate is { } certificate ? CertificateDaysLeft(certificate) : 0,
             ResolutionDaysLeft = !spec.IsNote && resolution?.ValidTo is { } validTo ? ColombiaTime.DaysLeft(validTo, ports.Clock.UtcNow) : null,
@@ -360,6 +462,7 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
                 Uuid = document.Cufe,
                 UuidAlgorithm = document.UuidAlgorithm,
                 Replayed = replayed,
+                BatchId = document.BatchId,
             },
         };
     }
@@ -391,8 +494,12 @@ internal static class IssueChecks
             candidates = candidates.Where(resolution => (resolution.ResolutionNumber ?? "") == number.Text).ToList();
         }
 
+        // A support-document resolution needs its number and validity (they go in sts:InvoiceControl) but never its
+        // technical key: the CUDS ignores it (php-rules 13.3, item 2).
         if (candidates.Count == 0
-            || (spec.Kind == IssueKind.Invoice && candidates[0] is { TechnicalKey: null } or { ValidFrom: null } or { ValidTo: null }))
+            || (spec.Kind == IssueKind.Invoice && candidates[0] is { ValidFrom: null } or { ValidTo: null })
+            || (spec.NeedsTechnicalKey && candidates[0] is { TechnicalKey: null })
+            || (spec.Kind == IssueKind.SupportDocument && candidates[0] is { ValidFrom: null } or { ValidTo: null } or { ResolutionNumber: null or "" }))
         {
             return Error.Validation([new FieldError("type_document_id", IssueMessages.ResolutionNotConfigured)]);
         }
@@ -417,6 +524,7 @@ internal static class IssueChecks
             .Distinct(StringComparer.Ordinal)
             .Select(field => new FieldError(field, IssueMessages.Invalid(field)))
             .Concat(CatalogNeeds.FixedValueGaps(spec, body))
+            .Concat(CatalogNeeds.ExchangeRateGaps(spec, body, found, issuer))
             .ToList();
         return errors.Count > 0 ? Error.Validation(errors) : Result<IReadOnlyDictionary<CatalogKey, CatalogItem>>.Ok(found);
     }
@@ -432,23 +540,87 @@ internal static class IssueChecks
 internal sealed class IssueInvoiceHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueInvoiceCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.Invoice);
+
+internal sealed class IssueAiuInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
+    : IssueDocumentHandler<IssueAiuInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
+        IssueSpec.AiuInvoice);
+
+internal sealed class IssueMandateInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
+    : IssueDocumentHandler<IssueMandateInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
+        IssueSpec.MandateInvoice);
+
+internal sealed class IssueTransportInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
+    : IssueDocumentHandler<IssueTransportInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
+        IssueSpec.TransportInvoice);
+
+internal sealed class IssueExportInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
+    : IssueDocumentHandler<IssueExportInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
+        IssueSpec.ExportInvoice);
+
+internal sealed class IssueContingencyInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
+    : IssueDocumentHandler<IssueContingencyInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
+        IssueSpec.ContingencyInvoice);
+
+internal sealed class IssueDianContingencyInvoiceHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
+    : IssueDocumentHandler<IssueDianContingencyInvoiceCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
+        IssueSpec.DianContingencyInvoice);
+
+internal sealed class IssueSupportDocumentHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
+    : IssueDocumentHandler<IssueSupportDocumentCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
+        IssueSpec.SupportDocument);
+
+internal sealed class IssueSupportDocumentAdjustmentNoteHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
+    : IssueDocumentHandler<IssueSupportDocumentAdjustmentNoteCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
+        IssueSpec.SupportDocumentAdjustmentNote);
 
 internal sealed class IssueCreditNoteHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueCreditNoteCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.CreditNote);
 
 internal sealed class IssueDebitNoteHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
     IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
-    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock, IDocumentBatches batches)
     : IssueDocumentHandler<IssueDebitNoteCommand>(
-        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock, batches),
         IssueSpec.DebitNote);

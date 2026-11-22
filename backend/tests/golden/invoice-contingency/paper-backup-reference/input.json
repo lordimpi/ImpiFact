@@ -1,0 +1,85 @@
+{
+  "number": 990000201,
+  "type_document_id": 3,
+  "AdditionalDocumentReferenceID": "CTG201",
+  "AdditionalDocumentReferenceDate": "2026-11-14",
+  "AdditionalDocumentReferenceTypeDocument": "01",
+  "date": "2026-11-14",
+  "time": "12:10:00",
+  "customer": {
+    "identification_number": "800000001",
+    "dv": "1",
+    "type_document_identification_id": 6,
+    "type_organization_id": 1,
+    "type_regime_id": 1,
+    "type_liability_id": 117,
+    "name": "CLIENTE DE PRUEBA GOLDEN SAS",
+    "phone": "3000000001",
+    "address": "CARRERA 2 # 2-02",
+    "email": "cliente.golden@example.com",
+    "merchant_registration": "0000000-00",
+    "municipality_id": 149
+  },
+  "payment_form": {
+    "payment_form_id": 1,
+    "payment_method_id": 10,
+    "payment_due_date": "2026-11-14",
+    "duration_measure": "0"
+  },
+  "allowance_charges": [
+    {
+      "discount_id": 1,
+      "charge_indicator": false,
+      "allowance_charge_reason": "DESCUENTO GENERAL",
+      "amount": "0.00",
+      "base_amount": "840336.13"
+    }
+  ],
+  "legal_monetary_totals": {
+    "line_extension_amount": "840336.13",
+    "tax_exclusive_amount": "840336.13",
+    "tax_inclusive_amount": "1000000.00",
+    "allowance_total_amount": "0.00",
+    "charge_total_amount": "0.00",
+    "payable_amount": "1000000.00"
+  },
+  "tax_totals": [
+    {
+      "tax_id": 1,
+      "tax_amount": "159663.86",
+      "percent": "19",
+      "taxable_amount": "840336.13"
+    }
+  ],
+  "invoice_lines": [
+    {
+      "unit_measure_id": 70,
+      "invoiced_quantity": "1",
+      "line_extension_amount": "840336.13",
+      "free_of_charge_indicator": false,
+      "allowance_charges": [
+        {
+          "charge_indicator": false,
+          "allowance_charge_reason": "DESCUENTO GENERAL",
+          "amount": "0.00",
+          "base_amount": "1000000.00"
+        }
+      ],
+      "tax_totals": [
+        {
+          "tax_id": 1,
+          "tax_amount": "159663.86",
+          "taxable_amount": "840336.13",
+          "percent": "19.00"
+        }
+      ],
+      "description": "COMISION POR SERVICIOS",
+      "code": "COMISION",
+      "type_item_identification_id": 4,
+      "price_amount": "840336.13",
+      "base_quantity": "1"
+    }
+  ],
+  "prefix": "SETP",
+  "resolution_number": "18760000001"
+}

@@ -289,7 +289,7 @@ test(
     await page.getByLabel('Identificador del software').fill('soft-acme-1');
     await page.getByLabel('PIN del software').fill('12345');
     await page.getByLabel('Identificador del set de pruebas (TestSetId)').fill(TEST_SET_ID);
-    await page.getByRole('button', { name: 'Guardar' }).click();
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(page.getByRole('table', { name: 'Software registrado' })).toContainText(
       'soft-acme-1',
     );

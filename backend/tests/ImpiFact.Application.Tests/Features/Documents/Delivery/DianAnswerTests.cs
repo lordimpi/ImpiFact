@@ -155,6 +155,23 @@ public sealed class DianAnswerTests
         Assert.That(((DianAnswer.Decided)answer).Status, Is.EqualTo(DocumentStatus.Rejected));
     }
 
+    // Phase 7a, T8: SendBillAsync answers like SendTestSetAsync (the same UploadDocumentResponse contract, annex 1.9, 7.8.3).
+    [Test]
+    public void A_batch_answer_with_a_zip_key_means_the_zip_was_received()
+    {
+        var answer = DianAnswer.From(Answered("SendBillAsync", Result(null, null) with { ZipKey = "8b1849d4-884b" }));
+
+        Assert.That(answer, Is.EqualTo(new DianAnswer.ZipReceived("8b1849d4-884b")));
+    }
+
+    [Test]
+    public void A_batch_answer_without_a_zip_key_is_a_rejection()
+    {
+        var answer = DianAnswer.From(Answered("SendBillAsync", Result(null, null, "Archivo ZIP vacío.")));
+
+        Assert.That(((DianAnswer.Decided)answer).Status, Is.EqualTo(DocumentStatus.Rejected));
+    }
+
     [TestCase("s:Sender")]
     [TestCase("s:Client")]
     public void A_fault_caused_by_the_sender_is_a_refusal(string code)

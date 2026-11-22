@@ -14,6 +14,9 @@ namespace ImpiFact.Integration.Tests.Identity;
 [TestFixture]
 public sealed class OpenApiExampleTests
 {
+    /// <summary>The invoice example derived from a golden input instead of being one (phase 7a, T7).</summary>
+    private const string HealthExample = "health-sector-one-user";
+
     private const string TestOnlyPrefix = "/test/";
 
     private static readonly string[] HttpMethods = ["get", "put", "post", "delete", "patch"];
@@ -69,7 +72,8 @@ public sealed class OpenApiExampleTests
     [TestCase("/api/v1/documents/debit-notes/test-set/{testSetId}", "debit-note", "price-adjustment-with-reference")]
     public void Issue_examples_are_the_golden_inputs(string path, string family, params string[] cases)
     {
-        var examples = Examples(_document.GetProperty("paths").GetProperty(path).GetProperty("post"));
+        var examples = Examples(_document.GetProperty("paths").GetProperty(path).GetProperty("post"))
+            .Where(example => example.Name != HealthExample).ToList();
 
         Assert.That(examples.Select(example => example.Name), Is.EquivalentTo(cases));
         Assert.Multiple(() =>
@@ -96,9 +100,34 @@ public sealed class OpenApiExampleTests
                 var value = example.GetProperty("value");
                 Assert.That(Text(value, "prefix"), Is.EqualTo("SETP"), name);
                 Assert.That(Text(value, "resolution_number"), Is.EqualTo("18760000001"), name);
-                Assert.That(value.GetProperty("number").GetInt64(), Is.InRange(990000000, 995000000), name);
+                if (value.TryGetProperty("number", out var number))
+                {
+                    Assert.That(number.GetInt64(), Is.InRange(990000000, 995000000), name);
+                }
             }
         });
+    }
+
+    // Phase 7a, T7: the health-sector example is the simple invoice without number plus health_fields and the copay as a
+    // prepaid payment with its concept; it is the only invoice example that is not a golden input.
+    [TestCase("/api/v1/documents/invoices")]
+    [TestCase("/api/v1/documents/invoices/test-set/{testSetId}")]
+    public void The_health_example_is_the_simple_invoice_with_health_fields(string path)
+    {
+        var example = Examples(_document.GetProperty("paths").GetProperty(path).GetProperty("post")).Single(example => example.Name == HealthExample);
+        var actual = JsonNode.Parse(example.Example.GetProperty("value").GetRawText())!.AsObject();
+        var golden = JsonNode.Parse(File.ReadAllText(Path.Combine(GoldenIssueTests.GoldenRoot(), "invoice", "single-line-iva19", "input.json")))!.AsObject();
+
+        Assert.That(actual["health_fields"]?["health_type_operation_id"]?.GetValue<int>(), Is.EqualTo(1));
+        Assert.That(actual["prepaid_payment"]?["prepaid_payment_type_id"]?.GetValue<int>(), Is.EqualTo(1));
+        foreach (var key in new[] { "health_fields", "prepaid_payment", "legal_monetary_totals" })
+        {
+            actual.Remove(key);
+            golden.Remove(key);
+        }
+
+        golden.Remove("number");
+        Assert.That(JsonNode.DeepEquals(actual, golden), Is.True, "The health example differs from single-line-iva19 beyond its health data.");
     }
 
     [Test]

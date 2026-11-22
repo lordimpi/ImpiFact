@@ -7,6 +7,7 @@ export interface IssueDocumentResponse {
   ResponseDian?: any;
   certificate_days_left?: (number | string);
   cude?: (string | null);
+  cuds?: (string | null);
   cufe?: (string | null);
   document: IssuedDocumentInfo;
   invoicexml?: (string | null);

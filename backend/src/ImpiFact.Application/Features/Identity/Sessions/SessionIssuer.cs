@@ -11,9 +11,10 @@ internal sealed class SessionIssuer(
     IUserStore users, IAccessTokenIssuer accessTokens, IRefreshTokenFactory refreshTokens, IRefreshTokenStore refreshStore)
 {
     /// <summary>
-    /// Empresa activa: la pedida, si el usuario pertenece a ella; si no se pide ninguna, la única empresa del
-    /// usuario, salvo que tenga roles de plataforma (entonces ninguna, para que conserve <c>platform:*</c>). Los
-    /// roles del token son los de plataforma más los de la empresa activa.
+    /// Empresa activa: la pedida, si el usuario pertenece a ella y la plataforma no la desactivó; si no se pide
+    /// ninguna, la única empresa activa del usuario, salvo que tenga roles de plataforma (entonces ninguna, para que
+    /// conserve <c>platform:*</c>). Los roles del token son los de plataforma más los de la empresa activa. La lista
+    /// de empresas de la sesión incluye las desactivadas, para que el selector las muestre deshabilitadas.
     /// </summary>
     /// <param name="replaces">Token de renovación que el nuevo reemplaza (rotación); nulo al iniciar sesión.</param>
     /// <summary>
@@ -35,11 +36,16 @@ internal sealed class SessionIssuer(
                 return IdentityErrors.CompanyNotAllowed;
             }
 
+            if (!roles.ActiveCompanyIds.Contains(requested))
+            {
+                return IdentityErrors.CompanyInactive;
+            }
+
             companyId = requested;
         }
         else
         {
-            companyId = roles.PlatformRoles.Count == 0 && roles.CompanyIds is [var only] ? only : null;
+            companyId = roles.PlatformRoles.Count == 0 && roles.ActiveCompanyIds is [var only] ? only : null;
         }
 
         IReadOnlyList<string> tokenRoles = companyId is { } active

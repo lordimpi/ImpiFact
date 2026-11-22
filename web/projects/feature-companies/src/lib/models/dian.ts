@@ -25,6 +25,10 @@ export type EnvironmentField = (typeof ENVIRONMENT_KINDS)[number]['field'];
 
 /** Familia de la factura electrónica y sus notas. */
 export const INVOICE_KIND = 1;
+/** Familia del documento soporte y su nota de ajuste. */
+export const SUPPORT_DOCUMENT_KIND = 4;
+/** Tipo de documento (resolución) del documento soporte. */
+export const SUPPORT_DOCUMENT_TYPE = 11;
 
 /** Tipos de documento con resolución de numeración (`type_document_id`). */
 export const RESOLUTION_DOCUMENT_TYPES = [1, 2, 3, 4, 5, 11, 13] as const;

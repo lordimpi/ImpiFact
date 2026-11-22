@@ -7,5 +7,7 @@ export interface DashboardMonthResponse {
   invoice?: (number | string);
   month?: string;
   other?: (number | string);
+  support_document?: (number | string);
+  support_document_adjustment_note?: (number | string);
   total?: (number | string);
 }

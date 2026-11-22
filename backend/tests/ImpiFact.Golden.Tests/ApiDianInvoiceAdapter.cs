@@ -7,6 +7,22 @@ using static ImpiFact.Golden.Tests.ApiDianJson;
 
 namespace ImpiFact.Golden.Tests;
 
+/// <summary>Invoice variants on template 01, with the ApiDian <c>type_operation_id</c> each controller uses by default.</summary>
+public enum ApiDianInvoiceVariant
+{
+    /// <summary>InvoiceAIUController: operation 9 (code 09).</summary>
+    Aiu = 9,
+
+    /// <summary>InvoiceMandateController: operation 11 (code 11).</summary>
+    Mandate = 11,
+
+    /// <summary>InvoiceTransportController: operation 21 (code 12).</summary>
+    Transport = 21,
+
+    /// <summary>InvoiceExportController: template 02, operation 10 (code 10).</summary>
+    Export = 10,
+}
+
 /// <summary>
 /// Convierte una solicitud de factura de ApiDian (el input.json de un caso de referencia, cuyo XML y CUFE
 /// generó el PHP original) más la configuración fija de captura al modelo <see cref="SalesInvoice"/> de
@@ -53,10 +69,88 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             AllowanceCharges = MapList(request, "allowance_charges", MapAllowanceCharge),
             TaxSubtotals = MapList(request, "tax_totals", MapTaxSubtotal),
             WithholdingSubtotals = MapList(request, "with_holding_tax_total", MapTaxSubtotal),
+            Note = OptionalText(request, "notes"),
             Totals = MapTotals(request.GetProperty("legal_monetary_totals")),
             Lines = MapList(request, "invoice_lines", MapLine),
         };
     }
+
+    /// <summary>
+    /// An AIU, mandate or freight transport invoice: the same template 01 as <see cref="Map"/>, with the default operation
+    /// and the flags that ApiDian's InvoiceAIUController, InvoiceMandateController and InvoiceTransportController set
+    /// (php-rules, section 10). The golden inputs never send <c>type_operation_id</c>.
+    /// </summary>
+    public SalesInvoice MapVariant(JsonElement request, ApiDianInvoiceVariant variant)
+    {
+        var invoice = Map(request);
+        var lines = request.GetProperty("invoice_lines").EnumerateArray().ToList();
+        return invoice with
+        {
+            OperationTypeCode = catalog.Get("operationTypes", (int)variant).Code,
+
+            // php-rules 11, item 4: InvoiceExportController never passes idcurrency nor the rate to template 02.
+            ForeignCurrency = variant == ApiDianInvoiceVariant.Export ? null : invoice.ForeignCurrency,
+            AiuContractObject = variant == ApiDianInvoiceVariant.Aiu ? RequiredText(request, "noteAIU") : null,
+            LineIdScheme = variant switch
+            {
+                ApiDianInvoiceVariant.Mandate => InvoiceLineIdScheme.Mandate,
+                ApiDianInvoiceVariant.Transport => InvoiceLineIdScheme.Transport,
+                _ => InvoiceLineIdScheme.Plain,
+            },
+            Export = variant == ApiDianInvoiceVariant.Export ? MapExport(request) : null,
+            Lines = invoice.Lines.Select((line, index) => line with
+            {
+                Mandator = variant == ApiDianInvoiceVariant.Mandate ? MapMandator(lines[index]) : null,
+                Consignment = variant == ApiDianInvoiceVariant.Transport ? MapConsignment(lines[index]) : null,
+                BrandName = variant == ApiDianInvoiceVariant.Export ? OptionalText(lines[index], "brandname") : null,
+                ModelName = variant == ApiDianInvoiceVariant.Export ? OptionalText(lines[index], "modelname") : null,
+            }).ToList(),
+        };
+    }
+
+    /// <summary>
+    /// A contingency invoice type 03 of InvoiceContingencyController::store (php-rules 12.1): template 03, the invoice
+    /// mapping plus the paper invoice it transcribes (<c>AdditionalDocumentReference*</c>). The capture resolution keeps
+    /// its technical key, which the CUDE never uses.
+    /// </summary>
+    public SalesInvoice MapContingency(JsonElement request) => Map(request) with
+    {
+        PaperInvoice = new PaperInvoiceReference(
+            RequiredText(request, "AdditionalDocumentReferenceID"),
+            DateOnly.ParseExact(RequiredText(request, "AdditionalDocumentReferenceDate"), "yyyy-MM-dd", CultureInfo.InvariantCulture),
+            RequiredText(request, "AdditionalDocumentReferenceTypeDocument")),
+    };
+
+    /// <summary>deliveryterms and, when sent, the k_supplement of InvoiceExportController (php-rules 11).</summary>
+    private static ExportTerms MapExport(JsonElement request)
+    {
+        var terms = request.GetProperty("deliveryterms");
+        ExportSupplement? supplement = null;
+        if (request.TryGetProperty("k_supplement", out var k) && k.ValueKind == JsonValueKind.Object)
+        {
+            supplement = new ExportSupplement(
+                ExportSupplement.AdditionalInformationFields.Select(field => RequiredText(k, field.Key)).ToList(),
+                ExportSupplement.CopTotalFields.Select(field => RequiredText(k, field)).ToList());
+        }
+
+        return new ExportTerms(
+            new DeliveryTerms(
+                RequiredText(terms, "special_terms"), RequiredText(terms, "loss_risk_responsibility_code"), RequiredText(terms, "loss_risk")),
+            supplement);
+    }
+
+    private static LineMandator? MapMandator(JsonElement line) =>
+        OptionalText(line, "agentparty") is { } nit ? new LineMandator(nit, OptionalText(line, "agentparty_dv") ?? "") : null;
+
+    private RndcConsignment? MapConsignment(JsonElement line) =>
+        line.GetProperty("is_RNDC").GetBoolean()
+            ? new RndcConsignment(
+                RequiredText(line, "RNDC_consignment_number"),
+                RequiredText(line, "internal_consignment_number"),
+                RequiredText(line, "value_consignment"),
+                catalog.Get("unitMeasures", RequiredInt(line, "unit_measure_consignment_id")).Code,
+                RequiredText(line, "quantity_consignment"))
+            : null;
 
     internal ForeignCurrency? MapForeignCurrency(JsonElement request)
     {
@@ -95,6 +189,8 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
     {
         var municipalityId = OptionalText(customer, "municipality_id");
         var address = OptionalText(customer, "address");
+        var countryId = OptionalText(customer, "country_id");
+        var foreign = countryId is not null && countryId != GoldenCaptureContext.CountryId.ToString(CultureInfo.InvariantCulture);
         return new InvoiceParty
         {
             OrganizationTypeCode = catalog.Get("organizationTypes", RequiredInt(customer, "type_organization_id")).Code,
@@ -103,8 +199,11 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             IdentificationTypeCode = catalog.Get("identificationTypes", RequiredInt(customer, "type_document_identification_id")).Code,
             Name = RequiredText(customer, "name"),
 
-            // ApiDian solo escribe los bloques de dirección del cliente cuando existen la dirección y el municipio.
-            Address = string.IsNullOrEmpty(address) || municipalityId is null ? null : MapAddress(municipalityId, address),
+            // ApiDian solo escribe los bloques de dirección del cliente cuando existen la dirección y el municipio. Outside
+            // Colombia, _accounting.blade.php writes the fixed codes 00001 and 01 with municipality_name and state_name.
+            Address = string.IsNullOrEmpty(address) ? null
+                : foreign ? MapForeignAddress(customer, countryId!, address)
+                : municipalityId is null ? null : MapAddress(municipalityId, address),
             RegimeCode = catalog.Get("regimes", RequiredInt(customer, "type_regime_id")).Code,
             LiabilityCode = catalog.Get("liabilities", RequiredInt(customer, "type_liability_id")).Code,
             TaxSchemeCode = catalog.Get("taxes", GoldenCaptureContext.PartyTaxId).Code,
@@ -124,6 +223,15 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
         var language = catalog.Get("languages", GoldenCaptureContext.LanguageId);
         return new PartyAddress(
             municipality.Code, municipality.Name, department.Name, department.Code,
+            addressLine, country.Code, country.Name, language.Code);
+    }
+
+    private PartyAddress MapForeignAddress(JsonElement customer, string countryId, string addressLine)
+    {
+        var country = catalog.Get("countries", countryId);
+        var language = catalog.Get("languages", GoldenCaptureContext.LanguageId);
+        return new PartyAddress(
+            "00001", OptionalText(customer, "municipality_name") ?? "", OptionalText(customer, "state_name") ?? "", "01",
             addressLine, country.Code, country.Name, language.Code);
     }
 
@@ -209,6 +317,9 @@ public sealed class ApiDianInvoiceAdapter(ApiDianCatalog catalog)
             LineExtensionAmount = RequiredDecimal(line, "line_extension_amount"),
             IsFreeOfCharge = line.GetProperty("free_of_charge_indicator").GetBoolean(),
             Description = RequiredText(line, "description"),
+
+            // _invoice_lines.blade.php writes the line notes (isset); the credit and debit note templates do not.
+            Note = OptionalText(line, "notes"),
             ItemCode = RequiredText(line, "code"),
             ItemScheme = new ItemIdentificationScheme(itemType.Code, itemType.Name, itemType.CodeAgency ?? ""),
             PriceAmount = RequiredDecimal(line, "price_amount"),

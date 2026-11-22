@@ -82,10 +82,15 @@ public sealed class OpenApiContractTests
     [TestCase("PUT /api/v1/companies/{nit}/resolutions/{id}/next-number", "setResolutionNextNumber")]
     [TestCase("GET /api/v1/companies/{nit}/setup-status", "getCompanySetupStatus")]
     [TestCase("GET /api/v1/platform/companies", "listPlatformCompanies")]
+    [TestCase("POST /api/v1/platform/companies/{nit}/deactivate", "deactivatePlatformCompany")]
+    [TestCase("POST /api/v1/platform/companies/{nit}/reactivate", "reactivatePlatformCompany")]
     [TestCase("PUT /api/v1/companies/{nit}/plan", "assignCompanyPlan")]
     [TestCase("PUT /api/v1/companies/{nit}/logo", "saveCompanyLogo")]
     [TestCase("GET /api/v1/companies/{nit}/logo", "getCompanyLogo")]
     [TestCase("DELETE /api/v1/companies/{nit}/logo", "deleteCompanyLogo")]
+    [TestCase("GET /api/v1/companies/{nit}/mail-settings", "getCompanyMailSettings")]
+    [TestCase("PUT /api/v1/companies/{nit}/mail-settings", "saveCompanyMailSettings")]
+    [TestCase("DELETE /api/v1/companies/{nit}/mail-settings", "deleteCompanyMailSettings")]
     [TestCase("GET /api/v1/information/{nit}", "listValidatedDocuments")]
     [TestCase("GET /api/v1/information/{nit}/{desde}", "listValidatedDocumentsOfDay")]
     [TestCase("GET /api/v1/information/{nit}/{desde}/{hasta}", "listValidatedDocumentsBetween")]
@@ -103,6 +108,27 @@ public sealed class OpenApiContractTests
     [TestCase("POST /api/v1/documents/invoices", "issueInvoice")]
     [TestCase("POST /api/v1/documents/invoices/preview", "previewInvoice")]
     [TestCase("POST /api/v1/documents/invoices/test-set/{testSetId}", "issueTestSetInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/aiu", "issueAiuInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/aiu/test-set/{testSetId}", "issueTestSetAiuInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/mandate", "issueMandateInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/mandate/test-set/{testSetId}", "issueTestSetMandateInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/transport", "issueTransportInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/transport/test-set/{testSetId}", "issueTestSetTransportInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/export", "issueExportInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/export/test-set/{testSetId}", "issueTestSetExportInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/contingency", "issueContingencyInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/contingency/test-set/{testSetId}", "issueTestSetContingencyInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/dian-contingency", "issueDianContingencyInvoice")]
+    [TestCase("POST /api/v1/documents/invoices/dian-contingency/send-pending", "sendPendingContingencyInvoices")]
+    [TestCase("GET /api/v1/documents/batches", "listDocumentBatches")]
+    [TestCase("POST /api/v1/documents/batches", "createDocumentBatch")]
+    [TestCase("GET /api/v1/documents/batches/{id}", "getDocumentBatch")]
+    [TestCase("POST /api/v1/documents/batches/{id}/documents/{type}", "addDocumentToBatch")]
+    [TestCase("POST /api/v1/documents/batches/{id}/send", "sendDocumentBatch")]
+    [TestCase("POST /api/v1/documents/support-documents", "issueSupportDocument")]
+    [TestCase("POST /api/v1/documents/support-documents/test-set/{testSetId}", "issueTestSetSupportDocument")]
+    [TestCase("POST /api/v1/documents/support-documents/adjustment-notes", "issueSupportDocumentAdjustmentNote")]
+    [TestCase("POST /api/v1/documents/support-documents/adjustment-notes/test-set/{testSetId}", "issueTestSetSupportDocumentAdjustmentNote")]
     [TestCase("POST /api/v1/documents/credit-notes", "issueCreditNote")]
     [TestCase("POST /api/v1/documents/credit-notes/preview", "previewCreditNote")]
     [TestCase("POST /api/v1/documents/credit-notes/test-set/{testSetId}", "issueTestSetCreditNote")]
@@ -114,6 +140,7 @@ public sealed class OpenApiContractTests
     [TestCase("GET /api/v1/documents/by-cufe/{trackId}/xml", "getDocumentXml")]
     [TestCase("GET /api/v1/documents/zip/{trackId}/dian-status", "getTestSetZipStatus")]
     [TestCase("GET /api/v1/documents/{id}/files/{kind}", "downloadDocumentFile")]
+    [TestCase("POST /api/v1/documents/pdf/merge", "mergeDocumentPdfs")]
     [TestCase("POST /api/v1/documents/{id}/pdf/regenerate", "regenerateDocumentPdf")]
     [TestCase("POST /api/v1/documents/{id}/attached-document/regenerate", "regenerateAttachedDocument")]
     [TestCase("POST /api/v1/documents/{id}/email", "resendDocumentEmail")]
@@ -139,6 +166,15 @@ public sealed class OpenApiContractTests
     [TestCase("POST /api/v1/products/{id}/deactivate", "deactivateProduct")]
     [TestCase("GET /api/v1/dashboard/summary", "getDashboardSummary")]
     [TestCase("GET /api/v1/catalogs/{name}", "listCatalog")]
+    [TestCase("GET /api/v1/received-documents", "listReceivedDocuments")]
+    [TestCase("POST /api/v1/received-documents", "loadReceivedDocument")]
+    [TestCase("GET /api/v1/received-documents/{id}", "getReceivedDocument")]
+    [TestCase("GET /api/v1/received-documents/{id}/xml", "downloadReceivedDocumentXml")]
+    [TestCase("GET /api/v1/received-documents/{id}/dian-events", "getReceivedDocumentDianEvents")]
+    [TestCase("POST /api/v1/received-documents/{id}/events", "sendReceivedDocumentEvent")]
+    [TestCase("GET /api/v1/documents/{id}/events", "listDocumentEvents")]
+    [TestCase("POST /api/v1/documents/{id}/events", "sendDocumentEvent")]
+    [TestCase("GET /api/v1/documents/{id}/dian-events", "getDocumentDianEvents")]
     public void An_operation_keeps_its_pinned_operation_id(string name, string operationId)
     {
         var operation = Operations().Where(candidate => candidate.Name == name).Select(candidate => candidate.Operation).ToList();
@@ -184,6 +220,21 @@ public sealed class OpenApiContractTests
             Assert.That(Names(integration, "required"), Does.Contain("refresh_token"));
             Assert.That(Text(integration, "description"), Does.Contain("X-Client: panel"));
         });
+    }
+
+    // Phase 7a, T7: health_fields is an optional, additive member of the invoice body (php-rules 17).
+    [TestCase("/api/v1/documents/invoices")]
+    [TestCase("/api/v1/documents/invoices/test-set/{testSetId}")]
+    public void The_invoice_body_accepts_optional_health_fields(string path)
+    {
+        var schema = _document.GetProperty("paths").GetProperty(path).GetProperty("post").GetProperty("requestBody")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+
+        var health = schema.GetProperty("properties").GetProperty("health_fields");
+
+        var required = schema.TryGetProperty("required", out var names) ? names.EnumerateArray().Select(name => name.GetString()).ToList() : [];
+        Assert.That(required, Does.Not.Contain("health_fields"));
+        Assert.That(health.GetRawText(), Does.Contain("users_info").And.Contain("health_type_operation_id"));
     }
 
     /// <summary>

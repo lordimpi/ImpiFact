@@ -101,6 +101,85 @@ public sealed class DocumentHtmlTests
         });
     }
 
+    // php-rules 13.3, item 6: the PHP's SUPPORTDOCUMENT template (pdfs/support).
+    [Test]
+    public void A_support_document_shows_its_titles_the_seller_as_proveedor_its_cuds_and_resolution()
+    {
+        var html = templates.Render(PdfSamples.SupportDocument());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(html, Does.Contain("<title>DOCUMENTO SOPORTE ELECTRONICO Nro: SEDS - 984000001</title>"));
+            Assert.That(html, Does.Contain("<p class=\"title\">DOCUMENTO SOPORTE ELECTRONICO No</p>"));
+            Assert.That(html, Does.Contain("REPRESENTACION GRAFICA DE DOCUMENTO SOPORTE ELECTRONICO A NO OBLIGADOS"));
+            Assert.That(html, Does.Contain("SEDS - 984000001"));
+            Assert.That(html, Does.Contain(
+                "Resolución de Facturación Electrónica No. 18760000001 de 2022-01-01, Prefijo: SEDS, Rango 984000000 Al 985000000"));
+            Assert.That(html, Does.Contain("<td>Proveedor:</td><td>PROVEEDOR NO OBLIGADO GOLDEN</td>"));
+            Assert.That(html, Does.Not.Contain("<td>Cliente:</td>"));
+            Assert.That(html, Does.Contain("<td>CC o NIT:</td><td>800000003-4</td>"));
+            Assert.That(html, Does.Contain("Medio de Pago:"));
+            Assert.That(html, Does.Contain("src=\"qr.png\""));
+            Assert.That(html, Does.Contain("<th>%</th>"));
+            Assert.That(html, Does.Contain("Documento Soporte No: SEDS - 984000001 - Fecha y Hora de Generación: 2026-11-14 - 10:20:00"));
+            Assert.That(html, Does.Contain("CUDS: <span class=\"uuid\">" + PdfSamples.Cuds + "</span>"));
+            Assert.That(html, Does.Contain("<td>Total Documento Soporte:</td><td class=\"num\"><strong>200.00</strong>"));
+            Assert.That(html, Does.Not.Contain("Total a Pagar"));
+            Assert.That(html, Does.Not.Contain("título valor"));
+            Assert.That(html, Does.Not.Contain("CUFE"));
+            Assert.That(html, Does.Contain("<strong>SON</strong>: DOSCIENTOS PESOS CON CERO CENTAVOS M/CTE*********."));
+        });
+    }
+
+    // php-rules 14: the PHP's SUPPORTDOCUMENTNOTE template (pdfs/support-credit-note).
+    [Test]
+    public void An_adjustment_note_shows_its_titles_the_seller_and_the_cuds_of_the_support_document_it_adjusts()
+    {
+        var html = templates.Render(PdfSamples.SupportDocumentAdjustmentNote());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(html, Does.Contain("<title>NOTA DE AJUSTE AL DOCUMENTO SOPORTE Nro: NDS - 1</title>"));
+            Assert.That(html, Does.Contain("<p class=\"title\">NOTA DE AJUSTE DEL DOCUMENTO SOPORTE A NO OBLIGADOS A FACTURAR No</p>"));
+            Assert.That(html, Does.Contain("REPRESENTACION GRAFICA DE NOTA DE AJUSTE DEL DOCUMENTO SOPORTE ELECTRONICO A NO OBLIGADOS"));
+            Assert.That(html, Does.Contain("<td>Proveedor:</td><td>PROVEEDOR NO OBLIGADO GOLDEN</td>"));
+            Assert.That(html, Does.Not.Contain("<td>Cliente:</td>"));
+            Assert.That(html, Does.Contain("Referencia: SEDS984000001 - Fecha: 2026-11-14"));
+            Assert.That(html, Does.Contain("CUDS: <span class=\"uuid\">" + PdfSamples.Cuds + "</span>"));
+            Assert.That(html, Does.Not.Contain("CUFE"));
+            Assert.That(html, Does.Contain("Nota de Ajuste Documento Soporte No: NDS - 1 - Fecha y Hora de Generación"));
+            Assert.That(html, Does.Contain("<td>Total Nota:</td><td class=\"num\"><strong>200.00</strong>"));
+            Assert.That(html, Does.Not.Contain("Resolución de Facturación"));
+            Assert.That(html, Does.Not.Contain("<th>%</th>"));
+        });
+    }
+
+    [Test]
+    public void The_credit_note_keeps_its_cliente_label_and_cufe_reference()
+    {
+        var html = templates.Render(PdfSamples.CreditNote());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(html, Does.Contain("<td>Cliente:</td><td>CLIENTE DE PRUEBA GOLDEN SAS</td>"));
+            Assert.That(html, Does.Contain("<p>CUFE: <span class=\"uuid\">d504983c0da24a41b26b37dbd04901ce7dfa6f8f</span></p>"));
+            Assert.That(html, Does.Contain("<title>NOTA CREDITO ELECTRONICA Nro: NC - 1</title>"));
+        });
+    }
+
+    [Test]
+    public void The_invoice_keeps_its_cliente_label_and_title()
+    {
+        var html = templates.Render(PdfSamples.Invoice());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(html, Does.Contain("<td>Cliente:</td><td>CLIENTE DE PRUEBA GOLDEN SAS</td>"));
+            Assert.That(html, Does.Contain("<title>FACTURA ELECTRONICA Nro: SETP - 990000005</title>"));
+            Assert.That(html, Does.Contain("<p class=\"title\">FACTURA ELECTRONICA DE VENTA</p>"));
+        });
+    }
+
     [Test]
     public void The_company_logo_is_shown_in_the_header_when_there_is_one()
     {

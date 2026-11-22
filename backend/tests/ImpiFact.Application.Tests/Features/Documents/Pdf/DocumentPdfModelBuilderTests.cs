@@ -105,6 +105,24 @@ public sealed class DocumentPdfModelBuilderTests
         });
     }
 
+    // Phase 7a, T5: an accepted invoice type 04 prints as an invoice, with its CUFE and the type 1 resolution that numbered
+    // it (annex 1.9, section 12.2).
+    [Test]
+    public async Task An_accepted_type_04_prints_as_an_invoice_with_the_invoice_resolution()
+    {
+        var model = await new PdfScenario()
+            .WithGolden("invoice-contingency-4/pending-transmission", ImpiFact.Domain.Documents.DocumentFamilies.DianContingencyInvoiceType, "SETP", 990000301, WithholdingsTotals)
+            .BuildAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.Kind, Is.EqualTo(PdfDocumentKind.Invoice));
+            Assert.That(model.UuidLabel, Is.EqualTo("CUFE"));
+            Assert.That(model.Resolution, Is.EqualTo(new PdfResolution(
+                "18760000001", "2019-01-19", "SETP", "990000000", "995000000", "2019-01-19", "2030-01-19")));
+        });
+    }
+
     [Test]
     public async Task Lines_show_the_unit_price_tax_and_discount_per_unit()
     {
@@ -211,6 +229,93 @@ public sealed class DocumentPdfModelBuilderTests
             Assert.That(model.Lines.Single(), Is.EqualTo(new PdfLine(1, "AJU01", "Ajuste de precio", null, "1.00", "Unidad", "100.00", "19.00", "0.00", "0.00", "100.00")));
             Assert.That(model.Totals, Is.EqualTo(new PdfTotals("1", "100.00", "19.00", "0.00", "0.00", "119.00")));
             Assert.That(model.Reference?.Number, Is.EqualTo("SETP990000001"));
+        });
+    }
+
+    /// <summary>The seller of the support-document goldens, as the issue stores it in the customer snapshot.</summary>
+    private static readonly DocumentCustomer Seller = new(
+        6, "800000003", "4", "PROVEEDOR NO OBLIGADO GOLDEN", "3000000003", "CALLE 3 # 3-03", "proveedor.golden@example.com", 820, 2, 1, 117,
+        "0000-00");
+
+    private static readonly DocumentTotals SupportDocumentTotals = new(200m, 200m, 200m, 0m, 0m, 0m, 200m);
+
+    // php-rules 13.3, item 6: the PDF of the support document (the PHP's SUPPORTDOCUMENT template, DSS- file).
+    [Test]
+    public async Task A_support_document_shows_its_cuds_qr_resolution_and_the_seller_as_the_party()
+    {
+        var model = await new PdfScenario()
+            .WithGolden("support-document/resident-seller", 11, "SEDS", 984000001, SupportDocumentTotals, Seller)
+            .BuildAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.Kind, Is.EqualTo(PdfDocumentKind.SupportDocument));
+            Assert.That(model.Prefix, Is.EqualTo("SEDS"));
+            Assert.That(model.Number, Is.EqualTo("984000001"));
+            Assert.That(model.UuidLabel, Is.EqualTo("CUDS"));
+            Assert.That(model.Uuid, Is.EqualTo("cufe-984000001"));
+            Assert.That(model.QrText, Is.EqualTo(
+                "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=" +
+                "e3b6f1cf90150b66de1e1c55970c9797970c6239719a278bfb58a3a27ec1ba4dc35d586590a3958d0aa36e661a3d4d11"));
+            Assert.That(model.Resolution?.Number, Is.EqualTo("18760000001"));
+            Assert.That(model.Customer, Is.EqualTo(new PdfCustomer(
+                "800000003-4", "PROVEEDOR NO OBLIGADO GOLDEN", "Responsable de IVA", "No aplica – Otros", "CALLE 3 # 3-03",
+                "Armenia - Colombia", "3000000003", "proveedor.golden@example.com")));
+            Assert.That(model.Payments, Is.EqualTo(new[] { new PdfPayment("Contado", "Efectivo", "0", "2026-11-14") }));
+            Assert.That(model.Lines.Single(), Is.EqualTo(
+                new PdfLine(1, "PRUEBA", "ARTICULO DE PRUEBAS", null, "2.00", "Unidad", "100.00", "0.00", "0.00", "0.00", "200.00")));
+            Assert.That(model.Reference, Is.Null);
+            Assert.That(model.Totals, Is.EqualTo(new PdfTotals("1", "200.00", "0.00", "0.00", "0.00", "200.00")));
+            Assert.That(model.AmountInWords, Is.EqualTo("DOSCIENTOS PESOS CON CERO CENTAVOS"));
+            Assert.That(model.Notes, Is.Null, "The notes come from the stored document, as in the other kinds.");
+        });
+    }
+
+    // Like the PHP's SUPPORTDOCUMENT template: the total is the payable amount, the withholdings are not subtracted.
+    [Test]
+    public async Task The_total_of_a_support_document_keeps_its_withholdings()
+    {
+        var model = await new PdfScenario().WithGolden(
+            "support-document/resident-seller", 11, "SEDS", 984000001, SupportDocumentTotals, Seller,
+            editRequest: request =>
+            {
+                var root = JsonNode.Parse(request)!.AsObject();
+                root["with_holding_tax_total"] = new JsonArray(new JsonObject
+                {
+                    ["tax_id"] = 6, ["tax_amount"] = "8.00", ["percent"] = "4.00", ["taxable_amount"] = "200.00",
+                });
+                return root.ToJsonString();
+            }).BuildAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.Totals.Withholdings, Is.EqualTo("8.00"));
+            Assert.That(model.Totals.Payable, Is.EqualTo("200.00"));
+        });
+    }
+
+    // php-rules 14: the PDF of the adjustment note (the PHP's SUPPORTDOCUMENTNOTE template, NDSNS- file).
+    [Test]
+    public async Task An_adjustment_note_shows_its_cuds_the_support_document_it_adjusts_and_no_resolution()
+    {
+        var model = await new PdfScenario()
+            .WithGolden("sd-credit-note/adjustment-with-reference", 13, "NDS", 1, SupportDocumentTotals, Seller)
+            .BuildAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.Kind, Is.EqualTo(PdfDocumentKind.SupportDocumentAdjustmentNote));
+            Assert.That(model.UuidLabel, Is.EqualTo("CUDS"));
+            Assert.That(model.QrText, Is.EqualTo(
+                "https://catalogo-vpfe-hab.dian.gov.co/document/searchqr?documentkey=" +
+                "60db833544698c16a0c097375cc80a51ff80ae579f8836156267ad78c4f211d0b71d10675c3ae9eacb7bbd50073b8dab"));
+            Assert.That(model.Resolution, Is.Null);
+            Assert.That(model.Reference, Is.EqualTo(new PdfReference(
+                "SEDS984000001", "2026-11-14",
+                "e3b6f1cf90150b66de1e1c55970c9797970c6239719a278bfb58a3a27ec1ba4dc35d586590a3958d0aa36e661a3d4d11")));
+            Assert.That(model.Customer.Name, Is.EqualTo("PROVEEDOR NO OBLIGADO GOLDEN"));
+            Assert.That(model.Lines, Has.Count.EqualTo(1));
+            Assert.That(model.Totals.Payable, Is.EqualTo("200.00"));
         });
     }
 

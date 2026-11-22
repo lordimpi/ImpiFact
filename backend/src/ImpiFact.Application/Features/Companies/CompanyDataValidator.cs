@@ -1,4 +1,3 @@
-using System.Net.Mail;
 using FluentValidation;
 using ImpiFact.Application.Abstractions.Companies;
 using ImpiFact.Domain.Catalog;
@@ -103,21 +102,5 @@ public abstract class CompanyDataValidator<T> : AbstractValidator<T>
         && Nit.IsDigits(nit) && nit!.Length <= Nit.MaxDigits
         && Nit.CheckDigit(nit) == dv[0] - '0';
 
-    private static bool IsEmail(string? email)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            return true;
-        }
-
-        try
-        {
-            var address = new MailAddress(email);
-            return address.Address == email && email.Contains('.', StringComparison.Ordinal);
-        }
-        catch (FormatException)
-        {
-            return false;
-        }
-    }
+    private static bool IsEmail(string? email) => EmailAddresses.IsValid(email);
 }

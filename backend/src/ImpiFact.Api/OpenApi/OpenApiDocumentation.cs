@@ -13,8 +13,8 @@ namespace ImpiFact.Api.OpenApi;
 /// visor interactivo en <c>/scalar</c>) en español. Agrega la introducción con el flujo de integración, el esquema de
 /// autenticación Bearer (para que Scalar muestre dónde escribir la credencial), la descripción de cada sección y, en
 /// cada operación, el permiso que pide y valores de ejemplo para sus parámetros (<see cref="OpenApiExamples"/>; los
-/// cuerpos de ejemplo los agrega cada ruta con <c>WithRequestExamples</c>). Solo se documentan las rutas <c>/api/v1</c>: las heredadas del PHP llevan
-/// <c>ExcludeFromDescription()</c> en su módulo y se borran en la fase 7.
+/// cuerpos de ejemplo los agrega cada ruta con <c>WithRequestExamples</c>). Se documentan las rutas <c>/api/v1</c>; las
+/// heredadas del PHP se borraron en la fase 7a (T9b2).
 /// </summary>
 internal static class OpenApiDocumentation
 {

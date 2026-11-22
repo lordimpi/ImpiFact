@@ -33,7 +33,15 @@ namespace ImpiFact.Application.Features.Documents.Delivery;
 /// ZipKey del set de pruebas, <c>Sent</c> y se programa GetStatusZip; con un SOAP Fault del que envía,
 /// <c>Failed</c> y aviso, salvo que un intento anterior (de esta llamada o de un mensaje anterior) haya podido llegar
 /// a la DIAN: entonces cuenta como «sin respuesta». Un documento que ya no está en <c>Queued</c> no se vuelve a
-/// enviar: el mensaje repetido no hace nada.
+/// enviar: el mensaje repetido no hace nada. Two messages of the same document that run at the same time make one call:
+/// before calling, each one claims the document row (<see cref="IDocumentDelivery.Claim"/>) in the short transaction, and
+/// the one whose claim fails ends without side effects.
+/// </para>
+/// <para>
+/// An invoice type 04 (phase 7a, T5) is sent from <c>ContingencyPending</c> with the XML signed when it was issued, through
+/// this same path: the DIAN decision leaves it <c>Accepted</c> (with its AttachedDocument, PDF and email) or
+/// <c>Rejected</c> (with its notice). While the DIAN does not receive it, it stays pending: a SOAP Fault leaves a notice
+/// instead of <c>Failed</c>, and when the attempts run out another one is scheduled (see <see cref="ContingencyDelivery"/>).
 /// </para>
 /// </remarks>
 internal sealed class SendDocumentToDianHandler(
@@ -44,6 +52,7 @@ internal sealed class SendDocumentToDianHandler(
     ICertificateStore certificates,
     IDianServiceUrls urls,
     INumberingSequences numbering,
+    IOutbox outbox,
     IUnitOfWork unitOfWork,
     IClock clock,
     ImpiFactMetrics metrics,
@@ -61,17 +70,27 @@ internal sealed class SendDocumentToDianHandler(
             ?? throw new PermanentOutboxFailureException($"Outbox message {message.MessageId} has no company.");
         var document = await documents.FindForUpdateAsync(companyId, payload.DocumentId, ct)
             ?? throw new PermanentOutboxFailureException($"Document {payload.DocumentId} does not exist.");
-        if (document.Status != DocumentStatus.Queued)
+        // An invoice type 04 waits as ContingencyPending and is sent from that status (ContingencyPending → Sent).
+        if (document.Status is not (DocumentStatus.Queued or DocumentStatus.ContingencyPending))
         {
             logger.LogInformation("Document {DocumentId} is already {Status}; it is not sent again.", document.Id, document.Status);
             return;
         }
 
-        var kind = FileKindOf(document);
+        var kind = DianFileCounters.KindOf(document);
         var signedXml = await store.ReadFileAsync(companyId, document.Id, DocumentFileKind.SignedXml, ct)
             ?? throw new PermanentOutboxFailureException($"Document {document.Id} has no signed XML.");
-        var issuer = await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentKind.Invoice, ct)
+        var issuer = await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct)
             ?? throw new PermanentOutboxFailureException($"Company {companyId} does not exist.");
+        // The version read now is the one the claim below (or the hold) saves over: if another message of the same document
+        // saves first, this one sees a newer stored version and ends without side effects.
+        var readVersion = document.RowVersion;
+        if (!issuer.Company.IsActive)
+        {
+            await HoldAsync(message, payload, document, readVersion, ct);
+            return;
+        }
+
         var secretRef = issuer.Certificate?.SecretRef
             ?? throw new PermanentOutboxFailureException($"Company {companyId} has no active certificate.");
 
@@ -86,17 +105,34 @@ internal sealed class SendDocumentToDianHandler(
         var endpoint = new DianEndpoint(urls.ForEnvironment(document.TypeEnvironmentId), certificate);
         var startedAt = clock.UtcNow;
 
-        // Transacción corta: el consecutivo de nombres de archivo y la fila del intento con el ZIP enviado.
+        // Transacción corta: el documento reclamado (claim), el consecutivo de nombres de archivo y la fila del intento con el
+        // ZIP enviado. The claim saves the document row with a new row_version: a second message of the same document running
+        // at the same time (end-of-7a verification, M1) fails this save, before calling the DIAN, and ends.
         DianSubmission submission;
         byte[] zip;
-        await using (var transaction = await unitOfWork.BeginTransactionAsync(ct))
+        try
         {
+            await using var transaction = await unitOfWork.BeginTransactionAsync(ct);
+            documents.Claim(document);
             var year = ColombiaTime.Today(startedAt).Year;
-            var counter = await TakeFileCounterAsync(companyId, kind, year, ct);
+            var counter = await DianFileCounters.TakeAsync(numbering, unitOfWork, companyId, DianFileNames.Prefix(kind), year, ct);
             var entry = DianFileNames.XmlEntry(kind, issuer.Company.IdentificationNumber, year, counter);
             zip = DianZip.Create(entry, signedXml, ColombiaTime.Local(startedAt));
             submission = await delivery.BeginAsync(document, operation, zipKey: null, zip, ct);
             await transaction.CommitAsync(ct);
+        }
+        catch (PersistenceConflictException) when (!ct.IsCancellationRequested)
+        {
+            if (await ClaimedElsewhereAsync(document, readVersion, ct))
+            {
+                logger.LogInformation(
+                    "Document {DocumentId} was claimed by another send message at the same time; outbox message {MessageId} sends nothing.",
+                    document.Id, message.MessageId);
+                return;
+            }
+
+            // Another conflict, such as two first sends of the year creating the file counter at once: the message retries.
+            throw;
         }
 
         var fileName = DianFileNames.SoapFileName(document.Prefix, document.Number);
@@ -121,7 +157,8 @@ internal sealed class SendDocumentToDianHandler(
 
         if (answer is DianAnswer.NotDelivered notDelivered)
         {
-            // Se guarda el intento con su resultado; el documento sigue en Queued y el Worker reintenta el mensaje.
+            // Se guarda el intento con su resultado; el documento sigue en Queued (o ContingencyPending) y el Worker reintenta
+            // el mensaje.
             await unitOfWork.SaveChangesAsync(ct);
             throw new DianNotDeliveredException($"The DIAN did not receive document {document.Id}: {notDelivered.Reason}");
         }
@@ -149,7 +186,8 @@ internal sealed class SendDocumentToDianHandler(
     {
         var payload = message.GetPayload<SendDocumentToDianPayload>();
         if (message.CompanyId is not { } companyId
-            || await documents.FindForUpdateAsync(companyId, payload.DocumentId, ct) is not { Status: DocumentStatus.Queued } document)
+            || await documents.FindForUpdateAsync(companyId, payload.DocumentId, ct) is not
+                { Status: DocumentStatus.Queued or DocumentStatus.ContingencyPending } document)
         {
             return;
         }
@@ -167,16 +205,94 @@ internal sealed class SendDocumentToDianHandler(
             return;
         }
 
+        if (document.Status == DocumentStatus.ContingencyPending)
+        {
+            await KeepContingencyPendingAsync(document, payload, ct);
+            await unitOfWork.SaveChangesAsync(ct);
+            return;
+        }
+
         document.MoveTo(DocumentStatus.Failed);
         await unitOfWork.SaveChangesAsync(ct);
         logger.LogWarning("Document {DocumentId} could not be sent to the DIAN after every attempt; it is marked Failed.", document.Id);
+    }
+
+    /// <summary>
+    /// The company is inactive: the document keeps its status and one message waits for the next look (see
+    /// <see cref="InactiveCompanyHold"/>). A repeated message of the same document (end-of-7a verification, M1) does not
+    /// carry on: when another one already waits it simply ends, and when two are held at the same time the claim lets only
+    /// one of them schedule the next look.
+    /// </summary>
+    private async Task HoldAsync(OutboxMessageContext message, SendDocumentToDianPayload payload, Document document, long readVersion, CancellationToken ct)
+    {
+        var others = (await documents.LiveSendsAsync(document.CompanyId, [document.Id], ct))
+            .Where(send => send.MessageId != message.MessageId)
+            .ToList();
+        if (others.Any(send => !send.Running))
+        {
+            logger.LogInformation(
+                "Company {CompanyId} is inactive and document {DocumentId} already has another send waiting; outbox message {MessageId} ends.",
+                document.CompanyId, document.Id, message.MessageId);
+            return;
+        }
+
+        documents.Claim(document);
+        try
+        {
+            await InactiveCompanyHold.HoldAsync(message, payload, document.CompanyId, outbox, unitOfWork, clock, logger, ct);
+        }
+        catch (PersistenceConflictException) when (!ct.IsCancellationRequested)
+        {
+            if (await ClaimedElsewhereAsync(document, readVersion, ct))
+            {
+                logger.LogInformation(
+                    "Document {DocumentId} was held or sent by another message at the same time; outbox message {MessageId} ends.",
+                    document.Id, message.MessageId);
+                return;
+            }
+
+            throw;
+        }
+    }
+
+    /// <summary>Whether another message saved the document after this one read it (the stored version is not the one read).</summary>
+    private async Task<bool> ClaimedElsewhereAsync(Document document, long readVersion, CancellationToken ct) =>
+        await documents.StoredRowVersionAsync(document.CompanyId, document.Id, ct) != readVersion;
+
+    /// <summary>
+    /// No attempt of an invoice type 04 reached the DIAN: it stays <c>ContingencyPending</c> (never <c>Failed</c>: it was
+    /// issued and must still be transmitted, annex 1.9, 12.2) and, within <see cref="ContingencyDelivery.AutomaticWindow"/>
+    /// of being stored, another attempt is scheduled after <see cref="ContingencyDelivery.RetryInterval"/>; after that the
+    /// company gets a notice and only <c>send-pending</c> sends it.
+    /// </summary>
+    private async Task KeepContingencyPendingAsync(Document document, SendDocumentToDianPayload payload, CancellationToken ct)
+    {
+        var now = clock.UtcNow;
+        if (now >= document.CreatedAt + ContingencyDelivery.AutomaticWindow)
+        {
+            delivery.NotifyContingencyStillPending(document);
+            return;
+        }
+
+        await outbox.EnqueueAsync(OutboxMessageTypes.SendDocumentToDian, payload, document.CompanyId, now + ContingencyDelivery.RetryInterval, ct);
+        logger.LogWarning(
+            "Contingency invoice {DocumentId} did not reach the DIAN after every attempt; it stays pending and is sent again in {Interval}.",
+            document.Id, ContingencyDelivery.RetryInterval);
     }
 
     private async Task ApplyAsync(Document document, DianAnswer answer, DateTimeOffset startedAt, DianEndpoint endpoint, CancellationToken ct)
     {
         if (answer is DianAnswer.Refused refused)
         {
-            delivery.Refuse(document, refused.Reason);
+            if (document.Status == DocumentStatus.ContingencyPending)
+            {
+                delivery.RefuseContingency(document, refused.Reason);
+            }
+            else
+            {
+                delivery.Refuse(document, refused.Reason);
+            }
+
             return;
         }
 
@@ -200,14 +316,27 @@ internal sealed class SendDocumentToDianHandler(
         }
     }
 
+}
+
+/// <summary>
+/// The consecutives of the DIAN file names of a company (supuesto C2; annex 1.9, sections 6.7 and 6.8): one per XML prefix
+/// (<c>fv</c>, <c>nc</c>, <c>nd</c>, <c>dse</c>, <c>nds</c>) and one for the ZIP packages (<c>z</c>), each restarting every
+/// year. A single send and a batch take them through here, so they never repeat a name.
+/// </summary>
+internal static class DianFileCounters
+{
+    /// <summary>Prefix of the counter of the ZIP packages sent in a batch (annex 1.9, section 6.8).</summary>
+    public const string ZipPrefix = "z";
+
     /// <summary>
-    /// Siguiente número del consecutivo de nombres de archivo de la empresa para ese tipo y año (supuesto C2). El
+    /// Siguiente número del consecutivo de nombres de archivo de la empresa para ese prefijo y año (supuesto C2). El
     /// primer envío del año crea el consecutivo en 1; si dos envíos lo crean a la vez, uno choca con el índice único y
     /// su mensaje se reintenta.
     /// </summary>
-    private async Task<long> TakeFileCounterAsync(Guid companyId, DianFileKind kind, int year, CancellationToken ct)
+    public static async Task<long> TakeAsync(
+        INumberingSequences numbering, IUnitOfWork unitOfWork, Guid companyId, string filePrefix, int year, CancellationToken ct)
     {
-        var scopeKey = NumberingScope.ForDianFile(FilePrefixOf(kind), year);
+        var scopeKey = NumberingScope.ForDianFile(filePrefix, year);
         if (await numbering.TakeNextAsync(companyId, scopeKey, ct) is { } taken)
         {
             return taken;
@@ -219,20 +348,15 @@ internal sealed class SendDocumentToDianHandler(
             ?? throw new InvalidOperationException($"The file name sequence {scopeKey} was not created.");
     }
 
-    private static DianFileKind FileKindOf(Document document) => document.DocumentTypeId switch
+    public static DianFileKind KindOf(Document document) => document.DocumentTypeId switch
     {
-        // Factura de venta nacional, de exportación y de contingencia.
-        1 or 2 or 3 => DianFileKind.Invoice,
+        // Factura de venta nacional, de exportación y de contingencia (tipos 03 y 04).
+        1 or 2 or DocumentFamilies.ContingencyInvoiceType or DocumentFamilies.DianContingencyInvoiceType => DianFileKind.Invoice,
         4 => DianFileKind.CreditNote,
         5 => DianFileKind.DebitNote,
+        DocumentFamilies.SupportDocumentType => DianFileKind.SupportDocument,
+        DocumentFamilies.SupportDocumentAdjustmentNoteType => DianFileKind.SupportDocumentAdjustmentNote,
         _ => throw new PermanentOutboxFailureException(
             $"Document {document.Id} has type {document.DocumentTypeId}, which is not sent to the DIAN yet."),
-    };
-
-    private static string FilePrefixOf(DianFileKind kind) => kind switch
-    {
-        DianFileKind.Invoice => "fv",
-        DianFileKind.CreditNote => "nc",
-        _ => "nd",
     };
 }

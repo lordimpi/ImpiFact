@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormField, submit } from '@angular/forms/signals';
 import { AppError, HasUnsavedChanges, ToastStore } from '@impifact/core';
 import {
@@ -18,6 +25,7 @@ import {
 } from '@impifact/ui';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 import { companiesTableLabels, companiesText, provideCompaniesI18n } from '../companies-i18n';
+import { SupportSoftwareFormComponent } from '../components/support-software-form.component';
 import { fieldMessage, serverFieldErrors } from '../forms/form-messages';
 import {
   SOFTWARE_FIELDS,
@@ -31,7 +39,8 @@ import { PRODUCTION, kindKey } from '../models/dian';
 import { CompanySetupStore } from '../state/company-setup.store';
 
 /**
- * Software (`/empresas/:id/software`): identificador, PIN y set de pruebas de la factura electrónica. Al abrir se lee
+ * Software (`/empresas/:id/software`): identificador, PIN y set de pruebas de la factura electrónica y, aparte, el
+ * software del documento soporte (`feat-support-software-form`, con su propio identificador y PIN). Al abrir se lee
  * el software guardado (`getCompanySoftware`) y el ambiente actual; el Api nunca devuelve el PIN, solo si existe
  * (`has_pin`). Con un PIN guardado el campo es opcional: vacío lo conserva. El PIN va en un campo de contraseña y se
  * vacía después de cada envío, haya salido bien o no.
@@ -52,6 +61,7 @@ import { CompanySetupStore } from '../state/company-setup.store';
     InputDirective,
     PasswordToggleDirective,
     LoadingComponent,
+    SupportSoftwareFormComponent,
   ],
   providers: [provideCompaniesI18n()],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -121,6 +131,8 @@ import { CompanySetupStore } from '../state/company-setup.store';
         </ui-card>
       </form>
 
+      <feat-support-software-form />
+
       <ui-card
         [headingLevel]="3"
         [title]="'companies.software.registered' | transloco"
@@ -158,6 +170,7 @@ import { CompanySetupStore } from '../state/company-setup.store';
 })
 export class SoftwarePage implements HasUnsavedChanges {
   protected readonly setup = inject(CompanySetupStore);
+  private readonly supportSoftware = viewChild.required(SupportSoftwareFormComponent);
   private readonly toasts = inject(ToastStore);
   private readonly transloco = inject(TranslocoService);
 
@@ -230,6 +243,7 @@ export class SoftwarePage implements HasUnsavedChanges {
     if (!this.softwareForm().dirty()) {
       this.model.set(this.savedModel());
     }
+    this.supportSoftware().refill();
   }
 
   private savedModel(): SoftwareModel {
@@ -242,7 +256,7 @@ export class SoftwarePage implements HasUnsavedChanges {
   }
 
   hasUnsavedChanges(): boolean {
-    return this.softwareForm().dirty();
+    return this.softwareForm().dirty() || this.supportSoftware().dirty();
   }
 
   protected async onSubmit(event: Event): Promise<void> {

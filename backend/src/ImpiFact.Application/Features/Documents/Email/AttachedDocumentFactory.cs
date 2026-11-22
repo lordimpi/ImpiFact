@@ -117,10 +117,11 @@ internal static class AttachedDocumentFactory
 
     private static AttachedDocumentKind KindOf(int documentTypeId) => documentTypeId switch
     {
-        // Factura de venta nacional, de exportación y de contingencia.
-        1 or 2 or 3 => AttachedDocumentKind.Invoice,
+        // Factura de venta nacional, de exportación y de contingencia (tipos 03 y 04).
+        1 or 2 or DocumentFamilies.ContingencyInvoiceType or DocumentFamilies.DianContingencyInvoiceType => AttachedDocumentKind.Invoice,
         4 => AttachedDocumentKind.CreditNote,
         5 => AttachedDocumentKind.DebitNote,
+        DocumentFamilies.SupportDocumentType or DocumentFamilies.SupportDocumentAdjustmentNoteType => AttachedDocumentKind.SupportDocument,
         _ => throw new ArgumentException($"Document type {documentTypeId} has no attached document.", nameof(documentTypeId)),
     };
 }

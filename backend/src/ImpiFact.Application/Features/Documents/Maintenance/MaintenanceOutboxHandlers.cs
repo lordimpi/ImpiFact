@@ -97,7 +97,7 @@ internal sealed class RegenerateAttachedDocumentOutboxHandler(
             throw new PermanentOutboxFailureException($"Document {document.Id} has no application response.");
         }
 
-        var secretRef = (await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentKind.Invoice, ct))?.Certificate?.SecretRef
+        var secretRef = (await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct))?.Certificate?.SecretRef
             ?? throw new PermanentOutboxFailureException($"Company {companyId} has no active certificate.");
 
         string attachedDocument;

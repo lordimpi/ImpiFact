@@ -28,6 +28,12 @@ public static class IdentityErrors
     public static readonly Error CompanyNotAllowed =
         new("identity.company_not_allowed", "El usuario no pertenece a esa empresa.", ErrorType.Forbidden);
 
+    /// <summary>The user belongs to the company, but the platform deactivated it: nobody works in it until it is reactivated.</summary>
+    public static readonly Error CompanyInactive = new(
+        "identity.company_inactive",
+        "La empresa está desactivada: la plataforma la desactivó y nadie puede trabajar en ella hasta que la reactive.",
+        ErrorType.Forbidden);
+
     public static readonly Error Forbidden =
         new("identity.forbidden", "La credencial no tiene permiso para esta operación.", ErrorType.Forbidden);
 

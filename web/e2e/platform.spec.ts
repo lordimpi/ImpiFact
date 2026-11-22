@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { seriousViolations } from './support/axe';
+import { seriousViolations, seriousViolationsInBothThemes } from './support/axe';
 import { openMenu, pickMenuItem } from './support/menu';
 import { pressLikeAPerson } from './support/press';
 import { signInAt } from './support/sign-in';
@@ -80,6 +80,7 @@ test('assigns a plan to a company picked from the searchable list', async ({ pag
     'Asignar plan',
     'Crear usuario',
     'Usuarios',
+    'Desactivar',
   ]);
   expect(await seriousViolations(page)).toEqual([]);
   await page.keyboard.press('Escape');
@@ -106,6 +107,81 @@ test('assigns a plan to a company picked from the searchable list', async ({ pag
   expect(assigned).toHaveLength(1);
   expect(assigned[0]!.url).toContain('/api/v1/companies/800111222/plan');
   expect(assigned[0]!.body).toEqual({ plan_id: 2 });
+});
+
+test('deactivates and reactivates a company after the confirmation, and the row follows by itself', async ({
+  page,
+}) => {
+  await signInAt(page, '/plataforma/empresas', asPlatformAdmin);
+  const calls: string[] = [];
+  let listed = 0;
+  let active = true;
+  await page.route('**/api/v1/plans', (route) =>
+    route.fulfill({ json: { success: true, data: PLANS } }),
+  );
+  await page.route(/\/api\/v1\/platform\/companies(\?|$)/, (route) => {
+    listed += 1;
+    return route.fulfill({ json: { items: COMPANIES, next_cursor: null } });
+  });
+  await page.route(/\/api\/v1\/platform\/companies\/\d+\/(deactivate|reactivate)$/, (route) => {
+    const url = new URL(route.request().url()).pathname;
+    calls.push(`${route.request().method()} ${url}`);
+    active = url.endsWith('/reactivate');
+    return route.fulfill({
+      json: {
+        ...COMPANIES[0],
+        is_active: active,
+        changed: true,
+        revoked_api_keys: active ? 0 : 2,
+        signed_out_users: active ? 0 : 1,
+      },
+    });
+  });
+  await page.reload();
+
+  const table = page.getByRole('table', { name: 'Empresas de la plataforma' });
+  const acme = table.getByRole('row').filter({ hasText: 'Acme SAS' });
+  await expect(acme.getByText('Activa', { exact: true })).toBeVisible();
+
+  await pickMenuItem(page, 'Acciones de Acme SAS', 'Desactivar');
+  const confirm = page.getByRole('alertdialog', { name: '¿Desactivar Acme SAS?' });
+  await expect(confirm).toBeVisible();
+  await expect(confirm).toContainText('Sus API keys se revocan para siempre');
+  await expect(confirm).toContainText('Las facturas y demás documentos se conservan');
+  // The safe choice has the focus, and Escape only closes the question.
+  await expect(confirm.getByRole('button', { name: 'Cancelar' })).toBeFocused();
+  expect(await seriousViolationsInBothThemes(page)).toEqual({ light: [], dark: [] });
+  await page.keyboard.press('Escape');
+  await expect(confirm).toBeHidden();
+  expect(calls).toEqual([]);
+
+  await pickMenuItem(page, 'Acciones de Acme SAS', 'Desactivar');
+  await confirm.getByRole('button', { name: 'Desactivar empresa' }).click();
+  await expect(
+    page.getByText(
+      'Se desactivó Acme SAS (NIT 900123456). API keys revocadas: 2. Usuarios con la sesión cerrada: 1.',
+    ),
+  ).toBeVisible();
+  await expect(acme.getByText('Inactiva', { exact: true })).toBeVisible();
+
+  const menu = await openMenu(page, 'Acciones de Acme SAS');
+  await expect(menu.getByRole('menuitem', { name: 'Reactivar', exact: true })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Desactivar', exact: true })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+
+  await pickMenuItem(page, 'Acciones de Acme SAS', 'Reactivar');
+  await page
+    .getByRole('alertdialog', { name: '¿Reactivar Acme SAS?' })
+    .getByRole('button', { name: 'Reactivar empresa' })
+    .click();
+  await expect(page.getByText(/Se reactivó Acme SAS \(NIT 900123456\)/)).toBeVisible();
+  await expect(acme.getByText('Activa', { exact: true })).toBeVisible();
+  expect(calls).toEqual([
+    'POST /api/v1/platform/companies/900123456/deactivate',
+    'POST /api/v1/platform/companies/900123456/reactivate',
+  ]);
+  expect(listed).toBe(1);
 });
 
 test('fits every company on one line at 1366×768, with its NIT and its actions menu', async ({

@@ -13,8 +13,7 @@ namespace ImpiFact.Api.Plans;
 
 /// <summary>
 /// Endpoints del módulo Billing: planes y consumo (carpeta 09 «Planes» de la colección Postman; Arquitectura detallada,
-/// sección 9.3). Las rutas heredadas <c>/api/ubl2.1/plan...</c> y las canónicas <c>/api/v1/plans...</c> usan el mismo
-/// caso de uso y responden el mismo JSON.
+/// sección 9.3), bajo <c>/api/v1/plans...</c>. Las heredadas <c>/api/ubl2.1/plan...</c> se borraron en la fase 7a (T9b2).
 /// </summary>
 /// <remarks>
 /// En el PHP <c>plan</c>, <c>plan/query</c> y <c>plan/queryusersbyplan</c> eran públicas («php-rules», sección 5.1);
@@ -26,15 +25,6 @@ internal sealed class PlanEndpoints : IEndpointModule
 {
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-        // Contrato heredado del PHP: sigue activo para la colección Postman, fuera de la documentación; se borra en la fase 7.
-        var legacy = endpoints.MapGroup("/api/ubl2.1/plan").WithTags(ApiTags.Plans).ExcludeFromDescription();
-        legacy.MapPut("", StorePlan).RequireAuthorization(ApiScopes.Platform);
-        legacy.MapGet("/query", (IHandler<QueryPlansQuery, PlansResponse> handler, CancellationToken ct) => QueryPlans(null, handler, ct))
-            .RequireAuthorization(ApiScopes.Platform);
-        legacy.MapGet("/query/{id:int}", QueryPlans).RequireAuthorization(ApiScopes.Platform);
-        legacy.MapGet("/queryusersbyplan/{id:int}", QueryPlanCompanies).RequireAuthorization(ApiScopes.Platform);
-        legacy.MapGet("/infoplanuser", CurrentPlan).RequireAuthorization(ApiScopes.DocumentsRead);
-
         var canonical = endpoints.MapGroup("/api/v1/plans").WithTags(ApiTags.Plans);
         canonical.MapGet("", (IHandler<QueryPlansQuery, PlansResponse> handler, CancellationToken ct) => QueryPlans(null, handler, ct))
             .RequireAuthorization(ApiScopes.Platform)

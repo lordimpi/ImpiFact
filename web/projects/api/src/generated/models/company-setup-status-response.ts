@@ -3,12 +3,14 @@
 
 import { EnvironmentResponse } from '../models/environment-response';
 import { ResolutionReadiness } from '../models/resolution-readiness';
+import { SupportDocumentReadiness } from '../models/support-document-readiness';
 export interface CompanySetupStatusResponse {
   certificate_valid?: boolean;
   company_complete?: boolean;
   environments?: Array<EnvironmentResponse>;
   resolutions?: Array<ResolutionReadiness>;
   software_configured?: boolean;
+  support_document?: SupportDocumentReadiness;
   test_set_accepted?: (boolean | null);
   test_set_id_configured?: boolean;
 }

@@ -233,6 +233,7 @@ internal sealed class ModelGraph
                 CompanyId = companyId, ReceivedDocumentId = received.Id, EventId = 1, Cude = "ef" + nit, IssuedAt = now,
                 Status = DocumentEventStatus.Pending, PayloadFileId = file.Id,
             },
+            new DocumentBatch { CompanyId = companyId, Name = "batch-" + nit },
             new NumberingSequence { CompanyId = companyId, ScopeKey = "R:" + resolution.Id, NextNumber = 990000002 },
             new CompanyPlan { CompanyId = companyId, PlanId = planId, StartsAt = now, IsActive = true },
             new Notification { CompanyId = companyId, UserId = userId, Type = "certificate", Title = "Title", Body = "Body" },

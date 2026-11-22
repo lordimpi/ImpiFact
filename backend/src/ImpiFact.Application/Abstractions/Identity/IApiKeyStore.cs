@@ -32,6 +32,14 @@ public interface IApiKeyStore
 
     /// <summary>Marca la llave como revocada (<c>revoked_at</c>). Se guarda al confirmar la transacción del caso de uso.</summary>
     Task RevokeAsync(Guid apiKeyId, DateTimeOffset revokedAt, CancellationToken ct);
+
+    /// <summary>
+    /// Marca revocadas todas las llaves de la empresa que siguen sin revocar (vencidas incluidas), cuando la plataforma
+    /// la desactiva. Se guarda al confirmar la transacción del caso de uso y se revierte con ella. La revocación es
+    /// definitiva: reactivar la empresa no devuelve estas llaves.
+    /// </summary>
+    /// <returns>El resumen (<c>key_hash</c>) de cada llave revocada, para sacarla de la caché.</returns>
+    Task<IReadOnlyList<string>> RevokeAllActiveForCompanyAsync(Guid companyId, DateTimeOffset revokedAt, CancellationToken ct);
 }
 
 /// <summary>Una API key tal como está guardada: nunca el texto claro, solo su resumen.</summary>

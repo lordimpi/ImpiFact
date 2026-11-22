@@ -85,6 +85,55 @@ public sealed record SalesInvoice
 
     public required IReadOnlyList<InvoiceLine> Lines { get; init; }
 
+    /// <summary>
+    /// Object of the AIU contract (<c>noteAIU</c>) of an AIU invoice (administration, contingencies and profit); null
+    /// otherwise. Like ApiDian (<c>_invoice_lines.blade.php</c>), the builder writes «Contrato de servicios AIU por
+    /// concepto de: {object}» as the first cbc:Note of every line whose description is exactly «Administración».
+    /// </summary>
+    public string? AiuContractObject { get; init; }
+
+    /// <summary>How the cbc:ID of each line carries a schemeID: none, mandate or freight transport.</summary>
+    public InvoiceLineIdScheme LineIdScheme { get; init; } = InvoiceLineIdScheme.Plain;
+
+    /// <summary>
+    /// Export invoice data (type 02, ApiDian template <c>02.blade.php</c>); null for the other invoices. With it the
+    /// builder writes cac:DeliveryTerms after the customer, omits cac:PaymentTerms and, when the supplement is present,
+    /// adds the third ext:UBLExtension (annex 1.9, supplement K).
+    /// </summary>
+    public ExportTerms? Export { get; init; }
+
+    /// <summary>
+    /// When true every @currencyID is the document currency (cbc:DocumentCurrencyCode), as annex 1.9 rule FAD15b asks
+    /// (only the TotalesCop extension is in pesos). When false, the lines, charges, taxes and totals keep the local
+    /// currency like ApiDian's template 01 (php-rules 3.2, item 6), which the golden cases pin.
+    /// </summary>
+    public bool AmountsInDocumentCurrency { get; init; }
+
+    /// <summary>
+    /// Support document data (type 05, ApiDian template <c>05.blade.php</c>); null for the sales invoices. With it the
+    /// builder writes the support-document profile and the CUDS (with <see cref="Software"/>'s PIN; the technical key of
+    /// the resolution is never used), lays the parties out as that template does (<see cref="Supplier"/> is the seller not
+    /// obliged to invoice and <see cref="Customer"/> the issuing company, which is also the software provider), always
+    /// writes cac:PaymentExchangeRate and gives each line its cac:InvoicePeriod without cbc:FreeOfChargeIndicator.
+    /// </summary>
+    public SupportDocumentTerms? SupportDocument { get; init; }
+
+    /// <summary>
+    /// The paper invoice that a contingency invoice type 03 transcribes (ApiDian template <c>03.blade.php</c>); null for the
+    /// other invoices. With it the builder writes cac:AdditionalDocumentReference right after cbc:LineCountNumeric and the
+    /// CUDE with <see cref="Software"/>'s PIN (schemeName <c>CUDE-SHA384</c>): annex 1.9, section 11.1.4, Nota-2, says
+    /// the transcription of a contingency invoice never uses a technical key, because its numbering has none.
+    /// </summary>
+    public PaperInvoiceReference? PaperInvoice { get; init; }
+
+    /// <summary>
+    /// Health-sector invoice data (Ministerio de Salud, Resolución 948 de 2026, Documento Técnico 2 v001); null for every
+    /// other invoice. With it the builder writes the health operation (<c>SS-CUFE</c>, <c>SS-Recaudo</c>…) in
+    /// cbc:CustomizationID, cac:InvoicePeriod after cbc:LineCountNumeric and, when <see cref="HealthSectorTerms.Fields"/>
+    /// is present, the health extension as the second ext:UBLExtension (the signature goes in the third one).
+    /// </summary>
+    public HealthSectorTerms? HealthSector { get; init; }
+
     /// <summary>Número del documento tal como se escribe en cbc:ID.</summary>
     public string DocumentNumber => Resolution.Prefix + Number.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
@@ -98,6 +147,97 @@ public sealed record NumberingResolution(
     long From,
     long To,
     string TechnicalKey);
+
+/// <summary>
+/// What a support document adds to the sales invoice. Without <see cref="SalesInvoice.ForeignCurrency"/>, ApiDian writes
+/// cac:PaymentExchangeRate anyway, from the company currency to itself with rate 1 and <see cref="ExchangeRateDate"/>
+/// (the day of the issue request, php-rules 13.2, item 4).
+/// </summary>
+public sealed record SupportDocumentTerms(DateOnly ExchangeRateDate);
+
+/// <summary>
+/// The paper (or manual) invoice behind a contingency invoice type 03: its number (cbc:ID), date (cbc:IssueDate) and
+/// document type code (cbc:DocumentTypeCode, for example <c>01</c>). Annex 1.9 rule FAI01 requires the group for type 03.
+/// </summary>
+public sealed record PaperInvoiceReference(string Id, DateOnly IssueDate, string DocumentTypeCode);
+
+/// <summary>
+/// cac:InvoicePeriod of a support-document line: when the purchase was made (cbc:StartDate) and how it is reported
+/// (<c>type_generation_transmitions</c>: 1 per operation, 2 weekly accumulated) as code and name.
+/// </summary>
+public sealed record LineGenerationPeriod(DateOnly StartDate, string DescriptionCode, string Description);
+
+/// <summary>
+/// What a health-sector invoice adds (Documento Técnico 2 v001, sections 4 and 7): the health operation type code
+/// (<c>SS-CUFE</c>, <c>SS-CUDE</c>, <c>SS-POS</c>, <c>SS-SNum</c>, <c>SS-Recaudo</c>, <c>SS-Reporte</c> or
+/// <c>SS-SinAporte</c>), the billing period (cac:InvoicePeriod, required) and the fields of the health extension, null when
+/// the invoice carries no extension (<c>SS-Recaudo</c> never does).
+/// </summary>
+public sealed record HealthSectorTerms(string OperationCode, DateOnly PeriodStartDate, DateOnly PeriodEndDate, HealthSectorFields? Fields);
+
+/// <summary>
+/// The single Collection «Usuario» of the health extension (Documento Técnico 2 v001, section 6.a): one per invoice, so
+/// every user of a multi-user invoice shares the payment method and the coverage (sections 4.2 and 4.3).
+/// </summary>
+/// <param name="ProviderCode">CODIGO_PRESTADOR: the REPS code of the provider (or the one the Ministry assigned).</param>
+/// <param name="PaymentMethod">MODALIDAD_PAGO: code (schemeID) and name of the SISPRO table <c>modalidadPago</c>.</param>
+/// <param name="Coverage">COBERTURA_PLAN_BENEFICIOS: code (schemeID) and name of the SISPRO table <c>coberturaPlan</c>.</param>
+/// <param name="ContractNumber">NUMERO_CONTRATO; null writes an empty value (section 4.4: «en caso contrario irá vacío»).</param>
+/// <param name="PolicyNumber">NUMERO_POLIZA; null writes an empty value (section 4.5).</param>
+/// <param name="InvoiceWithoutContract">FACTURA_SIN_CONTRATO (table <c>facturaSinContrato</c>); written only when present.</param>
+public sealed record HealthSectorFields(
+    string ProviderCode,
+    HealthCode PaymentMethod,
+    HealthCode Coverage,
+    string? ContractNumber,
+    string? PolicyNumber,
+    HealthCode? InvoiceWithoutContract);
+
+/// <summary>A code of a SISPRO reference table and its name, written as the Value text and its schemeID.</summary>
+public sealed record HealthCode(string Code, string Name);
+
+/// <summary>What an export invoice adds to the sales invoice: its Incoterm and, optionally, the supplement K.</summary>
+public sealed record ExportTerms(DeliveryTerms DeliveryTerms, ExportSupplement? Supplement);
+
+/// <summary>
+/// cac:DeliveryTerms of an export invoice: the payment of the transport costs (cbc:SpecialTerms), the Incoterm
+/// (cbc:LossRiskResponsibilityCode, annex 1.9 list 13.3.7) and cbc:LossRisk, a free text the DIAN does not use.
+/// </summary>
+public sealed record DeliveryTerms(string SpecialTerms, string LossRiskResponsibilityCode, string LossRisk);
+
+/// <summary>
+/// Supplement K of annex 1.9 (section 21): the CustomTagGeneral extension with the export data
+/// (Interoperabilidad) and the totals converted to pesos (TotalesCop). The DIAN does not validate it; it feeds the
+/// graphic representation. Values are written as they arrive, like ApiDian's <c>_ubl_extensions.blade.php</c>.
+/// </summary>
+/// <param name="AdditionalInformation">One value per <see cref="AdditionalInformationFields"/>, in that order.</param>
+/// <param name="CopTotals">One value per <see cref="CopTotalFields"/>, in that order.</param>
+public sealed record ExportSupplement(IReadOnlyList<string> AdditionalInformation, IReadOnlyList<string> CopTotals)
+{
+    /// <summary>Key of each value in the <c>k_supplement</c> request object and the name ApiDian writes for it.</summary>
+    public static readonly IReadOnlyList<(string Key, string Name)> AdditionalInformationFields =
+    [
+        ("responsible_incharge", "Responsable/Encargado"),
+        ("departure_place", "Lugar de Salida"),
+        ("conveyance", "Medio de transporte"),
+        ("transport_document_type", "Tipo de Doc.de transporte"),
+        ("transport_document_number", "N° de Doc. de transporte"),
+        ("transporter_processor", "Transportadora o Tramitadora"),
+        ("merchandise_origin_country", "País de Origen de la M/cia"),
+        ("destination", "Destino"),
+        ("payment_means", "Términos de pago"),
+        ("insurance_carrier", "Seguro"),
+        ("observations", "Observaciones"),
+    ];
+
+    /// <summary>Elements of TotalesCop; each one is also its key in the <c>k_supplement</c> request object.</summary>
+    public static readonly IReadOnlyList<string> CopTotalFields =
+    [
+        "FctConvCop", "MonedaCop", "SubTotalCop", "DescuentoDetalleCop", "RecargoDetalleCop", "TotalBrutoFacturaCop",
+        "TotIvaCop", "TotIncCop", "TotBolCop", "ImpOtroCop", "MntImpCop", "TotalNetoFacturaCop", "MntDctoCop",
+        "MntRcgoCop", "VlrPagarCop", "ReteFueCop", "ReteIvaCop", "ReteIcaCop", "TotAnticiposCop",
+    ];
+}
 
 /// <summary>Software registrado ante la DIAN; entra en sts:SoftwareID y sts:SoftwareSecurityCode.</summary>
 public sealed record SoftwareCredentials(string SoftwareId, string Pin)
@@ -157,6 +297,12 @@ public sealed record InvoiceParty
 
     public string? Email { get; init; }
 
+    /// <summary>
+    /// Postal code written as cbc:PostalZone of the physical location; only the seller of a support document has it
+    /// (<c>postal_zone_code</c>). Null for every other party.
+    /// </summary>
+    public string? PostalZone { get; init; }
+
     /// <summary>El consumidor final de la DIAN (222222222222) no lleva datos de contacto.</summary>
     public bool IsFinalConsumer => IdentificationNumber == "222222222222";
 }
@@ -188,7 +334,13 @@ public sealed record PaymentTerms(string FormCode, string MethodCode, DateOnly? 
 /// <param name="ReceivedDate">Fecha en que se recibió el pago (cbc:ReceivedDate).</param>
 /// <param name="PaidDate">Fecha en que se hizo el pago (cbc:PaidDate).</param>
 /// <param name="InstructionId">Instrucciones relativas al pago (cbc:InstructionID).</param>
-public sealed record PrepaidPayment(string Id, decimal PaidAmount, DateOnly ReceivedDate, DateOnly? PaidDate, string? InstructionId);
+/// <param name="ConceptCode">
+/// Health-sector invoice only: the collection concept (SISPRO table <c>conceptoRecaudo</c>: 01 copago, 02 cuota moderadora,
+/// 03 pagos compartidos, 04 anticipo, 05 no aplica) written as the schemeID of cbc:ID (Documento Técnico 2 v001, section
+/// 7.c). Null writes cbc:ID without attributes.
+/// </param>
+public sealed record PrepaidPayment(
+    string Id, decimal PaidAmount, DateOnly ReceivedDate, DateOnly? PaidDate, string? InstructionId, string? ConceptCode = null);
 
 /// <summary>Un descuento (allowance) o un cargo, a nivel de documento o de línea.</summary>
 public sealed record AllowanceCharge
@@ -266,6 +418,12 @@ public sealed record InvoiceLine
 
     public required string Description { get; init; }
 
+    /// <summary>
+    /// Free note of the line (<c>notes</c>), written by the invoice builder as a cbc:Note after the AIU note, like ApiDian's
+    /// <c>_invoice_lines.blade.php</c>; null when not sent. The credit and debit notes do not write it.
+    /// </summary>
+    public string? Note { get; init; }
+
     public required string ItemCode { get; init; }
 
     public required ItemIdentificationScheme ItemScheme { get; init; }
@@ -283,7 +441,58 @@ public sealed record InvoiceLine
     public IReadOnlyList<AllowanceCharge> AllowanceCharges { get; init; } = [];
 
     public IReadOnlyList<TaxSubtotal> TaxSubtotals { get; init; } = [];
+
+    /// <summary>
+    /// Brand of the item (cbc:BrandName after cbc:Description); null when not sent. The invoice and the support-document
+    /// adjustment note write it; the credit and debit notes do not.
+    /// </summary>
+    public string? BrandName { get; init; }
+
+    /// <summary>Model of the item (cbc:ModelName after cbc:BrandName); null when not sent. Written like <see cref="BrandName"/>.</summary>
+    public string? ModelName { get; init; }
+
+    /// <summary>Support-document line only: its cac:InvoicePeriod. Only <see cref="InvoiceUblBuilder"/> uses it.</summary>
+    public LineGenerationPeriod? GenerationPeriod { get; init; }
+
+    /// <summary>
+    /// Third party on whose behalf the line is sold (mandate invoice); written in cac:Item as
+    /// cac:InformationContentProviderParty/cac:PowerOfAttorney/cac:AgentParty. Only <see cref="InvoiceUblBuilder"/> uses it.
+    /// </summary>
+    public LineMandator? Mandator { get; init; }
+
+    /// <summary>
+    /// RNDC consignment of a freight transport line; written in cac:Item as the cac:AdditionalItemProperty 01, 02 and 03.
+    /// Only <see cref="InvoiceUblBuilder"/> uses it.
+    /// </summary>
+    public RndcConsignment? Consignment { get; init; }
 }
+
+/// <summary>The schemeID that ApiDian writes on the cbc:ID of each invoice line (<c>_invoice_lines.blade.php</c>).</summary>
+public enum InvoiceLineIdScheme
+{
+    /// <summary>No schemeID (standard and AIU invoices).</summary>
+    Plain,
+
+    /// <summary>Mandate invoice: every line carries schemeID="1".</summary>
+    Mandate,
+
+    /// <summary>Freight transport invoice: schemeID="1" on lines with an RNDC consignment, "0" on the others.</summary>
+    Transport,
+}
+
+/// <summary>Mandator of a line: NIT (cbc:ID, schemeName 31) and its check digit (schemeID).</summary>
+public sealed record LineMandator(string IdentificationNumber, string CheckDigit);
+
+/// <summary>
+/// RNDC (Registro Nacional de Despachos de Carga) data of a freight transport line. The values are written as they
+/// arrive, without number formatting, like ApiDian.
+/// </summary>
+/// <param name="RndcConsignmentNumber">Consignment number in the RNDC (property 01).</param>
+/// <param name="InternalConsignmentNumber">Internal consignment number of the carrier (property 02).</param>
+/// <param name="Value">Consignment value (property 03, cbc:Value).</param>
+/// <param name="UnitCode">Unit of the transported quantity (property 03, unitCode of cbc:ValueQuantity).</param>
+/// <param name="Quantity">Transported quantity (property 03, cbc:ValueQuantity).</param>
+public sealed record RndcConsignment(string RndcConsignmentNumber, string InternalConsignmentNumber, string Value, string UnitCode, string Quantity);
 
 /// <summary>Esquema de identificación estándar del artículo (999 = estándar propio del contribuyente).</summary>
 public sealed record ItemIdentificationScheme(string Code, string Name, string AgencyId);

@@ -1,4 +1,5 @@
 using ImpiFact.Application.Features.Dashboard;
+using ImpiFact.Application.Features.Documents.Queries;
 using ImpiFact.Application.Tests.Features.Documents;
 using ImpiFact.Application.Tests.Features.Maintenance;
 using ImpiFact.Domain.Common;
@@ -51,6 +52,33 @@ public sealed class DashboardSummaryTests
             Assert.That(summary.Months[11], Is.EqualTo(new DashboardMonthResponse
             {
                 Month = "2026-02", Invoice = 6, CreditNote = 2, DebitNote = 0, Other = 3, Total = 11,
+            }));
+        });
+    }
+
+    // Phase 7a, T4b: the support document and its adjustment note have their own kind, like the credit and debit notes,
+    // so they no longer fall into «other».
+    [Test]
+    public async Task Support_documents_and_their_adjustment_notes_are_counted_apart_from_other()
+    {
+        _reads.Counts.AddRange(
+        [
+            new DocumentCountRow("2026-02", 1, DocumentKinds.NameOf(1), "Accepted", 2),
+            new DocumentCountRow("2026-02", 11, DocumentKinds.NameOf(11), "Accepted", 3),
+            new DocumentCountRow("2026-02", 11, DocumentKinds.NameOf(11), "Rejected", 1),
+            new DocumentCountRow("2026-02", 13, DocumentKinds.NameOf(13), "Accepted", 1),
+            new DocumentCountRow("2026-02", 9, DocumentKinds.NameOf(9), "Accepted", 4),
+        ]);
+
+        var summary = (await Handler().HandleAsync(new GetDashboardSummaryQuery(), CancellationToken.None)).Value;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That((DocumentKinds.NameOf(11), DocumentKinds.NameOf(13)), Is.EqualTo(("support_document", "support_document_adjustment_note")));
+            Assert.That(summary.Months[11], Is.EqualTo(new DashboardMonthResponse
+            {
+                Month = "2026-02", Invoice = 2, CreditNote = 0, DebitNote = 0, SupportDocument = 4, SupportDocumentAdjustmentNote = 1, Other = 4,
+                Total = 11,
             }));
         });
     }

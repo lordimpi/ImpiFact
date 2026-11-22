@@ -25,7 +25,7 @@ public sealed partial class SchemaTests
         "customers", "items",
         "documents", "document_lines", "document_taxes", "document_line_taxes", "document_allowance_charges",
         "document_payments", "document_references", "document_files", "dian_submissions", "document_events",
-        "received_documents", "numbering_sequences",
+        "received_documents", "document_batches", "numbering_sequences",
         "plans", "plan_quotas", "company_plans", "plan_usage",
         "outbox_messages", "audit_logs", "notifications", "idempotency_keys",
     ];
@@ -86,7 +86,7 @@ public sealed partial class SchemaTests
             "foot_note varchar(2000) null|track_id varchar(64) null|dian_status_code varchar(10) null|" +
             "dian_status_description varchar(500) null|sent_at ts null|accepted_at ts null|email_status smallint|" +
             "email_sent_at ts null|pdf_template_id int null|extensions json null|created_by_type smallint|" +
-            "created_by_id uuid null|" + Common,
+            "created_by_id uuid null|batch_id uuid null|" + Common,
         ["document_lines"] = "id uuid|company_id uuid|document_id uuid|line_number int|code varchar(100) null|description varchar(500)|" +
             "notes varchar(1000) null|type_item_identification_id int|unit_measure_id int|quantity numeric(18,6)|" +
             "base_quantity numeric(18,6)|unit_price numeric(18,6)|line_extension_amount numeric(18,2)|free_of_charge bool|" +
@@ -99,12 +99,20 @@ public sealed partial class SchemaTests
             "response_file_id uuid null|started_at ts|finished_at ts null|duration_ms int null|" + Common,
         ["document_events"] = "id uuid|company_id uuid|document_id uuid null|received_document_id uuid null|event_id int|" +
             "cude varchar(96)|issued_at ts|track_id varchar(64) null|status smallint|dian_status_code varchar(10) null|" +
-            "payload_file_id uuid null|" + Common,
+            "payload_file_id uuid null|number varchar(120) null|dian_status_description varchar(500) null|" +
+            "error_messages json null|rejection_code varchar(2) null|xml_file_key varchar(500) null|" +
+            "response_file_key varchar(500) null|" + Common,
         ["received_documents"] = "id uuid|company_id uuid|supplier_identification_number varchar(20)|supplier_dv char(1)|" +
             "supplier_name varchar(255)|document_type_id int|prefix varchar(10)|number varchar(20)|cufe varchar(96)|issue_date date|" +
             "type_environment_id int|line_extension_amount numeric(18,2)|tax_exclusive_amount numeric(18,2)|" +
             "allowance_total_amount numeric(18,2)|tax_amount numeric(18,2)|payable_amount numeric(18,2)|" +
-            "xml_file_key varchar(500) null|pdf_file_key varchar(500) null|" + Common,
+            "xml_file_key varchar(500) null|pdf_file_key varchar(500) null|supplier_organization_type_code varchar(2) null|" +
+            "supplier_regime_code varchar(2) null|supplier_email varchar(255) null|" + Common,
+        ["document_batches"] = "id uuid|company_id uuid|name varchar(50)|status smallint|document_count int|" +
+            "type_environment_id int null|zip_file_name varchar(100) null|zip_key varchar(64) null|entries json null|" +
+            "dian_status_code varchar(10) null|dian_status_description varchar(500) null|error_messages json null|" +
+            "zip_file_key varchar(500) null|response_file_key varchar(500) null|queued_at ts null|sent_at ts null|" +
+            "completed_at ts null|" + Common,
         ["numbering_sequences"] = "id uuid|company_id uuid|scope_key varchar(120)|next_number bigint|" + Common,
         ["plans"] = "id int|name varchar(100)|period smallint|is_active bool|observations varchar(500) null|" + Common,
         ["plan_usage"] = "company_plan_id uuid|document_kind smallint|used bigint|row_version bigint",
@@ -169,6 +177,7 @@ public sealed partial class SchemaTests
         "document_files(company_id,id)", "document_files(document_id,kind,revision)",
         "dian_submissions(document_id,attempt)", "document_events(company_id,cude)",
         "received_documents(company_id,id)", "received_documents(company_id,cufe)",
+        "document_batches(company_id,id)", "document_batches(company_id,name)",
         "numbering_sequences(company_id,scope_key)", "plans(name)", "idempotency_keys(company_id,key)",
     ];
 
@@ -347,6 +356,7 @@ public sealed partial class SchemaTests
             "document_events(company_id,document_id)->documents",
             "document_events(company_id,received_document_id)->received_documents",
             "document_events(company_id,payload_file_id)->document_files",
+            "documents(company_id,batch_id)->document_batches",
         }));
     }
 

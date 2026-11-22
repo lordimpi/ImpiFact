@@ -76,8 +76,28 @@ describe('CompanySelectionPage', () => {
     const button = await screen.findByRole('button', { name: 'Trabajar con Beta Ltda' });
     expect((button as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('Empresa inactiva')).toBeTruthy();
+    const reason =
+      'La plataforma desactivó esta empresa: nadie puede trabajar en ella hasta que la reactive.';
+    expect(screen.getByText(reason)).toBeTruthy();
+    // The reason is part of the description of the button, so a screen reader says why it is disabled.
+    const details = document.getElementById(button.getAttribute('aria-describedby') ?? '');
+    expect(details?.textContent).toContain(reason);
     fireEvent.click(button);
     expect(session.selectCompany).not.toHaveBeenCalled();
+  });
+
+  it('says so when the platform deactivated the company while the page was open', async () => {
+    const { session, router } = await renderAuthRoute('/empresas/seleccionar', SIGNED_IN);
+    session.selectCompany.mockRejectedValueOnce(
+      new AppError('identity.company_inactive', 'La empresa está desactivada.', 403),
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Trabajar con Empresa 1' }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'La plataforma desactivó esa empresa. Elija otra o comuníquese con el administrador de la plataforma.',
+    );
+    expect(router.url).toBe('/empresas/seleccionar');
   });
 
   it('switches the session to the chosen company and goes back to the requested page', async () => {

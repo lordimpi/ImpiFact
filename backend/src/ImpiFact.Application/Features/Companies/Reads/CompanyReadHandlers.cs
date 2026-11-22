@@ -147,6 +147,7 @@ internal sealed class GetCompanySetupStatusHandler(
         // La factura y sus notas comparten familia: el software y las resoluciones que cuentan son los de su ambiente actual.
         var invoiceEnvironment = Environments.CurrentFor(environments, DocumentKind.Invoice);
         var invoiceSoftware = software.FirstOrDefault(row => row.DocumentKind == DocumentKind.Invoice && row.TypeEnvironmentId == invoiceEnvironment);
+        var supportEnvironment = Environments.CurrentFor(environments, DocumentKind.SupportDocument);
         return new CompanySetupStatusResponse
         {
             CompanyComplete = IsComplete(company) && liabilities.Count > 0,
@@ -165,6 +166,21 @@ internal sealed class GetCompanySetupStatusHandler(
                         && CompanyReads.IsUsable(resolution, today)),
                 })
                 .ToList(),
+            SupportDocument = new SupportDocumentReadiness
+            {
+                TypeEnvironmentId = supportEnvironment,
+                SoftwareConfigured = software.Any(row => row.DocumentKind == DocumentKind.SupportDocument && row.TypeEnvironmentId == supportEnvironment),
+                Resolutions = CompanyReads.SupportDocumentFamily
+                    .Select(entry => new ResolutionReadiness
+                    {
+                        Kind = entry.Kind,
+                        TypeDocumentId = entry.DocumentTypeId,
+                        Valid = resolutions.Any(resolution => resolution.DocumentTypeId == entry.DocumentTypeId
+                            && resolution.TypeEnvironmentId == supportEnvironment
+                            && CompanyReads.IsUsable(resolution, today)),
+                    })
+                    .ToList(),
+            },
         };
     }
 
@@ -186,6 +202,10 @@ internal static class CompanyReads
     /// </summary>
     public static IReadOnlyList<(string Kind, int DocumentTypeId)> InvoiceFamily { get; } =
         [("invoice", 1), ("credit_note", 4), ("debit_note", 5)];
+
+    /// <summary>Types of the support-document family, with the names of the document queries.</summary>
+    public static IReadOnlyList<(string Kind, int DocumentTypeId)> SupportDocumentFamily { get; } =
+        [("support_document", 11), ("support_document_adjustment_note", 13)];
 
     public static string? KindOf(int documentTypeId) =>
         InvoiceFamily.Where(entry => entry.DocumentTypeId == documentTypeId).Select(entry => entry.Kind).FirstOrDefault();
@@ -209,5 +229,6 @@ internal static class CompanyReads
         && Evaluate(resolution, today).Remaining > 0
         && (resolution.ValidFrom is not { } from || from <= today)
         && (resolution.ValidTo is not { } to || to >= today)
-        && (resolution.DocumentTypeId != 1 || resolution is { HasTechnicalKey: true, ValidFrom: not null, ValidTo: not null });
+        && (resolution.DocumentTypeId != 1 || resolution is { HasTechnicalKey: true, ValidFrom: not null, ValidTo: not null })
+        && (resolution.DocumentTypeId != 11 || resolution is { ValidFrom: not null, ValidTo: not null, ResolutionNumber: not (null or "") });
 }

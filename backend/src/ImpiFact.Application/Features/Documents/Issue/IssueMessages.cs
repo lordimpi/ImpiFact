@@ -57,6 +57,55 @@ internal static partial class IssueMessages
 
     public static string Array(string field) => $"{Attribute(field)} debe ser un conjunto.";
 
+    public static string Positive(string field) => $"{Attribute(field)} debe ser mayor que 0.";
+
+    /// <summary>The Laravel <c>in</c> message plus the accepted Incoterms, so the client knows what to send.</summary>
+    public static string Incoterm(string field) =>
+        $"{Attribute(field)} es inválido. Use uno de estos Incoterms: CFR, CIF, CIP, CPT, DAP, DAT, DDP, EXW, FAS, FCA o FOB.";
+
+    /// <summary>The health operation of <c>health_fields</c> with the accepted values (php-rules 17).</summary>
+    public static string HealthOperation(string field) =>
+        $"{Attribute(field)} es inválido. Use un tipo de operación del sector salud: 1 (SS-CUFE), 2 (SS-CUDE), 3 (SS-POS), " +
+        "4 (SS-SNum), 5 (SS-Recaudo), 6 (SS-Reporte) o 7 (SS-SinAporte).";
+
+    /// <summary>An id outside its health reference table.</summary>
+    public static string HealthTable(string field, string table, int count) =>
+        $"{Attribute(field)} es inválido. Use un id de la {table}, de 1 a {count}.";
+
+    public static string HealthUsersRequired(string field, long operation) =>
+        $"El campo {Attribute(field)} es obligatorio cuando health_type_operation_id es {operation}: esa operación lleva la extensión del " +
+        "sector salud.";
+
+    public static string HealthUsersForbidden(string field) =>
+        $"{Attribute(field)} debe estar vacío cuando health_type_operation_id es 5 (SS-Recaudo): esa operación no lleva la extensión " +
+        "del sector salud.";
+
+    public static string HealthSameCollection(string field, string first) =>
+        $"{Attribute(field)} debe ser igual a {first}: la factura del sector salud lleva una sola colección de datos (Documento " +
+        "Técnico 2, sección 6), así que todos los usuarios comparten prestador, modalidad de pago, cobertura, contrato, póliza y " +
+        "justificación sin contrato.";
+
+    public static string HealthContractAndPolicy(string field) =>
+        $"{Attribute(field)} no se puede enviar junto con contract_number: la factura del sector salud lleva el número de contrato o " +
+        "el de póliza, no los dos.";
+
+    public static string HealthWithoutContract(string field) =>
+        $"{Attribute(field)} solo se envía cuando no hay contract_number.";
+
+    public static string NotNegative(string field) => $"{Attribute(field)} no puede ser negativo.";
+
+    public static string HealthPrepaidConceptRepeated(string field) =>
+        $"{Attribute(field)} repite un concepto: la factura del sector salud lleva un anticipo por concepto.";
+
+    /// <summary>Export invoice in another currency without its exchange rate: ImpiFact never fetches nor invents it.</summary>
+    public static string ExchangeRateRequired(string field, string currency, string localCurrency) =>
+        $"El campo {Attribute(field)} es obligatorio cuando idcurrency es {currency} y no {localCurrency}: indique la tasa de cambio a " +
+        $"{localCurrency} (la TRM o la pactada con el comprador). ImpiFact no la consulta en línea ni la supone.";
+
+    public static string ExchangeRateDateRequired(string field, string currency, string localCurrency) =>
+        $"El campo {Attribute(field)} es obligatorio cuando idcurrency es {currency} y no {localCurrency}: indique la fecha de la tasa " +
+        "de cambio (Y-m-d).";
+
     /// <summary>Regla <c>dian_dv</c> del PHP (<c>AppServiceProvider.php</c>).</summary>
     public const string InvalidDv = "Error, el digito de verificacion no es valido para este NIT.";
 

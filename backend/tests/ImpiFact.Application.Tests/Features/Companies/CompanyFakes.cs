@@ -54,6 +54,9 @@ public sealed class FakeCompanyRepository : ICompanyRepository
     public Task<Resolution?> FindResolutionAsync(Guid companyId, Guid resolutionId, CancellationToken ct) =>
         Task.FromResult(Stored.OfType<Resolution>().SingleOrDefault(row => row.CompanyId == companyId && row.Id == resolutionId));
 
+    public Task<CompanyMailSettings?> GetMailSettingsAsync(Guid companyId, CancellationToken ct) =>
+        Task.FromResult(Stored.OfType<CompanyMailSettings>().SingleOrDefault(row => row.CompanyId == companyId));
+
     public void Add<TEntity>(TEntity entity)
         where TEntity : class => Added.Add(entity);
 
@@ -106,6 +109,18 @@ public sealed class FakeApiKeyStore : IApiKeyStore
     public Task MarkUsedAsync(Guid apiKeyId, DateTimeOffset usedAt, CancellationToken ct) => throw new NotSupportedException();
 
     public Task RevokeAsync(Guid apiKeyId, DateTimeOffset revokedAt, CancellationToken ct) => throw new NotSupportedException();
+
+    /// <summary>Keys of each company still unrevoked, by hash; the call revokes them and records when.</summary>
+    public Dictionary<Guid, List<string>> ActiveByCompany { get; } = [];
+
+    public List<(Guid CompanyId, DateTimeOffset RevokedAt)> RevokedCompanies { get; } = [];
+
+    public Task<IReadOnlyList<string>> RevokeAllActiveForCompanyAsync(Guid companyId, DateTimeOffset revokedAt, CancellationToken ct)
+    {
+        RevokedCompanies.Add((companyId, revokedAt));
+        IReadOnlyList<string> hashes = ActiveByCompany.Remove(companyId, out var keys) ? keys : [];
+        return Task.FromResult(hashes);
+    }
 }
 
 /// <summary>Cifrado de mentira que deja ver el propósito usado; nunca devuelve el texto claro tal cual.</summary>

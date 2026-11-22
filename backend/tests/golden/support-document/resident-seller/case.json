@@ -1,0 +1,12 @@
+{
+  "variant": "Support document (05) bought from a resident seller not obliged to invoice",
+  "source_request": "Postman apidian-v2.1 / 02 - Primeros Envios / Documento soporte / Documento soporte sencillo",
+  "task": "T4",
+  "derived": "Fictitious issuer, customer and dates; lines, totals and variant fields as in the Postman request",
+  "code_check": {
+    "scheme_name": "CUDS-SHA384",
+    "formula": "CUDS",
+    "secret": "support-document software PIN",
+    "matches": true
+  }
+}

@@ -238,7 +238,7 @@ internal static class DianStatusAnswer
     public static async Task<int> CertificateDaysLeftAsync(
         IIssuerContextReads issuers, IClock clock, Guid companyId, int documentTypeId, CancellationToken ct)
     {
-        var certificate = (await issuers.GetAsync(companyId, documentTypeId, DocumentKind.Invoice, ct))?.Certificate;
+        var certificate = (await issuers.GetAsync(companyId, documentTypeId, DocumentFamilies.Of(documentTypeId), ct))?.Certificate;
         return certificate is null ? 0 : ColombiaTime.DaysLeft(ColombiaTime.Today(certificate.NotAfter), clock.UtcNow);
     }
 }

@@ -43,14 +43,21 @@ internal sealed class EfUserStore(ImpiFactDbContext db, CredentialStoreGuard gua
 
             // A propósito sin el filtro de empresa: se necesitan todas las empresas del usuario antes de elegir una.
             // Una pertenencia desactivada no da nada: el inicio de sesión, la renovación y las revisiones de dueño la saltan.
+            // Una empresa que la plataforma desactivó sigue en la lista, marcada, y UserRoles no le da roles.
             var companies = await db.Set<UserCompany>().AsNoTracking()
                 .IgnoreQueryFilters([QueryFilters.Tenant])
                 .Where(link => link.UserId == userId && link.IsActive)
                 .Join(db.Set<Role>(), link => link.RoleId, role => role.Id, (link, role) => new { link.CompanyId, role.Name })
+                .Join(
+                    db.Set<ImpiFact.Domain.Companies.Company>(),
+                    link => link.CompanyId,
+                    company => company.Id,
+                    (link, company) => new { link.CompanyId, link.Name, company.IsActive })
                 .OrderBy(link => link.CompanyId).ThenBy(link => link.Name)
                 .ToListAsync(ct);
 
-            return new UserRoles(platformRoles, [.. companies.Select(link => new CompanyMembership(link.CompanyId, link.Name))]);
+            return new UserRoles(
+                platformRoles, [.. companies.Select(link => new CompanyMembership(link.CompanyId, link.Name, link.IsActive))]);
         });
 
     public Task UpdatePasswordHashAsync(Guid userId, string passwordHash, CancellationToken ct) =>

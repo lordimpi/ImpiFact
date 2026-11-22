@@ -299,7 +299,7 @@ public sealed class DocumentIssueApiTests
     }
 
     [Test]
-    public async Task Test_set_route_and_canonical_alias_use_the_same_use_case()
+    public async Task Test_set_route_and_note_route_use_the_same_use_case()
     {
         using var issuer = await NewIssuerAsync();
 
@@ -324,8 +324,9 @@ public sealed class DocumentIssueApiTests
 
     /// <summary>
     /// La respuesta lleva los nombres de archivo del PHP (<c>urlinvoicexml</c>, <c>urlinvoicepdf</c> y
-    /// <c>urlinvoiceattached</c>, inventario de reglas 3.8), los mismos que entiende la ruta <c>download</c>. El XML
-    /// firmado ya se puede descargar con su nombre; el PDF y el AttachedDocument existen cuando el Worker los genera.
+    /// <c>urlinvoiceattached</c>, inventario de reglas 3.8), los mismos con que se descarga el archivo por
+    /// <c>GET /api/v1/documents/{id}/files/{kind}</c>. El XML firmado ya se puede descargar; el PDF y el AttachedDocument
+    /// existen cuando el Worker los genera.
     /// </summary>
     [TestCase("invoice", "invoice", "single-line-iva19", "FES")]
     [TestCase("credit-note", "credit-note", "partial-return-with-reference", "NCS")]
@@ -339,10 +340,12 @@ public sealed class DocumentIssueApiTests
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
         string fullNumber;
         string xmlName;
+        Guid id;
         using (var json = await Json(response))
         {
             var root = json.RootElement;
             fullNumber = root.GetProperty("document").GetProperty("full_number").GetString()!;
+            id = root.GetProperty("document").GetProperty("id").GetGuid();
             xmlName = root.GetProperty("urlinvoicexml").GetString()!;
             Assert.Multiple(() =>
             {
@@ -352,27 +355,9 @@ public sealed class DocumentIssueApiTests
             });
         }
 
-        using var download = await issuer.Client.GetAsync($"/api/ubl2.1/download/{issuer.Nit}/{xmlName}");
+        using var download = await issuer.Client.GetAsync($"/api/v1/documents/{id}/files/xml");
         Assert.That(download.StatusCode, Is.EqualTo(HttpStatusCode.OK), await download.Content.ReadAsStringAsync());
-    }
-
-    /// <summary>
-    /// La DIAN da el <c>testSetId</c> como un GUID. Otra palabra en su lugar no es un set de pruebas: por ejemplo
-    /// <c>invoice/preeliminar-view</c>, la vista previa del PHP (colección Postman, carpeta 02), no debe emitir ni
-    /// mandar nada a la DIAN.
-    /// </summary>
-    [TestCase("invoice/preeliminar-view")]
-    [TestCase("credit-note/not-a-test-set")]
-    [TestCase("debit-note/not-a-test-set")]
-    public async Task A_test_set_segment_that_is_not_a_guid_does_not_issue_anything(string route)
-    {
-        using var issuer = await NewIssuerAsync();
-
-        using var response = await PostAsync(issuer.Client, route, Edited(Invoice, json => json.Remove("number")));
-
-        await using var scope = Api.OpenScope(null, null, ActorType.System);
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound), await response.Content.ReadAsStringAsync());
-        Assert.That(await CompanyApiTests.Rows<Document>(scope.Db, issuer.CompanyId).CountAsync(), Is.Zero);
+        Assert.That(download.Content.Headers.ContentDisposition?.FileName?.Trim('"'), Is.EqualTo(xmlName));
     }
 
     private static async Task<Issuer> NewIssuerAsync(bool withCertificate = true, bool withSoftware = true, IEnumerable<object>? resolutions = null)
@@ -388,17 +373,17 @@ public sealed class DocumentIssueApiTests
         return content;
     }
 
-    // Contrato del PHP: GET invoice/current_number/{type}/{prefix?}/{ignore_state_document_id?} → {number, success, prefix}.
-    // En ImpiFact el número sale del consecutivo, que nunca reutiliza números; por eso el tercer parámetro no cambia nada.
+    // El current_number del PHP: {number, success, prefix}. En ImpiFact el número sale del consecutivo, que nunca reutiliza
+    // números, y consultarlo no lo reserva (php-rules 5.4.3).
     [Test]
     public async Task Current_number_reports_the_next_consecutive_number_of_the_resolution()
     {
         using var issuer = await NewIssuerAsync();
 
-        using var before = await issuer.Client.GetAsync("/api/ubl2.1/invoice/current_number/1");
+        using var before = await issuer.Client.GetAsync("/api/v1/documents/current-number/1");
         (await PostAsync(issuer.Client, "invoice", Edited(Invoice, json => json.Remove("number")))).Dispose();
-        using var after = await issuer.Client.GetAsync("/api/ubl2.1/invoice/current_number/1/SETP/true");
-        using var credit = await issuer.Client.GetAsync("/api/ubl2.1/invoice/current_number/4/null");
+        using var after = await issuer.Client.GetAsync("/api/v1/documents/current-number/1?prefix=SETP");
+        using var credit = await issuer.Client.GetAsync("/api/v1/documents/current-number/4");
         using var canonical = await issuer.Client.GetAsync("/api/v1/documents/current-number/1?prefix=SETP");
         using var beforeJson = await Json(before);
         using var afterJson = await Json(after);
@@ -414,85 +399,28 @@ public sealed class DocumentIssueApiTests
             Assert.That(afterJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(990000001));
             Assert.That(creditJson.RootElement.GetProperty("prefix").GetString(), Is.EqualTo("NC"));
             Assert.That(creditJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(1));
-            Assert.That(canonicalJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(990000001));
+            Assert.That(canonicalJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(990000001), "Asking does not reserve the number.");
             Assert.That(afterJson.RootElement.GetProperty("range_exceeded").GetBoolean(), Is.False);
         });
     }
 
-    // Contrato del PHP: POST next-consecutive {type_document_id, prefix} → {success, type_document_id, prefix, number}, con la
-    // misma regla de current_number (php-rules 5.4.3). Solo consulta: no reserva el número.
     [Test]
-    public async Task Next_consecutive_reports_the_same_number_as_current_number_without_reserving_it()
-    {
-        using var issuer = await NewIssuerAsync();
-        (await PostAsync(issuer.Client, "invoice", Edited(Invoice, json => json.Remove("number")))).Dispose();
-
-        using var first = await issuer.Client.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("""{"type_document_id": 1, "prefix": "SETP"}"""));
-        using var again = await issuer.Client.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("""{"type_document_id": "4", "prefix": "NC"}"""));
-        using var current = await issuer.Client.GetAsync("/api/ubl2.1/invoice/current_number/1/SETP");
-        using var firstJson = await Json(first);
-        using var againJson = await Json(again);
-        using var currentJson = await Json(current);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(first.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(firstJson.RootElement.GetProperty("success").GetBoolean(), Is.True);
-            Assert.That(firstJson.RootElement.GetProperty("type_document_id").GetInt32(), Is.EqualTo(1));
-            Assert.That(firstJson.RootElement.GetProperty("prefix").GetString(), Is.EqualTo("SETP"));
-            Assert.That(firstJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(990000001));
-            Assert.That(currentJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(990000001), "Asking does not reserve the number.");
-            Assert.That(againJson.RootElement.GetProperty("type_document_id").GetInt32(), Is.EqualTo(4));
-            Assert.That(againJson.RootElement.GetProperty("prefix").GetString(), Is.EqualTo("NC"));
-            Assert.That(againJson.RootElement.GetProperty("number").GetInt64(), Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public async Task Next_consecutive_validates_its_body_and_answers_404_without_resolution()
-    {
-        using var issuer = await NewIssuerAsync();
-
-        using var empty = await issuer.Client.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("{}"));
-        using var outOfList = await issuer.Client.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("""{"type_document_id": 27, "prefix": "SETP"}"""));
-        using var unknown = await issuer.Client.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("""{"type_document_id": 1, "prefix": "ZZZZ"}"""));
-        using var emptyJson = await Json(empty);
-        using var outOfListJson = await Json(outOfList);
-        using var unknownJson = await Json(unknown);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(empty.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
-            Assert.That(emptyJson.RootElement.GetProperty("errors").GetProperty("type_document_id")[0].GetString(),
-                Is.EqualTo("El campo type document id es obligatorio."));
-            Assert.That(emptyJson.RootElement.GetProperty("errors").GetProperty("prefix")[0].GetString(), Is.EqualTo("El campo prefix es obligatorio."));
-            Assert.That(outOfList.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
-            Assert.That(outOfListJson.RootElement.GetProperty("errors").GetProperty("type_document_id")[0].GetString(),
-                Is.EqualTo("type document id es inválido."));
-            Assert.That(unknown.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
-            Assert.That(unknownJson.RootElement.GetProperty("message").GetString(), Is.EqualTo("La resolución no está configurada."));
-        });
-    }
-
-    [Test]
-    public async Task A_credential_without_documents_read_cannot_ask_the_next_consecutive()
+    public async Task A_credential_without_documents_read_cannot_ask_the_next_number()
     {
         using var issuer = await NewIssuerAsync();
         using var writer = await Api.ClientWithNewKeyAsync(issuer.CompanyId, ApiScopes.DocumentsWrite);
 
-        using var response = await writer.PostAsync("/api/ubl2.1/next-consecutive", JsonBody("""{"type_document_id": 1, "prefix": "SETP"}"""));
+        using var response = await writer.GetAsync("/api/v1/documents/current-number/1?prefix=SETP");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
     }
-
-    private static StringContent JsonBody(string json) => new(json, System.Text.Encoding.UTF8, "application/json");
 
     [Test]
     public async Task Current_number_of_a_prefix_without_resolution_answers_404_with_the_php_message()
     {
         using var issuer = await NewIssuerAsync();
 
-        using var response = await issuer.Client.GetAsync("/api/ubl2.1/invoice/current_number/1/OTRO");
+        using var response = await issuer.Client.GetAsync("/api/v1/documents/current-number/1?prefix=OTRO");
         using var json = await Json(response);
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
@@ -541,7 +469,7 @@ public sealed class DocumentIssueApiTests
 
     private static async Task<HttpResponseMessage> PostAsync(HttpClient client, string route, byte[] body, string? idempotencyKey = null)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/ubl2.1/{route}") { Content = Content(body) };
+        using var request = new HttpRequestMessage(HttpMethod.Post, IssueRoutes.Of(route)) { Content = Content(body) };
         if (idempotencyKey is not null)
         {
             request.Headers.Add("Idempotency-Key", idempotencyKey);

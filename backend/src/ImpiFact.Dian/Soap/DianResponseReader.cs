@@ -6,7 +6,7 @@ namespace ImpiFact.Dian.Soap;
 
 /// <summary>
 /// Interpreta el cuerpo de una respuesta del servicio web de la DIAN (la autoridad tributaria de Colombia) a
-/// SendBillSync, SendTestSetAsync, GetStatus, GetStatusZip, GetNumberingRange y GetAcquirer.
+/// SendBillSync, SendTestSetAsync, SendBillAsync, GetStatus, GetStatusZip, GetNumberingRange y GetAcquirer.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -29,9 +29,15 @@ public static class DianResponseReader
     private const string StatusZipOperation = "GetStatusZip";
     private const string NumberingRangeOperation = "GetNumberingRange";
     private const string AcquirerOperation = "GetAcquirer";
+    private const string XmlByDocumentKeyOperation = "GetXmlByDocumentKey";
 
     private static readonly HashSet<string> KnownOperations =
-        new(["SendBillSync", "SendTestSetAsync", "GetStatus", StatusZipOperation, NumberingRangeOperation, AcquirerOperation], StringComparer.Ordinal);
+        new(
+            [
+                "SendBillSync", "SendTestSetAsync", "SendBillAsync", "GetStatus", StatusZipOperation, NumberingRangeOperation, AcquirerOperation,
+                "SendEventUpdateStatus", "GetStatusEvent", XmlByDocumentKeyOperation,
+            ],
+            StringComparer.Ordinal);
 
     /// <summary>Interpreta <paramref name="body"/>, el cuerpo HTTP de la respuesta de la DIAN.</summary>
     public static DianSoapResponse Read(string body)
@@ -96,6 +102,20 @@ public static class DianResponseReader
                 Text(result, "StatusCode")?.Trim(), Text(result, "Message"), Text(result, "ReceiverName")?.Trim(), Text(result, "ReceiverEmail")?.Trim());
         }
 
+        if (operation == XmlByDocumentKeyOperation)
+        {
+            var xml = Text(result, "XmlBytesBase64");
+            try
+            {
+                return new DianXmlDocumentResponse(
+                    Text(result, "Code")?.Trim(), Text(result, "Message"), xml is null ? null : Convert.FromBase64String(xml.Trim()));
+            }
+            catch (FormatException)
+            {
+                return new DianUnrecognizedResponse(body);
+            }
+        }
+
         // GetStatusZip trae un elemento DianResponse por documento; las demás operaciones traen el resultado directo.
         var items = operation == StatusZipOperation
             ? Children(result).Where(e => e.LocalName == "DianResponse")
@@ -115,10 +135,17 @@ public static class DianResponseReader
         var isValid = Text(result, "IsValid");
         var xmlBase64 = Text(result, "XmlBase64Bytes");
 
-        // ErrorMessage: lista de textos (elementos "string"). ErrorMessageList (SendTestSetAsync): un
-        // XmlParamsResponseTrackId por documento, con su texto en ProcessedMessage.
+        // ErrorMessage: lista de textos (elementos "string"). ErrorMessageList (SendTestSetAsync y SendBillAsync): un
+        // XmlParamsResponseTrackId por documento, con su texto en ProcessedMessage y su archivo en XmlFileName. The annex
+        // writes the SendBillAsync answer in lowercase (errorMessageList, processedMessage, xmlFileName, zipKey; section
+        // 7.8.3) and the SendTestSetAsync one capitalized (7.9.3), with the same contract: both spellings are read.
+        var fileMessages = Children(Child(result, "ErrorMessageList") ?? Child(result, "errorMessageList"))
+            .Select(e => (File: Text(e, "XmlFileName") ?? Text(e, "xmlFileName"), Message: Text(e, "ProcessedMessage") ?? Text(e, "processedMessage")))
+            .Where(item => item.Message is not null)
+            .Select(item => new DianFileMessage(item.File?.Trim(), item.Message!))
+            .ToList();
         var errors = Children(Child(result, "ErrorMessage")).Select(e => e.InnerText)
-            .Concat(Children(Child(result, "ErrorMessageList")).Select(e => Text(e, "ProcessedMessage")).OfType<string>())
+            .Concat(fileMessages.Select(item => item.Message))
             .ToList();
 
         return new DianResult(
@@ -130,7 +157,8 @@ public static class DianResponseReader
             XmlDocumentKey: Text(result, "XmlDocumentKey"),
             XmlFileName: Text(result, "XmlFileName"),
             XmlBase64Bytes: xmlBase64 is null ? null : Convert.FromBase64String(xmlBase64),
-            ZipKey: Text(result, "ZipKey"));
+            ZipKey: Text(result, "ZipKey") ?? Text(result, "zipKey"),
+            FileMessages: fileMessages);
     }
 
     // GetNumberingRange: OperationCode, OperationDescription y ResponseList con un NumberRangeResponse por rango.
