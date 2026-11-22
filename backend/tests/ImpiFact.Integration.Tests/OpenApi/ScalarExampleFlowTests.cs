@@ -80,6 +80,16 @@ public sealed class ScalarExampleFlowTests
             Assert.That(json.RootElement.GetProperty("document").GetProperty("status").GetString(), Is.EqualTo("Queued"), path);
         }
 
+        // The health-sector example (phase 7a, T7) is a national invoice with health_fields: queued like the standard one.
+        using (var health = await SendAsync(company, HttpMethod.Post, "/api/v1/documents/invoices",
+                   Example("/api/v1/documents/invoices", "post", "health-sector-one-user")))
+        {
+            var text = await health.Content.ReadAsStringAsync();
+            Assert.That(health.StatusCode, Is.EqualTo(HttpStatusCode.OK), text);
+            using var json = JsonDocument.Parse(text);
+            Assert.That(json.RootElement.GetProperty("document").GetProperty("status").GetString(), Is.EqualTo("Queued"));
+        }
+
         // The export examples (phase 7a, T3) use the type 2 resolution example and its own sequence.
         var exportNumbers = new List<string>();
         foreach (var name in new[] { "export-cop-cif", "export-usd-fob" })

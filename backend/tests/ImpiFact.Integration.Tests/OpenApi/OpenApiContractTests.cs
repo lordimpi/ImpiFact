@@ -211,6 +211,21 @@ public sealed class OpenApiContractTests
         });
     }
 
+    // Phase 7a, T7: health_fields is an optional, additive member of the invoice body (php-rules 17).
+    [TestCase("/api/v1/documents/invoices")]
+    [TestCase("/api/v1/documents/invoices/test-set/{testSetId}")]
+    public void The_invoice_body_accepts_optional_health_fields(string path)
+    {
+        var schema = _document.GetProperty("paths").GetProperty(path).GetProperty("post").GetProperty("requestBody")
+            .GetProperty("content").GetProperty("application/json").GetProperty("schema");
+
+        var health = schema.GetProperty("properties").GetProperty("health_fields");
+
+        var required = schema.TryGetProperty("required", out var names) ? names.EnumerateArray().Select(name => name.GetString()).ToList() : [];
+        Assert.That(required, Does.Not.Contain("health_fields"));
+        Assert.That(health.GetRawText(), Does.Contain("users_info").And.Contain("health_type_operation_id"));
+    }
+
     /// <summary>
     /// Dos arranques de la API producen el mismo documento, byte a byte: el CI regenera el cliente y falla si cambia,
     /// así que un orden que varíe entre ejecuciones daría falsas alarmas.

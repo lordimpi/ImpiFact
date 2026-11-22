@@ -113,6 +113,7 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
         var company = frame.Issuer.Company;
         var resolution = frame.Resolution;
         var isExport = frame.Spec.Variant == InvoiceVariant.Export;
+        var health = frame.Spec.HealthOf(body);
         var localCurrency = Get(DianCatalog.Currency, company.TypeCurrencyId).Code;
         var foreignCurrency = MapForeignCurrency(body);
 
@@ -158,7 +159,11 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             Supplier = MapSupplier(frame.Issuer),
             Customer = MapCustomer(body.Customer!, foreignAddress: isExport),
             Payments = PaymentFormsOf(body).Select(form => MapPayment(form.Body)).ToList(),
-            PrepaidPayments = PrepaidPaymentsOf(frame.Spec, body).Select(prepaid => MapPrepaidPayment(prepaid.Body)).ToList(),
+            PrepaidPayments = PrepaidPaymentsOf(frame.Spec, body).Select(prepaid => MapPrepaidPayment(prepaid.Body) with
+            {
+                ConceptCode = health is not null ? Get(DianCatalog.PrepaidPaymentType, (int)prepaid.Body.PrepaidPaymentTypeId!.Value.Integer).Code : null,
+            }).ToList(),
+            HealthSector = health is not null ? MapHealth(health) : null,
             AllowanceCharges = MapAll(body.AllowanceCharges, MapAllowanceCharge),
             TaxSubtotals = MapAll(body.TaxTotals, MapTaxSubtotal),
             WithholdingSubtotals = MapAll(body.WithHoldingTaxTotal, MapTaxSubtotal),
@@ -172,6 +177,28 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
                 _ => InvoiceLineIdScheme.Plain,
             },
         };
+    }
+
+    /// <summary>
+    /// The health terms (Documento Técnico 2 v001): the operation, the period and, when there are users, the single Collection
+    /// built from the first one (the validator makes the others agree). Texts go without line breaks or «|», like the rest.
+    /// </summary>
+    private static HealthSectorTerms MapHealth(HealthFieldsBody health)
+    {
+        var user = health.UsersInfo is { Count: > 0 } users ? users[0] : null;
+        return new HealthSectorTerms(
+            HealthSectorCatalogs.Operations[(int)health.HealthTypeOperationId!.Value.Integer - 1],
+            Date(health.InvoicePeriodStartDate!.Value),
+            Date(health.InvoicePeriodEndDate!.Value),
+            user is null ? null : new HealthSectorFields(
+                PhpText.Clean(user.ProviderCode!.Value.Text.Trim()),
+                HealthSectorCatalogs.Code(HealthSectorCatalogs.PaymentMethods, (int)user.HealthContractingPaymentMethodId!.Value.Integer),
+                HealthSectorCatalogs.Code(HealthSectorCatalogs.Coverages, (int)user.HealthCoverageId!.Value.Integer),
+                IssueDocumentRules.HealthText(user.ContractNumber) is { } contract ? PhpText.Clean(contract) : null,
+                IssueDocumentRules.HealthText(user.PolicyNumber) is { } policy ? PhpText.Clean(policy) : null,
+                IdOrNull(user.HealthInvoiceWithoutContractId) is { } withoutContract
+                    ? HealthSectorCatalogs.Code(HealthSectorCatalogs.InvoicesWithoutContract, withoutContract)
+                    : null));
     }
 
     /// <summary>
@@ -687,6 +714,15 @@ internal static class CatalogNeeds
 
             Charges(needs, $"{at}.allowance_charges", line.AllowanceCharges);
             Taxes(needs, $"{at}.tax_totals", line.TaxTotals);
+        }
+
+        // The collection concept of each prepaid payment of a health-sector invoice (php-rules 17).
+        if (spec.HealthOf(body) is not null)
+        {
+            foreach (var (path, prepaid) in LegacyDocumentMapper.PrepaidPaymentsOf(spec, body))
+            {
+                Need(DianCatalog.PrepaidPaymentType, (int)prepaid.PrepaidPaymentTypeId!.Value.Integer, $"{path}.prepaid_payment_type_id");
+            }
         }
 
         if (spec.IsNote && body.DiscrepancyResponseCode is { IsPhpEmpty: false } code)

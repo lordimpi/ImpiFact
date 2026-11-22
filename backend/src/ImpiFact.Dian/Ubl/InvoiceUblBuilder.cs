@@ -38,6 +38,21 @@ public static class InvoiceUblBuilder
     /// </summary>
     public const string SupportDocumentProfile = "DIAN 2.1: documento soporte en adquisiciones efectuadas a no obligados a facturar.";
 
+    /// <summary>Name of the responsible of the health extension (Documento Técnico 2 v001, section 6.a).</summary>
+    public const string HealthResponsibleName = "Responsable";
+
+    /// <summary>The literal the Documento Técnico 2 v001 gives for CustomTagGeneral/Value[1].</summary>
+    public const string HealthResponsible = "url www.minsalud.gov.co";
+
+    /// <summary>CustomTagGeneral/Name[2] of the health extension.</summary>
+    public const string HealthActName = "Tipo, identificador:año del acto administrativo";
+
+    /// <summary>
+    /// CustomTagGeneral/Value[2]: «Resolución NNNN:AAAA» with the act that adopted the Documento Técnico 2 v001, Resolución
+    /// 948 de 2026 (php-rules 18, open question 12: the document does not spell the number out).
+    /// </summary>
+    public const string HealthAct = "Resolución 0948:2026";
+
     /// <summary>Exact line description that gets the AIU note (php-rules 10.1, item 3: with the accent, case-sensitive).</summary>
     public const string AiuAdministrationLine = "Administración";
 
@@ -75,8 +90,9 @@ public static class InvoiceUblBuilder
         var root = Root("Invoice",
             "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2     http://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/maindoc/UBL-Invoice-2.1.xsd");
 
+        var health = invoice.HealthSector;
         var extensions = Extensions(InvoiceControl(invoice.Resolution), provider, invoice.Software, invoice.DocumentNumber,
-            invoice.QrCodeBaseUrl + cufe);
+            invoice.QrCodeBaseUrl + cufe, health?.Fields is { } healthFields ? HealthExtension(healthFields) : null);
         if (invoice.Export?.Supplement is { } supplement)
         {
             extensions.Add(SupplementK(supplement));
@@ -84,7 +100,7 @@ public static class InvoiceUblBuilder
 
         root.Add(extensions);
         root.Add("cbc:UBLVersionID", "UBL 2.1");
-        root.Add("cbc:CustomizationID", invoice.OperationTypeCode);
+        root.Add("cbc:CustomizationID", health?.OperationCode ?? invoice.OperationTypeCode);
         root.Add("cbc:ProfileID", isSupport ? SupportDocumentProfile : "DIAN 2.1: Factura Electrónica de Venta");
         root.Add("cbc:ProfileExecutionID", EnvironmentCode(invoice.Environment));
         root.Add("cbc:ID", invoice.DocumentNumber);
@@ -103,6 +119,14 @@ public static class InvoiceUblBuilder
         var currency = invoice.AmountsInDocumentCurrency ? documentCurrency : invoice.LocalCurrencyCode;
         root.Add("cbc:DocumentCurrencyCode", documentCurrency);
         root.Add("cbc:LineCountNumeric", invoice.Lines.Count.ToString(CultureInfo.InvariantCulture));
+
+        // Documento Técnico 2 v001, section 7.a: the billing period of a health invoice, in the place of ApiDian's template 01.
+        if (health is not null)
+        {
+            root.Add(new UblElement("cac:InvoicePeriod")
+                .Add("cbc:StartDate", Date(health.PeriodStartDate))
+                .Add("cbc:EndDate", Date(health.PeriodEndDate)));
+        }
 
         // Template 03 writes the paper invoice right after cbc:LineCountNumeric (php-rules 12.1, item 2; open question 2 of
         // section 18: the UBL 2.1 schema orders cac:OrderReference first, which no ImpiFact invoice writes yet).
@@ -246,8 +270,14 @@ public static class InvoiceUblBuilder
     /// </summary>
     private static UblElement PrepaidPayment(PrepaidPayment prepaid, string currency)
     {
+        var id = new UblElement("cbc:ID", prepaid.Id);
+        if (prepaid.ConceptCode is not null)
+        {
+            id.Attr("schemeID", prepaid.ConceptCode);
+        }
+
         var element = new UblElement("cac:PrepaidPayment")
-            .Add("cbc:ID", prepaid.Id)
+            .Add(id)
             .Add(Amount("cbc:PaidAmount", prepaid.PaidAmount, currency))
             .Add("cbc:ReceivedDate", Date(prepaid.ReceivedDate));
         if (prepaid.PaidDate is { } paidDate)
@@ -262,6 +292,43 @@ public static class InvoiceUblBuilder
 
         return element;
     }
+
+    /// <summary>
+    /// Second ext:UBLExtension of a health-sector invoice, as the Ministerio de Salud's Documento Técnico 2 v001 (15-jul-2026,
+    /// Resolución 948 de 2026), section 6.a, defines it: the responsible and the administrative act as Name/Value pairs of
+    /// CustomTagGeneral, then one Collection «Usuario» with CODIGO_PRESTADOR, MODALIDAD_PAGO, COBERTURA_PLAN_BENEFICIOS,
+    /// NUMERO_CONTRATO and NUMERO_POLIZA (empty when absent) and, when present, FACTURA_SIN_CONTRATO. Unprefixed elements, like
+    /// the supplement K. The DIAN does not validate it (annex 1.9, section 19.1); the Ministry's validator does.
+    /// </summary>
+    private static UblElement HealthExtension(HealthSectorFields fields)
+    {
+        var collection = new UblElement("Collection").Attr("schemeName", "Usuario")
+            .Add(HealthInformation("CODIGO_PRESTADOR", new UblElement("Value", fields.ProviderCode)))
+            .Add(HealthInformation("MODALIDAD_PAGO", HealthValue(fields.PaymentMethod, "salud_modalidad_pago.gc")))
+            .Add(HealthInformation("COBERTURA_PLAN_BENEFICIOS", HealthValue(fields.Coverage, "salud_cobertura.gc")))
+            .Add(HealthInformation("NUMERO_CONTRATO", new UblElement("Value", fields.ContractNumber)))
+            .Add(HealthInformation("NUMERO_POLIZA", new UblElement("Value", fields.PolicyNumber)));
+        if (fields.InvoiceWithoutContract is { } withoutContract)
+        {
+            collection.Add(HealthInformation("FACTURA_SIN_CONTRATO", HealthValue(withoutContract, "salud_facturaSinContrato.gc")));
+        }
+
+        return new UblElement("ext:UBLExtension")
+            .Add(new UblElement("ext:ExtensionContent")
+                .Add(new UblElement("CustomTagGeneral")
+                    .Add("Name", HealthResponsibleName)
+                    .Add("Value", HealthResponsible)
+                    .Add("Name", HealthActName)
+                    .Add("Value", HealthAct)
+                    .Add(new UblElement("Interoperabilidad")
+                        .Add(new UblElement("Group").Attr("schemeName", "Sector Salud").Add(collection)))));
+    }
+
+    private static UblElement HealthInformation(string name, UblElement value) =>
+        new UblElement("AdditionalInformation").Add("Name", name).Add(value);
+
+    private static UblElement HealthValue(HealthCode code, string table) =>
+        new UblElement("Value", code.Name).Attr("schemeName", table).Attr("schemeID", code.Code);
 
     /// <summary>cac:AdditionalItemProperty of a freight transport line (RNDC data).</summary>
     private static UblElement ItemProperty(string name, string value) =>

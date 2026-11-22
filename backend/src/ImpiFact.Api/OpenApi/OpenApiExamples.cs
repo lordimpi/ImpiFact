@@ -43,6 +43,33 @@ internal static class OpenApiExamples
         Golden("invoice/two-lines-discounts-iva19", "Factura con descuentos: dos líneas con IVA del 19 %"),
         Golden("invoice/mixed-iva-19-5-0", "Factura con IVA mixto: líneas al 19 %, al 5 % y exentas (0 %)"),
         Golden("invoice/final-consumer", "Factura a consumidor final (222222222222)"),
+        Variant("health-sector-one-user", "Factura del sector salud sin RIPS: SS-CUFE, un usuario y su copago (`health_fields`)", body =>
+        {
+            body["health_fields"] = JsonNode.Parse("""
+                {
+                  "invoice_period_start_date": "2026-11-01",
+                  "invoice_period_end_date": "2026-11-14",
+                  "health_type_operation_id": 1,
+                  "users_info": [
+                    {
+                      "provider_code": "1100100001",
+                      "health_contracting_payment_method_id": 4,
+                      "health_coverage_id": 16,
+                      "contract_number": "CUCON-EJEMPLO-0001",
+                      "co_payment": "3300.00"
+                    }
+                  ]
+                }
+                """);
+            body["prepaid_payment"] = JsonNode.Parse("""
+                { "idpayment": "1", "prepaid_payment_type_id": 1, "paidamount": "3300.00", "receiveddate": "2026-11-14" }
+                """);
+            body["legal_monetary_totals"]!["pre_paid_amount"] = "3300.00";
+        }) with
+        {
+            Description = "Parte de la factura simple (`single-line-iva19`) sin `number`. Reemplace `provider_code` por el código " +
+                "REPS del prestador y `contract_number` por el CUCON del contrato; el copago va como anticipo con concepto 1.",
+        },
     ];
 
     /// <summary>

@@ -106,6 +106,7 @@ internal sealed class EfDocumentCatalogs(ImpiFactDbContext db) : IDocumentCatalo
                 DianCatalog.DebitNoteDiscrepancy => await Simple<DebitNoteDiscrepancyResponse>(ids, ct),
                 DianCatalog.SupportDocumentDiscrepancy => await Simple<CreditNoteDiscrepancyResponseSd>(ids, ct),
                 DianCatalog.GenerationTransmition => await Simple<TypeGenerationTransmition>(ids, ct),
+                DianCatalog.PrepaidPaymentType => await Simple<PrepaidPaymentType>(ids, ct),
                 _ => throw new ArgumentOutOfRangeException(nameof(keys), group.Key, "Unknown catalog."),
             };
             foreach (var (id, item) in rows)

@@ -101,5 +101,10 @@
   },
   "generationTransmitions": {
     "1": { "name": "Por operación", "code": "1" }
+  },
+  "prepaidPaymentTypes": {
+    "1": { "name": "Copago", "code": "01" },
+    "2": { "name": "Cuota moderadora", "code": "02" },
+    "4": { "name": "Anticipo", "code": "04" }
   }
 }

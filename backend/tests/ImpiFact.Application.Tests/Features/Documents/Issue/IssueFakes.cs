@@ -163,6 +163,7 @@ public sealed class FakeCatalogs : IDocumentCatalogs
         ["debitNoteDiscrepancies"] = DianCatalog.DebitNoteDiscrepancy,
         ["supportDocumentDiscrepancies"] = DianCatalog.SupportDocumentDiscrepancy,
         ["generationTransmitions"] = DianCatalog.GenerationTransmition,
+        ["prepaidPaymentTypes"] = DianCatalog.PrepaidPaymentType,
     };
 
     public Dictionary<CatalogKey, CatalogItem> Items { get; } = Load();

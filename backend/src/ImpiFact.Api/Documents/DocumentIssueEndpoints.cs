@@ -84,11 +84,11 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         Issue(canonical.MapPost("/invoices", Invoice), OpenApiExamples.Invoices)
             .WithOperationId("issueInvoice")
             .WithSummary("Emitir una factura")
-            .WithDescription(InvoiceText + IssueRules);
+            .WithDescription(InvoiceText + HealthRules + IssueRules);
         Issue(canonical.MapPost("/invoices/test-set/{testSetId}", Invoice), OpenApiExamples.Invoices)
             .WithOperationId("issueTestSetInvoice")
             .WithSummary("Emitir una factura del set de pruebas")
-            .WithDescription(InvoiceText + TestSetRules + IssueRules);
+            .WithDescription(InvoiceText + HealthRules + TestSetRules + IssueRules);
         // Variants of the invoice (php-rules, section 10): one route per variant under /invoices, like the test set and the
         // preview, because each has its own required fields and fixed operation.
         Issue(canonical.MapPost("/invoices/aiu", AiuInvoice), OpenApiExamples.AiuInvoices)
@@ -256,6 +256,22 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         "`receiveddate` (`yyyy-MM-dd`) obligatorios y `paiddate` e `instructionid` opcionales; su suma va en " +
         "`legal_monetary_totals.pre_paid_amount` (obligatorio con `prepaid_payment`) y no se resta de `payable_amount`, " +
         "como lo pide la regla FAU14 de la DIAN.";
+
+    /// <summary>The optional health-sector fields of the national invoice (phase 7a, T7; php-rules 17).</summary>
+    private const string HealthRules =
+        " **Sector salud (sin RIPS)**: con `health_fields` la factura es del sector salud, como la define el Documento Técnico 2 " +
+        "v001 del Ministerio de Salud (Resolución 948 de 2026). Lleva `invoice_period_start_date` e `invoice_period_end_date` " +
+        "(`yyyy-MM-dd`, el fin igual o posterior al inicio) y `health_type_operation_id` (1 SS-CUFE, 2 SS-CUDE, 3 SS-POS, " +
+        "4 SS-SNum, 5 SS-Recaudo, 6 SS-Reporte, 7 SS-SinAporte), que va en `CustomizationID` en lugar de `type_operation_id`. " +
+        "`users_info` trae los usuarios: al menos uno salvo en 5 (que no admite usuarios ni lleva la extensión de salud) y en 7. " +
+        "Con usuarios, la factura lleva la extensión de salud con una sola colección, así que todos deben tener el mismo " +
+        "`provider_code` (código del prestador), `health_contracting_payment_method_id` (tabla modalidadPago de SISPRO, 1 a 4), " +
+        "`health_coverage_id` (tabla coberturaPlan, 1 a 17), `contract_number` o `policy_number` (no los dos) y, sin contrato, " +
+        "`health_invoice_without_contract_id` (tabla facturaSinContrato, 1 a 7). Los datos del paciente (documento, nombres, " +
+        "autorizaciones, MIPRES) son del RIPS y no van en el XML. El copago, la cuota moderadora, los pagos compartidos y los " +
+        "anticipos van como anticipos (`prepaid_payment` o `prepaid_payments`), cada uno con `prepaid_payment_type_id` " +
+        "(1 copago, 2 cuota moderadora, 3 pagos compartidos, 4 anticipo, 5 no aplica) y una sola vez por concepto. Sin " +
+        "`health_fields`, la factura es la de siempre.";
 
     /// <summary>What the three invoice variants share: they are type 1 invoices with a fixed operation.</summary>
     private const string VariantRules =

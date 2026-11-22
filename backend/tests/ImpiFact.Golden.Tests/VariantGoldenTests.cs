@@ -17,13 +17,11 @@ public sealed class VariantGoldenTests
         .. SupportDocumentGoldenTests.Types,
         .. ContingencyGoldenTests.Types,
         .. EventGoldenTests.Types,
+        HealthInvoiceGoldenTests.Type,
     ];
 
     /// <summary>Carpeta de tests/golden -> tarea de odd/tasks/fase-7a-community.md que escribe su builder.</summary>
-    private static readonly (string Type, string Task, string Builder)[] Pending =
-    [
-        ("invoice-health", "T7", "health-sector invoice builder"),
-    ];
+    private static readonly (string Type, string Task, string Builder)[] Pending = [];
 
     public static IEnumerable<TestCaseData> Cases() =>
         Pending.SelectMany(pending => GoldenCases.OfType(pending.Type).Select(dir =>

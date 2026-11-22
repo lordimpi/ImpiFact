@@ -63,6 +63,10 @@ internal static class IssueDocumentRules
         ValidateTotals(spec, check, spec.TotalsOf(body));
         ValidateLines(spec, check, spec.LinesOf(body));
         ValidateVariant(spec, check, body);
+        if (spec.HealthOf(body) is { } health)
+        {
+            ValidateHealth(spec, check, body, health);
+        }
 
         if (spec.IsNote)
         {
@@ -411,6 +415,161 @@ internal static class IssueDocumentRules
                 ValidateConsignment(check, at, line);
             }
         }
+    }
+
+    /// <summary>
+    /// <c>health_fields</c> of a health-sector invoice (php-rules 17), against the Ministerio de Salud's Documento Técnico 2
+    /// v001: the billing period (sections 4.10 and 4.11), the health operation (section 9), the users that become the single
+    /// Collection of the extension (sections 4.1 to 4.5, 4.12 and 6.a) and the collection concept of each prepaid payment
+    /// (section 7.c). The patient data is RIPS data (section 6.b): only its types and lengths are checked.
+    /// </summary>
+    private static void ValidateHealth(IssueSpec spec, Checker check, IssueDocumentBody body, HealthFieldsBody health)
+    {
+        const string at = "health_fields";
+        var start = RequiredDate(check, $"{at}.invoice_period_start_date", health.InvoicePeriodStartDate);
+        var end = RequiredDate(check, $"{at}.invoice_period_end_date", health.InvoicePeriodEndDate);
+        if (start is { } from && end is { } to && to < from)
+        {
+            check.Fail($"{at}.invoice_period_end_date", IssueMessages.AfterOrEqual(
+                $"{at}.invoice_period_end_date", IssueMessages.Attribute($"{at}.invoice_period_start_date")));
+        }
+
+        check.Text($"{at}.print_users_info_to_pdf", health.PrintUsersInfoToPdf, 10);
+        var operation = check.RequiredInteger($"{at}.health_type_operation_id", health.HealthTypeOperationId);
+        if (operation is { } operationId && !HealthSectorCatalogs.Contains(HealthSectorCatalogs.Operations, operationId))
+        {
+            check.Fail($"{at}.health_type_operation_id", IssueMessages.HealthOperation($"{at}.health_type_operation_id"));
+            operation = null;
+        }
+
+        var users = health.UsersInfo ?? [];
+        if (operation == HealthSectorCatalogs.CollectionOperationId && users.Count > 0)
+        {
+            check.Fail($"{at}.users_info", IssueMessages.HealthUsersForbidden($"{at}.users_info"));
+        }
+        else if (operation is { } withExtension && withExtension != HealthSectorCatalogs.NoContributionOperationId
+                 && withExtension != HealthSectorCatalogs.CollectionOperationId && users.Count == 0)
+        {
+            check.Fail($"{at}.users_info", IssueMessages.HealthUsersRequired($"{at}.users_info", withExtension));
+        }
+
+        for (var index = 0; index < users.Count; index++)
+        {
+            ValidateHealthUser(check, $"{at}.users_info.{index}", users[index]);
+        }
+
+        // One Collection per invoice (section 6.a): the users share the values it carries.
+        var collection = new (string Field, Func<HealthUserBody, LegacyScalar?> Value)[]
+        {
+            ("provider_code", user => user.ProviderCode),
+            ("health_contracting_payment_method_id", user => user.HealthContractingPaymentMethodId),
+            ("health_coverage_id", user => user.HealthCoverageId),
+            ("contract_number", user => user.ContractNumber),
+            ("policy_number", user => user.PolicyNumber),
+            ("health_invoice_without_contract_id", user => user.HealthInvoiceWithoutContractId),
+        };
+        for (var index = 1; index < users.Count; index++)
+        {
+            foreach (var (field, value) in collection)
+            {
+                if (HealthText(value(users[index])) != HealthText(value(users[0])))
+                {
+                    check.Fail($"{at}.users_info.{index}.{field}",
+                        IssueMessages.HealthSameCollection($"{at}.users_info.{index}.{field}", $"{at}.users_info.0.{field}"));
+                }
+            }
+        }
+
+        // Section 7.c and the Ministry's rules DND110 (schemeID required) and «una única vez por concepto».
+        var concepts = new HashSet<long>();
+        foreach (var (path, prepaid) in LegacyDocumentMapper.PrepaidPaymentsOf(spec, body))
+        {
+            var field = $"{path}.prepaid_payment_type_id";
+            if (LegacyScalar.IsMissing(prepaid.PrepaidPaymentTypeId))
+            {
+                check.Fail(field, IssueMessages.RequiredWith(field, at));
+            }
+            else if (check.Integer(field, prepaid.PrepaidPaymentTypeId) is { } concept && !concepts.Add(concept))
+            {
+                check.Fail(field, IssueMessages.HealthPrepaidConceptRepeated(field));
+            }
+        }
+    }
+
+    private static void ValidateHealthUser(Checker check, string at, HealthUserBody user)
+    {
+        check.RequiredText($"{at}.provider_code", user.ProviderCode, 30);
+        HealthId(check, $"{at}.health_contracting_payment_method_id", user.HealthContractingPaymentMethodId, required: true,
+            HealthSectorCatalogs.PaymentMethods.Count, "tabla modalidadPago de SISPRO");
+        HealthId(check, $"{at}.health_coverage_id", user.HealthCoverageId, required: true,
+            HealthSectorCatalogs.Coverages.Count, "tabla coberturaPlan de SISPRO");
+        var withoutContract = HealthId(check, $"{at}.health_invoice_without_contract_id", user.HealthInvoiceWithoutContractId, required: false,
+            HealthSectorCatalogs.InvoicesWithoutContract.Count, "tabla facturaSinContrato de SISPRO");
+        HealthId(check, $"{at}.health_type_document_identification_id", user.HealthTypeDocumentIdentificationId, required: false,
+            HealthSectorCatalogs.IdentificationTypeCount, "tabla de tipos de documento del sector salud");
+        check.Integer($"{at}.health_type_user_id", user.HealthTypeUserId);
+
+        var contract = check.Text($"{at}.contract_number", user.ContractNumber, 100);
+        var policy = check.Text($"{at}.policy_number", user.PolicyNumber, 100);
+        var hasContract = !string.IsNullOrWhiteSpace(contract);
+        if (hasContract && !string.IsNullOrWhiteSpace(policy))
+        {
+            check.Fail($"{at}.policy_number", IssueMessages.HealthContractAndPolicy($"{at}.policy_number"));
+        }
+
+        if (hasContract && withoutContract is not null)
+        {
+            check.Fail($"{at}.health_invoice_without_contract_id", IssueMessages.HealthWithoutContract($"{at}.health_invoice_without_contract_id"));
+        }
+
+        check.Text($"{at}.identification_number", user.IdentificationNumber, 30);
+        check.Text($"{at}.surname", user.Surname, 60);
+        check.Text($"{at}.second_surname", user.SecondSurname, 60);
+        check.Text($"{at}.first_name", user.FirstName, 60);
+        check.Text($"{at}.middle_name", user.MiddleName, 60);
+        check.Text($"{at}.autorization_numbers", user.AutorizationNumbers, 500);
+        check.Text($"{at}.mipres", user.Mipres, 500);
+        check.Text($"{at}.mipres_delivery", user.MipresDelivery, 500);
+
+        // Sections 4.6 to 4.9: «Se valida que no existan valores negativos».
+        foreach (var (field, value) in new[]
+                 {
+                     ("co_payment", user.CoPayment), ("moderating_fee", user.ModeratingFee), ("recovery_fee", user.RecoveryFee),
+                     ("shared_payment", user.SharedPayment), ("advance_payment", user.AdvancePayment),
+                 })
+        {
+            if (check.Decimal($"{at}.{field}", value) is < 0m)
+            {
+                check.Fail($"{at}.{field}", IssueMessages.NotNegative($"{at}.{field}"));
+            }
+        }
+    }
+
+    /// <summary>An id of a health reference table (1 to <paramref name="count"/>); returns it when valid.</summary>
+    private static long? HealthId(Checker check, string field, LegacyScalar? value, bool required, int count, string table)
+    {
+        var id = required ? check.RequiredInteger(field, value) : check.Integer(field, value);
+        if (id is { } number && (number < 1 || number > count))
+        {
+            check.Fail(field, IssueMessages.HealthTable(field, table, count));
+            return null;
+        }
+
+        return id;
+    }
+
+    /// <summary>The value as the Collection compares it: trimmed text, or null when PHP would see it empty.</summary>
+    internal static string? HealthText(LegacyScalar? value) => LegacyScalar.IsMissing(value) ? null : value!.Value.Text.Trim() is { Length: > 0 } text ? text : null;
+
+    private static DateOnly? RequiredDate(Checker check, string field, LegacyScalar? value)
+    {
+        if (LegacyScalar.IsMissing(value))
+        {
+            check.Fail(field, IssueMessages.Required(field));
+            return null;
+        }
+
+        return check.Date(field, value);
     }
 
     /// <summary>

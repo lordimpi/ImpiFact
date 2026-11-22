@@ -126,6 +126,14 @@ public sealed record SalesInvoice
     /// </summary>
     public PaperInvoiceReference? PaperInvoice { get; init; }
 
+    /// <summary>
+    /// Health-sector invoice data (Ministerio de Salud, Resolución 948 de 2026, Documento Técnico 2 v001); null for every
+    /// other invoice. With it the builder writes the health operation (<c>SS-CUFE</c>, <c>SS-Recaudo</c>…) in
+    /// cbc:CustomizationID, cac:InvoicePeriod after cbc:LineCountNumeric and, when <see cref="HealthSectorTerms.Fields"/>
+    /// is present, the health extension as the second ext:UBLExtension (the signature goes in the third one).
+    /// </summary>
+    public HealthSectorTerms? HealthSector { get; init; }
+
     /// <summary>Número del documento tal como se escribe en cbc:ID.</summary>
     public string DocumentNumber => Resolution.Prefix + Number.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
@@ -158,6 +166,35 @@ public sealed record PaperInvoiceReference(string Id, DateOnly IssueDate, string
 /// (<c>type_generation_transmitions</c>: 1 per operation, 2 weekly accumulated) as code and name.
 /// </summary>
 public sealed record LineGenerationPeriod(DateOnly StartDate, string DescriptionCode, string Description);
+
+/// <summary>
+/// What a health-sector invoice adds (Documento Técnico 2 v001, sections 4 and 7): the health operation type code
+/// (<c>SS-CUFE</c>, <c>SS-CUDE</c>, <c>SS-POS</c>, <c>SS-SNum</c>, <c>SS-Recaudo</c>, <c>SS-Reporte</c> or
+/// <c>SS-SinAporte</c>), the billing period (cac:InvoicePeriod, required) and the fields of the health extension, null when
+/// the invoice carries no extension (<c>SS-Recaudo</c> never does).
+/// </summary>
+public sealed record HealthSectorTerms(string OperationCode, DateOnly PeriodStartDate, DateOnly PeriodEndDate, HealthSectorFields? Fields);
+
+/// <summary>
+/// The single Collection «Usuario» of the health extension (Documento Técnico 2 v001, section 6.a): one per invoice, so
+/// every user of a multi-user invoice shares the payment method and the coverage (sections 4.2 and 4.3).
+/// </summary>
+/// <param name="ProviderCode">CODIGO_PRESTADOR: the REPS code of the provider (or the one the Ministry assigned).</param>
+/// <param name="PaymentMethod">MODALIDAD_PAGO: code (schemeID) and name of the SISPRO table <c>modalidadPago</c>.</param>
+/// <param name="Coverage">COBERTURA_PLAN_BENEFICIOS: code (schemeID) and name of the SISPRO table <c>coberturaPlan</c>.</param>
+/// <param name="ContractNumber">NUMERO_CONTRATO; null writes an empty value (section 4.4: «en caso contrario irá vacío»).</param>
+/// <param name="PolicyNumber">NUMERO_POLIZA; null writes an empty value (section 4.5).</param>
+/// <param name="InvoiceWithoutContract">FACTURA_SIN_CONTRATO (table <c>facturaSinContrato</c>); written only when present.</param>
+public sealed record HealthSectorFields(
+    string ProviderCode,
+    HealthCode PaymentMethod,
+    HealthCode Coverage,
+    string? ContractNumber,
+    string? PolicyNumber,
+    HealthCode? InvoiceWithoutContract);
+
+/// <summary>A code of a SISPRO reference table and its name, written as the Value text and its schemeID.</summary>
+public sealed record HealthCode(string Code, string Name);
 
 /// <summary>What an export invoice adds to the sales invoice: its Incoterm and, optionally, the supplement K.</summary>
 public sealed record ExportTerms(DeliveryTerms DeliveryTerms, ExportSupplement? Supplement);
@@ -297,7 +334,13 @@ public sealed record PaymentTerms(string FormCode, string MethodCode, DateOnly? 
 /// <param name="ReceivedDate">Fecha en que se recibió el pago (cbc:ReceivedDate).</param>
 /// <param name="PaidDate">Fecha en que se hizo el pago (cbc:PaidDate).</param>
 /// <param name="InstructionId">Instrucciones relativas al pago (cbc:InstructionID).</param>
-public sealed record PrepaidPayment(string Id, decimal PaidAmount, DateOnly ReceivedDate, DateOnly? PaidDate, string? InstructionId);
+/// <param name="ConceptCode">
+/// Health-sector invoice only: the collection concept (SISPRO table <c>conceptoRecaudo</c>: 01 copago, 02 cuota moderadora,
+/// 03 pagos compartidos, 04 anticipo, 05 no aplica) written as the schemeID of cbc:ID (Documento Técnico 2 v001, section
+/// 7.c). Null writes cbc:ID without attributes.
+/// </param>
+public sealed record PrepaidPayment(
+    string Id, decimal PaidAmount, DateOnly ReceivedDate, DateOnly? PaidDate, string? InstructionId, string? ConceptCode = null);
 
 /// <summary>Un descuento (allowance) o un cargo, a nivel de documento o de línea.</summary>
 public sealed record AllowanceCharge

@@ -1,4 +1,6 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using ImpiFact.Application.Abstractions;
 using ImpiFact.Application.Abstractions.Documents;
 using ImpiFact.Dian.Rounding;
@@ -76,7 +78,7 @@ internal static class DocumentGraphBuilder
             Notes = body.Notes?.Text,
             HeadNote = body.HeadNote?.Text,
             FootNote = body.FootNote?.Text,
-            Extensions = spec.IsSupportDocumentFamily ? SupportDocumentExtensions(spec, customer) : VariantExtensions(spec.Variant, body),
+            Extensions = spec.IsSupportDocumentFamily ? SupportDocumentExtensions(spec, customer) : VariantExtensions(spec.Variant, body, spec.HealthOf(body)),
             CreatedByType = (ActorKind)tenant.Actor,
             CreatedById = tenant.UserId,
         };
@@ -178,9 +180,9 @@ internal static class DocumentGraphBuilder
     /// Variant of a type 1 invoice and its document-level data (<c>documents.extensions</c>); null for a standard
     /// invoice and for the notes, which keep their previous rows.
     /// </summary>
-    private static JsonObject? VariantExtensions(InvoiceVariant variant, IssueDocumentBody body) => variant switch
+    private static JsonObject? VariantExtensions(InvoiceVariant variant, IssueDocumentBody body, HealthFieldsBody? health) => variant switch
     {
-        InvoiceVariant.Standard => null,
+        InvoiceVariant.Standard => health is not null ? HealthExtensions(health) : null,
         InvoiceVariant.Aiu => new JsonObject { ["variant"] = "aiu", ["note_aiu"] = body.NoteAiu?.Text },
         InvoiceVariant.Mandate => new JsonObject { ["variant"] = "mandate" },
         InvoiceVariant.Export => ExportExtensions(body),
@@ -221,6 +223,18 @@ internal static class DocumentGraphBuilder
             ? null
             : new JsonObject { ["brandname"] = line.BrandName?.Text, ["modelname"] = line.ModelName?.Text };
     }
+
+    /// <summary>
+    /// The <c>health_fields</c> of a health-sector invoice as the client sent them (php-rules 17): the XML keeps only the
+    /// Collection, the RIPS-bound patient data stays here for the representation and later phases.
+    /// </summary>
+    private static readonly JsonSerializerOptions StoredJson = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+
+    private static JsonObject HealthExtensions(HealthFieldsBody health) => new()
+    {
+        ["variant"] = "health",
+        ["health_fields"] = JsonSerializer.SerializeToNode(health, StoredJson),
+    };
 
     /// <summary>The Incoterm and, when sent, the supplement K of an export invoice, as the client sent them.</summary>
     private static JsonObject ExportExtensions(IssueDocumentBody body)

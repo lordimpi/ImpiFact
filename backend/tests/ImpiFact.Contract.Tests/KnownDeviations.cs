@@ -62,6 +62,20 @@ public static class KnownDeviations
             "El vendedor del ejemplo tiene type_document_identification_id 3 (cédula), que SupportDocumentRequest.php no admite " +
             "(Rule::in 4, 5, 6, 7, 8, 9 u 11): el PHP también la rechaza; ImpiFact responde 422 en " +
             "seller.type_document_identification_id (php-rules 13.1, ítem 2)."),
+        // Sector salud (fase 7a, T7; php-rules 17): el PHP Community ignoraba health_fields y emitía una factura nacional;
+        // ImpiFact arma la factura del sector salud del Documento Técnico 2 v001 (Resolución 948 de 2026), que lleva una sola
+        // colección por factura.
+        KnownDeviation.StatusCode("Factura del sector salud", 422,
+            "Sus dos usuarios traen contrato y póliza a la vez y no comparten modalidad de pago (2 y 3) ni cobertura (5 y 3): el " +
+            "Documento Técnico 2 v001 no permite contrato con póliza y su extensión tiene una sola colección por factura (secciones " +
+            "4.2, 4.3 y 6.a). ImpiFact responde 422 en health_fields.users_info.*; el PHP emitía una factura sin datos de salud."),
+        KnownDeviation.StatusCode("Factura de salud por capita del periodo", 422,
+            "Cada usuario trae otro provider_code (900123456, 900123457, 900123458): la extensión del Documento Técnico 2 v001 lleva " +
+            "un solo código de prestador por factura (sección 6.a). ImpiFact responde 422 en health_fields.users_info.1.provider_code."),
+        KnownDeviation.StatusCode("Factura de salud con recaudo (SS-Recaudo)", 422,
+            "No trae health_fields y vence (payment_due_date 2024-08-31) antes de su fecha (date 2025-05-05): la regla " +
+            "after_or_equal:date de InvoiceRequest.php:281 (php-rules 3.1, ítem 9) también la rechaza; ImpiFact responde 422 en " +
+            "payment_form.payment_due_date."),
         KnownDeviation.StatusCode("Modificar un plan", 422,
             "La solicitud de la colección no trae qty_docs_radian ni qty_docs_ds, que PlanRequest.php exige: el PHP también la " +
             "rechaza, con HTTP 500 (php-rules 3.1.11); ImpiFact responde 422 con el detalle por campo."),

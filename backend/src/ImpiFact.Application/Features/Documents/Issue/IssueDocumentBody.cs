@@ -89,6 +89,14 @@ public sealed record IssueDocumentBody
     [JsonPropertyName("k_supplement")]
     public Dictionary<string, LegacyScalar?>? KSupplement { get; init; }
 
+    /// <summary>
+    /// National invoice only (<c>POST /api/v1/documents/invoices</c>, its test-set route and <c>/api/ubl2.1/invoice</c>),
+    /// optional: makes it a health-sector invoice without RIPS (Ministerio de Salud, Resolución 948 de 2026, Documento
+    /// Técnico 2 v001). The other documents ignore it, as ApiDian Community did.
+    /// </summary>
+    [JsonPropertyName("health_fields")]
+    public HealthFieldsBody? HealthFields { get; init; }
+
     /// <summary>Moneda de negociación cuando no es la de la empresa.</summary>
     [JsonPropertyName("idcurrency")]
     public LegacyScalar? IdCurrency { get; init; }
@@ -249,6 +257,115 @@ public sealed record CustomerBody
     public LegacyScalar? PostalZoneCode { get; init; }
 }
 
+/// <summary>
+/// Health-sector data of an invoice (<c>health_fields</c>), with the names of the ApiDian Postman collection (folder 07,
+/// «Sector salud»). The XML follows the Documento Técnico 2 v001: the billing period, the health operation and one Collection
+/// built from <c>users_info</c>, whose users must share provider, payment method, coverage, contract, policy and
+/// justification. The copay, moderating fee, shared payment and advance go to the XML through <c>prepaid_payment(s)</c> with
+/// <c>prepaid_payment_type_id</c>; the patient data belongs to the RIPS (section 6.b) and is only validated.
+/// </summary>
+public sealed record HealthFieldsBody
+{
+    /// <summary>Start of the billing period (cac:InvoicePeriod/cbc:StartDate), <c>yyyy-MM-dd</c>; required.</summary>
+    [JsonPropertyName("invoice_period_start_date")]
+    public LegacyScalar? InvoicePeriodStartDate { get; init; }
+
+    /// <summary>End of the billing period (cbc:EndDate), <c>yyyy-MM-dd</c>, on or after the start; required.</summary>
+    [JsonPropertyName("invoice_period_end_date")]
+    public LegacyScalar? InvoicePeriodEndDate { get; init; }
+
+    /// <summary>
+    /// Health operation (cbc:CustomizationID), required: 1 SS-CUFE, 2 SS-CUDE, 3 SS-POS, 4 SS-SNum, 5 SS-Recaudo (no
+    /// extension: <c>users_info</c> empty), 6 SS-Reporte or 7 SS-SinAporte (extension optional).
+    /// </summary>
+    [JsonPropertyName("health_type_operation_id")]
+    public LegacyScalar? HealthTypeOperationId { get; init; }
+
+    /// <summary>Accepted for the contract; ImpiFact's PDF does not print the users yet.</summary>
+    [JsonPropertyName("print_users_info_to_pdf")]
+    public LegacyScalar? PrintUsersInfoToPdf { get; init; }
+
+    /// <summary>The users (patients) of the invoice; at least one unless the operation is 5 or 7.</summary>
+    [JsonPropertyName("users_info")]
+    public List<HealthUserBody>? UsersInfo { get; init; }
+}
+
+/// <summary>A user (patient) of a health-sector invoice (<c>health_fields.users_info[]</c>).</summary>
+public sealed record HealthUserBody
+{
+    /// <summary>CODIGO_PRESTADOR: the REPS code of the provider (or the one the Ministry assigned); required.</summary>
+    [JsonPropertyName("provider_code")]
+    public LegacyScalar? ProviderCode { get; init; }
+
+    /// <summary>Identification type of the patient (1 to 13, ApiDian's health catalog); RIPS data, not written in the XML.</summary>
+    [JsonPropertyName("health_type_document_identification_id")]
+    public LegacyScalar? HealthTypeDocumentIdentificationId { get; init; }
+
+    [JsonPropertyName("identification_number")]
+    public LegacyScalar? IdentificationNumber { get; init; }
+
+    [JsonPropertyName("surname")]
+    public LegacyScalar? Surname { get; init; }
+
+    [JsonPropertyName("second_surname")]
+    public LegacyScalar? SecondSurname { get; init; }
+
+    [JsonPropertyName("first_name")]
+    public LegacyScalar? FirstName { get; init; }
+
+    [JsonPropertyName("middle_name")]
+    public LegacyScalar? MiddleName { get; init; }
+
+    /// <summary>User type; RIPS data, not written in the XML.</summary>
+    [JsonPropertyName("health_type_user_id")]
+    public LegacyScalar? HealthTypeUserId { get; init; }
+
+    /// <summary>MODALIDAD_PAGO: id of the SISPRO table <c>modalidadPago</c> (1 to 4); required.</summary>
+    [JsonPropertyName("health_contracting_payment_method_id")]
+    public LegacyScalar? HealthContractingPaymentMethodId { get; init; }
+
+    /// <summary>COBERTURA_PLAN_BENEFICIOS: id of the SISPRO table <c>coberturaPlan</c> (1 to 17); required.</summary>
+    [JsonPropertyName("health_coverage_id")]
+    public LegacyScalar? HealthCoverageId { get; init; }
+
+    /// <summary>Authorization numbers; RIPS data, not written in the XML. The name keeps the collection's spelling.</summary>
+    [JsonPropertyName("autorization_numbers")]
+    public LegacyScalar? AutorizationNumbers { get; init; }
+
+    [JsonPropertyName("mipres")]
+    public LegacyScalar? Mipres { get; init; }
+
+    [JsonPropertyName("mipres_delivery")]
+    public LegacyScalar? MipresDelivery { get; init; }
+
+    /// <summary>NUMERO_CONTRATO (the CUCON); empty when there is no contract. Not together with <c>policy_number</c>.</summary>
+    [JsonPropertyName("contract_number")]
+    public LegacyScalar? ContractNumber { get; init; }
+
+    /// <summary>NUMERO_POLIZA (SOAT or voluntary plan); not together with <c>contract_number</c>.</summary>
+    [JsonPropertyName("policy_number")]
+    public LegacyScalar? PolicyNumber { get; init; }
+
+    /// <summary>FACTURA_SIN_CONTRATO: id of the SISPRO table <c>facturaSinContrato</c> (1 to 7), only without contract.</summary>
+    [JsonPropertyName("health_invoice_without_contract_id")]
+    public LegacyScalar? HealthInvoiceWithoutContractId { get; init; }
+
+    [JsonPropertyName("co_payment")]
+    public LegacyScalar? CoPayment { get; init; }
+
+    [JsonPropertyName("moderating_fee")]
+    public LegacyScalar? ModeratingFee { get; init; }
+
+    [JsonPropertyName("recovery_fee")]
+    public LegacyScalar? RecoveryFee { get; init; }
+
+    [JsonPropertyName("shared_payment")]
+    public LegacyScalar? SharedPayment { get; init; }
+
+    [JsonPropertyName("advance_payment")]
+    public LegacyScalar? AdvancePayment { get; init; }
+}
+
 /// <summary>Delivery terms of an export invoice (<c>deliveryterms</c>, cac:DeliveryTerms of the XML).</summary>
 public sealed record DeliveryTermsBody
 {
@@ -305,6 +422,14 @@ public sealed record PrepaidPaymentBody
     /// <summary>Instrucciones relativas al pago (cbc:InstructionID); opcional.</summary>
     [JsonPropertyName("instructionid")]
     public LegacyScalar? InstructionId { get; init; }
+
+    /// <summary>
+    /// Health-sector invoice only (required there): the collection concept, id of <c>prepaid_payment_types</c> (1 copago,
+    /// 2 cuota moderadora, 3 pagos compartidos, 4 anticipo, 5 no aplica), written as the schemeID of cbc:ID. Other invoices
+    /// ignore it, as ApiDian's <c>_prepaid_payment.blade.php</c>.
+    /// </summary>
+    [JsonPropertyName("prepaid_payment_type_id")]
+    public LegacyScalar? PrepaidPaymentTypeId { get; init; }
 
     /// <summary>
     /// Verdadero si no trae ningún campo. El PHP descarta un <c>prepaid_payment</c> vacío (<c>if($request->prepaid_payment)</c>).

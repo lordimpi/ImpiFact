@@ -95,7 +95,8 @@ internal static class UblParts
         InvoiceParty supplier,
         SoftwareCredentials software,
         string documentNumber,
-        string qrCode)
+        string qrCode,
+        UblElement? sectorExtension = null)
     {
         var providerId = DianAgency(new UblElement("sts:ProviderID", supplier.IdentificationNumber));
         if (supplier.IdentificationTypeCode is "31" or "13")
@@ -131,9 +132,17 @@ internal static class UblParts
                     .Attr("schemeName", "31")))
             .Add("sts:QRCode", qrCode);
 
-        return new UblElement("ext:UBLExtensions")
+        var extensions = new UblElement("ext:UBLExtensions")
             .Add(new UblElement("ext:UBLExtension")
-                .Add(new UblElement("ext:ExtensionContent").Add(dianExtensions)))
+                .Add(new UblElement("ext:ExtensionContent").Add(dianExtensions)));
+
+        // A sector extension (the health one) goes between the DIAN data and the signature (Documento Técnico 2 v001, 6.a).
+        if (sectorExtension is not null)
+        {
+            extensions.Add(sectorExtension);
+        }
+
+        return extensions
             .Add(new UblElement("ext:UBLExtension")
                 .Add(new UblElement("ext:ExtensionContent")));
     }

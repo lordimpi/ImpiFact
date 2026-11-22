@@ -275,4 +275,11 @@ internal sealed record IssueSpec(
 
     public MonetaryTotalsBody? TotalsOf(IssueDocumentBody body) =>
         Kind == IssueKind.DebitNote ? body.RequestedMonetaryTotals : body.LegalMonetaryTotals;
+
+    /// <summary>
+    /// The <c>health_fields</c> that make a national invoice a health-sector one (php-rules 17); null for every other
+    /// document and variant, which ignore them like ApiDian Community.
+    /// </summary>
+    public HealthFieldsBody? HealthOf(IssueDocumentBody body) =>
+        Kind == IssueKind.Invoice && Variant == InvoiceVariant.Standard ? body.HealthFields : null;
 }

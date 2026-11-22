@@ -21,8 +21,9 @@ public static class ContractScope
     /// Requests that phase 7a already covers, by their name in the collection (odd/tasks/fase-7a-community.md): folder 07
     /// variants implemented in T2 and T3, the support-document configuration (folder 01D) and requests (folder 02)
     /// implemented in T4, and the contingency invoices of T5: the type 3 resolution (folder 01), the type 03 invoice (folder
-    /// 07) and the «Contingencia tipo 4» folder of folder 02 (its resolution, the type 04 invoice and send_pendings). These
-    /// names skip the exclusions below, which still hold for every other request.
+    /// 07) and the «Contingencia tipo 4» folder of folder 02 (its resolution, the type 04 invoice and send_pendings), the
+    /// RADIAN requests of T6 and the seven health-sector invoices of folder 07 (T7). These names skip the exclusions below,
+    /// which still hold for every other request.
     /// </summary>
     public static readonly IReadOnlySet<string> PhaseSevenRequests = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -48,6 +49,13 @@ public static class ContractScope
         "Enviar un evento desde el AttachedDocument",
         "Enviar un evento indicando el CUFE",
         "Cargar un documento recibido por CUFE",
+        "Factura del sector salud",
+        "Factura de salud sin contrato",
+        "Factura de salud con varios pacientes",
+        "Factura de salud con recaudo (SS-Recaudo)",
+        "Factura de salud por capita inicial",
+        "Factura de salud por capita del periodo",
+        "Factura de salud con pago moderador",
     };
 
     /// <summary>Palabra buscada (sin tildes y en minúsculas) y motivo de la exclusión.</summary>
