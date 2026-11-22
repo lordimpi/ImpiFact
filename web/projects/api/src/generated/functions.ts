@@ -175,6 +175,16 @@ export type { RegenerateAttachedDocument$Params as RegenerateAttachedDocument$Pa
 export { regenerateAttachedDocument as regenerateAttachedDocument } from './fn/documentos/regenerate-attached-document';
 export type { ResendDocumentEmail$Params as ResendDocumentEmail$Params } from './fn/documentos/resend-document-email';
 export { resendDocumentEmail as resendDocumentEmail } from './fn/documentos/resend-document-email';
+export type { ListDocumentBatches$Params as ListDocumentBatches$Params } from './fn/lotes/list-document-batches';
+export { listDocumentBatches as listDocumentBatches } from './fn/lotes/list-document-batches';
+export type { CreateDocumentBatch$Params as CreateDocumentBatch$Params } from './fn/lotes/create-document-batch';
+export { createDocumentBatch as createDocumentBatch } from './fn/lotes/create-document-batch';
+export type { GetDocumentBatch$Params as GetDocumentBatch$Params } from './fn/lotes/get-document-batch';
+export { getDocumentBatch as getDocumentBatch } from './fn/lotes/get-document-batch';
+export type { AddDocumentToBatch$Params as AddDocumentToBatch$Params } from './fn/lotes/add-document-to-batch';
+export { addDocumentToBatch as addDocumentToBatch } from './fn/lotes/add-document-to-batch';
+export type { SendDocumentBatch$Params as SendDocumentBatch$Params } from './fn/lotes/send-document-batch';
+export { sendDocumentBatch as sendDocumentBatch } from './fn/lotes/send-document-batch';
 export type { ListReceivedDocuments$Params as ListReceivedDocuments$Params } from './fn/radian/list-received-documents';
 export { listReceivedDocuments as listReceivedDocuments } from './fn/radian/list-received-documents';
 export type { LoadReceivedDocument$Params as LoadReceivedDocument$Params } from './fn/radian/load-received-document';
