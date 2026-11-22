@@ -107,12 +107,12 @@ public sealed class CompanyMailSettingsTests
     }
 
     [Test]
-    public async Task The_first_save_needs_a_password_and_a_later_one_keeps_it()
+    public async Task The_first_save_needs_a_password_and_a_later_one_on_the_same_server_keeps_it()
     {
         var missing = await Save(Valid(password: null));
-        _companies.Stored.Add(new CompanyMailSettings { CompanyId = _own.Id, Host = "old.test", PasswordCipher = "stored-cipher" });
+        _companies.Stored.Add(StoredServer());
 
-        var kept = await Save(Valid(password: null));
+        var kept = await Save(Valid(password: null) with { FromName = "Otra firma", UsePlatformDefault = true });
 
         var row = _companies.Stored.OfType<CompanyMailSettings>().Single();
         Assert.Multiple(() =>
@@ -120,10 +120,53 @@ public sealed class CompanyMailSettingsTests
             Assert.That(missing.Error.Fields.Single(), Is.EqualTo(new FieldError("password", MailSettingsRules.PasswordRequired)));
             Assert.That(_companies.Added, Is.Empty);
             Assert.That(kept.IsSuccess, Is.True);
-            Assert.That(row.Host, Is.EqualTo("smtp.empresa.test"));
+            Assert.That((row.FromName, row.UsePlatformDefault), Is.EqualTo(("Otra firma", true)));
             Assert.That(row.PasswordCipher, Is.EqualTo("stored-cipher"));
         });
     }
+
+    // End-of-7a verification, M2: the stored password only goes to the server it was given for.
+    [TestCase("host")]
+    [TestCase("port")]
+    [TestCase("username")]
+    [TestCase("encryption")]
+    public async Task Changing_the_server_without_a_new_password_is_refused_and_changes_nothing(string field)
+    {
+        _companies.Stored.Add(StoredServer());
+        var command = field switch
+        {
+            "host" => Valid(password: null) with { Host = "smtp.attacker.test" },
+            "port" => Valid(password: null) with { Port = 2525 },
+            "username" => Valid(password: null) with { Username = "otro" },
+            _ => Valid(password: null) with { Encryption = "none" },
+        };
+
+        var refused = await Save(command);
+
+        var row = _companies.Stored.OfType<CompanyMailSettings>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(refused.Error.Fields.Single(), Is.EqualTo(new FieldError("password", MailSettingsRules.PasswordRequiredForNewServer)));
+            Assert.That((row.Host, row.Port, row.Username, row.Encryption, row.PasswordCipher),
+                Is.EqualTo(("smtp.empresa.test", (int?)587, "mailer", "tls", "stored-cipher")));
+        });
+    }
+
+    [Test]
+    public async Task The_same_server_written_with_other_case_or_spaces_keeps_the_password()
+    {
+        _companies.Stored.Add(StoredServer());
+
+        var kept = await Save(Valid(password: null) with { Host = "SMTP.Empresa.Test", Username = " mailer ", Encryption = "TLS" });
+
+        Assert.That(kept.IsSuccess, Is.True);
+        Assert.That(_companies.Stored.OfType<CompanyMailSettings>().Single().PasswordCipher, Is.EqualTo("stored-cipher"));
+    }
+
+    private CompanyMailSettings StoredServer() => new()
+    {
+        CompanyId = _own.Id, Host = "smtp.empresa.test", Port = 587, Username = "mailer", Encryption = "tls", PasswordCipher = "stored-cipher",
+    };
 
     [Test]
     public async Task Another_company_nit_is_forbidden_without_touching_anything()

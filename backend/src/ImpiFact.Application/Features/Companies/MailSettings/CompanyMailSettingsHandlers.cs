@@ -37,7 +37,10 @@ public sealed record SaveCompanyMailSettingsCommand : ICommand
     [JsonPropertyName("username")]
     public string? Username { get; init; }
 
-    /// <summary>Write-only. Required the first time; without it a new save keeps the stored one.</summary>
+    /// <summary>
+    /// Write-only. Required the first time and whenever host, port, username or encryption change; without it a new save on the
+    /// same server keeps the stored one.
+    /// </summary>
     [JsonPropertyName("password")]
     public string? Password { get; init; }
 
@@ -150,6 +153,13 @@ public static class MailSettingsRules
 
     public const string PasswordRequired = "El campo contraseña es obligatorio para guardar el servidor de correo por primera vez.";
 
+    /// <summary>
+    /// The stored password belongs to the server it was given for: a save that changes the host, port, username or encryption
+    /// brings it again, or anyone with <c>config:write</c> could point the Worker to their own server and receive it at login.
+    /// </summary>
+    public const string PasswordRequiredForNewServer =
+        "El campo contraseña es obligatorio al cambiar el servidor, el puerto, el usuario o el cifrado del correo.";
+
     public static string? Normalize(string? encryption) => encryption?.Trim().ToLowerInvariant();
 
     internal static bool IsHost(string? host) =>
@@ -219,7 +229,8 @@ internal sealed class GetCompanyMailSettingsHandler(ICompanyRepository companies
 
 /// <summary>
 /// Creates or replaces the row of the company. A new password is encrypted for <see cref="SecretPurposes.SmtpPassword"/>;
-/// without one, the stored cipher stays, and a first save without password answers 422.
+/// without one, the stored cipher stays only while the server is the same (host, port, username and encryption): a first
+/// save without password, or one that changes the server without bringing the password again, answers 422 and saves nothing.
 /// </summary>
 internal sealed class SaveCompanyMailSettingsHandler(ICompanyRepository companies, ITenantContext tenant, ISecretProtector secrets)
     : IHandler<SaveCompanyMailSettingsCommand, CompanyMailSettingsResponse>
@@ -236,6 +247,11 @@ internal sealed class SaveCompanyMailSettingsHandler(ICompanyRepository companie
         if (request.Password is null && string.IsNullOrEmpty(row?.PasswordCipher))
         {
             return Error.Validation([new FieldError("password", MailSettingsRules.PasswordRequired)]);
+        }
+
+        if (request.Password is null && !SameServer(row!, request))
+        {
+            return Error.Validation([new FieldError("password", MailSettingsRules.PasswordRequiredForNewServer)]);
         }
 
         if (row is null)
@@ -258,6 +274,16 @@ internal sealed class SaveCompanyMailSettingsHandler(ICompanyRepository companie
 
         return CompanyMailSettingsResponse.From(row);
     }
+
+    /// <summary>
+    /// Whether the save keeps the server the stored password was given for: same host (DNS names ignore case), port, username
+    /// and encryption, compared as they are stored. The sender, its name and <c>use_platform_default</c> may change freely.
+    /// </summary>
+    private static bool SameServer(CompanyMailSettings row, SaveCompanyMailSettingsCommand request) =>
+        string.Equals(row.Host, request.Host, StringComparison.OrdinalIgnoreCase)
+        && row.Port == request.Port
+        && string.Equals(row.Username, request.Username?.Trim(), StringComparison.Ordinal)
+        && string.Equals(row.Encryption, MailSettingsRules.Normalize(request.Encryption), StringComparison.Ordinal);
 }
 
 /// <summary>Deletes the row; without one it answers the same (it is idempotent).</summary>

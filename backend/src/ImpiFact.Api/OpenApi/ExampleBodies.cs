@@ -279,12 +279,12 @@ internal static class ExampleBodies
         new("plataforma", "Guardar el servidor propio pero enviar por la plataforma", Parse("""
             {
               "host": "smtp.empresa-prueba.com",
-              "port": 465,
+              "port": 587,
               "username": "facturacion@empresa-prueba.com",
-              "encryption": "ssl",
+              "encryption": "tls",
               "use_platform_default": true
             }
-            """), "Sin `password` queda la contraseña guardada; la primera vez es obligatoria."),
+            """), "Sin `password` queda la contraseña guardada si el servidor, el puerto, el usuario y el cifrado no cambian; la primera vez es obligatoria."),
     ];
 
     public static RequestExample[] MergePdfs { get; } =

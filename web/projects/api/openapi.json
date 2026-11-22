@@ -1757,7 +1757,7 @@
           "Empresas"
         ],
         "summary": "Guardar el servidor de correo de la empresa",
-        "description": "Crea o reemplaza el servidor de correo propio con que salen los correos de los documentos de la empresa: \u0060host\u0060 (nombre o direcci\u00F3n IP, sin protocolo), \u0060port\u0060 (1 a 65535), \u0060username\u0060, \u0060password\u0060, \u0060encryption\u0060 (\u0060ssl\u0060, \u0060tls\u0060, \u0060starttls\u0060 o \u0060none\u0060), y si quiere \u0060from_address\u0060 y \u0060from_name\u0060 (sin ellos sale con el remitente de la plataforma) y \u0060use_platform_default\u0060 (verdadero: lo guarda pero env\u00EDa por la plataforma). La contrase\u00F1a es obligatoria la primera vez; despu\u00E9s, si no llega, queda la guardada. Se guarda cifrada y nunca se devuelve ni se registra. Datos inv\u00E1lidos: 422 con el motivo en \u0060errors.\u003Ccampo\u003E\u0060. Responde lo mismo que \u0060GET .../mail-settings\u0060. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
+        "description": "Crea o reemplaza el servidor de correo propio con que salen los correos de los documentos de la empresa: \u0060host\u0060 (nombre o direcci\u00F3n IP, sin protocolo), \u0060port\u0060 (1 a 65535), \u0060username\u0060, \u0060password\u0060, \u0060encryption\u0060 (\u0060ssl\u0060, \u0060tls\u0060, \u0060starttls\u0060 o \u0060none\u0060), y si quiere \u0060from_address\u0060 y \u0060from_name\u0060 (sin ellos sale con el remitente de la plataforma) y \u0060use_platform_default\u0060 (verdadero: lo guarda pero env\u00EDa por la plataforma). La contrase\u00F1a es obligatoria la primera vez y cada vez que cambian \u0060host\u0060, \u0060port\u0060, \u0060username\u0060 o \u0060encryption\u0060 (sin ella: 422 en \u0060errors.password\u0060 y no se guarda nada), porque la guardada solo se usa con el servidor para el que se dio; si solo cambian el remitente o \u0060use_platform_default\u0060, sin \u0060password\u0060 queda la guardada. Se guarda cifrada y nunca se devuelve ni se registra. Datos inv\u00E1lidos: 422 con el motivo en \u0060errors.\u003Ccampo\u003E\u0060. Responde lo mismo que \u0060GET .../mail-settings\u0060. El \u0060{nit}\u0060 debe ser el de la empresa de la credencial; otro NIT responde 403 (\u0060company.forbidden\u0060).\n\n**Permiso:** alcance \u0060config:write\u0060.",
         "operationId": "saveCompanyMailSettings",
         "parameters": [
           {
@@ -1792,12 +1792,12 @@
                 },
                 "plataforma": {
                   "summary": "Guardar el servidor propio pero enviar por la plataforma",
-                  "description": "Sin \u0060password\u0060 queda la contrase\u00F1a guardada; la primera vez es obligatoria.",
+                  "description": "Sin \u0060password\u0060 queda la contrase\u00F1a guardada si el servidor, el puerto, el usuario y el cifrado no cambian; la primera vez es obligatoria.",
                   "value": {
                     "host": "smtp.empresa-prueba.com",
-                    "port": 465,
+                    "port": 587,
                     "username": "facturacion@empresa-prueba.com",
-                    "encryption": "ssl",
+                    "encryption": "tls",
                     "use_platform_default": true
                   }
                 }

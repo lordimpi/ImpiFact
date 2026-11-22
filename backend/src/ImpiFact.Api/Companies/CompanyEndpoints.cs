@@ -261,7 +261,10 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "`host` (nombre o dirección IP, sin protocolo), `port` (1 a 65535), `username`, `password`, `encryption` " +
                 "(`ssl`, `tls`, `starttls` o `none`), y si quiere `from_address` y `from_name` (sin ellos sale con el " +
                 "remitente de la plataforma) y `use_platform_default` (verdadero: lo guarda pero envía por la plataforma). " +
-                "La contraseña es obligatoria la primera vez; después, si no llega, queda la guardada. Se guarda cifrada y " +
+                "La contraseña es obligatoria la primera vez y cada vez que cambian `host`, `port`, `username` o " +
+                "`encryption` (sin ella: 422 en `errors.password` y no se guarda nada), porque la guardada solo se usa con " +
+                "el servidor para el que se dio; si solo cambian el remitente o `use_platform_default`, sin `password` queda " +
+                "la guardada. Se guarda cifrada y " +
                 "nunca se devuelve ni se registra. Datos inválidos: 422 con el motivo en `errors.<campo>`. Responde lo mismo " +
                 "que `GET .../mail-settings`." + OwnNit);
         canonical.MapDelete("/{nit}/mail-settings", DeleteMailSettings).RequireAuthorization(ApiScopes.ConfigWrite)

@@ -21,17 +21,23 @@ public sealed class CompanyMailSettingsApiTests
 {
     private const string Password = "Smtp-Secret-2026!";
 
+    private const string ServerChangedMessage =
+        "El campo contraseña es obligatorio al cambiar el servidor, el puerto, el usuario o el cifrado del correo.";
+
     private static CompanyApiFactory Api => CompaniesHost.Api;
 
-    internal static object Body(string? password = Password, string host = "smtp.empresa.test", int port = 587, string encryption = "tls") => new
+    internal static object Body(
+        string? password = Password, string host = "smtp.empresa.test", int port = 587, string encryption = "tls",
+        string username = "facturacion@empresa.test", string fromName = "Facturación Empresa", bool usePlatformDefault = false) => new
     {
         host,
         port,
-        username = "facturacion@empresa.test",
+        username,
         password,
         encryption,
         from_address = "facturacion@empresa.test",
-        from_name = "Facturación Empresa",
+        from_name = fromName,
+        use_platform_default = usePlatformDefault,
     };
 
     [Test]
@@ -95,7 +101,8 @@ public sealed class CompanyMailSettingsApiTests
         using var first = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/mail-settings", Body(password: null));
         using var saved = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/mail-settings", Body());
         var cipher = (await RowAsync(nit))!.PasswordCipher;
-        using var changed = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/mail-settings", Body(password: null, host: "smtp2.empresa.test"));
+        using var changed = await company.PutAsJsonAsync(
+            $"/api/v1/companies/{nit}/mail-settings", Body(password: null, fromName: "Otra firma", usePlatformDefault: true));
 
         var row = await RowAsync(nit);
         using var firstBody = await CompanyApiTests.Json(first);
@@ -105,8 +112,66 @@ public sealed class CompanyMailSettingsApiTests
             Assert.That(firstBody.RootElement.GetProperty("errors").GetProperty("password")[0].GetString(),
                 Is.EqualTo("El campo contraseña es obligatorio para guardar el servidor de correo por primera vez."));
             Assert.That(changed.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-            Assert.That(row!.Host, Is.EqualTo("smtp2.empresa.test"));
-            Assert.That(row.PasswordCipher, Is.EqualTo(cipher), "Without a new password the stored one stays.");
+            Assert.That((row!.FromName, row.UsePlatformDefault), Is.EqualTo(("Otra firma", true)));
+            Assert.That(row.PasswordCipher, Is.EqualTo(cipher), "Without a new password, on the same server, the stored one stays.");
+        });
+    }
+
+    // End-of-7a verification, M2: keeping the stored password while the server changed let a config:write credential point
+    // the Worker to its own host and receive the company's SMTP password at login.
+    [Test]
+    public async Task Changing_the_server_without_a_new_password_answers_422_and_keeps_the_old_server()
+    {
+        var (company, nit) = await CompanyApiTests.CreateCompanyAsync();
+        using var owned = company;
+        using var saved = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/mail-settings", Body());
+        var before = await RowAsync(nit);
+
+        using var moved = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/mail-settings", Body(password: null, host: "smtp.attacker.test"));
+
+        var after = await RowAsync(nit);
+        using var body = await CompanyApiTests.Json(moved);
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
+            Assert.That(body.RootElement.GetProperty("errors").GetProperty("password")[0].GetString(), Is.EqualTo(ServerChangedMessage));
+            Assert.That(after!.Host, Is.EqualTo(before!.Host));
+            Assert.That(after.PasswordCipher, Is.EqualTo(before.PasswordCipher));
+        });
+    }
+
+    [TestCase("port")]
+    [TestCase("username")]
+    [TestCase("encryption")]
+    public async Task Changing_the_port_user_or_encryption_needs_a_new_password(string field)
+    {
+        var (company, nit) = await CompanyApiTests.CreateCompanyAsync();
+        using var owned = company;
+        using var saved = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/mail-settings", Body());
+        var before = await RowAsync(nit);
+        var changed = field switch
+        {
+            "port" => Body(password: null, port: 2525),
+            "username" => Body(password: null, username: "otro@attacker.test"),
+            _ => Body(password: null, encryption: "none"),
+        };
+
+        using var moved = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/mail-settings", changed);
+        using var withPassword = await company.PutAsJsonAsync($"/api/v1/companies/{nit}/mail-settings", field switch
+        {
+            "port" => Body(port: 2525),
+            "username" => Body(username: "otro@attacker.test"),
+            _ => Body(encryption: "none"),
+        });
+
+        var after = await RowAsync(nit);
+        using var body = await CompanyApiTests.Json(moved);
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity));
+            Assert.That(body.RootElement.GetProperty("errors").GetProperty("password")[0].GetString(), Is.EqualTo(ServerChangedMessage));
+            Assert.That(withPassword.StatusCode, Is.EqualTo(HttpStatusCode.OK), "With a new password the change is saved.");
+            Assert.That((after!.Port, after.Username, after.Encryption), Is.Not.EqualTo((before!.Port, before.Username, before.Encryption)));
         });
     }
 
