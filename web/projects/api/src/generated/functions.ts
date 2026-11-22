@@ -125,6 +125,14 @@ export type { IssueExportInvoice$Params as IssueExportInvoice$Params } from './f
 export { issueExportInvoice as issueExportInvoice } from './fn/documentos/issue-export-invoice';
 export type { IssueTestSetExportInvoice$Params as IssueTestSetExportInvoice$Params } from './fn/documentos/issue-test-set-export-invoice';
 export { issueTestSetExportInvoice as issueTestSetExportInvoice } from './fn/documentos/issue-test-set-export-invoice';
+export type { IssueContingencyInvoice$Params as IssueContingencyInvoice$Params } from './fn/documentos/issue-contingency-invoice';
+export { issueContingencyInvoice as issueContingencyInvoice } from './fn/documentos/issue-contingency-invoice';
+export type { IssueTestSetContingencyInvoice$Params as IssueTestSetContingencyInvoice$Params } from './fn/documentos/issue-test-set-contingency-invoice';
+export { issueTestSetContingencyInvoice as issueTestSetContingencyInvoice } from './fn/documentos/issue-test-set-contingency-invoice';
+export type { IssueDianContingencyInvoice$Params as IssueDianContingencyInvoice$Params } from './fn/documentos/issue-dian-contingency-invoice';
+export { issueDianContingencyInvoice as issueDianContingencyInvoice } from './fn/documentos/issue-dian-contingency-invoice';
+export type { SendPendingContingencyInvoices$Params as SendPendingContingencyInvoices$Params } from './fn/documentos/send-pending-contingency-invoices';
+export { sendPendingContingencyInvoices as sendPendingContingencyInvoices } from './fn/documentos/send-pending-contingency-invoices';
 export type { IssueCreditNote$Params as IssueCreditNote$Params } from './fn/documentos/issue-credit-note';
 export { issueCreditNote as issueCreditNote } from './fn/documentos/issue-credit-note';
 export type { IssueTestSetCreditNote$Params as IssueTestSetCreditNote$Params } from './fn/documentos/issue-test-set-credit-note';

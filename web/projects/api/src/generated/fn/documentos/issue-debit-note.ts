@@ -67,6 +67,21 @@ export interface IssueDebitNote$Params {
  * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
  */
 'noteAIU'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'AdditionalDocumentReferenceID'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'AdditionalDocumentReferenceDate'?: (boolean | number | string | null);
+
+/**
+ * Texto, número o booleano: el contrato heredado acepta cualquiera de las tres formas.
+ */
+'AdditionalDocumentReferenceTypeDocument'?: (boolean | number | string | null);
 'deliveryterms'?: {
 
 /**
