@@ -56,6 +56,30 @@ public static class CufeCalculator
     /// <summary>CUDE de una nota crédito o débito; usa el PIN del software en lugar de la clave técnica.</summary>
     public static string ComputeCude(CufeInput input, string softwarePin) => Compute(input, softwarePin);
 
+    /// <summary>
+    /// CUDS of a support document (05) or its adjustment note (95), with the PIN of the support-document software. Unlike
+    /// the CUFE and the CUDE it carries only the IVA (01), without INC nor ICA (php-rules 2.1 and 13.3, item 1). The
+    /// supplier is the seller not obliged to invoice and the customer is the issuing company, as in the XML.
+    /// </summary>
+    public static string ComputeCuds(CufeInput input, string supportDocumentPin)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentException.ThrowIfNullOrEmpty(supportDocumentPin);
+        var text = string.Concat(
+            input.Number,
+            input.IssueDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            input.IssueTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture) + ColombiaOffset,
+            DianRounding.FormatAmount(input.LineExtensionAmount),
+            IvaCode, DianRounding.FormatAmount(input.Iva ?? 0m),
+            DianRounding.FormatAmount(input.PayableAmount),
+            input.SupplierNit,
+            input.CustomerNit,
+            supportDocumentPin,
+            ((int)input.Environment).ToString(CultureInfo.InvariantCulture));
+
+        return Convert.ToHexStringLower(SHA384.HashData(Encoding.UTF8.GetBytes(text)));
+    }
+
     private static string Compute(CufeInput input, string secret)
     {
         ArgumentNullException.ThrowIfNull(input);

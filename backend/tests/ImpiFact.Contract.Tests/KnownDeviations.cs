@@ -51,6 +51,10 @@ public static class KnownDeviations
             "anticipo del valor a pagar (900000.00 = 1000000.00 − 100000.00). La regla FAU14 del anexo técnico 1.9 no lo resta " +
             "(total con impuestos − descuentos + cargos), así que la DIAN la rechazaría: ImpiFact responde 422 en " +
             "legal_monetary_totals.payable_amount (php-rules, sección 8)."),
+        KnownDeviation.StatusCode("Documento soporte con impuesto", 422,
+            "El vendedor del ejemplo tiene type_document_identification_id 3 (cédula), que SupportDocumentRequest.php no admite " +
+            "(Rule::in 4, 5, 6, 7, 8, 9 u 11): el PHP también la rechaza; ImpiFact responde 422 en " +
+            "seller.type_document_identification_id (php-rules 13.1, ítem 2)."),
         KnownDeviation.StatusCode("Modificar un plan", 422,
             "La solicitud de la colección no trae qty_docs_radian ni qty_docs_ds, que PlanRequest.php exige: el PHP también la " +
             "rechaza, con HTTP 500 (php-rules 3.1.11); ImpiFact responde 422 con el detalle por campo."),

@@ -10,6 +10,14 @@ public enum NoteKind
 
     /// <summary>Nota débito (tipo 92 de la DIAN): aumenta el valor facturado.</summary>
     Debit,
+
+    /// <summary>
+    /// Adjustment note to a support document (CreditNote with type code 95, ApiDian template <c>95.blade.php</c>): a credit
+    /// note with the CUDS and the support-document software, the parties laid out as in the support document
+    /// (<see cref="SalesNote.Supplier"/> is the seller, <see cref="SalesNote.Customer"/> the issuing company) and the brand
+    /// and model of its lines.
+    /// </summary>
+    SupportDocumentAdjustment,
 }
 
 /// <summary>

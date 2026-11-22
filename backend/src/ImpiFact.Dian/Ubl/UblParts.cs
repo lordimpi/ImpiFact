@@ -142,7 +142,16 @@ internal static class UblParts
     /// cac:AccountingSupplierParty o cac:AccountingCustomerParty. El proveedor escribe el prefijo de la
     /// numeración del documento en cac:CorporateRegistrationScheme/cbc:ID, como hace ApiDian.
     /// </summary>
-    public static UblElement Party(string node, InvoiceParty party, bool isSupplier, string prefix)
+    /// <param name="isSupplier">
+    /// True for the party ApiDian's <c>_accounting.blade.php</c> renders as the issuing company (<c>$supplier</c>): the
+    /// supplier of an invoice or note, the customer of a support document (the company is the buyer there).
+    /// </param>
+    /// <param name="supportDocument">
+    /// Support document (05) or its adjustment note (95): both parties write the prefix in
+    /// cac:CorporateRegistrationScheme/cbc:ID and cac:PartyTaxScheme/cbc:CompanyID always carries schemeName 31, as the
+    /// template does for the types 11 and 13 (php-rules 13.2, item 2).
+    /// </param>
+    public static UblElement Party(string node, InvoiceParty party, bool isSupplier, string prefix, bool supportDocument = false)
     {
         var partyElement = new UblElement("cac:Party");
         if (party.OrganizationTypeCode == "2")
@@ -157,12 +166,15 @@ internal static class UblParts
             // ubicación física (cac:PhysicalLocation) del proveedor.
             partyElement.Add(new UblElement("cac:PhysicalLocation")
                 .Add(Address("cac:Address", address, isSupplier ? address.CityName : address.CityName.Trim(),
-                    PhysicalAddressLinePrefix + address.AddressLine + PhysicalAddressLineSuffix)));
+                    PhysicalAddressLinePrefix + address.AddressLine + PhysicalAddressLineSuffix, party.PostalZone)));
         }
 
+        var taxCompanyId = supportDocument
+            ? DianAgency(new UblElement("cbc:CompanyID", party.IdentificationNumber)).Attr("schemeID", party.CheckDigit ?? "").Attr("schemeName", "31")
+            : CompanyId("cbc:CompanyID", party);
         var taxScheme = new UblElement("cac:PartyTaxScheme")
             .Add("cbc:RegistrationName", party.Name)
-            .Add(CompanyId("cbc:CompanyID", party))
+            .Add(taxCompanyId)
             .Add(new UblElement("cbc:TaxLevelCode", party.LiabilityCode).Attr("listName", party.RegimeCode));
         if (party.Address is { } registration)
         {
@@ -175,7 +187,7 @@ internal static class UblParts
         partyElement.Add(taxScheme);
 
         var corporateRegistration = new UblElement("cac:CorporateRegistrationScheme");
-        if (isSupplier)
+        if (isSupplier || supportDocument)
         {
             corporateRegistration.Add("cbc:ID", prefix);
         }
@@ -416,16 +428,24 @@ internal static class UblParts
             .Attr("schemeID", party.CheckDigit ?? "")
             .Attr("schemeName", party.IdentificationTypeCode);
 
-    private static UblElement Address(string node, PartyAddress address, string cityName, string line) =>
-        new UblElement(node)
+    private static UblElement Address(string node, PartyAddress address, string cityName, string line, string? postalZone = null)
+    {
+        var element = new UblElement(node)
             .Add("cbc:ID", address.MunicipalityCode)
-            .Add("cbc:CityName", cityName)
+            .Add("cbc:CityName", cityName);
+        if (postalZone is not null)
+        {
+            element.Add("cbc:PostalZone", postalZone);
+        }
+
+        return element
             .Add("cbc:CountrySubentity", address.DepartmentName.Trim())
             .Add("cbc:CountrySubentityCode", address.DepartmentCode)
             .Add(new UblElement("cac:AddressLine").Add("cbc:Line", line))
             .Add(new UblElement("cac:Country")
                 .Add("cbc:IdentificationCode", address.CountryCode)
                 .Add(new UblElement("cbc:Name", address.CountryName).Attr("languageID", address.LanguageCode)));
+    }
 
     private static IEnumerable<IGrouping<string, TaxSubtotal>> GroupByScheme(IEnumerable<TaxSubtotal> subtotals) =>
         subtotals.GroupBy(s => s.SchemeCode, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal);

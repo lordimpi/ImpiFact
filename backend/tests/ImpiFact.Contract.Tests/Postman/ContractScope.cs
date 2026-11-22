@@ -18,8 +18,9 @@ public static class ContractScope
     };
 
     /// <summary>
-    /// Requests outside those folders that phase 7a already covers, by their name in the collection: folder 07 variants
-    /// implemented in T2 and T3 (odd/tasks/fase-7a-community.md).
+    /// Requests that phase 7a already covers, by their name in the collection (odd/tasks/fase-7a-community.md): folder 07
+    /// variants implemented in T2 and T3, and the support-document configuration (folder 01D) and requests (folder 02)
+    /// implemented in T4. These names skip the exclusions below, which still hold for every other request.
     /// </summary>
     public static readonly IReadOnlySet<string> PhaseSevenRequests = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -27,6 +28,16 @@ public static class ContractScope
         "Factura de mandato",
         "Factura de transporte de carga",
         "Factura de exportacion",
+        "Paso 1 - Registrar el software de documento soporte",
+        "Paso 2 - Crear la resolucion de documento soporte",
+        "Paso 3 - Crear la resolucion de nota de ajuste de documento soporte",
+        "Documento soporte sencillo",
+        "Documento soporte con descuento",
+        "Documento soporte con descuento (variante 2)",
+        "Documento soporte a proveedor extranjero (no residente)",
+        "Nota de ajuste de documento soporte",
+        "Documento soporte con impuesto",
+        "Documento soporte exento con retencion del 11%",
     };
 
     /// <summary>Palabra buscada (sin tildes y en minúsculas) y motivo de la exclusión.</summary>
@@ -50,7 +61,12 @@ public static class ContractScope
     /// <summary>Nulo si la solicitud se ejecuta en la fase 4; si no, el motivo por el que queda fuera.</summary>
     public static string? OutOfScopeReason(PostmanRequest request)
     {
-        if (!PhaseFourFolders.Contains(request.TopFolder) && !PhaseSevenRequests.Contains(request.Name))
+        if (PhaseSevenRequests.Contains(request.Name))
+        {
+            return null;
+        }
+
+        if (!PhaseFourFolders.Contains(request.TopFolder))
         {
             return $"carpeta {request.TopFolder} fuera de la fase 4";
         }

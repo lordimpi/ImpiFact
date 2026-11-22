@@ -70,7 +70,7 @@ internal sealed class SendDocumentToDianHandler(
         var kind = FileKindOf(document);
         var signedXml = await store.ReadFileAsync(companyId, document.Id, DocumentFileKind.SignedXml, ct)
             ?? throw new PermanentOutboxFailureException($"Document {document.Id} has no signed XML.");
-        var issuer = await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentKind.Invoice, ct)
+        var issuer = await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct)
             ?? throw new PermanentOutboxFailureException($"Company {companyId} does not exist.");
         var secretRef = issuer.Certificate?.SecretRef
             ?? throw new PermanentOutboxFailureException($"Company {companyId} has no active certificate.");
@@ -225,14 +225,11 @@ internal sealed class SendDocumentToDianHandler(
         1 or 2 or 3 => DianFileKind.Invoice,
         4 => DianFileKind.CreditNote,
         5 => DianFileKind.DebitNote,
+        DocumentFamilies.SupportDocumentType => DianFileKind.SupportDocument,
+        DocumentFamilies.SupportDocumentAdjustmentNoteType => DianFileKind.SupportDocumentAdjustmentNote,
         _ => throw new PermanentOutboxFailureException(
             $"Document {document.Id} has type {document.DocumentTypeId}, which is not sent to the DIAN yet."),
     };
 
-    private static string FilePrefixOf(DianFileKind kind) => kind switch
-    {
-        DianFileKind.Invoice => "fv",
-        DianFileKind.CreditNote => "nc",
-        _ => "nd",
-    };
+    private static string FilePrefixOf(DianFileKind kind) => DianFileNames.Prefix(kind);
 }

@@ -95,6 +95,24 @@ public sealed class ScalarExampleFlowTests
         }
 
         Assert.That(exportNumbers, Is.EqualTo(new[] { "SETP990000000", "SETP990000001" }));
+
+        // The support document example (phase 7a, T4) needs the support-document software example and the SEDS resolution.
+        await OkAsync(company, HttpMethod.Put, $"/api/v1/companies/{nit}/software", Example("/api/v1/companies/{nit}/software", "put", "documento-soporte"));
+        using var supportDocument = await SendAsync(company, HttpMethod.Post, "/api/v1/documents/support-documents",
+            Example("/api/v1/documents/support-documents", "post", "support-document-resident"));
+        var supportText = await supportDocument.Content.ReadAsStringAsync();
+        Assert.That(supportDocument.StatusCode, Is.EqualTo(HttpStatusCode.OK), supportText);
+        using var supportJson = JsonDocument.Parse(supportText);
+        var issuedSupport = supportJson.RootElement.GetProperty("document");
+        Assert.That((issuedSupport.GetProperty("status").GetString(), issuedSupport.GetProperty("full_number").GetString()),
+            Is.EqualTo(("Queued", "SEDS984000000")));
+
+        // The adjustment note example references a support document the integrator must replace: as is, it answers 422.
+        using var note = await SendAsync(company, HttpMethod.Post, "/api/v1/documents/support-documents/adjustment-notes",
+            Example("/api/v1/documents/support-documents/adjustment-notes", "post"));
+        var noteText = await note.Content.ReadAsStringAsync();
+        Assert.That(note.StatusCode, Is.EqualTo(HttpStatusCode.UnprocessableEntity), noteText);
+        Assert.That(noteText, Does.Contain("document.reference_not_found"));
     }
 
     private string PathExample(string path, string method, string name) =>

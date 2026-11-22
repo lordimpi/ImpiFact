@@ -10,6 +10,7 @@ using ImpiFact.Application.Abstractions.Messaging;
 using ImpiFact.Application.Abstractions.Notifications;
 using ImpiFact.Application.Abstractions.Persistence;
 using ImpiFact.Application.Features.Documents.Email;
+using ImpiFact.Application.Features.Documents.Pdf;
 using ImpiFact.Dian.Soap;
 using ImpiFact.Domain.Common;
 using ImpiFact.Domain.Documents;
@@ -221,8 +222,9 @@ internal sealed class DianDelivery(
             document.AcceptedAt = clock.UtcNow;
             if (document.TrackId is null)
             {
-                // Facturas y notas (tipos 1 a 5) son la familia «factura» de las cuotas del plan.
-                await plans.CountAcceptedAsync(document.CompanyId, DocumentKind.Invoice, ct);
+                // Each family counts in its own plan quota: invoices and notes (types 1 to 5) in qty_docs_invoice, the support
+                // document and its adjustment note (11 and 13) in qty_docs_ds.
+                await plans.CountAcceptedAsync(document.CompanyId, DocumentFamilies.Of(document.DocumentTypeId), ct);
             }
 
             await ScheduleAfterAcceptanceAsync(document, decided.Result, endpoint.Certificate, ct);
@@ -333,6 +335,14 @@ internal sealed class DianDelivery(
             await files.AddAsync(
                 new NewDocumentFile(document.CompanyId, document.Id, DocumentFileKind.AttachedDocument, Utf8.GetBytes(attachedDocument),
                     "application/xml"), ct);
+        }
+
+        if (!DocumentPdfModelBuilder.HasTemplate(document.DocumentTypeId))
+        {
+            logger.LogInformation(
+                "Document {DocumentId} has type {DocumentTypeId}, which has no PDF template yet; no PDF nor email is generated.",
+                document.Id, document.DocumentTypeId);
+            return;
         }
 
         await outbox.EnqueueAsync(OutboxMessageTypes.RenderPdf, new RenderPdfPayload(document.Id), document.CompanyId, notBefore: null, ct);

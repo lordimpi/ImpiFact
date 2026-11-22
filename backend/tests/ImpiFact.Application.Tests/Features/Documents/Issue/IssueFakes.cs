@@ -123,8 +123,14 @@ public sealed class FakeIssuerContextReads : IIssuerContextReads
 {
     public Dictionary<(Guid Company, int Type), IssuerContext> Contexts { get; } = [];
 
-    public Task<IssuerContext?> GetAsync(Guid companyId, int documentTypeId, DocumentKind kind, CancellationToken ct) =>
-        Task.FromResult(Contexts.GetValueOrDefault((companyId, documentTypeId)));
+    /// <summary>Every read with the family it asked for, so tests can prove which software and environment were used.</summary>
+    public List<(int Type, DocumentKind Kind)> Requests { get; } = [];
+
+    public Task<IssuerContext?> GetAsync(Guid companyId, int documentTypeId, DocumentKind kind, CancellationToken ct)
+    {
+        Requests.Add((documentTypeId, kind));
+        return Task.FromResult(Contexts.GetValueOrDefault((companyId, documentTypeId)));
+    }
 }
 
 /// <summary>Catálogos del archivo de las pruebas golden (catalogs.json, copiado de los CSV del PHP).</summary>
@@ -151,6 +157,8 @@ public sealed class FakeCatalogs : IDocumentCatalogs
         ["referencePrices"] = DianCatalog.ReferencePrice,
         ["creditNoteDiscrepancies"] = DianCatalog.CreditNoteDiscrepancy,
         ["debitNoteDiscrepancies"] = DianCatalog.DebitNoteDiscrepancy,
+        ["supportDocumentDiscrepancies"] = DianCatalog.SupportDocumentDiscrepancy,
+        ["generationTransmitions"] = DianCatalog.GenerationTransmition,
     };
 
     public Dictionary<CatalogKey, CatalogItem> Items { get; } = Load();

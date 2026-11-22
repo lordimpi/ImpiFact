@@ -59,6 +59,20 @@ internal static class ExampleBodies
             """), OwnValues),
     ];
 
+    /// <summary>
+    /// Support-document software (phase 7a, T4): its own identifier and PIN, given by the DIAN when the support-document
+    /// software is registered; it is kept apart from the invoice software.
+    /// </summary>
+    public static RequestExample[] SupportDocumentSoftware { get; } =
+    [
+        new("documento-soporte", "Software de documento soporte", Parse("""
+            {
+              "idsupportdocument": "7c1e5a90-2b4d-4f3a-8e6c-1d9b0a2f3c58",
+              "pinsupportdocument": "54321"
+            }
+            """), "Reemplace `idsupportdocument` y `pinsupportdocument` por los que le dio la DIAN al registrar el software de documento soporte."),
+    ];
+
     public static RequestExample[] Certificate { get; } =
     [
         new("pkcs12", "Certificado .p12 en Base64 con su contraseña", Parse("""
@@ -103,6 +117,130 @@ internal static class ExampleBodies
         new("nota-debito-nd", "Nota débito: numeración ND", Parse("""
             { "type_document_id": 5, "prefix": "ND", "from": 1, "to": 99999999 }
             """), "La usa el ejemplo de nota débito."),
+        new("documento-soporte-seds", "Documento soporte: resolución de habilitación SEDS 984000000–985000000", Parse("""
+            {
+              "type_document_id": 11,
+              "prefix": "SEDS",
+              "resolution": "18760000001",
+              "resolution_date": "2022-01-01",
+              "from": 984000000,
+              "to": 985000000,
+              "date_from": "2022-01-01",
+              "date_to": "2030-01-19"
+            }
+            """), "La usa el ejemplo de documento soporte. No lleva clave técnica: el CUDS usa el PIN del software de documento soporte."),
+        new("nota-ajuste-nds", "Nota de ajuste al documento soporte: numeración NDS", Parse("""
+            { "type_document_id": 13, "prefix": "NDS", "from": 1, "to": 99999999 }
+            """), "La usa el ejemplo de nota de ajuste."),
+    ];
+
+    /// <summary>
+    /// Support document (phase 7a, T4) bought from a resident seller not obliged to invoice, the Postman «Documento
+    /// soporte sencillo» request without <c>number</c>, so it takes the next number of the SEDS resolution.
+    /// </summary>
+    public static RequestExample[] SupportDocuments { get; } =
+    [
+        new("support-document-resident", "Documento soporte a un proveedor residente no obligado a facturar", Parse("""
+            {
+              "type_document_id": 11,
+              "prefix": "SEDS",
+              "notes": "COMPRA A PROVEEDOR NO OBLIGADO",
+              "seller": {
+                "identification_number": "800000003",
+                "dv": "4",
+                "name": "PROVEEDOR NO OBLIGADO DE EJEMPLO",
+                "phone": "3000000003",
+                "address": "CALLE 3 # 3-03",
+                "email": "proveedor@example.com",
+                "merchant_registration": "0000-00",
+                "postal_zone_code": 630001,
+                "type_document_identification_id": 6,
+                "type_organization_id": 2,
+                "municipality_id": 820,
+                "type_liability_id": 117,
+                "type_regime_id": 1
+              },
+              "payment_form": { "payment_form_id": 1, "payment_method_id": 10, "duration_measure": "0" },
+              "legal_monetary_totals": {
+                "line_extension_amount": "200.00",
+                "tax_exclusive_amount": "200.00",
+                "tax_inclusive_amount": "200.00",
+                "allowance_total_amount": "0.00",
+                "charge_total_amount": "0.00",
+                "payable_amount": "200.00"
+              },
+              "tax_totals": [{ "tax_id": 1, "tax_amount": "0.00", "percent": "0", "taxable_amount": "200.00" }],
+              "invoice_lines": [
+                {
+                  "unit_measure_id": 70,
+                  "invoiced_quantity": "2.00",
+                  "line_extension_amount": "200.00",
+                  "free_of_charge_indicator": false,
+                  "tax_totals": [{ "tax_id": 1, "tax_amount": "0.00", "percent": "0.00", "taxable_amount": "200.00" }],
+                  "description": "SERVICIO DE EJEMPLO",
+                  "code": "SERV01",
+                  "type_item_identification_id": 4,
+                  "price_amount": "100.00",
+                  "base_quantity": "2.00",
+                  "type_generation_transmition_id": 1,
+                  "start_date": "2026-11-14"
+                }
+              ]
+            }
+            """), "Un proveedor fuera de Colombia va con `type_operation_id` 24, `country_id` de su país, `municipality_name` y `state_name`."),
+    ];
+
+    /// <summary>The Postman «Nota de ajuste de documento soporte» request, which references a support document by its CUDS.</summary>
+    public static RequestExample[] SupportDocumentAdjustmentNotes { get; } =
+    [
+        new("adjustment-cancellation", "Nota de ajuste que anula el documento soporte SEDS984000000", Parse("""
+            {
+              "type_document_id": 13,
+              "prefix": "NDS",
+              "billing_reference": {
+                "number": "SEDS984000000",
+                "uuid": "e3b6f1cf90150b66de1e1c55970c9797970c6239719a278bfb58a3a27ec1ba4dc35d586590a3958d0aa36e661a3d4d11",
+                "issue_date": "2026-11-14"
+              },
+              "discrepancyresponsecode": 2,
+              "notes": "ANULACION DEL DOCUMENTO SOPORTE",
+              "seller": {
+                "identification_number": "800000003",
+                "dv": "4",
+                "name": "PROVEEDOR NO OBLIGADO DE EJEMPLO",
+                "phone": "3000000003",
+                "address": "CALLE 3 # 3-03",
+                "merchant_registration": "0000-00",
+                "postal_zone_code": 630001,
+                "type_document_identification_id": 6,
+                "type_organization_id": 2,
+                "municipality_id": 820,
+                "type_liability_id": 117,
+                "type_regime_id": 1
+              },
+              "legal_monetary_totals": {
+                "line_extension_amount": "200.00",
+                "tax_exclusive_amount": "200.00",
+                "tax_inclusive_amount": "200.00",
+                "payable_amount": "200.00"
+              },
+              "tax_totals": [{ "tax_id": 1, "tax_amount": "0.00", "percent": "0.00", "taxable_amount": "200.00" }],
+              "credit_note_lines": [
+                {
+                  "unit_measure_id": 70,
+                  "invoiced_quantity": "2.00",
+                  "line_extension_amount": "200.00",
+                  "free_of_charge_indicator": false,
+                  "tax_totals": [{ "tax_id": 1, "tax_amount": "0.00", "percent": "0.00", "taxable_amount": "200.00" }],
+                  "description": "SERVICIO DE EJEMPLO",
+                  "code": "SERV01",
+                  "type_item_identification_id": 4,
+                  "price_amount": "100.00",
+                  "base_quantity": "2.00"
+                }
+              ]
+            }
+            """), "Reemplace `billing_reference` por el número, el CUDS y la fecha de un documento soporte de su empresa ya aceptado por la DIAN."),
     ];
 
     public static RequestExample[] ResolutionNextNumber { get; } =

@@ -29,6 +29,7 @@ public sealed partial class ExpectedContract
         ["POST /api/ubl2.1/status/document/{}"] = "POST /api/ubl2.1/status/zip/{}",
         // ConfigurationController responde igual al guardar el software de cada tipo de documento.
         ["PUT /api/ubl2.1/config/software"] = "PUT /api/ubl2.1/config/softwarepayroll",
+        ["PUT /api/ubl2.1/config/softwaresupportdocument"] = "PUT /api/ubl2.1/config/softwarepayroll",
     };
 
     private readonly Dictionary<string, IReadOnlyList<string>> keysByRoute;

@@ -156,6 +156,32 @@ public sealed record CompanySetupStatusResponse
 
     [JsonPropertyName("resolutions")]
     public IReadOnlyList<ResolutionReadiness> Resolutions { get; init; } = [];
+
+    /// <summary>
+    /// The support-document family (phase 7a): its own environment, software and resolutions, which the invoice fields
+    /// above do not cover.
+    /// </summary>
+    [JsonPropertyName("support_document")]
+    public SupportDocumentReadiness SupportDocument { get; init; } = new();
+}
+
+/// <summary>What the support document and its adjustment note need to be issued, in the support-document environment.</summary>
+public sealed record SupportDocumentReadiness
+{
+    /// <summary>Current environment of the support-document family: 1 production, 2 habilitation.</summary>
+    [JsonPropertyName("type_environment_id")]
+    public int TypeEnvironmentId { get; init; }
+
+    /// <summary>There is support-document software (<c>idsupportdocument</c>) in that environment.</summary>
+    [JsonPropertyName("software_configured")]
+    public bool SoftwareConfigured { get; init; }
+
+    /// <summary>
+    /// <c>support_document</c> (type 11; valid needs its resolution number and validity dates, never a technical key) and
+    /// <c>support_document_adjustment_note</c> (type 13), in that environment.
+    /// </summary>
+    [JsonPropertyName("resolutions")]
+    public IReadOnlyList<ResolutionReadiness> Resolutions { get; init; } = [];
 }
 
 /// <summary>Si hay una resolución con la que se puede emitir hoy un tipo de documento.</summary>

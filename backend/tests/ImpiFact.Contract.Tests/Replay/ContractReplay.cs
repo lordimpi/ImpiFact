@@ -33,7 +33,7 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
     private const string TestSetId = "7c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f";
 
     private readonly (string Nit, string Dv) company = CompaniesHost.NewNit();
-    private readonly Dictionary<int, long> nextNumber = new() { [1] = 990000001, [2] = 990000001, [4] = 1, [5] = 1 };
+    private readonly Dictionary<int, long> nextNumber = new() { [1] = 990000001, [2] = 990000001, [4] = 1, [5] = 1, [11] = 984000000, [13] = 1 };
     private HttpClient? platform;
     private HttpClient? companyClient;
     private string? zipKey;
@@ -41,6 +41,9 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
 
     /// <summary>La última factura aceptada: sus datos reemplazan las referencias a facturas de la colección.</summary>
     public IssuedDocument? LastInvoice { get; private set; }
+
+    /// <summary>The last accepted support document: it replaces the references of the adjustment note of the collection.</summary>
+    public IssuedDocument? LastSupportDocument { get; private set; }
 
     /// <summary>
     /// La última factura aceptada que pidió el correo (<c>sendmail</c>): la usa <c>send-email</c>, porque ImpiFact
@@ -136,11 +139,38 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
     {
         var number = nextNumber[documentType]++;
         body["number"] = number;
-        if (LastInvoice is not null && body["billing_reference"] is JsonObject reference)
+        if (documentType is 11 or 13)
         {
-            reference["number"] = LastInvoice.FullNumber;
-            reference["uuid"] = LastInvoice.Cufe;
-            reference["issue_date"] = LastInvoice.Date;
+            PrepareSupportDocument(body, documentType);
+        }
+
+        var referenced = documentType == 13 ? LastSupportDocument : LastInvoice;
+        if (referenced is not null && body["billing_reference"] is JsonObject reference)
+        {
+            reference["number"] = referenced.FullNumber;
+            reference["uuid"] = referenced.Cufe;
+            reference["issue_date"] = referenced.Date;
+        }
+    }
+
+    /// <summary>
+    /// The support-document requests of folder 02 were recorded against other installations (prefixes DSP and DS, their
+    /// resolution numbers and dates): they get the SEDS and NDS numbering of folder 01D and, when their date falls outside
+    /// the 2022 validity of that SEDS resolution, its last day, because the date must be within the resolution validity
+    /// (the PHP checks it too).
+    /// </summary>
+    private static void PrepareSupportDocument(JsonObject body, int documentType)
+    {
+        body["prefix"] = documentType == 11 ? "SEDS" : "NDS";
+        body.Remove("resolution_number");
+        if (documentType == 11)
+        {
+            body["resolution_number"] = "18760000001";
+        }
+
+        if (body["date"]?.GetValue<string>() is not { } date || !date.StartsWith("2022-", StringComparison.Ordinal))
+        {
+            body["date"] = "2022-12-31";
         }
     }
 
@@ -200,10 +230,10 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
             return;
         }
 
-        var cufe = (outcome.Body?["cufe"] ?? outcome.Body?["cude"])?.GetValue<string>();
+        var cufe = (outcome.Body?["cufe"] ?? outcome.Body?["cude"] ?? outcome.Body?["cuds"])?.GetValue<string>();
         if (cufe is null)
         {
-            outcome.Problems.Add("the issue response has no cufe or cude");
+            outcome.Problems.Add("the issue response has no cufe, cude or cuds");
             return;
         }
 
@@ -213,6 +243,12 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
         {
             outcome.Problems.Add($"after the Worker ran, status/document says '{status}' instead of Accepted");
             return;
+        }
+
+        if (type == 11)
+        {
+            var issued = JsonNode.Parse(prepared.Body!)!.AsObject();
+            LastSupportDocument = new IssuedDocument("SEDS", issued["number"]!.GetValue<long>(), cufe, issued["date"]!.GetValue<string>());
         }
 
         if (type == 1)
@@ -277,9 +313,14 @@ public sealed partial class ContractReplay(CompanyApiFactory api, DianSendHost w
     private static bool IsCompanyRoute(PostmanRequest request) =>
         request.Method == "POST" && CompanyRoute().IsMatch(request.ApiPath);
 
-    /// <summary>Tipo de documento que emite la solicitud (1 factura, 2 exportación, 4 nota crédito, 5 nota débito); nulo si no emite.</summary>
+    /// <summary>
+    /// Tipo de documento que emite la solicitud (1 factura, 2 exportación, 4 nota crédito, 5 nota débito, 11 documento
+    /// soporte, 13 nota de ajuste); nulo si no emite.
+    /// </summary>
     private static int? IssuedType(PostmanRequest request) => request.Method != "POST" ? null : request.ApiPath switch
     {
+        "/api/ubl2.1/support-document" => 11,
+        "/api/ubl2.1/sd-credit-note" => 13,
         "/api/ubl2.1/invoice" or "/api/ubl2.1/invoice-aiu" or "/api/ubl2.1/invoice-mandate" or "/api/ubl2.1/invoice-transport" => 1,
         "/api/ubl2.1/invoice-export" => 2,
         "/api/ubl2.1/credit-note" => 4,

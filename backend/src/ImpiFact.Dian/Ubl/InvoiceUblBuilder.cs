@@ -13,8 +13,8 @@ public sealed record InvoiceUblResult(string Xml, string Cufe);
 
 /// <summary>
 /// Construye el XML UBL 2.1 (el estándar XML de documentos comerciales que usa la DIAN) de una factura
-/// electrónica de venta nacional (tipo 01), todavía sin firmar. Its variants (AIU, mandate, transport and export,
-/// type 02) are options of <see cref="SalesInvoice"/>.
+/// electrónica de venta nacional (tipo 01), todavía sin firmar. Its variants (AIU, mandate, transport, export, type 02,
+/// and the support document, type 05) are options of <see cref="SalesInvoice"/>.
 /// </summary>
 /// <remarks>
 /// La salida ya trae los campos que la implementación de referencia (ApiDian, en PHP) llena en su paso de
@@ -27,6 +27,14 @@ public sealed record InvoiceUblResult(string Xml, string Cufe);
 public static class InvoiceUblBuilder
 {
     private const string CufeAlgorithm = "CUFE-SHA384";
+
+    private const string CudsAlgorithm = "CUDS-SHA384";
+
+    /// <summary>
+    /// cbc:ProfileID of template 05, with its final period: the library compares this exact text to choose the CUDS
+    /// (php-rules 13.2, item 1).
+    /// </summary>
+    public const string SupportDocumentProfile = "DIAN 2.1: documento soporte en adquisiciones efectuadas a no obligados a facturar.";
 
     /// <summary>Exact line description that gets the AIU note (php-rules 10.1, item 3: with the accent, case-sensitive).</summary>
     public const string AiuAdministrationLine = "Administración";
@@ -46,16 +54,25 @@ public static class InvoiceUblBuilder
     public static InvoiceUblResult Build(SalesInvoice invoice)
     {
         ArgumentNullException.ThrowIfNull(invoice);
-        RequireSupplierAddress(invoice.Supplier, nameof(invoice));
+        var supportDocument = invoice.SupportDocument;
+        var isSupport = supportDocument is not null;
 
-        var cufe = CufeCalculator.ComputeCufe(
-            CufeInputOf(invoice.DocumentNumber, invoice.IssueDate, invoice.IssueTime, invoice.Totals, invoice.TaxSubtotals,
-                invoice.Supplier, invoice.Customer, invoice.Environment),
-            invoice.Resolution.TechnicalKey);
+        // In a support document the issuing company (the software provider) is the customer of the XML.
+        var provider = isSupport ? invoice.Customer : invoice.Supplier;
+        RequireSupplierAddress(provider, nameof(invoice));
+
+        var codeInput = CufeInputOf(invoice.DocumentNumber, invoice.IssueDate, invoice.IssueTime, invoice.Totals, invoice.TaxSubtotals,
+            invoice.Supplier, invoice.Customer, invoice.Environment);
+
+        // php-rules 13.3, item 2: the PHP wrote a CUFE when the type 11 resolution had a technical key; a support document
+        // always gets its CUDS.
+        var cufe = isSupport
+            ? CufeCalculator.ComputeCuds(codeInput, invoice.Software.Pin)
+            : CufeCalculator.ComputeCufe(codeInput, invoice.Resolution.TechnicalKey);
         var root = Root("Invoice",
             "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2     http://docs.oasis-open.org/ubl/os-UBL-2.1/xsd/maindoc/UBL-Invoice-2.1.xsd");
 
-        var extensions = Extensions(InvoiceControl(invoice.Resolution), invoice.Supplier, invoice.Software, invoice.DocumentNumber,
+        var extensions = Extensions(InvoiceControl(invoice.Resolution), provider, invoice.Software, invoice.DocumentNumber,
             invoice.QrCodeBaseUrl + cufe);
         if (invoice.Export?.Supplement is { } supplement)
         {
@@ -65,12 +82,12 @@ public static class InvoiceUblBuilder
         root.Add(extensions);
         root.Add("cbc:UBLVersionID", "UBL 2.1");
         root.Add("cbc:CustomizationID", invoice.OperationTypeCode);
-        root.Add("cbc:ProfileID", "DIAN 2.1: Factura Electrónica de Venta");
+        root.Add("cbc:ProfileID", isSupport ? SupportDocumentProfile : "DIAN 2.1: Factura Electrónica de Venta");
         root.Add("cbc:ProfileExecutionID", EnvironmentCode(invoice.Environment));
         root.Add("cbc:ID", invoice.DocumentNumber);
         root.Add(new UblElement("cbc:UUID", cufe)
             .Attr("schemeID", EnvironmentCode(invoice.Environment))
-            .Attr("schemeName", CufeAlgorithm));
+            .Attr("schemeName", isSupport ? CudsAlgorithm : CufeAlgorithm));
         root.Add("cbc:IssueDate", Date(invoice.IssueDate));
         root.Add("cbc:IssueTime", Time(invoice.IssueTime));
         root.Add("cbc:InvoiceTypeCode", invoice.InvoiceTypeCode);
@@ -83,8 +100,8 @@ public static class InvoiceUblBuilder
         var currency = invoice.AmountsInDocumentCurrency ? documentCurrency : invoice.LocalCurrencyCode;
         root.Add("cbc:DocumentCurrencyCode", documentCurrency);
         root.Add("cbc:LineCountNumeric", invoice.Lines.Count.ToString(CultureInfo.InvariantCulture));
-        root.Add(Party("cac:AccountingSupplierParty", invoice.Supplier, isSupplier: true, invoice.Resolution.Prefix));
-        root.Add(Party("cac:AccountingCustomerParty", invoice.Customer, isSupplier: false, invoice.Resolution.Prefix));
+        root.Add(Party("cac:AccountingSupplierParty", invoice.Supplier, isSupplier: !isSupport, invoice.Resolution.Prefix, isSupport));
+        root.Add(Party("cac:AccountingCustomerParty", invoice.Customer, isSupplier: isSupport, invoice.Resolution.Prefix, isSupport));
         if (invoice.Export is { } export)
         {
             root.Add(new UblElement("cac:DeliveryTerms")
@@ -111,6 +128,10 @@ public static class InvoiceUblBuilder
         if (PaymentExchangeRate(invoice.ForeignCurrency, invoice.LocalCurrencyCode) is { } exchangeRate)
         {
             root.Add(exchangeRate);
+        }
+        else if (supportDocument is not null)
+        {
+            root.Add(LocalExchangeRate(invoice.LocalCurrencyCode, supportDocument.ExchangeRateDate));
         }
 
         AddTaxTotals(root, invoice.TaxSubtotals, currency);
@@ -183,6 +204,19 @@ public static class InvoiceUblBuilder
                     .Add(copTotals)));
     }
 
+    /// <summary>
+    /// The cac:PaymentExchangeRate that ApiDian's support-document controller writes without <c>idcurrency</c>: the company
+    /// currency to itself, rate <c>1</c> (an integer in the PHP, so without decimals) and the day of the request.
+    /// </summary>
+    private static UblElement LocalExchangeRate(string localCurrency, DateOnly date) =>
+        new UblElement("cac:PaymentExchangeRate")
+            .Add("cbc:SourceCurrencyCode", localCurrency)
+            .Add("cbc:SourceCurrencyBaseRate", "1.00")
+            .Add("cbc:TargetCurrencyCode", localCurrency)
+            .Add("cbc:TargetCurrencyBaseRate", "1.00")
+            .Add("cbc:CalculationRate", "1")
+            .Add("cbc:Date", Date(date));
+
     private static UblElement PaymentTerms(PaymentTerms payment) =>
         new UblElement("cac:PaymentTerms")
             .Add("cbc:ReferenceEventCode", payment.FormCode)
@@ -240,8 +274,20 @@ public static class InvoiceUblBuilder
 
         element
             .Add(new UblElement("cbc:InvoicedQuantity", DianRounding.FormatQuantity(line.Quantity)).Attr("unitCode", line.UnitCode))
-            .Add(Amount("cbc:LineExtensionAmount", line.LineExtensionAmount, currency))
-            .Add("cbc:FreeOfChargeIndicator", Bool(line.IsFreeOfCharge));
+            .Add(Amount("cbc:LineExtensionAmount", line.LineExtensionAmount, currency));
+        if (line.GenerationPeriod is { } period)
+        {
+            element.Add(new UblElement("cac:InvoicePeriod")
+                .Add("cbc:StartDate", Date(period.StartDate))
+                .Add("cbc:DescriptionCode", period.DescriptionCode)
+                .Add("cbc:Description", period.Description));
+        }
+
+        // Template 05 lines (type 11) carry no cbc:FreeOfChargeIndicator (php-rules 13.1, item 5).
+        if (invoice.SupportDocument is null)
+        {
+            element.Add("cbc:FreeOfChargeIndicator", Bool(line.IsFreeOfCharge));
+        }
         if (line.IsFreeOfCharge)
         {
             element.Add(new UblElement("cac:PricingReference")

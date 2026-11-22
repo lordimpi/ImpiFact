@@ -13,7 +13,10 @@ public interface IDocumentFilters
     /// <summary>Tipo de documento (1 factura, 4 nota crédito, 5 nota débito…).</summary>
     int? DocumentTypeId { get; }
 
-    /// <summary>Familia en palabras: <c>invoice</c>, <c>credit_note</c> o <c>debit_note</c> (ver <see cref="DocumentKinds"/>).</summary>
+    /// <summary>
+    /// Familia en palabras: <c>invoice</c>, <c>credit_note</c>, <c>debit_note</c>, <c>support_document</c> o
+    /// <c>support_document_adjustment_note</c> (ver <see cref="DocumentKinds"/>).
+    /// </summary>
     string? Kind { get; }
 
     /// <summary>Uno o varios estados por su nombre, separados por coma y sin distinguir mayúsculas.</summary>
@@ -34,8 +37,10 @@ public interface IDocumentFilters
 
 /// <summary>
 /// Nombres de las familias que muestra el panel y el tipo de documento de cada una (los de la emisión:
-/// <c>IssueSpec</c>). Los demás tipos (nómina, documento soporte, POS) no tienen nombre aquí: su <c>kind</c> sale nulo
-/// y se filtran por <c>document_type_id</c>.
+/// <c>IssueSpec</c>). Los demás tipos (nómina, exportación, POS) no tienen nombre aquí: su <c>kind</c> sale nulo y se
+/// filtran por <c>document_type_id</c>. The support document and its adjustment note can be filtered by name
+/// (<see cref="Filterable"/>) but their rows keep <c>kind</c> null, like before, because the dashboard counts the unnamed
+/// types as <c>other</c>.
 /// </summary>
 public static class DocumentKinds
 {
@@ -45,12 +50,22 @@ public static class DocumentKinds
 
     public const string DebitNote = "debit_note";
 
+    /// <summary>Support document (type 11).</summary>
+    public const string SupportDocument = "support_document";
+
+    /// <summary>Adjustment note to a support document (type 13).</summary>
+    public const string SupportDocumentAdjustmentNote = "support_document_adjustment_note";
+
     /// <summary>Cada familia con su tipo de documento, en el orden en que se muestran.</summary>
     public static IReadOnlyList<(string Name, int DocumentTypeId)> All { get; } = [(Invoice, 1), (CreditNote, 4), (DebitNote, 5)];
 
+    /// <summary>Names the <c>kind</c> filter accepts: the panel families plus the support-document ones.</summary>
+    public static IReadOnlyList<(string Name, int DocumentTypeId)> Filterable { get; } =
+        [.. All, (SupportDocument, 11), (SupportDocumentAdjustmentNote, 13)];
+
     /// <summary>Tipo de documento de la familia (sin distinguir mayúsculas); nulo si el nombre no es una familia.</summary>
     public static int? TypeIdOf(string? kind) =>
-        All.Where(entry => string.Equals(entry.Name, kind, StringComparison.OrdinalIgnoreCase)).Select(entry => (int?)entry.DocumentTypeId).FirstOrDefault();
+        Filterable.Where(entry => string.Equals(entry.Name, kind, StringComparison.OrdinalIgnoreCase)).Select(entry => (int?)entry.DocumentTypeId).FirstOrDefault();
 
     /// <summary>Nombre de la familia del tipo de documento; nulo para los tipos sin nombre.</summary>
     public static string? NameOf(int documentTypeId) =>

@@ -57,10 +57,13 @@ public sealed partial class CollectionSnapshotTests
                 Is.SubsetOf(ContractScope.PhaseFourFolders));
             Assert.That(inScope.Where(request => ContractScope.PhaseSevenRequests.Contains(request.Name)).Select(request => request.Name),
                 Is.EquivalentTo(ContractScope.PhaseSevenRequests), "Every phase 7a request is in the collection once.");
-            Assert.That(inScope.Select(request => request.ApiPath), Has.None.Match("payroll|eqdoc|send-email-employee|support-document|sd-credit-note|contingency"));
-            Assert.That(inScope.Select(request => request.Name), Has.None.Match("(?i)n[oó]mina|soporte|equivalente|contingencia"));
+            var older = inScope.Where(request => !ContractScope.PhaseSevenRequests.Contains(request.Name)).ToList();
+            Assert.That(older.Select(request => request.ApiPath), Has.None.Match("payroll|eqdoc|send-email-employee|support-document|sd-credit-note|contingency"));
+            Assert.That(older.Select(request => request.Name), Has.None.Match("(?i)n[oó]mina|soporte|equivalente|contingencia"));
+            Assert.That(inScope.Select(request => request.ApiPath), Has.None.Match("payroll|eqdoc|send-email-employee|contingency"));
             Assert.That(inScope.Select(request => request.Name), Is.Unique, "Known deviations name requests, so names must be unique.");
-            Assert.That(inScope, Has.Count.EqualTo(95), "91 requests of the first delivery and the 4 phase 7a invoice variants.");
+            Assert.That(inScope, Has.Count.EqualTo(105),
+                "91 requests of the first delivery, the 4 phase 7a invoice variants and the 10 support-document ones (3 of folder 01D, 7 of folder 02).");
         });
     }
 

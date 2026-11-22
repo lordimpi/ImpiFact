@@ -28,7 +28,7 @@ internal static class DocumentGraphBuilder
         var documentId = Guid.CreateVersion7();
         var totals = spec.TotalsOf(body)!;
         var prefix = frame.Resolution.Prefix ?? "";
-        var customer = body.Customer!;
+        var customer = spec.PartyOf(body)!;
 
         var document = new Document
         {
@@ -76,7 +76,7 @@ internal static class DocumentGraphBuilder
             Notes = body.Notes?.Text,
             HeadNote = body.HeadNote?.Text,
             FootNote = body.FootNote?.Text,
-            Extensions = VariantExtensions(spec.Variant, body),
+            Extensions = spec.IsSupportDocumentFamily ? SupportDocumentExtensions(spec, customer) : VariantExtensions(spec.Variant, body),
             CreatedByType = (ActorKind)tenant.Actor,
             CreatedById = tenant.UserId,
         };
@@ -104,7 +104,7 @@ internal static class DocumentGraphBuilder
                 LineExtensionAmount = Amount(line.LineExtensionAmount),
                 FreeOfCharge = line.FreeOfChargeIndicator!.Value.Boolean,
                 ReferencePriceId = LegacyDocumentMapper.IdOrNull(line.ReferencePriceId),
-                Extensions = LineExtensions(spec.Variant, line),
+                Extensions = spec.IsSupportDocumentFamily ? SupportDocumentLineExtensions(spec, line) : LineExtensions(spec.Variant, line),
             });
             lineTaxes.AddRange((line.TaxTotals ?? []).Select(tax => new DocumentLineTax
             {
@@ -172,6 +172,34 @@ internal static class DocumentGraphBuilder
         InvoiceVariant.Export => ExportExtensions(body),
         _ => new JsonObject { ["variant"] = "transport" },
     };
+
+    /// <summary>
+    /// The family of a support document or its adjustment note and the seller's postal code, which the customer snapshot has
+    /// no column for; the snapshot holds the seller (php-rules 13.3, item 6: the PHP stored its NIT as the customer).
+    /// </summary>
+    private static JsonObject SupportDocumentExtensions(IssueSpec spec, CustomerBody seller) => new()
+    {
+        ["variant"] = spec.Kind == IssueKind.SupportDocument ? "support_document" : "support_document_adjustment_note",
+        ["party"] = "seller",
+        ["postal_zone_code"] = seller.PostalZoneCode?.Text,
+    };
+
+    /// <summary>The generation period of a support-document line, or the brand and model of an adjustment-note line.</summary>
+    private static JsonObject? SupportDocumentLineExtensions(IssueSpec spec, LineBody line)
+    {
+        if (spec.Kind == IssueKind.SupportDocument)
+        {
+            return new JsonObject
+            {
+                ["type_generation_transmition_id"] = LegacyDocumentMapper.IdOrNull(line.TypeGenerationTransmitionId),
+                ["start_date"] = line.StartDate?.Text,
+            };
+        }
+
+        return LegacyScalar.IsMissing(line.BrandName) && LegacyScalar.IsMissing(line.ModelName)
+            ? null
+            : new JsonObject { ["brandname"] = line.BrandName?.Text, ["modelname"] = line.ModelName?.Text };
+    }
 
     /// <summary>The Incoterm and, when sent, the supplement K of an export invoice, as the client sent them.</summary>
     private static JsonObject ExportExtensions(IssueDocumentBody body)

@@ -69,6 +69,10 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         legacy.MapPost("/credit-note/{testSetId:guid}", CreditNote);
         legacy.MapPost("/debit-note", DebitNote);
         legacy.MapPost("/debit-note/{testSetId:guid}", DebitNote);
+        legacy.MapPost("/support-document", SupportDocument);
+        legacy.MapPost("/support-document/{testSetId:guid}", SupportDocument);
+        legacy.MapPost("/sd-credit-note", SupportDocumentAdjustmentNote);
+        legacy.MapPost("/sd-credit-note/{testSetId:guid}", SupportDocumentAdjustmentNote);
 
         var canonical = endpoints.MapGroup("/api/v1/documents").WithTags(ApiTags.Documents).RequireAuthorization(ApiScopes.DocumentsWrite);
         Issue(canonical.MapPost("/invoices", Invoice), OpenApiExamples.Invoices)
@@ -129,6 +133,26 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
             .WithOperationId("issueTestSetDebitNote")
             .WithSummary("Emitir una nota débito del set de pruebas")
             .WithDescription(DebitNoteText + TestSetRules + IssueRules);
+
+        // Support document family (php-rules 13 and 14): its own collection, because the seller replaces the customer and it
+        // uses the support-document software, environment, resolutions and plan quota; the adjustment note lives under it.
+        Issue(canonical.MapPost("/support-documents", SupportDocument), ExampleBodies.SupportDocuments)
+            .WithOperationId("issueSupportDocument")
+            .WithSummary("Emitir un documento soporte")
+            .WithDescription(SupportDocumentText + SupportDocumentRules + IssueRules);
+        Issue(canonical.MapPost("/support-documents/test-set/{testSetId}", SupportDocument), ExampleBodies.SupportDocuments)
+            .WithOperationId("issueTestSetSupportDocument")
+            .WithSummary("Emitir un documento soporte del set de pruebas")
+            .WithDescription(SupportDocumentText + SupportDocumentRules + TestSetRules + IssueRules);
+        Issue(canonical.MapPost("/support-documents/adjustment-notes", SupportDocumentAdjustmentNote), ExampleBodies.SupportDocumentAdjustmentNotes)
+            .WithOperationId("issueSupportDocumentAdjustmentNote")
+            .WithSummary("Emitir una nota de ajuste al documento soporte")
+            .WithDescription(AdjustmentNoteText + SupportDocumentRules + IssueRules);
+        Issue(canonical.MapPost("/support-documents/adjustment-notes/test-set/{testSetId}", SupportDocumentAdjustmentNote),
+                ExampleBodies.SupportDocumentAdjustmentNotes)
+            .WithOperationId("issueTestSetSupportDocumentAdjustmentNote")
+            .WithSummary("Emitir una nota de ajuste al documento soporte del set de pruebas")
+            .WithDescription(AdjustmentNoteText + SupportDocumentRules + TestSetRules + IssueRules);
 
         Issue(canonical.MapPost("/invoices/preview", PreviewInvoice), OpenApiExamples.Invoices, producesPdf: true)
             .WithOperationId("previewInvoice")
@@ -252,6 +276,36 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         "Todos los valores del cuerpo van en esa moneda, como pide el anexo técnico (regla FAD15b), y el XML lleva " +
         "`cac:PaymentExchangeRate` con la tasa y su fecha.";
 
+    private const string SupportDocumentText =
+        "Emite un documento soporte en adquisiciones a no obligados a facturar (tipo de documento 11, código `05`): la " +
+        "empresa compra a un vendedor que no factura. El cuerpo es el de `issueInvoice` con `type_document_id` 11 y " +
+        "`seller` (el vendedor) en lugar de `customer`: `identification_number`, `dv` (opcional; si llega se revisa), " +
+        "`type_document_identification_id` (4, 5, 6, 7, 8, 9 u 11), `name`, `phone`, `address`, `merchant_registration` " +
+        "y `postal_zone_code` (numérico) son obligatorios. Cada línea lleva `type_generation_transmition_id` (1 por " +
+        "operación, 2 acumulado semanal) y `start_date` (`yyyy-MM-dd`), obligatorios. La operación es 23 (residente, por " +
+        "defecto, código `10`) o 24 (no residente, código `11`); otra responde 422. Un vendedor fuera de Colombia lleva " +
+        "`country_id` de su país, `municipality_name` y `state_name`. Sin `idcurrency`, el XML lleva la tasa de cambio del " +
+        "peso con la fecha del día, como ApiDian.";
+
+    private const string AdjustmentNoteText =
+        "Emite una nota de ajuste al documento soporte (tipo de documento 13, `CreditNoteTypeCode` 95). El cuerpo es el de " +
+        "`issueCreditNote` con `type_document_id` 13, `seller` en lugar de `customer` y `billing_reference` obligatorio: " +
+        "el número, el CUDS y la fecha de un documento soporte de la empresa, que debe estar aceptado por la DIAN (en el " +
+        "set de pruebas basta con que exista); si no es un documento soporte de la empresa responde 422 " +
+        "(`document.reference_not_found`), si el número no es el de ese CUDS, 422 (`document.reference_mismatch`), y si no " +
+        "está aceptado, 422 (`document.reference_not_accepted`). `discrepancyresponsecode` es opcional, de 1 a 5 (el " +
+        "catálogo de motivos de la nota de ajuste). `type_operation_id` puede ser 23 o 24; sin él se usa la operación 10 " +
+        "(código `10`), como ApiDian. Cada línea puede llevar `brandname` y `modelname`.";
+
+    /// <summary>What the support-document family does differently from the invoice: its own software, environment and plan.</summary>
+    private const string SupportDocumentRules =
+        " Usa el software de documento soporte (`idsupportdocument` y `pinsupportdocument` de " +
+        "`PUT /api/v1/companies/{nit}/software`) y el ambiente de documento soporte de la empresa, no los de la factura: " +
+        "sin ese software responde 422 (`software.missing`). Usa su propia resolución (tipo 11 para el documento soporte, " +
+        "con número y vigencia; tipo 13 para la nota de ajuste) y su propio consecutivo, y cuenta en el plan como documento " +
+        "soporte (`qty_docs_ds`). El código del documento es el CUDS, con el PIN del software de documento soporte, y la " +
+        "respuesta lo trae en `cuds`; una clave técnica en la resolución no se usa. Por ahora no genera PDF ni correo.";
+
     private const string CreditNoteText =
         "Emite una nota crédito, que corrige o anula total o parcialmente una factura. El cuerpo sigue el contrato de " +
         "ApiDian: `billing_reference` (número, CUFE y fecha de la factura), `discrepancyresponsecode`, `customer`, " +
@@ -353,6 +407,15 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
     private static Task<IResult> DebitNote(
         HttpRequest request, string? testSetId, IHandler<IssueDebitNoteCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
         IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueDebitNoteCommand(body, raw, key, testSetId), ct), ct);
+
+    private static Task<IResult> SupportDocument(
+        HttpRequest request, string? testSetId, IHandler<IssueSupportDocumentCommand, IssueDocumentResponse> handler, CancellationToken ct) =>
+        IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueSupportDocumentCommand(body, raw, key, testSetId), ct), ct);
+
+    private static Task<IResult> SupportDocumentAdjustmentNote(
+        HttpRequest request, string? testSetId, IHandler<IssueSupportDocumentAdjustmentNoteCommand, IssueDocumentResponse> handler,
+        CancellationToken ct) =>
+        IssueAsync(request, (body, raw, key) => handler.HandleAsync(new IssueSupportDocumentAdjustmentNoteCommand(body, raw, key, testSetId), ct), ct);
 
     /// <summary>
     /// Lee el cuerpo completo tal como llegó (su resumen identifica la solicitud repetida) y lo interpreta con el

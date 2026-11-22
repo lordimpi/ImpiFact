@@ -72,7 +72,7 @@ internal sealed class DocumentPdfModelBuilder(
             throw new PdfSourceException($"The stored request of document {documentId} is not valid JSON.");
         }
 
-        var issuer = await issuers.GetAsync(companyId, header.DocumentTypeId, DocumentKind.Invoice, ct)
+        var issuer = await issuers.GetAsync(companyId, header.DocumentTypeId, DocumentFamilies.Of(header.DocumentTypeId), ct)
             ?? throw new PdfSourceException($"Company {companyId} does not exist.");
         var (validationDate, validationTime) = detail.AcceptedAt is { } acceptedAt
             ? (ColombiaTime.Format(DateOnly.FromDateTime(ColombiaTime.Local(acceptedAt).DateTime)), Time(TimeOnly.FromDateTime(ColombiaTime.Local(acceptedAt).DateTime)))
@@ -233,6 +233,12 @@ internal sealed class DocumentPdfModelBuilder(
     /// <summary>Logo de la empresa para el encabezado del PDF; nulo si no tiene.</summary>
     internal static async Task<PdfImage?> LogoAsync(ICompanyLogos logos, Guid companyId, CancellationToken ct) =>
         await logos.FindAsync(companyId, ct) is { } logo ? new PdfImage(logo.Content, logo.ContentType) : null;
+
+    /// <summary>
+    /// True if the document type has a PDF template. The support document and its adjustment note have none yet (the PHP
+    /// uses its SUPPORTDOCUMENT template, php-rules 13.3, item 6), so their acceptance renders no PDF and sends no email.
+    /// </summary>
+    public static bool HasTemplate(int documentTypeId) => KindOf(documentTypeId) is not null;
 
     private static PdfDocumentKind? KindOf(int documentTypeId) => documentTypeId switch
     {

@@ -87,14 +87,17 @@ internal sealed class CompanyEndpoints : IEndpointModule
 
         canonical.MapPut("/{nit}/software", SetSoftware).RequireAuthorization(ApiScopes.ConfigWrite)
             .Produces<SoftwareSavedResponse>()
-            .WithRequestExamples(ExampleBodies.Software)
+            .WithRequestExamples([.. ExampleBodies.Software, .. ExampleBodies.SupportDocumentSoftware])
             .WithOperationId("setCompanySoftware")
             .WithSummary("Registrar el software ante la DIAN")
             .WithDescription(
                 "Guarda el identificador del software (`id`), su PIN de 5 dígitos (`pin`) y, si quiere, la URL del servicio " +
                 "(`url`) y el `test_set_id` del set de pruebas, tal como los dio la DIAN al registrar el software. Otras " +
                 "familias usan sus propios campos (`idpayroll`, `ideqdocs`, `idsupportdocument`…). El software queda en el " +
-                "ambiente actual de cada familia. El PIN se guarda cifrado y nunca se devuelve." + OwnNit);
+                "ambiente actual de cada familia. El del documento soporte (`idsupportdocument` y `pinsupportdocument`, o " +
+                "`identifier_support_document` y `pin_support_document`) es el que firman y envían el documento soporte y su " +
+                "nota de ajuste; es la misma operación que `PUT /api/ubl2.1/config/softwaresupportdocument` del PHP. El PIN " +
+                "se guarda cifrado y nunca se devuelve." + OwnNit);
         legacy.MapPut("/config/software", SetSoftware).RequireAuthorization(ApiScopes.ConfigWrite);
         legacy.MapPut("/config/softwaresupportdocument", SetSoftware).RequireAuthorization(ApiScopes.ConfigWrite);
 
@@ -215,7 +218,10 @@ internal sealed class CompanyEndpoints : IEndpointModule
                 "en el ambiente actual de la factura), `test_set_accepted` (verdadero si la DIAN validó un documento del set, " +
                 "falso si respondió sin validar ninguno, nulo si no hay respuestas guardadas), `environments` (el ambiente de " +
                 "cada familia) y `resolutions` (para factura, nota crédito y nota débito, `valid` si hay una resolución activa " +
-                "en el ambiente actual, vigente hoy y con números por usar; la de factura además con clave técnica)." + OwnNit);
+                "en el ambiente actual, vigente hoy y con números por usar; la de factura además con clave técnica) y " +
+                "`support_document` (la familia del documento soporte: `type_environment_id`, su ambiente actual; " +
+                "`software_configured`, software de documento soporte en ese ambiente; y `resolutions` del documento soporte, con " +
+                "número y vigencia, y de su nota de ajuste)." + OwnNit);
 
         // Logo del PDF: multipart con el campo «logo». Sin protección antifalsificación de formularios: la credencial
         // viaja en el encabezado Authorization, que un formulario de otro sitio no puede poner.

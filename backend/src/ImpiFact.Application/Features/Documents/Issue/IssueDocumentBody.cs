@@ -84,6 +84,14 @@ public sealed record IssueDocumentBody
     [JsonPropertyName("customer")]
     public CustomerBody? Customer { get; init; }
 
+    /// <summary>
+    /// Support document and its adjustment note only (required there, instead of <c>customer</c>): the seller not obliged
+    /// to invoice from whom the company buys. Same fields as <c>customer</c>, with <c>phone</c>, <c>address</c>,
+    /// <c>merchant_registration</c> and <c>postal_zone_code</c> required.
+    /// </summary>
+    [JsonPropertyName("seller")]
+    public CustomerBody? Seller { get; init; }
+
     /// <summary>El contrato admite un objeto o una lista de objetos; se lee siempre como lista.</summary>
     [JsonPropertyName("payment_form")]
     [JsonConverter(typeof(ObjectOrListConverter<PaymentFormBody>))]
@@ -217,6 +225,10 @@ public sealed record CustomerBody
 
     [JsonPropertyName("merchant_registration")]
     public LegacyScalar? MerchantRegistration { get; init; }
+
+    /// <summary>Support-document seller only (required there): postal code, numeric (cbc:PostalZone).</summary>
+    [JsonPropertyName("postal_zone_code")]
+    public LegacyScalar? PostalZoneCode { get; init; }
 }
 
 /// <summary>Delivery terms of an export invoice (<c>deliveryterms</c>, cac:DeliveryTerms of the XML).</summary>
@@ -397,13 +409,27 @@ public sealed record LineBody
     [JsonPropertyName("tax_totals")]
     public List<TaxTotalBody>? TaxTotals { get; init; }
 
-    /// <summary>Export invoice only: brand of the item (cbc:BrandName); the other documents ignore it.</summary>
+    /// <summary>
+    /// Export invoice and support-document adjustment note only: brand of the item (cbc:BrandName); the other documents
+    /// ignore it.
+    /// </summary>
     [JsonPropertyName("brandname")]
     public LegacyScalar? BrandName { get; init; }
 
-    /// <summary>Export invoice only: model of the item (cbc:ModelName); the other documents ignore it.</summary>
+    /// <summary>Export invoice and support-document adjustment note only: model of the item (cbc:ModelName).</summary>
     [JsonPropertyName("modelname")]
     public LegacyScalar? ModelName { get; init; }
+
+    /// <summary>
+    /// Support document only (required there): how the purchase is reported, from <c>type_generation_transmitions</c>
+    /// (1 per operation, 2 weekly accumulated).
+    /// </summary>
+    [JsonPropertyName("type_generation_transmition_id")]
+    public LegacyScalar? TypeGenerationTransmitionId { get; init; }
+
+    /// <summary>Support document only (required there): date of the purchase, <c>yyyy-MM-dd</c>.</summary>
+    [JsonPropertyName("start_date")]
+    public LegacyScalar? StartDate { get; init; }
 
     /// <summary>Mandate invoice only: NIT (1 to 15 digits) of the third party on whose behalf the line is sold.</summary>
     [JsonPropertyName("agentparty")]

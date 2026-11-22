@@ -1,5 +1,6 @@
 using ImpiFact.Application.Abstractions.Handlers;
 using ImpiFact.Application.Features.Documents.Totals;
+using ImpiFact.Domain.Common;
 
 namespace ImpiFact.Application.Features.Documents.Issue;
 
@@ -58,12 +59,32 @@ public sealed record IssueTransportInvoiceCommand(IssueDocumentBody Body, byte[]
 public sealed record IssueExportInvoiceCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
     : IIssueDocumentCommand;
 
+/// <summary>
+/// <c>POST /api/v1/documents/support-documents</c> (<c>/api/ubl2.1/support-document[/{testSetId}]</c>): support document in
+/// purchases from sellers not obliged to invoice (type 11, template 05, CUDS; php-rules 13).
+/// </summary>
+public sealed record IssueSupportDocumentCommand(IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null)
+    : IIssueDocumentCommand;
+
+/// <summary>
+/// <c>POST /api/v1/documents/support-documents/adjustment-notes</c> (<c>/api/ubl2.1/sd-credit-note[/{testSetId}]</c>):
+/// adjustment note to a support document (type 13, template 95, CUDS; php-rules 14).
+/// </summary>
+public sealed record IssueSupportDocumentAdjustmentNoteCommand(
+    IssueDocumentBody Body, byte[] RawBody, string? IdempotencyKey = null, string? TestSetId = null) : IIssueDocumentCommand;
+
 /// <summary>Tipo de documento que se emite.</summary>
 public enum IssueKind
 {
     Invoice,
     CreditNote,
     DebitNote,
+
+    /// <summary>Support document (type 11): the company buys from a seller not obliged to invoice.</summary>
+    SupportDocument,
+
+    /// <summary>Adjustment note to a support document (type 13, CreditNoteTypeCode 95).</summary>
+    SupportDocumentAdjustmentNote,
 }
 
 /// <summary>
@@ -140,12 +161,45 @@ internal sealed record IssueSpec(
         IssueKind.DebitNote, 5, "debit_note_lines", "requested_monetary_totals", 6, [4, 5, 6, 30, 31, 32], 5, 4, "CUDE-SHA384",
         TotalsDocumentKind.DebitNote);
 
-    public bool IsNote => Kind != IssueKind.Invoice;
+    /// <summary>
+    /// Support document: its own type 11 resolution and numbering, the seller in <c>seller</c>, operations 23 (resident,
+    /// default, code 10) or 24 (non-resident, code 11), the CUDS with the support-document software PIN (php-rules 13.1).
+    /// </summary>
+    public static readonly IssueSpec SupportDocument = new(
+        IssueKind.SupportDocument, 11, "invoice_lines", "legal_monetary_totals", 23, [23, 24], null, null, "CUDS-SHA384",
+        TotalsDocumentKind.Invoice);
+
+    /// <summary>
+    /// Adjustment note: <c>type_operation_id</c> may be 23 or 24, but without it the PHP uses 10 (code 10, php-rules 14,
+    /// item 4); discrepancy codes 1 to 5 of <c>credit_note_discrepancy_responses_sd</c> (item 3: the PHP crashed on 6).
+    /// </summary>
+    public static readonly IssueSpec SupportDocumentAdjustmentNote = new(
+        IssueKind.SupportDocumentAdjustmentNote, 13, "credit_note_lines", "legal_monetary_totals", 10, [23, 24], null, 5, "CUDS-SHA384",
+        TotalsDocumentKind.CreditNote);
+
+    public bool IsNote => Kind is IssueKind.CreditNote or IssueKind.DebitNote or IssueKind.SupportDocumentAdjustmentNote;
+
+    /// <summary>The support document and its adjustment note: the support-document family (software, environment, plan).</summary>
+    public bool IsSupportDocumentFamily => Kind is IssueKind.SupportDocument or IssueKind.SupportDocumentAdjustmentNote;
+
+    /// <summary>Family whose environment, software and plan quota the document uses.</summary>
+    public DocumentKind Family => IsSupportDocumentFamily ? DocumentKind.SupportDocument : DocumentKind.Invoice;
+
+    /// <summary>Documents written by <c>InvoiceUblBuilder</c> (an Invoice root): the invoices and the support document.</summary>
+    public bool IsInvoiceDocument => Kind is IssueKind.Invoice or IssueKind.SupportDocument;
+
+    /// <summary>
+    /// The other party of the request: the buyer (<c>customer</c>) of the invoice and its notes, the seller not obliged
+    /// to invoice (<c>seller</c>) of the support document and its adjustment note.
+    /// </summary>
+    public string PartyField => IsSupportDocumentFamily ? "seller" : "customer";
+
+    public CustomerBody? PartyOf(IssueDocumentBody body) => IsSupportDocumentFamily ? body.Seller : body.Customer;
 
     public List<LineBody>? LinesOf(IssueDocumentBody body) => Kind switch
     {
-        IssueKind.Invoice => body.InvoiceLines,
-        IssueKind.CreditNote => body.CreditNoteLines,
+        IssueKind.Invoice or IssueKind.SupportDocument => body.InvoiceLines,
+        IssueKind.CreditNote or IssueKind.SupportDocumentAdjustmentNote => body.CreditNoteLines,
         _ => body.DebitNoteLines,
     };
 

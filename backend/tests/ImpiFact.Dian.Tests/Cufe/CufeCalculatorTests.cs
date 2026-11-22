@@ -14,6 +14,9 @@ public class CufeCalculatorTests
     private const string TechnicalKey = "fc8eac422eba16e22ffd8c6f94b3f40a6e38162c";
     private const string SoftwarePin = "12345";
 
+    /// <summary>PIN of the support-document software of the capture (SD_SOFTWARE_PIN): the secret of the CUDS.</summary>
+    private const string SupportDocumentPin = "54321";
+
     private static readonly XNamespace Cbc = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2";
     private static readonly XNamespace Cac = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
 
@@ -47,6 +50,28 @@ public class CufeCalculatorTests
             : CufeCalculator.ComputeCude(input, SoftwarePin);
 
         Assert.That(code, Is.EqualTo(fixture.ExpectedCode));
+    }
+
+    public static IEnumerable<TestCaseData> SupportDocumentCases() =>
+        GoldenFixtures.All().Where(c => c.DocumentType is "support-document" or "sd-credit-note")
+            .Select(c => new TestCaseData(c).SetArgDisplayNames($"{c.DocumentType}/{c.Name}"));
+
+    // php-rules 2.1 and 13.3: the CUDS of the support document and its adjustment note carries only the IVA and the
+    // support-document software PIN; the seller is the supplier NIT and the company the customer one.
+    [TestCaseSource(nameof(SupportDocumentCases))]
+    public void Matches_the_cuds_ApiDian_produced(GoldenFixture fixture)
+    {
+        var input = ReadInput(XDocument.Parse(fixture.ExpectedXml).Root!, fixture.DocumentType);
+
+        Assert.That(CufeCalculator.ComputeCuds(input, SupportDocumentPin), Is.EqualTo(fixture.ExpectedCode));
+    }
+
+    [Test]
+    public void The_cuds_ignores_the_inc_and_the_ica()
+    {
+        Assert.That(CufeCalculator.ComputeCuds(Sample() with { Inc = 80m, Ica = 9.66m }, SupportDocumentPin),
+            Is.EqualTo(CufeCalculator.ComputeCuds(Sample(), SupportDocumentPin)));
+        Assert.That(CufeCalculator.ComputeCuds(Sample(), SupportDocumentPin), Is.Not.EqualTo(CufeCalculator.ComputeCude(Sample(), SupportDocumentPin)));
     }
 
     [Test]

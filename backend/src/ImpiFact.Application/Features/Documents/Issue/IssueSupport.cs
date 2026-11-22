@@ -73,6 +73,45 @@ public static class IssueErrors
         "La empresa no tiene configurado el software de facturación para el ambiente actual.",
         ErrorType.Validation);
 
+    /// <summary>The support document and its adjustment note need the support-document software (php-rules 13.1, item 6).</summary>
+    public static readonly Error SupportDocumentSoftwareMissing = new(
+        "software.missing",
+        "La empresa no tiene configurado el software de documento soporte para el ambiente actual de documento soporte. " +
+        "Regístrelo con idsupportdocument y pinsupportdocument.",
+        ErrorType.Validation);
+
+    public const string SupportDocumentReferenceNotFoundMessage =
+        "El documento soporte de billing_reference no existe en la empresa. Envíe el CUDS de un documento soporte emitido por la empresa.";
+
+    /// <summary>
+    /// The adjustment note references, by its CUDS, something that is not a support document of the company (php-rules 14,
+    /// item 2). The same answer for a CUDS of another company, so it never reveals other companies' documents.
+    /// </summary>
+    public static readonly Error SupportDocumentReferenceNotFound = new(
+        "document.reference_not_found", SupportDocumentReferenceNotFoundMessage, ErrorType.Validation)
+    {
+        Fields = [new FieldError("billing_reference.uuid", SupportDocumentReferenceNotFoundMessage)],
+    };
+
+    public const string SupportDocumentReferenceNumberMismatchMessage =
+        "billing_reference.number no corresponde al número del documento soporte de ese CUDS.";
+
+    public static readonly Error SupportDocumentReferenceNumberMismatch = new(
+        "document.reference_mismatch", SupportDocumentReferenceNumberMismatchMessage, ErrorType.Validation)
+    {
+        Fields = [new FieldError("billing_reference.number", SupportDocumentReferenceNumberMismatchMessage)],
+    };
+
+    public const string SupportDocumentReferenceNotAcceptedMessage =
+        "El documento soporte referenciado en billing_reference todavía no está aceptado por la DIAN. Emita la nota de ajuste " +
+        "cuando el documento soporte quede aceptado.";
+
+    public static readonly Error SupportDocumentReferenceNotAccepted = new(
+        "document.reference_not_accepted", SupportDocumentReferenceNotAcceptedMessage, ErrorType.Validation)
+    {
+        Fields = [new FieldError("billing_reference.uuid", SupportDocumentReferenceNotAcceptedMessage)],
+    };
+
     public static readonly Error InvalidJson = Error.Validation(
         [new FieldError("body", "La solicitud no es un JSON válido con la forma del contrato.")]);
 
@@ -164,6 +203,14 @@ public sealed record IssueDocumentResponse
     [JsonPropertyName("cude")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Cude { get; init; }
+
+    /// <summary>
+    /// CUDS (unique code of the support document) of a support document or its adjustment note, as the PHP names it
+    /// (php-rules 13.3, item 8); those documents carry neither <c>cufe</c> nor <c>cude</c>.
+    /// </summary>
+    [JsonPropertyName("cuds")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Cuds { get; init; }
 
     [JsonPropertyName("QRStr")]
     public required string QrStr { get; init; }

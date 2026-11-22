@@ -109,6 +109,15 @@ public sealed record SalesInvoice
     /// </summary>
     public bool AmountsInDocumentCurrency { get; init; }
 
+    /// <summary>
+    /// Support document data (type 05, ApiDian template <c>05.blade.php</c>); null for the sales invoices. With it the
+    /// builder writes the support-document profile and the CUDS (with <see cref="Software"/>'s PIN; the technical key of
+    /// the resolution is never used), lays the parties out as that template does (<see cref="Supplier"/> is the seller not
+    /// obliged to invoice and <see cref="Customer"/> the issuing company, which is also the software provider), always
+    /// writes cac:PaymentExchangeRate and gives each line its cac:InvoicePeriod without cbc:FreeOfChargeIndicator.
+    /// </summary>
+    public SupportDocumentTerms? SupportDocument { get; init; }
+
     /// <summary>Número del documento tal como se escribe en cbc:ID.</summary>
     public string DocumentNumber => Resolution.Prefix + Number.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
@@ -122,6 +131,19 @@ public sealed record NumberingResolution(
     long From,
     long To,
     string TechnicalKey);
+
+/// <summary>
+/// What a support document adds to the sales invoice. Without <see cref="SalesInvoice.ForeignCurrency"/>, ApiDian writes
+/// cac:PaymentExchangeRate anyway, from the company currency to itself with rate 1 and <see cref="ExchangeRateDate"/>
+/// (the day of the issue request, php-rules 13.2, item 4).
+/// </summary>
+public sealed record SupportDocumentTerms(DateOnly ExchangeRateDate);
+
+/// <summary>
+/// cac:InvoicePeriod of a support-document line: when the purchase was made (cbc:StartDate) and how it is reported
+/// (<c>type_generation_transmitions</c>: 1 per operation, 2 weekly accumulated) as code and name.
+/// </summary>
+public sealed record LineGenerationPeriod(DateOnly StartDate, string DescriptionCode, string Description);
 
 /// <summary>What an export invoice adds to the sales invoice: its Incoterm and, optionally, the supplement K.</summary>
 public sealed record ExportTerms(DeliveryTerms DeliveryTerms, ExportSupplement? Supplement);
@@ -223,6 +245,12 @@ public sealed record InvoiceParty
     public string? Telephone { get; init; }
 
     public string? Email { get; init; }
+
+    /// <summary>
+    /// Postal code written as cbc:PostalZone of the physical location; only the seller of a support document has it
+    /// (<c>postal_zone_code</c>). Null for every other party.
+    /// </summary>
+    public string? PostalZone { get; init; }
 
     /// <summary>El consumidor final de la DIAN (222222222222) no lleva datos de contacto.</summary>
     public bool IsFinalConsumer => IdentificationNumber == "222222222222";
@@ -351,11 +379,17 @@ public sealed record InvoiceLine
 
     public IReadOnlyList<TaxSubtotal> TaxSubtotals { get; init; } = [];
 
-    /// <summary>Brand of the item (cbc:BrandName after cbc:Description); null when not sent. Only the invoice writes it.</summary>
+    /// <summary>
+    /// Brand of the item (cbc:BrandName after cbc:Description); null when not sent. The invoice and the support-document
+    /// adjustment note write it; the credit and debit notes do not.
+    /// </summary>
     public string? BrandName { get; init; }
 
-    /// <summary>Model of the item (cbc:ModelName after cbc:BrandName); null when not sent. Only the invoice writes it.</summary>
+    /// <summary>Model of the item (cbc:ModelName after cbc:BrandName); null when not sent. Written like <see cref="BrandName"/>.</summary>
     public string? ModelName { get; init; }
+
+    /// <summary>Support-document line only: its cac:InvoicePeriod. Only <see cref="InvoiceUblBuilder"/> uses it.</summary>
+    public LineGenerationPeriod? GenerationPeriod { get; init; }
 
     /// <summary>
     /// Third party on whose behalf the line is sold (mandate invoice); written in cac:Item as

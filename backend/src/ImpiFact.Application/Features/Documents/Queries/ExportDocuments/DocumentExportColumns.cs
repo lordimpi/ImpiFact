@@ -83,11 +83,13 @@ public static class DocumentExportColumns
     };
 
     /// <summary>Spanish name of a document type, as the «Tipo» column shows it.</summary>
-    public static string KindLabel(int documentTypeId) => DocumentKinds.NameOf(documentTypeId) switch
+    public static string KindLabel(int documentTypeId) => (documentTypeId, DocumentKinds.NameOf(documentTypeId)) switch
     {
-        DocumentKinds.Invoice => "Factura",
-        DocumentKinds.CreditNote => "Nota crédito",
-        DocumentKinds.DebitNote => "Nota débito",
+        (_, DocumentKinds.Invoice) => "Factura",
+        (_, DocumentKinds.CreditNote) => "Nota crédito",
+        (_, DocumentKinds.DebitNote) => "Nota débito",
+        (11, _) => "Documento soporte",
+        (13, _) => "Nota de ajuste al documento soporte",
         _ => string.Create(CultureInfo.InvariantCulture, $"Tipo {documentTypeId}"),
     };
 }

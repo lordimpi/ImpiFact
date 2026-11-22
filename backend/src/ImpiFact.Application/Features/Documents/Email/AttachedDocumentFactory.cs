@@ -121,6 +121,7 @@ internal static class AttachedDocumentFactory
         1 or 2 or 3 => AttachedDocumentKind.Invoice,
         4 => AttachedDocumentKind.CreditNote,
         5 => AttachedDocumentKind.DebitNote,
+        DocumentFamilies.SupportDocumentType or DocumentFamilies.SupportDocumentAdjustmentNoteType => AttachedDocumentKind.SupportDocument,
         _ => throw new ArgumentException($"Document type {documentTypeId} has no attached document.", nameof(documentTypeId)),
     };
 }

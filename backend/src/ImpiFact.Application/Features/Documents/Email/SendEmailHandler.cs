@@ -70,7 +70,7 @@ internal sealed class SendEmailHandler(
         }
 
         var request = DocumentEmailRequest.Parse(await store.ReadFileAsync(companyId, document.Id, DocumentFileKind.RequestJson, ct));
-        var issuer = await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentKind.Invoice, ct)
+        var issuer = await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct)
             ?? throw new PermanentOutboxFailureException($"Company {companyId} does not exist.");
         var recipients = DocumentEmailRecipients.Resolve(
             request, document.CustomerSnapshot.IdentificationNumber, document.CustomerSnapshot.Email, issuer.Company.Email);

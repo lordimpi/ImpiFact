@@ -20,7 +20,8 @@ internal sealed record IssueFrame(
     DateOnly IssueDate,
     TimeOnly IssueTime,
     string SoftwarePin,
-    string QrCodeBaseUrl)
+    string QrCodeBaseUrl,
+    DateOnly? Today = null)
 {
     /// <summary>No incluye el PIN del software, para que un registro accidental del objeto no lo filtre.</summary>
     public override string ToString() => $"IssueFrame {{ Spec = {Spec}, Number = {Number}, IssueDate = {IssueDate} }}";
@@ -55,7 +56,59 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
     private const string ForeignMunicipalityCode = "00001";
     private const string ForeignStateCode = "01";
 
-    public SalesInvoice MapInvoice(IssueFrame frame, IssueDocumentBody body)
+    public SalesInvoice MapInvoice(IssueFrame frame, IssueDocumentBody body) =>
+        frame.Spec.Kind == IssueKind.SupportDocument ? MapSupportDocument(frame, body) : MapSalesInvoice(frame, body);
+
+    /// <summary>
+    /// Support document (template 05, php-rules 13.2): the seller in the supplier position and the company in the customer
+    /// one, the type 11 resolution without its technical key (the CUDS never uses it: item 3.2), the generation period of
+    /// each line and, without <c>idcurrency</c>, the exchange rate of the company currency with today's date (item 4).
+    /// </summary>
+    private SalesInvoice MapSupportDocument(IssueFrame frame, IssueDocumentBody body)
+    {
+        var resolution = frame.Resolution;
+        var lines = frame.Spec.LinesOf(body)!;
+        return new SalesInvoice
+        {
+            Environment = (DianEnvironment)frame.Issuer.TypeEnvironmentId,
+            QrCodeBaseUrl = frame.QrCodeBaseUrl,
+            OperationTypeCode = Get(DianCatalog.OperationType, OperationTypeId(frame.Spec, body)).Code,
+            InvoiceTypeCode = Get(DianCatalog.DocumentType, frame.Spec.DocumentTypeId).Code,
+            Note = PhpText.CleanOrNull(body.Notes),
+            Resolution = new NumberingResolution(
+                resolution.ResolutionNumber ?? "",
+                resolution.ValidFrom ?? throw new InvalidOperationException("A support-document resolution needs a validity start."),
+                resolution.ValidTo ?? throw new InvalidOperationException("A support-document resolution needs a validity end."),
+                resolution.Prefix ?? "",
+                resolution.From,
+                resolution.To,
+                TechnicalKey: ""),
+            Number = frame.Number,
+            IssueDate = frame.IssueDate,
+            IssueTime = frame.IssueTime,
+            Software = new SoftwareCredentials(frame.Issuer.Software!.Identifier, frame.SoftwarePin),
+            LocalCurrencyCode = Get(DianCatalog.Currency, frame.Issuer.Company.TypeCurrencyId).Code,
+            ForeignCurrency = MapForeignCurrency(body),
+            SupportDocument = new SupportDocumentTerms(frame.Today ?? frame.IssueDate),
+            Supplier = MapSeller(body.Seller!),
+            Customer = MapSupplier(frame.Issuer),
+            Payments = PaymentFormsOf(body).Select(form => MapPayment(form.Body)).ToList(),
+            PrepaidPayments = PrepaidPaymentsOf(frame.Spec, body).Select(prepaid => MapPrepaidPayment(prepaid.Body)).ToList(),
+            AllowanceCharges = MapAll(body.AllowanceCharges, MapAllowanceCharge),
+            TaxSubtotals = MapAll(body.TaxTotals, MapTaxSubtotal),
+            WithholdingSubtotals = MapAll(body.WithHoldingTaxTotal, MapTaxSubtotal),
+            Totals = MapTotals(frame.Spec.TotalsOf(body)!),
+            Lines = lines.Select(line => MapLine(line) with
+            {
+                GenerationPeriod = new LineGenerationPeriod(
+                    Date(line.StartDate!.Value),
+                    line.TypeGenerationTransmitionId!.Value.Text.Trim(),
+                    PhpText.Clean(Get(DianCatalog.GenerationTransmition, (int)line.TypeGenerationTransmitionId!.Value.Integer).Name)),
+            }).ToList(),
+        };
+    }
+
+    private SalesInvoice MapSalesInvoice(IssueFrame frame, IssueDocumentBody body)
     {
         var company = frame.Issuer.Company;
         var resolution = frame.Resolution;
@@ -157,6 +210,11 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
     public SalesNote MapNote(IssueFrame frame, IssueDocumentBody body)
     {
         var spec = frame.Spec;
+        if (spec.Kind == IssueKind.SupportDocumentAdjustmentNote)
+        {
+            return MapAdjustmentNote(frame, body);
+        }
+
         return new SalesNote
         {
             Kind = spec.Kind == IssueKind.CreditNote ? NoteKind.Credit : NoteKind.Debit,
@@ -186,6 +244,62 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             Lines = MapAll(spec.LinesOf(body), MapLine),
         };
     }
+
+    /// <summary>
+    /// Adjustment note (template 95, php-rules 14): parties as in the support document, the referenced support document
+    /// with <c>CUDS-SHA384</c>, the reason from <c>credit_note_discrepancy_responses_sd</c>, no invoice period (the
+    /// template has none) and the brand and model of the lines.
+    /// </summary>
+    private SalesNote MapAdjustmentNote(IssueFrame frame, IssueDocumentBody body)
+    {
+        var spec = frame.Spec;
+        var reference = body.BillingReference!;
+        return new SalesNote
+        {
+            Kind = NoteKind.SupportDocumentAdjustment,
+            Environment = (DianEnvironment)frame.Issuer.TypeEnvironmentId,
+            QrCodeBaseUrl = frame.QrCodeBaseUrl,
+            OperationTypeCode = Get(DianCatalog.OperationType, OperationTypeId(spec, body)).Code,
+            Prefix = PhpText.Clean(frame.Resolution.Prefix ?? ""),
+            Number = frame.Number,
+            IssueDate = frame.IssueDate,
+            IssueTime = frame.IssueTime,
+            Note = PhpText.CleanOrNull(body.Notes),
+            Software = new SoftwareCredentials(frame.Issuer.Software!.Identifier, frame.SoftwarePin),
+            LocalCurrencyCode = Get(DianCatalog.Currency, frame.Issuer.Company.TypeCurrencyId).Code,
+            ForeignCurrency = MapForeignCurrency(body),
+            Supplier = MapSeller(body.Seller!),
+            Customer = MapSupplier(frame.Issuer),
+            Payments = PaymentFormsOf(body).Select(form => MapPayment(form.Body)).ToList(),
+            Discrepancy = MapDiscrepancy(spec, body),
+            BillingReference = new BillingReference(
+                PhpText.Clean(reference.Number!.Value.Text), PhpText.Clean(reference.Uuid!.Value.Text), Date(reference.IssueDate!.Value))
+            {
+                SchemeName = spec.UuidAlgorithm,
+            },
+            AllowanceCharges = MapAll(body.AllowanceCharges, MapAllowanceCharge),
+            TaxSubtotals = MapAll(body.TaxTotals, MapTaxSubtotal),
+            WithholdingSubtotals = MapAll(body.WithHoldingTaxTotal, MapTaxSubtotal),
+            Totals = MapTotals(spec.TotalsOf(body)!),
+            Lines = MapAll(spec.LinesOf(body), line => MapLine(line) with
+            {
+                BrandName = LegacyScalar.IsMissing(line.BrandName) ? null : PhpText.CleanOrNull(line.BrandName),
+                ModelName = LegacyScalar.IsMissing(line.ModelName) ? null : PhpText.CleanOrNull(line.ModelName),
+            }),
+        };
+    }
+
+    /// <summary>
+    /// The seller not obliged to invoice (php-rules 13.1, item 2), as <c>_accounting.blade.php</c> renders it: the customer
+    /// rules (also the address of a seller outside Colombia) plus <c>postal_zone_code</c>, and without cac:Contact, which
+    /// that template only takes from <c>customer</c>.
+    /// </summary>
+    private InvoiceParty MapSeller(CustomerBody seller) => MapCustomer(seller, foreignAddress: true) with
+    {
+        Telephone = null,
+        Email = null,
+        PostalZone = PhpText.Clean(seller.PostalZoneCode!.Value.Text.Trim()),
+    };
 
     /// <summary>Entrada de <see cref="DianTotalsValidator"/> con los valores del cliente, en el orden de la solicitud.</summary>
     public static TotalsDocument MapTotalsDocument(IssueSpec spec, IssueDocumentBody body)
@@ -237,7 +351,7 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
     /// </summary>
     public static IReadOnlyList<(string Path, PrepaidPaymentBody Body)> PrepaidPaymentsOf(IssueSpec spec, IssueDocumentBody body)
     {
-        if (spec.Kind != IssueKind.Invoice)
+        if (!spec.IsInvoiceDocument)
         {
             return [];
         }
@@ -466,8 +580,7 @@ internal sealed class LegacyDocumentMapper(IReadOnlyDictionary<CatalogKey, Catal
             return null;
         }
 
-        var catalog = spec.Kind == IssueKind.CreditNote ? DianCatalog.CreditNoteDiscrepancy : DianCatalog.DebitNoteDiscrepancy;
-        return new DiscrepancyResponse(code.Text.Trim(), Get(catalog, (int)code.Integer).Name);
+        return new DiscrepancyResponse(code.Text.Trim(), Get(CatalogNeeds.DiscrepancyCatalog(spec), (int)code.Integer).Name);
     }
 
     private static TaxSubtotalInput TotalsTax(TaxTotalBody item) => new()
@@ -516,17 +629,19 @@ internal static class CatalogNeeds
             Need(DianCatalog.Currency, currency, "idcurrency");
         }
 
-        var customer = body.Customer!;
-        Need(DianCatalog.OrganizationType, LegacyDocumentMapper.IdOr(customer.TypeOrganizationId, LegacyDocumentMapper.DefaultOrganizationTypeId), "customer.type_organization_id");
-        Need(DianCatalog.IdentificationType, LegacyDocumentMapper.IdOr(customer.TypeDocumentIdentificationId, LegacyDocumentMapper.DefaultIdentificationTypeId), "customer.type_document_identification_id");
-        Need(DianCatalog.Regime, LegacyDocumentMapper.IdOr(customer.TypeRegimeId, LegacyDocumentMapper.DefaultRegimeId), "customer.type_regime_id");
-        Need(DianCatalog.Liability, LegacyDocumentMapper.IdOr(customer.TypeLiabilityId, LegacyDocumentMapper.DefaultLiabilityId), "customer.type_liability_id");
-        Need(DianCatalog.Tax, LegacyDocumentMapper.IdOr(customer.TaxId, LegacyDocumentMapper.DefaultTaxId), "customer.tax_id");
-        Need(DianCatalog.Country, LegacyDocumentMapper.IdOr(customer.CountryId, LegacyDocumentMapper.DefaultCountryId), "customer.country_id");
-        Need(DianCatalog.Language, LegacyDocumentMapper.IdOr(customer.LanguageId, LegacyDocumentMapper.DefaultLanguageId), "customer.language_id");
+        // The buyer (customer) of the invoice and its notes, the seller of the support document and its adjustment note.
+        var customer = spec.PartyOf(body)!;
+        var party = spec.PartyField;
+        Need(DianCatalog.OrganizationType, LegacyDocumentMapper.IdOr(customer.TypeOrganizationId, LegacyDocumentMapper.DefaultOrganizationTypeId), $"{party}.type_organization_id");
+        Need(DianCatalog.IdentificationType, LegacyDocumentMapper.IdOr(customer.TypeDocumentIdentificationId, LegacyDocumentMapper.DefaultIdentificationTypeId), $"{party}.type_document_identification_id");
+        Need(DianCatalog.Regime, LegacyDocumentMapper.IdOr(customer.TypeRegimeId, LegacyDocumentMapper.DefaultRegimeId), $"{party}.type_regime_id");
+        Need(DianCatalog.Liability, LegacyDocumentMapper.IdOr(customer.TypeLiabilityId, LegacyDocumentMapper.DefaultLiabilityId), $"{party}.type_liability_id");
+        Need(DianCatalog.Tax, LegacyDocumentMapper.IdOr(customer.TaxId, LegacyDocumentMapper.DefaultTaxId), $"{party}.tax_id");
+        Need(DianCatalog.Country, LegacyDocumentMapper.IdOr(customer.CountryId, LegacyDocumentMapper.DefaultCountryId), $"{party}.country_id");
+        Need(DianCatalog.Language, LegacyDocumentMapper.IdOr(customer.LanguageId, LegacyDocumentMapper.DefaultLanguageId), $"{party}.language_id");
         if (LegacyDocumentMapper.IdOrNull(customer.MunicipalityId) is { } municipality)
         {
-            Need(DianCatalog.Municipality, municipality, "customer.municipality_id");
+            Need(DianCatalog.Municipality, municipality, $"{party}.municipality_id");
         }
 
         foreach (var (path, payment) in LegacyDocumentMapper.PaymentFormsOf(body))
@@ -548,6 +663,11 @@ internal static class CatalogNeeds
                 Need(DianCatalog.ReferencePrice, referencePrice, $"{at}.reference_price_id");
             }
 
+            if (spec.Kind == IssueKind.SupportDocument && LegacyDocumentMapper.IdOrNull(line.TypeGenerationTransmitionId) is { } generation)
+            {
+                Need(DianCatalog.GenerationTransmition, generation, $"{at}.type_generation_transmition_id");
+            }
+
             if (spec.Variant == InvoiceVariant.Transport && line.IsRndc is { } rndc && rndc.TryBoolean(out var isRndc) && isRndc)
             {
                 Need(DianCatalog.UnitMeasure, (int)line.UnitMeasureConsignmentId!.Value.Integer, $"{at}.unit_measure_consignment_id");
@@ -559,12 +679,19 @@ internal static class CatalogNeeds
 
         if (spec.IsNote && body.DiscrepancyResponseCode is { IsPhpEmpty: false } code)
         {
-            var catalog = spec.Kind == IssueKind.CreditNote ? DianCatalog.CreditNoteDiscrepancy : DianCatalog.DebitNoteDiscrepancy;
-            Need(catalog, (int)code.Integer, "discrepancyresponsecode");
+            Need(DiscrepancyCatalog(spec), (int)code.Integer, "discrepancyresponsecode");
         }
 
         return needs;
     }
+
+    /// <summary>Catalog of the reasons of a note: credit, debit or support-document adjustment (php-rules 4.2 and 14).</summary>
+    public static DianCatalog DiscrepancyCatalog(IssueSpec spec) => spec.Kind switch
+    {
+        IssueKind.CreditNote => DianCatalog.CreditNoteDiscrepancy,
+        IssueKind.SupportDocumentAdjustmentNote => DianCatalog.SupportDocumentDiscrepancy,
+        _ => DianCatalog.DebitNoteDiscrepancy,
+    };
 
     /// <summary>
     /// An export invoice in a currency other than the company one needs its exchange rate and its date: annex 1.9 rules

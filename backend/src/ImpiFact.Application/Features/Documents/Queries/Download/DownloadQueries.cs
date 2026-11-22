@@ -18,7 +18,8 @@ namespace ImpiFact.Application.Features.Documents.Queries.Download;
 /// <remarks>
 /// Nombres que se reconocen, con <c>{número}</c> el prefijo y el número del documento (por ejemplo <c>SETP990000001</c>):
 /// <c>FES-{número}.xml</c> y <c>FES-{número}.pdf</c> (factura; <c>NCS-</c> nota crédito, <c>NDS-</c> nota débito) para
-/// el XML firmado y el PDF, <c>Attachment-{número}.xml</c> para el AttachedDocument (contenedor electrónico) y
+/// el XML firmado y el PDF, <c>DSS-{número}.xml</c> y <c>NDSNS-{número}.xml</c> (XML firmado del documento soporte y de
+/// su nota de ajuste), <c>Attachment-{número}.xml</c> para el AttachedDocument (contenedor electrónico) y
 /// <c>ZipAttachm-{número}.zip</c> para el ZIP del correo (AttachedDocument y PDF). Cualquier otro nombre, o un archivo
 /// que no exista, responde 404 con el texto del PHP. Siempre se entrega la revisión más reciente.
 /// </remarks>
@@ -49,7 +50,9 @@ internal sealed partial class DownloadDocumentFileHandler(
     private static readonly int[] InvoiceTypes = [1];
     private static readonly int[] CreditNoteTypes = [4];
     private static readonly int[] DebitNoteTypes = [5];
-    private static readonly int[] AllTypes = [1, 4, 5];
+    private static readonly int[] SupportDocumentTypes = [11];
+    private static readonly int[] AdjustmentNoteTypes = [13];
+    private static readonly int[] AllTypes = [1, 4, 5, 11, 13];
 
     public async Task<Result<DocumentFileContent>> HandleAsync(DownloadDocumentFileQuery request, CancellationToken ct)
     {
@@ -85,6 +88,8 @@ internal sealed partial class DownloadDocumentFileHandler(
             ("FES", "xml") => (DownloadKind.SignedXml, fullNumber, InvoiceTypes),
             ("NCS", "xml") => (DownloadKind.SignedXml, fullNumber, CreditNoteTypes),
             ("NDS", "xml") => (DownloadKind.SignedXml, fullNumber, DebitNoteTypes),
+            ("DSS", "xml") => (DownloadKind.SignedXml, fullNumber, SupportDocumentTypes),
+            ("NDSNS", "xml") => (DownloadKind.SignedXml, fullNumber, AdjustmentNoteTypes),
             ("FES", "pdf") => (DownloadKind.Pdf, fullNumber, InvoiceTypes),
             ("NCS", "pdf") => (DownloadKind.Pdf, fullNumber, CreditNoteTypes),
             ("NDS", "pdf") => (DownloadKind.Pdf, fullNumber, DebitNoteTypes),
@@ -94,7 +99,7 @@ internal sealed partial class DownloadDocumentFileHandler(
         };
     }
 
-    [GeneratedRegex("^(?<tag>FES|NCS|NDS|Attachment|ZipAttachm)-(?<number>[A-Za-z0-9]{1,40})\\.(?<ext>xml|pdf|zip)\\z", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^(?<tag>FES|NCS|NDSNS|NDS|DSS|Attachment|ZipAttachm)-(?<number>[A-Za-z0-9]{1,40})\\.(?<ext>xml|pdf|zip)\\z", RegexOptions.CultureInvariant)]
     private static partial Regex FileNamePattern();
 }
 

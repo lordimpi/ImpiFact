@@ -79,7 +79,9 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         var storedRequest = IssueDocumentJson.ForStorage(request.RawBody);
         var requestHash = Convert.ToHexStringLower(SHA256.HashData(storedRequest));
 
-        var issuer = await ports.Issuers.GetAsync(companyId, spec.DocumentTypeId, DocumentKind.Invoice, ct);
+        // The family decides the environment and the software: the support document and its adjustment note use the
+        // support-document ones (php-rules 13.1, item 6), never the invoice ones.
+        var issuer = await ports.Issuers.GetAsync(companyId, spec.DocumentTypeId, spec.Family, ct);
         if (issuer is null || !issuer.Company.IsActive)
         {
             return IssueErrors.CompanyInactive;
@@ -106,8 +108,9 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         }
 
         // Como el PHP: el plan se revisa justo después del certificado, y el set de pruebas (testSetStore) no lo revisa.
-        // Facturas y notas (tipos 1 a 5) son la familia «factura» de las cuotas del plan.
-        if (request.TestSetId is null && await ports.Plans.CheckIssueAsync(companyId, DocumentKind.Invoice, ct) is { } refused)
+        // Facturas y notas (tipos 1 a 5) son la familia «factura» de las cuotas del plan; el documento soporte y su nota de
+        // ajuste, la familia «documento soporte» (qty_docs_ds, php-rules 13.1, item 7).
+        if (request.TestSetId is null && await ports.Plans.CheckIssueAsync(companyId, spec.Family, ct) is { } refused)
         {
             return refused;
         }
@@ -152,9 +155,10 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             issueDate,
             issueTime,
             ports.Secrets.Unprotect(SecretPurposes.SoftwarePin, issuer.Software!.PinCipher),
-            ports.QrUrls.ForEnvironment(issuer.TypeEnvironmentId));
+            ports.QrUrls.ForEnvironment(issuer.TypeEnvironmentId),
+            ColombiaTime.Today(now));
         var mapper = new LegacyDocumentMapper(catalogs.Value);
-        var (unsignedXml, uuid) = spec.Kind == IssueKind.Invoice
+        var (unsignedXml, uuid) = spec.IsInvoiceDocument
             ? Unpack(InvoiceUblBuilder.Build(mapper.MapInvoice(frame, body)))
             : Unpack(NoteUblBuilder.Build(mapper.MapNote(frame, body)));
 
@@ -195,6 +199,11 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
     /// <returns>El id del documento referenciado, o nulo si la solicitud no es una nota o no lo encuentra.</returns>
     private async Task<Result<Guid?>> FindReferenceAsync(Guid companyId, IssueDocumentBody body, string? testSetId, CancellationToken ct)
     {
+        if (spec.Kind == IssueKind.SupportDocumentAdjustmentNote)
+        {
+            return await FindSupportDocumentAsync(companyId, body, testSetId, ct);
+        }
+
         if (!spec.IsNote || body.BillingReference?.Uuid is not { } referenced
             || await ports.Store.FindIdByCufeAsync(companyId, PhpText.Clean(referenced.Text), ct) is not { } referenceId)
         {
@@ -210,6 +219,32 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
         return original?.Status is DocumentStatus.Accepted or DocumentStatus.AcceptedWithWarnings
             ? referenceId
             : IssueErrors.ReferenceNotAccepted;
+    }
+
+    /// <summary>
+    /// php-rules 14, item 2 (Mejora): the adjustment note must reference a support document (type 11) of the company, found
+    /// by its CUDS, with the same number, and accepted by the DIAN (except in the test set, like the notes). A CUDS the
+    /// company does not have, also one of another company, gets the same 422, so nothing about other companies leaks.
+    /// </summary>
+    private async Task<Result<Guid?>> FindSupportDocumentAsync(Guid companyId, IssueDocumentBody body, string? testSetId, CancellationToken ct)
+    {
+        var reference = body.BillingReference!;
+        var original = await ports.Store.FindIdByCufeAsync(companyId, PhpText.Clean(reference.Uuid!.Value.Text), ct) is { } id
+            ? await ports.Store.FindByIdAsync(companyId, id, ct)
+            : null;
+        if (original is not { DocumentTypeId: DocumentFamilies.SupportDocumentType })
+        {
+            return IssueErrors.SupportDocumentReferenceNotFound;
+        }
+
+        if (!string.Equals(original.FullNumber, PhpText.Clean(reference.Number!.Value.Text).Trim(), StringComparison.Ordinal))
+        {
+            return IssueErrors.SupportDocumentReferenceNumberMismatch;
+        }
+
+        return testSetId is not null || original.Status is DocumentStatus.Accepted or DocumentStatus.AcceptedWithWarnings
+            ? original.Id
+            : IssueErrors.SupportDocumentReferenceNotAccepted;
     }
 
     private static (string Xml, string Uuid) Unpack(InvoiceUblResult result) => (result.Xml, result.Cufe);
@@ -229,7 +264,9 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             return IssueErrors.CertificateExpired;
         }
 
-        return issuer.Software is null ? IssueErrors.SoftwareMissing : true;
+        return issuer.Software is not null ? true
+            : spec.IsSupportDocumentFamily ? IssueErrors.SupportDocumentSoftwareMissing
+            : IssueErrors.SoftwareMissing;
     }
 
     /// <summary>Prefijo de los nombres de archivo del PHP por tipo de documento (inventario de reglas 3.8).</summary>
@@ -237,6 +274,8 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
     {
         IssueKind.CreditNote => "NCS",
         IssueKind.DebitNote => "NDS",
+        IssueKind.SupportDocument => "DSS",
+        IssueKind.SupportDocumentAdjustmentNote => "NDSNS",
         _ => "FES",
     };
 
@@ -341,8 +380,9 @@ internal abstract class IssueDocumentHandler<TCommand>(IssuePorts ports, IssueSp
             UrlInvoiceXml = $"{LegacyFileTag(spec.Kind)}-{document.FullNumber}.xml",
             UrlInvoicePdf = $"{LegacyFileTag(spec.Kind)}-{document.FullNumber}.pdf",
             UrlInvoiceAttached = $"Attachment-{document.FullNumber}.xml",
-            Cufe = spec.IsNote ? null : uuid,
-            Cude = spec.IsNote ? uuid : null,
+            Cufe = spec.IsNote || spec.IsSupportDocumentFamily ? null : uuid,
+            Cude = spec.IsNote && !spec.IsSupportDocumentFamily ? uuid : null,
+            Cuds = spec.IsSupportDocumentFamily ? uuid : null,
             QrStr = ports.QrUrls.ForEnvironment(document.TypeEnvironmentId) + uuid,
             CertificateDaysLeft = issuer.Certificate is { } certificate ? CertificateDaysLeft(certificate) : 0,
             ResolutionDaysLeft = !spec.IsNote && resolution?.ValidTo is { } validTo ? ColombiaTime.DaysLeft(validTo, ports.Clock.UtcNow) : null,
@@ -391,8 +431,11 @@ internal static class IssueChecks
             candidates = candidates.Where(resolution => (resolution.ResolutionNumber ?? "") == number.Text).ToList();
         }
 
+        // A support-document resolution needs its number and validity (they go in sts:InvoiceControl) but never its
+        // technical key: the CUDS ignores it (php-rules 13.3, item 2).
         if (candidates.Count == 0
-            || (spec.Kind == IssueKind.Invoice && candidates[0] is { TechnicalKey: null } or { ValidFrom: null } or { ValidTo: null }))
+            || (spec.Kind == IssueKind.Invoice && candidates[0] is { TechnicalKey: null } or { ValidFrom: null } or { ValidTo: null })
+            || (spec.Kind == IssueKind.SupportDocument && candidates[0] is { ValidFrom: null } or { ValidTo: null } or { ResolutionNumber: null or "" }))
         {
             return Error.Validation([new FieldError("type_document_id", IssueMessages.ResolutionNotConfigured)]);
         }
@@ -469,6 +512,22 @@ internal sealed class IssueExportInvoiceHandler(
     : IssueDocumentHandler<IssueExportInvoiceCommand>(
         new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
         IssueSpec.ExportInvoice);
+
+internal sealed class IssueSupportDocumentHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    : IssueDocumentHandler<IssueSupportDocumentCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        IssueSpec.SupportDocument);
+
+internal sealed class IssueSupportDocumentAdjustmentNoteHandler(
+    ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,
+    IIdempotencyKeys idempotencyKeys, IDocumentFiles files, IOutbox outbox, ICertificateStore certificates, ISecretProtector secrets,
+    IDianQrUrls qrUrls, IPlanGate plans, IClock clock)
+    : IssueDocumentHandler<IssueSupportDocumentAdjustmentNoteCommand>(
+        new IssuePorts(tenant, issuers, catalogs, numbering, store, idempotencyKeys, files, outbox, certificates, secrets, qrUrls, plans, clock),
+        IssueSpec.SupportDocumentAdjustmentNote);
 
 internal sealed class IssueCreditNoteHandler(
     ITenantContext tenant, IIssuerContextReads issuers, IDocumentCatalogs catalogs, INumberingSequences numbering, IDocumentStore store,

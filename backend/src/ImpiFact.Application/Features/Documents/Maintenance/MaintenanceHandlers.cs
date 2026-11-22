@@ -72,7 +72,7 @@ internal sealed class RegenerateAttachedDocumentHandler(
             return MaintenanceErrors.ApplicationResponseMissing(document.FullNumber);
         }
 
-        if ((await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentKind.Invoice, ct))?.Certificate is null)
+        if ((await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct))?.Certificate is null)
         {
             return IssueErrors.CertificateMissing;
         }
@@ -111,7 +111,7 @@ internal sealed class SendDocumentEmailHandler(
         }
 
         var emailRequest = DocumentEmailRequest.Parse(await files.ReadLatestAsync(companyId, document.Id, DocumentFileKind.RequestJson, ct));
-        var companyEmail = (await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentKind.Invoice, ct))?.Company.Email;
+        var companyEmail = (await issuers.GetAsync(companyId, document.DocumentTypeId, DocumentFamilies.Of(document.DocumentTypeId), ct))?.Company.Email;
         var recipients = DocumentEmailRecipients.Resolve(
             emailRequest, document.CustomerSnapshot.IdentificationNumber, document.CustomerSnapshot.Email, companyEmail);
         if (recipients.Skip is { } reason)

@@ -107,7 +107,7 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
                 "la respuesta trae además `total_count`, la cantidad de documentos que cumplen los filtros sin importar la " +
                 "página: cuesta una consulta más que recorre todas esas filas, así que conviene pedirlo solo en la primera " +
                 "página o al cambiar los filtros. Cada fila trae `kind` (`invoice`, `credit_note`, `debit_note` o nulo para " +
-                "otros tipos) y `email_status` (`NotSent`, `Sent` o `Failed`). Un filtro no válido responde 422.");
+                "otros tipos, también el documento soporte y su nota de ajuste) y `email_status` (`NotSent`, `Sent` o `Failed`). Un filtro no válido responde 422.");
         documents.MapGet("/export.csv", Export)
             .Produces(StatusCodes.Status200OK, contentType: "text/csv")
             .WithOperationId("exportDocumentsCsv")
@@ -179,8 +179,9 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
     private const string TotalsText = "Cantidad de documentos validados por la DIAN de la empresa, por tipo de documento.";
 
     private const string ListFilters =
-        " Filtros opcionales, que se combinan entre sí: `kind` (`invoice`, `credit_note` o `debit_note`) o " +
-        "`document_type_id` (1 factura, 4 nota crédito, 5 nota débito…; si llegan los dos deben coincidir); `status`, uno " +
+        " Filtros opcionales, que se combinan entre sí: `kind` (`invoice`, `credit_note`, `debit_note`, `support_document` o " +
+        "`support_document_adjustment_note`) o `document_type_id` (1 factura, 4 nota crédito, 5 nota débito, 11 documento " +
+        "soporte, 13 nota de ajuste…; si llegan los dos deben coincidir); `status`, uno " +
         "o varios estados por su nombre sin distinguir mayúsculas, separados por coma o repitiendo el parámetro " +
         "(`status=Accepted,Rejected`); `from` y `to`, días de emisión `yyyy-MM-dd` en hora de Colombia, ambos incluidos; " +
         "`customer`, texto (hasta 100 caracteres) que aparece en el número de identificación o en el nombre del " +

@@ -13,6 +13,12 @@ public enum DianFileKind
 
     /// <summary>Nota débito (prefijo <c>nd</c>).</summary>
     DebitNote,
+
+    /// <summary>Support document (prefix <c>dse</c>, type_documents 11).</summary>
+    SupportDocument,
+
+    /// <summary>Adjustment note to a support document (prefix <c>nds</c>, type_documents 13).</summary>
+    SupportDocumentAdjustmentNote,
 }
 
 /// <summary>
@@ -43,6 +49,20 @@ public static class DianFileNames
         Compose(Prefix(kind), nit, year, counter) + ".xml";
 
     /// <summary>
+    /// Prefix of the XML name of each kind (<c>type_documents.prefix</c>): <c>fv</c>, <c>nc</c>, <c>nd</c>, <c>dse</c> or
+    /// <c>nds</c>. The file name counter is kept per prefix, so each kind numbers its files on its own.
+    /// </summary>
+    public static string Prefix(DianFileKind kind) => kind switch
+    {
+        DianFileKind.Invoice => "fv",
+        DianFileKind.CreditNote => "nc",
+        DianFileKind.DebitNote => "nd",
+        DianFileKind.SupportDocument => "dse",
+        DianFileKind.SupportDocumentAdjustmentNote => "nds",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown DIAN file kind."),
+    };
+
+    /// <summary>
     /// Nombre del ZIP que contiene el XML: la misma regla con el prefijo <c>z</c>, por ejemplo
     /// <c>z09018462800002500000166.zip</c>.
     /// </summary>
@@ -56,14 +76,6 @@ public static class DianFileNames
     /// <param name="number">Número del documento.</param>
     public static string SoapFileName(string? documentPrefix, long number) =>
         (documentPrefix ?? string.Empty) + number.ToString(CultureInfo.InvariantCulture) + ".xml";
-
-    private static string Prefix(DianFileKind kind) => kind switch
-    {
-        DianFileKind.Invoice => "fv",
-        DianFileKind.CreditNote => "nc",
-        DianFileKind.DebitNote => "nd",
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown DIAN file kind."),
-    };
 
     private static string Compose(string prefix, string nit, int year, long counter)
     {

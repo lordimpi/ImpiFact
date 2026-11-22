@@ -107,7 +107,7 @@ internal static class NextNumberRule
             return ResolutionNotConfigured;
         }
 
-        var issuer = await issuers.GetAsync(company, typeDocumentId, DocumentKind.Invoice, ct);
+        var issuer = await issuers.GetAsync(company, typeDocumentId, DocumentFamilies.Of(typeDocumentId), ct);
         var wanted = prefix is null or "null" ? null : prefix;
         var resolution = issuer?.Resolutions
             .Where(candidate => candidate.IsActive)
