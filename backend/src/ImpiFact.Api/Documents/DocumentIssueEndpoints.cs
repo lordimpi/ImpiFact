@@ -304,7 +304,9 @@ internal sealed class DocumentIssueEndpoints : IEndpointModule
         "sin ese software responde 422 (`software.missing`). Usa su propia resolución (tipo 11 para el documento soporte, " +
         "con número y vigencia; tipo 13 para la nota de ajuste) y su propio consecutivo, y cuenta en el plan como documento " +
         "soporte (`qty_docs_ds`). El código del documento es el CUDS, con el PIN del software de documento soporte, y la " +
-        "respuesta lo trae en `cuds`; una clave técnica en la resolución no se usa. Por ahora no genera PDF ni correo.";
+        "respuesta lo trae en `cuds`; una clave técnica en la resolución no se usa. Cuando la DIAN lo acepta se genera su PDF " +
+        "(`DSS-…pdf` o `NDSNS-…pdf`, con el vendedor como «Proveedor» y el CUDS) y, si llega `sendmail`, el correo va al " +
+        "correo del vendedor (`seller.email`), como ApiDian.";
 
     private const string CreditNoteText =
         "Emite una nota crédito, que corrige o anula total o parcialmente una factura. El cuerpo sigue el contrato de " +

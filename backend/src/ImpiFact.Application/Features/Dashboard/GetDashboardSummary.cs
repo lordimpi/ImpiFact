@@ -83,6 +83,8 @@ internal sealed class GetDashboardSummaryHandler(IDashboardReads reads, ITenantC
             Invoice = Of("invoice"),
             CreditNote = Of("credit_note"),
             DebitNote = Of("debit_note"),
+            SupportDocument = Of("support_document"),
+            SupportDocumentAdjustmentNote = Of("support_document_adjustment_note"),
             Other = Of(null),
             Total = rows.Sum(row => row.Count),
         };
@@ -214,7 +216,15 @@ public sealed record DashboardMonthResponse
     [JsonPropertyName("debit_note")]
     public long DebitNote { get; init; }
 
-    /// <summary>Los demás tipos de documento.</summary>
+    /// <summary>Documentos soporte en adquisiciones a no obligados a facturar (tipo 11).</summary>
+    [JsonPropertyName("support_document")]
+    public long SupportDocument { get; init; }
+
+    /// <summary>Notas de ajuste al documento soporte (tipo 13).</summary>
+    [JsonPropertyName("support_document_adjustment_note")]
+    public long SupportDocumentAdjustmentNote { get; init; }
+
+    /// <summary>Los demás tipos de documento (nómina, POS, documento equivalente…).</summary>
     [JsonPropertyName("other")]
     public long Other { get; init; }
 
@@ -298,7 +308,10 @@ public sealed record DashboardResolutionResponse
     [JsonPropertyName("document_type_id")]
     public int DocumentTypeId { get; init; }
 
-    /// <summary><c>invoice</c>, <c>credit_note</c> o <c>debit_note</c>; nulo para los demás tipos.</summary>
+    /// <summary>
+    /// <c>invoice</c>, <c>credit_note</c>, <c>debit_note</c>, <c>support_document</c> o
+    /// <c>support_document_adjustment_note</c>; nulo para los demás tipos.
+    /// </summary>
     [JsonPropertyName("kind")]
     public string? Kind { get; init; }
 

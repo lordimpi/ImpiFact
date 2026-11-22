@@ -91,7 +91,7 @@ internal sealed class DocumentPdfModelBuilder(
                 uuid,
                 await QrTextAsync(companyId, documentId, header.TypeEnvironmentId, uuid, ct),
                 issuer,
-                kind == PdfDocumentKind.Invoice ? Resolution(issuer, detail.ResolutionId) : null,
+                PrintsResolution(kind) ? Resolution(issuer, detail.ResolutionId) : null,
                 header.Customer,
                 parsed,
                 header.Totals,
@@ -156,18 +156,20 @@ internal sealed class DocumentPdfModelBuilder(
         var kind = source.Kind;
         var lines = (kind switch
         {
-            PdfDocumentKind.CreditNote => body.CreditNoteLines,
+            PdfDocumentKind.CreditNote or PdfDocumentKind.SupportDocumentAdjustmentNote => body.CreditNoteLines,
             PdfDocumentKind.DebitNote => body.DebitNoteLines,
             _ => body.InvoiceLines,
         }) ?? [];
-        var names = new Names(await catalogs.FindAsync(CatalogKeys(source.Issuer, source.Customer, body, lines), ct));
+        var party = body.Seller ?? body.Customer;
+        var names = new Names(await catalogs.FindAsync(CatalogKeys(source.Issuer, source.Customer, party, body, lines), ct));
 
         var taxes = (body.TaxTotals ?? []).Select(tax => Tax(tax, names)).ToList();
         var withholdings = (body.WithHoldingTaxTotal ?? []).Select(tax => Tax(tax, names)).ToList();
         var taxTotal = (body.TaxTotals ?? []).Sum(tax => Amount(tax.TaxAmount));
         var withholdingTotal = (body.WithHoldingTaxTotal ?? []).Sum(tax => Amount(tax.TaxAmount));
 
-        // Como el PHP: en la factura se paga el valor a pagar menos las retenciones; en las notas, el total de la nota.
+        // Como el PHP: en la factura se paga el valor a pagar menos las retenciones; en las notas y en el documento soporte
+        // (plantilla SUPPORTDOCUMENT), el valor a pagar del documento.
         var payable = kind == PdfDocumentKind.Invoice ? source.Totals.PayableAmount - withholdingTotal : source.Totals.PayableAmount;
         var currencyName = body.IdCurrency is { IsPhpEmpty: false } currency && currency.TryInteger(out var currencyId)
             ? names.Of(DianCatalog.Currency, (int)currencyId)
@@ -181,12 +183,12 @@ internal sealed class DocumentPdfModelBuilder(
             Time(source.IssueTime),
             source.ValidationDate,
             source.ValidationTime,
-            kind == PdfDocumentKind.Invoice ? "CUFE" : "CUDE",
+            UuidLabel(kind),
             source.Uuid,
             source.QrText,
             Issuer(source.Issuer, names),
             source.Resolution,
-            Customer(source.Customer, body.Customer, names),
+            Customer(source.Customer, party, names),
             (body.PaymentForm ?? []).Select(payment => Payment(payment, names)).ToList(),
             body.BillingReference is { } reference
                 ? new PdfReference(Text(reference.Number), Text(reference.IssueDate), Text(reference.Uuid))
@@ -235,18 +237,35 @@ internal sealed class DocumentPdfModelBuilder(
         await logos.FindAsync(companyId, ct) is { } logo ? new PdfImage(logo.Content, logo.ContentType) : null;
 
     /// <summary>
-    /// True if the document type has a PDF template. The support document and its adjustment note have none yet (the PHP
-    /// uses its SUPPORTDOCUMENT template, php-rules 13.3, item 6), so their acceptance renders no PDF and sends no email.
+    /// Plantilla de cada tipo de documento. El documento soporte y su nota de ajuste tienen la suya, como las plantillas
+    /// <c>SUPPORTDOCUMENT</c> y <c>SUPPORTDOCUMENTNOTE</c> del PHP (php-rules 13.3, ítem 6, y sección 14).
     /// </summary>
-    public static bool HasTemplate(int documentTypeId) => KindOf(documentTypeId) is not null;
-
     private static PdfDocumentKind? KindOf(int documentTypeId) => documentTypeId switch
     {
         // Factura de venta nacional, de exportación y de contingencia.
         1 or 2 or 3 => PdfDocumentKind.Invoice,
         4 => PdfDocumentKind.CreditNote,
         5 => PdfDocumentKind.DebitNote,
+        DocumentFamilies.SupportDocumentType => PdfDocumentKind.SupportDocument,
+        DocumentFamilies.SupportDocumentAdjustmentNoteType => PdfDocumentKind.SupportDocumentAdjustmentNote,
         _ => null,
+    };
+
+    /// <summary>
+    /// La factura y el documento soporte imprimen su resolución de numeración; las notas no, como en el PHP (el
+    /// encabezado de <c>pdfs/support</c> la lleva y el de <c>pdfs/support-credit-note</c> no).
+    /// </summary>
+    private static bool PrintsResolution(PdfDocumentKind kind) => kind is PdfDocumentKind.Invoice or PdfDocumentKind.SupportDocument;
+
+    /// <summary>
+    /// Nombre del código único: CUFE en la factura, CUDE en las notas y CUDS en el documento soporte y su nota de ajuste
+    /// (código único de documento soporte, el «CUDS:» del pie del PHP).
+    /// </summary>
+    private static string UuidLabel(PdfDocumentKind kind) => kind switch
+    {
+        PdfDocumentKind.Invoice => "CUFE",
+        PdfDocumentKind.SupportDocument or PdfDocumentKind.SupportDocumentAdjustmentNote => "CUDS",
+        _ => "CUDE",
     };
 
     private async Task<string> QrTextAsync(Guid companyId, Guid documentId, int typeEnvironmentId, string uuid, CancellationToken ct)
@@ -373,7 +392,8 @@ internal sealed class DocumentPdfModelBuilder(
             Money(Amount(charge.Amount)))).ToList();
     }
 
-    private static List<CatalogKey> CatalogKeys(IssuerContext issuer, DocumentCustomer customer, IssueDocumentBody body, List<LineBody> lines)
+    private static List<CatalogKey> CatalogKeys(
+        IssuerContext issuer, DocumentCustomer customer, CustomerBody? party, IssueDocumentBody body, List<LineBody> lines)
     {
         var company = issuer.Company;
         var keys = new List<CatalogKey>
@@ -381,7 +401,7 @@ internal sealed class DocumentPdfModelBuilder(
             new(DianCatalog.Municipality, company.MunicipalityId),
             new(DianCatalog.Country, company.CountryId),
             new(DianCatalog.Regime, company.TypeRegimeId),
-            new(DianCatalog.Country, LegacyDocumentMapper.IdOr(body.Customer?.CountryId, Colombia)),
+            new(DianCatalog.Country, LegacyDocumentMapper.IdOr(party?.CountryId, Colombia)),
         };
         keys.AddRange(issuer.LiabilityIds.Select(id => new CatalogKey(DianCatalog.Liability, id)));
         Add(keys, DianCatalog.Municipality, customer.MunicipalityId);

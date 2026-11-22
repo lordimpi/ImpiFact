@@ -18,8 +18,8 @@ namespace ImpiFact.Application.Features.Documents.Queries.Download;
 /// <remarks>
 /// Nombres que se reconocen, con <c>{número}</c> el prefijo y el número del documento (por ejemplo <c>SETP990000001</c>):
 /// <c>FES-{número}.xml</c> y <c>FES-{número}.pdf</c> (factura; <c>NCS-</c> nota crédito, <c>NDS-</c> nota débito) para
-/// el XML firmado y el PDF, <c>DSS-{número}.xml</c> y <c>NDSNS-{número}.xml</c> (XML firmado del documento soporte y de
-/// su nota de ajuste), <c>Attachment-{número}.xml</c> para el AttachedDocument (contenedor electrónico) y
+/// el XML firmado y el PDF, <c>DSS-{número}.xml</c> y <c>.pdf</c> y <c>NDSNS-{número}.xml</c> y <c>.pdf</c> (documento
+/// soporte y su nota de ajuste), <c>Attachment-{número}.xml</c> para el AttachedDocument (contenedor electrónico) y
 /// <c>ZipAttachm-{número}.zip</c> para el ZIP del correo (AttachedDocument y PDF). Cualquier otro nombre, o un archivo
 /// que no exista, responde 404 con el texto del PHP. Siempre se entrega la revisión más reciente.
 /// </remarks>
@@ -93,6 +93,8 @@ internal sealed partial class DownloadDocumentFileHandler(
             ("FES", "pdf") => (DownloadKind.Pdf, fullNumber, InvoiceTypes),
             ("NCS", "pdf") => (DownloadKind.Pdf, fullNumber, CreditNoteTypes),
             ("NDS", "pdf") => (DownloadKind.Pdf, fullNumber, DebitNoteTypes),
+            ("DSS", "pdf") => (DownloadKind.Pdf, fullNumber, SupportDocumentTypes),
+            ("NDSNS", "pdf") => (DownloadKind.Pdf, fullNumber, AdjustmentNoteTypes),
             ("Attachment", "xml") => (DownloadKind.AttachedDocument, fullNumber, AllTypes),
             ("ZipAttachm", "zip") => (DownloadKind.EmailZip, fullNumber, AllTypes),
             _ => null,

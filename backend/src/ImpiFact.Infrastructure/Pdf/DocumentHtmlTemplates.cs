@@ -8,7 +8,8 @@ namespace ImpiFact.Infrastructure.Pdf;
 /// Plantillas HTML de la representación gráfica (el PDF), escritas con Handlebars (un lenguaje de plantillas con
 /// marcas <c>{{campo}}</c>; librería Handlebars.Net, licencia MIT) y guardadas dentro del ensamblado como recursos
 /// <c>Pdf/Templates/*</c>. Hay una plantilla por tipo de documento (<c>invoice</c>, <c>credit-note</c>,
-/// <c>debit-note</c>) y partes compartidas cuyo nombre empieza con guion bajo. Se compilan una vez al crear la clase.
+/// <c>debit-note</c>, <c>support-document</c>, <c>support-document-adjustment-note</c>) y partes compartidas cuyo nombre
+/// empieza con guion bajo. Se compilan una vez al crear la clase.
 /// </summary>
 /// <remarks>
 /// Los nombres, descripciones y notas son texto del usuario: las plantillas solo usan <c>{{ }}</c>, que escapa el HTML,
@@ -46,6 +47,19 @@ public sealed partial class DocumentHtmlTemplates
         [PdfDocumentKind.DebitNote] = new(
             "NOTA DEBITO DE LA FACTURA", "REPRESENTACION GRAFICA DE NOTA DEBITO ELECTRONICA", "Nota Debito",
             ["Total Nota:"], ShowDiscountPercent: false, ShowCharges: true, LegalText: null),
+
+        // php-rules 13.3, ítem 6 (pdfs/support del PHP): el vendedor no obligado a facturar sale como «Proveedor:», la
+        // empresa (la compradora) en el encabezado. Sin texto de título valor: no es una factura.
+        [PdfDocumentKind.SupportDocument] = new(
+            "DOCUMENTO SOPORTE ELECTRONICO No", "REPRESENTACION GRAFICA DE DOCUMENTO SOPORTE ELECTRONICO A NO OBLIGADOS", "Documento Soporte",
+            ["Total Documento Soporte:"], ShowDiscountPercent: true, ShowCharges: false, LegalText: null, PartyLabel: "Proveedor:"),
+
+        // php-rules 14 (pdfs/support-credit-note del PHP), con el CUDS del documento soporte que ajusta.
+        [PdfDocumentKind.SupportDocumentAdjustmentNote] = new(
+            "NOTA DE AJUSTE DEL DOCUMENTO SOPORTE A NO OBLIGADOS A FACTURAR No",
+            "REPRESENTACION GRAFICA DE NOTA DE AJUSTE DEL DOCUMENTO SOPORTE ELECTRONICO A NO OBLIGADOS", "Nota de Ajuste Documento Soporte",
+            ["Total Nota:"], ShowDiscountPercent: false, ShowCharges: false, LegalText: null, PartyLabel: "Proveedor:",
+            ReferenceUuidLabel: "CUDS"),
     };
 
     private readonly IReadOnlyDictionary<PdfDocumentKind, HandlebarsTemplate<object, object>> compiled;
@@ -64,6 +78,8 @@ public sealed partial class DocumentHtmlTemplates
             [PdfDocumentKind.Invoice] = handlebars.Compile(Read(ResourcePrefix + "invoice.hbs")),
             [PdfDocumentKind.CreditNote] = handlebars.Compile(Read(ResourcePrefix + "credit-note.hbs")),
             [PdfDocumentKind.DebitNote] = handlebars.Compile(Read(ResourcePrefix + "debit-note.hbs")),
+            [PdfDocumentKind.SupportDocument] = handlebars.Compile(Read(ResourcePrefix + "support-document.hbs")),
+            [PdfDocumentKind.SupportDocumentAdjustmentNote] = handlebars.Compile(Read(ResourcePrefix + "support-document-adjustment-note.hbs")),
         };
         Stylesheet = System.Text.Encoding.UTF8.GetBytes(Read(ResourcePrefix + StylesheetFile));
     }
@@ -99,6 +115,8 @@ public sealed partial class DocumentHtmlTemplates
     private sealed record PdfView(DocumentPdfModel Document, PdfLabels Labels, string QrImage, string? LogoImage);
 
     /// <summary>Textos fijos que cambian según el tipo de documento, en español como en ApiDian.</summary>
+    /// <param name="PartyLabel">Etiqueta de la otra parte: «Cliente:» (el adquiriente) o «Proveedor:» (el vendedor del documento soporte).</param>
+    /// <param name="ReferenceUuidLabel">Nombre del código del documento de referencia de una nota: CUFE de la factura o CUDS del documento soporte.</param>
     private sealed record PdfLabels(
         string Title,
         string Representation,
@@ -106,5 +124,7 @@ public sealed partial class DocumentHtmlTemplates
         IReadOnlyList<string> TotalLabels,
         bool ShowDiscountPercent,
         bool ShowCharges,
-        string? LegalText);
+        string? LegalText,
+        string PartyLabel = "Cliente:",
+        string ReferenceUuidLabel = "CUFE");
 }

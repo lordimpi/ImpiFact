@@ -106,8 +106,8 @@ internal sealed class DocumentQueryEndpoints : IEndpointModule
                 "hasta 100) y `cursor` (el `next_cursor` de la página anterior; nulo en la última). Con `include_total=true` " +
                 "la respuesta trae además `total_count`, la cantidad de documentos que cumplen los filtros sin importar la " +
                 "página: cuesta una consulta más que recorre todas esas filas, así que conviene pedirlo solo en la primera " +
-                "página o al cambiar los filtros. Cada fila trae `kind` (`invoice`, `credit_note`, `debit_note` o nulo para " +
-                "otros tipos, también el documento soporte y su nota de ajuste) y `email_status` (`NotSent`, `Sent` o `Failed`). Un filtro no válido responde 422.");
+                "página o al cambiar los filtros. Cada fila trae `kind` (`invoice`, `credit_note`, `debit_note`, " +
+                "`support_document`, `support_document_adjustment_note` o nulo para otros tipos) y `email_status` (`NotSent`, `Sent` o `Failed`). Un filtro no válido responde 422.");
         documents.MapGet("/export.csv", Export)
             .Produces(StatusCodes.Status200OK, contentType: "text/csv")
             .WithOperationId("exportDocumentsCsv")

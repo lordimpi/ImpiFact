@@ -29,6 +29,12 @@ public sealed class DocumentEmailComposerTests
     public void Notes_get_the_ad_prefix_too(string entry, string expected) =>
         Assert.That(DocumentEmailComposer.AttachedDocumentName(null, Zip(entry), "NC1"), Is.EqualTo(expected));
 
+    // The PHP replaces dse and then nd → ad and ads → ad (SupportDocumentController 364, SdCreditNoteController 330).
+    [TestCase("dse08200000010002600000005.xml", "ad08200000010002600000005")]
+    [TestCase("nds08200000010002600000006.xml", "ad08200000010002600000006")]
+    public void The_support_document_and_its_adjustment_note_get_the_ad_prefix_too(string entry, string expected) =>
+        Assert.That(DocumentEmailComposer.AttachedDocumentName(null, Zip(entry), "SEDS1"), Is.EqualTo(expected));
+
     [Test]
     public void Atacheddocument_name_prefix_goes_before_the_name() =>
         Assert.That(DocumentEmailComposer.AttachedDocumentName("PRE-", Zip("fv08200000010002600000001.xml"), "SETP990000001"),

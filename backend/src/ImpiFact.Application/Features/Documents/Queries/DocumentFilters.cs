@@ -37,10 +37,10 @@ public interface IDocumentFilters
 
 /// <summary>
 /// Nombres de las familias que muestra el panel y el tipo de documento de cada una (los de la emisión:
-/// <c>IssueSpec</c>). Los demás tipos (nómina, exportación, POS) no tienen nombre aquí: su <c>kind</c> sale nulo y se
-/// filtran por <c>document_type_id</c>. The support document and its adjustment note can be filtered by name
-/// (<see cref="Filterable"/>) but their rows keep <c>kind</c> null, like before, because the dashboard counts the unnamed
-/// types as <c>other</c>.
+/// <c>IssueSpec</c>). Los demás tipos (nómina, exportación, POS) no tienen nombre aquí: su <c>kind</c> sale nulo, se
+/// filtran por <c>document_type_id</c> y el tablero los cuenta como <c>other</c>. The support document and its adjustment
+/// note have their own names (phase 7a, T4b), like the credit and debit notes: their rows say <c>support_document</c> and
+/// <c>support_document_adjustment_note</c>, and the dashboard counts them apart.
 /// </summary>
 public static class DocumentKinds
 {
@@ -59,7 +59,7 @@ public static class DocumentKinds
     /// <summary>Cada familia con su tipo de documento, en el orden en que se muestran.</summary>
     public static IReadOnlyList<(string Name, int DocumentTypeId)> All { get; } = [(Invoice, 1), (CreditNote, 4), (DebitNote, 5)];
 
-    /// <summary>Names the <c>kind</c> filter accepts: the panel families plus the support-document ones.</summary>
+    /// <summary>Every named family: the invoice ones plus the support-document ones; the <c>kind</c> filter accepts them all.</summary>
     public static IReadOnlyList<(string Name, int DocumentTypeId)> Filterable { get; } =
         [.. All, (SupportDocument, 11), (SupportDocumentAdjustmentNote, 13)];
 
@@ -69,7 +69,7 @@ public static class DocumentKinds
 
     /// <summary>Nombre de la familia del tipo de documento; nulo para los tipos sin nombre.</summary>
     public static string? NameOf(int documentTypeId) =>
-        All.Where(entry => entry.DocumentTypeId == documentTypeId).Select(entry => entry.Name).FirstOrDefault();
+        Filterable.Where(entry => entry.DocumentTypeId == documentTypeId).Select(entry => entry.Name).FirstOrDefault();
 }
 
 /// <summary>Lectura de los filtros ya validados.</summary>

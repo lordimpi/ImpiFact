@@ -89,8 +89,8 @@ internal sealed class PdfScenario
             totals);
         Reads.Details.Add(new DocumentDetail(
             header,
-            documentTypeId == 1 ? "CUFE-SHA384" : "CUDE-SHA384",
-            documentTypeId == 1 ? ResolutionId : null,
+            documentTypeId switch { 1 => "CUFE-SHA384", 11 or 13 => "CUDS-SHA384", _ => "CUDE-SHA384" },
+            documentTypeId is 1 or 11 ? ResolutionId : null,
             null,
             10,
             null,

@@ -68,7 +68,7 @@ public sealed class SupportDocumentSendTests
 
     // php-rules 13.1, item 7: the support document and its note consume the support-document quota, not the invoice one.
     [Test]
-    public async Task An_accepted_support_document_counts_in_the_support_document_quota_and_renders_no_pdf_yet()
+    public async Task An_accepted_support_document_counts_in_the_support_document_quota_and_queues_its_pdf()
     {
         await using var host = await DianSendHost.StartAsync();
         var issuer = await host.CreateIssuerAsync();
@@ -90,8 +90,8 @@ public sealed class SupportDocumentSendTests
             Assert.That((await host.DocumentAsync(document.Id)).Status, Is.EqualTo(DocumentStatus.Accepted));
             Assert.That(usage.Select(row => (row.DocumentKind, row.Used)),
                 Is.EqualTo(new[] { (DocumentKind.Invoice, 1L), (DocumentKind.SupportDocument, 1L) }));
-            Assert.That(pdfs.Select(message => message.Payload["document_id"]!.GetValue<Guid>()), Is.EqualTo(new[] { invoice.Id }),
-                "The support document has no PDF template yet, so only the invoice gets one.");
+            Assert.That(pdfs.Select(message => message.Payload["document_id"]!.GetValue<Guid>()), Is.EquivalentTo(new[] { document.Id, invoice.Id }),
+                "The support document has its own PDF template (php-rules 13.3, item 6), so it gets one like the invoice.");
         });
     }
 
